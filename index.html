@@ -699,6 +699,7 @@ function renderCommList(epNums,nextEp){
     <option value="inhouse"${filter==='inhouse'?' selected':''}>In-House</option>
   </select>
   ${currentRole==='admin'&&!previewRole?`<button class="btn primary" id="add-row-btn">+ Add Commission</button><button class="btn" id="add-ep-btn">+ Add Episode</button>`:''}
+  ${currentRole==='admin'&&!previewRole?`<button class="btn" id="comm-report-btn" style="border-color:#388bfd;color:#58a6ff">⬇ Commission Report</button>`:''}
   <span class="count-lbl">${filtered.length} shown</span>
 </div>
 <div class="table-outer">
@@ -952,6 +953,109 @@ function bindApp(){
   document.getElementById('filter-sel')?.addEventListener('change',e=>{filter=e.target.value;render();});
   ['add-row-btn','add-row-btn2'].forEach(id=>document.getElementById(id)?.addEventListener('click',addRow));
   ['add-ep-btn','add-ep-btn2'].forEach(id=>document.getElementById(id)?.addEventListener('click',()=>{const e=getEpNums();newEpNum=String(e.length?Math.max(...e)+1:1);addEpModal=true;render();}));
+
+  document.getElementById('comm-report-btn')?.addEventListener('click',async()=>{
+    const btn=document.getElementById('comm-report-btn');
+    btn.innerHTML='⏳ Preparing Report…';
+    btn.disabled=true;
+
+    if(!window.html2pdf){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+        s.onload=res;s.onerror=rej;
+        document.head.appendChild(s);
+      });
+    }
+
+    const epNums=getEpNums();
+    const printDate=new Date().toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+
+    // Build episode sections — only assigned, non-decommissioned stories
+    const epSections=epNums.map(n=>{
+      const date=resolveDate(n);
+      const stories=comms.filter(c=>
+        c.broadcastEpisode===String(n) &&
+        !c.decommissioned &&
+        c.storyName
+      ).sort((a,b)=>a.commNum>b.commNum?1:-1);
+
+      if(!stories.length)return'';
+
+      const rows=stories.map((s,i)=>{
+        const del=s.deliveredDuration?fmtHMS(toDecimalMins(s.deliveredDuration)):'—';
+        const isIH=s.isInHouse;
+        return`
+        <tr style="background:${i%2===0?'#fff':'#f9f9f9'}">
+          <td style="padding:10px 12px;border-bottom:1px solid #eee;font-weight:700;font-size:12px;color:#111;vertical-align:top">
+            ${esc(s.storyName||'')}<br>
+            <span style="font-family:monospace;font-size:10px;color:#1a3a6a;font-weight:600">${s.commNum}</span>
+            ${isIH?`<span style="margin-left:6px;background:#f0f0f8;color:#555;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700">IN-HOUSE</span>`:''}
+          </td>
+          <td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:11px;color:#333;vertical-align:top">${esc(s.producer||'—')}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:11px;color:#333;vertical-align:top">${esc(s.presenterVO||'—')}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:11px;color:#333;vertical-align:top">${isIH?'<span style="color:#bbb">N/A</span>':esc(s.dop||'—')}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:11px;color:#333;vertical-align:top">${isIH?'<span style="color:#bbb">N/A</span>':esc(s.ca||'—')}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:11px;color:#333;vertical-align:top">${isIH?'<span style="color:#bbb">N/A</span>':esc(s.editor||'—')}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:11px;color:#333;vertical-align:top">${esc(s.afm||'—')}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:11px;text-align:center;vertical-align:top">
+            <span style="font-family:monospace;font-weight:700;background:#e8f5e8;color:#1a5c1a;padding:3px 8px;border-radius:3px;font-size:11px">${del}</span>
+          </td>
+        </tr>`;
+      }).join('');
+
+      return`
+      <div style="margin-bottom:28px;break-inside:avoid;page-break-inside:avoid">
+        <div style="background:#1a3a6a;color:#fff;padding:10px 16px;border-radius:5px 5px 0 0;display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="background:#fff;color:#1a3a6a;font-family:monospace;font-weight:900;font-size:13px;padding:3px 10px;border-radius:3px">EP ${n}</span>
+            <span style="font-size:14px;font-weight:700">${fmtDate(date)}</span>
+          </div>
+          <span style="font-size:11px;opacity:.8">${stories.length} ${stories.length===1?'story':'stories'}</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #ddd;border-top:none;border-radius:0 0 5px 5px;overflow:hidden">
+          <thead>
+            <tr style="background:#f0f4f8">
+              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:20%">Story / Comm #</th>
+              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:16%">Producer</th>
+              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:13%">Presenter / VO</th>
+              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:13%">DOP</th>
+              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:12%">Cam Asst</th>
+              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:12%">Editor</th>
+              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:10%">AFM Op</th>
+              <th style="padding:8px 12px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:9%">Delivered</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+    }).filter(Boolean).join('');
+
+    const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;padding:24px;font-size:11px}
+      @page{margin:15mm}
+    </style></head><body>
+    <div style="border-bottom:3px solid #111;padding-bottom:14px;margin-bottom:24px">
+      <div style="font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">CB Commission Management Portal</div>
+      <div style="font-size:13px;font-weight:600;color:#444;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">Commission Report — Grouped by Episode — Season ${currentSeason}</div>
+      <div style="font-size:10px;color:#888">Generated: ${printDate}</div>
+    </div>
+    ${epSections||'<p style="color:#888;font-style:italic">No episodes with assigned stories found.</p>'}
+    </body></html>`;
+
+    html2pdf().set({
+      margin:[10,8,10,8],
+      filename:`CB-Commission-Report-${currentSeason}.pdf`,
+      image:{type:'jpeg',quality:0.98},
+      html2canvas:{scale:2,useCORS:true},
+      jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
+    }).from(html).save().then(()=>{
+      btn.innerHTML='⬇ Commission Report';
+      btn.disabled=false;
+    });
+  });
 
   // PDF Export
   document.getElementById('export-pdf-btn')?.addEventListener('click',async()=>{
