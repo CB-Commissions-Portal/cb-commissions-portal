@@ -124,6 +124,11 @@ tr.decom-row .sc{background:#3d0f0f!important;border-color:#f85149!important;col
 .ci:focus{outline:none;background:#252d3d;border-color:#388bfd}
 .ci:disabled{opacity:.35;cursor:not-allowed}
 .ci::placeholder{color:#546070}
+/* Attention highlight — empty field on assigned commission */
+.ci.needs-attention{background:rgba(245,166,35,.08)!important;border-color:rgba(245,166,35,.4)!important}
+.ci.needs-attention::placeholder{color:#f5a623!important;opacity:.8}
+.ci.needs-attention:focus{background:#252d3d!important;border-color:#388bfd!important}
+td.needs-attention-cb{background:rgba(245,166,35,.08)!important}
 .ep-ci{font-size:12px;color:#e6edf3;background:transparent;border:1px solid transparent;padding:3px 6px;border-radius:4px;transition:all .15s;font-family:var(--font-main)}
 .ep-ci:focus{outline:none;background:#21262d;border-color:#388bfd}
 .ep-ci:hover{border-color:#30363d}
@@ -236,32 +241,50 @@ tr.decom-row .sc{background:#3d0f0f!important;border-color:#f85149!important;col
 @keyframes fup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @media print{
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  body{background:#fff!important;color:#000!important;font-size:11px}
+  body{background:#fff!important;color:#111!important;font-size:11px;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif}
   .no-print{display:none!important}
   .app{height:auto!important;overflow:visible!important;display:block!important}
   .content{overflow:visible!important;display:block!important;height:auto!important}
-  .ep-wrap{overflow:visible!important;height:auto!important;padding:0!important}
+  .ep-wrap{overflow:visible!important;height:auto!important;padding:0 0 20px!important}
   .tabs,.topbar,.ticker,.toolbar{display:none!important}
-  .print-head{display:block!important;padding:0 0 14px;border-bottom:2px solid #000;margin-bottom:16px}
-  .ep-card{border:1px solid #aaa!important;break-inside:avoid;page-break-inside:avoid;margin-bottom:14px;background:#fff!important}
-  .ep-head{background:#e8eef8!important;padding:8px 12px}
-  .ep-num{background:#c8d8f0!important;color:#003!important}
-  .ep-date-btn{background:transparent!important;border:none!important;color:#333!important;font-size:12px}
+  /* Print header */
+  .print-head{display:block!important;padding:0 0 16px;border-bottom:3px solid #000;margin-bottom:20px}
+  /* Episode cards */
+  .ep-card{border:1px solid #ccc!important;break-inside:avoid;page-break-inside:avoid;margin-bottom:16px!important;background:#fff!important;border-radius:0!important}
+  .ep-head{background:#f0f4f8!important;padding:10px 14px!important;border-bottom:1px solid #ccc!important}
+  .ep-num{background:#1a3a6a!important;color:#fff!important;font-size:11px!important;font-weight:800!important;padding:4px 10px!important;border-radius:3px!important}
+  .ep-date-btn{background:transparent!important;border:none!important;color:#333!important;font-size:12px!important;font-weight:600!important}
   .type-toggle{display:none!important}
-  .ep-tbl th{color:#444!important;font-size:9px;border-bottom:1px solid #ccc!important}
-  .ep-tbl td{color:#000!important;border-bottom:1px solid #eee!important}
-  .ep-tbl td.story{font-weight:600!important}
-  .ep-foot{background:#f5f5f5!important;border-top:1px solid #ccc!important}
-  .ep-stat{color:#333!important}
-  .ep-stat b{color:#000!important}
-  .dur{background:#eee!important;color:#000!important;border:1px solid #ccc}
-  .badge{background:#eee!important;color:#333!important;border:1px solid #ccc!important}
-  .ep-num{font-family:monospace}
+  /* Episode table */
+  .ep-tbl{width:100%!important;font-size:10px!important}
+  .ep-tbl th{background:#f8f8f8!important;color:#333!important;font-size:9px!important;font-weight:700!important;padding:6px 10px!important;border-bottom:2px solid #ccc!important;text-transform:uppercase!important;letter-spacing:.5px!important}
+  .ep-tbl td{color:#111!important;padding:7px 10px!important;border-bottom:1px solid #eee!important;font-size:10px!important}
+  .ep-tbl td.story{font-weight:700!important;color:#000!important;font-size:11px!important}
+  /* Episode footer */
+  .ep-foot{background:#f8f8f8!important;border-top:2px solid #ccc!important;padding:8px 14px!important}
+  .ep-stat{color:#444!important;font-size:10px!important;font-weight:600!important}
+  .ep-stat b{font-weight:800!important}
+  .ep-stat b.bl{color:#0047ab!important}
+  .ep-stat b.gr{color:#1a5c1a!important}
+  .ep-stat b.am{color:#b8860b!important}
+  /* Duration badges */
+  .dur{background:#f0f0f0!important;border:1px solid #ccc!important;border-radius:3px!important;font-size:10px!important;padding:2px 6px!important;font-weight:700!important}
+  .dur.gr{background:#e8f5e8!important;color:#1a5c1a!important;border-color:#aad4aa!important}
+  .dur.am{background:#fff8e8!important;color:#b8860b!important;border-color:#e8d4aa!important}
+  .dur.bl{background:#e8eef8!important;color:#0047ab!important;border-color:#aabbd4!important}
+  /* Badges */
+  .badge{border-radius:3px!important;font-size:9px!important;padding:2px 6px!important;font-weight:700!important}
+  .badge.paid{background:#e8eef8!important;color:#0047ab!important;border:1px solid #aabbd4!important}
+  .badge.ih{background:#f0f0f8!important;color:#444!important;border:1px solid #ccc!important}
+  .badge.pending{background:#fff8e8!important;color:#b8860b!important;border:1px solid #e8d4aa!important}
+  /* Head stats */
+  .ep-head span strong{font-family:monospace!important;font-size:12px!important}
 }
 .print-head{display:none}
-.ph-ticker{display:flex;gap:28px;margin-top:8px}
-.ph-item .ph-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555}
-.ph-item .ph-val{font-size:20px;font-weight:700}
+.ph-ticker{display:flex;gap:16px;margin-top:10px;align-items:center}
+.ph-sep{font-size:20px;color:#999;font-weight:300}
+.ph-item .ph-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#666;margin-bottom:2px}
+.ph-item .ph-val{font-size:28px;font-weight:900;line-height:1;font-family:'JetBrains Mono',monospace}
 
 /* ── AUTOCOMPLETE ── */
 .ac-wrap{position:relative;display:inline-block}
@@ -579,8 +602,15 @@ function renderApp(){
   const rm=ROLE_META[currentRole]||ROLE_META.editorial;
   return`
 <div class="print-head">
-  <div style="font-size:20px;font-weight:700;margin-bottom:8px">CB Commission Management Portal — Broadcast Schedule</div>
-  <div class="ph-ticker">${[['Contracted',contracted],['Paid',paid.toFixed(1)],['Remaining',remaining.toFixed(1)]].map(([l,v])=>`<div class="ph-item"><div class="ph-lbl">${l}</div><div class="ph-val">${v}</div></div>`).join('')}</div>
+  <div style="font-size:22px;font-weight:900;margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;color:#000">CB Commission Management Portal — Broadcast Schedule</div>
+  <div class="ph-ticker">
+    <div class="ph-item"><div class="ph-lbl">Contracted Minutes</div><div class="ph-val" style="color:#b8860b">${contracted}</div></div>
+    <div class="ph-sep">—</div>
+    <div class="ph-item"><div class="ph-lbl">Paid Minutes</div><div class="ph-val" style="color:#000">${paid.toFixed(1)}</div></div>
+    <div class="ph-sep">=</div>
+    <div class="ph-item"><div class="ph-lbl">Remaining Minutes</div><div class="ph-val" style="color:#0047ab">${remaining.toFixed(1)}</div></div>
+  </div>
+  <div style="font-size:10px;color:#666;margin-top:8px;border-top:1px solid #ddd;padding-top:6px">Season ${currentSeason} · Printed ${new Date().toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})}</div>
 </div>
 <div class="app">
   <div class="topbar no-print">
@@ -610,7 +640,7 @@ function renderApp(){
     </div>
   </div>
   <div class="ticker no-print">
-    <div class="t-item"><div class="t-lbl">Contracted Mins</div>${currentRole==='admin'?`<input class="t-inp" type="number" id="contracted-input" tabindex="-1" value="${contracted}">`:`<div class="t-val c">${contracted}</div>`}</div>
+    <div class="t-item"><div class="t-lbl">Contracted Mins</div>${currentRole==='admin'&&!previewRole?`<input class="t-inp" type="number" id="contracted-input" tabindex="-1" value="${contracted}">`:`<div class="t-val c">${contracted}</div>`}</div>
     <div class="t-sep">−</div>
     <div class="t-item"><div class="t-lbl">Paid Mins</div><div class="t-val p">${paid.toFixed(1)}</div></div>
     <div class="t-sep">=</div>
@@ -683,7 +713,14 @@ ${filtered.map(c=>{
   const dup=isDup(c.id,c.shortName);
   const epOpts=epNums.map(n=>`<option value="${n}"${c.broadcastEpisode==n?' selected':''}>Ep ${n}</option>`).join('');
   const nextOpt=!epNums.includes(nextEp)?`<option value="${nextEp}">+ Ep ${nextEp}</option>`:'';
-  function ci(field,w,ph=''){const dis=!canEdit(getEffectiveRole(),field);const val=String(c[field]||'');return`<input class="ci" value="${esc(val)}" data-field="${field}" placeholder="${ph}" ${dis?'disabled':''}>`;}
+  function ci(field,w,ph=''){
+    const role=getEffectiveRole();
+    const dis=!canEdit(role,field);
+    const val=String(c[field]||'');
+    // Show attention highlight if: assigned to episode, field is empty, role can edit it, not production role (they only do checkboxes)
+    const assigned=!!c.broadcastEpisode;
+    const needsAttn=assigned&&!c.decommissioned&&!val&&canEdit(role,field)&&role!=='production'&&role!=='editorial';
+    return`<input class="ci${needsAttn?' needs-attention':''}" value="${esc(val)}" data-field="${field}" placeholder="${ph}" ${dis?'disabled':''}>`;}
   return`<tr class="${cls}" data-id="${c.id}">
 <td class="st st-1" style="text-align:center"><input type="checkbox" class="cb" data-field="portal" tabindex="-1" ${c.portal?'checked':''} ${!canEdit(getEffectiveRole(),'portal')?'disabled':''}></td>
 <td class="st st-2">${ci('commNum')}</td>
@@ -704,7 +741,9 @@ ${filtered.map(c=>{
 <td>${ci('afm')}</td>
 ${DEL_KEYS.map((k,ki)=>{
   const isIHGrey = c.isInHouse && k === 'callSheets';
-  return `<td style="text-align:center${isIHGrey?';opacity:.3;pointer-events:none':''}"><input type="checkbox" class="cb${c[k]?' g':''}" data-field="${k}" tabindex="-1" ${c[k]?'checked':''} ${!canEdit(getEffectiveRole(),k)||isIHGrey?'disabled':''}></td>`;
+  const role=getEffectiveRole();
+  const needsCbAttn=!!c.broadcastEpisode&&!c.decommissioned&&!c[k]&&canEdit(role,k)&&role==='production';
+  return `<td style="text-align:center${isIHGrey?';opacity:.3;pointer-events:none':''}${needsCbAttn?';background:rgba(245,166,35,.12)':''}"><input type="checkbox" class="cb${c[k]?' g':''}" data-field="${k}" tabindex="-1" ${c[k]?'checked':''} ${!canEdit(role,k)||isIHGrey?'disabled':''}></td>`;
 }).join('')}
 <td style="text-align:center;${c.isInHouse?'opacity:.3;pointer-events:none':''}">${canEdit(getEffectiveRole(),'approvedForPayment')&&!c.isInHouse?`<input type="checkbox" class="cb" data-field="approvedForPayment" tabindex="-1" ${c.approvedForPayment?'checked':''} style="${c.approvedForPayment?'accent-color:#388bfd':''}">`:c.approvedForPayment?`<span class="badge paid">✓ Paid</span>`:`<span style="color:#484f58">—</span>`}</td>
 <td><select class="ep-sel" data-field="broadcastEpisode" tabindex="-1" ${getEffectiveRole()!=='admin'?'disabled':''}><option value="">—</option>${epOpts}${nextOpt}</select></td>
@@ -721,7 +760,16 @@ function renderEpisodes(epNums,paid,remaining){
   return`<div class="ep-wrap">
 ${currentRole==='editorial'?`<div class="info-box"><strong>Editorial view</strong> — Contracted: <strong>${settings.contractedMinutes||438}</strong> · Paid: <strong>${paid.toFixed(1)}</strong> · Remaining: <strong>${remaining.toFixed(1)}</strong></div>`:''}
 <div style="display:flex;gap:8px;margin-bottom:12px" class="no-print">
-  <button class="btn primary" onclick="window.print()">Export PDF</button>
+  <button class="btn primary" id="export-pdf-btn" onclick="
+    const btn=document.getElementById('export-pdf-btn');
+    btn.textContent='⏳ Preparing PDF…';
+    btn.disabled=true;
+    btn.style.opacity='0.7';
+    setTimeout(()=>{
+      window.print();
+      setTimeout(()=>{btn.textContent='Export PDF';btn.disabled=false;btn.style.opacity='1';},1000);
+    },400);
+  ">Export PDF</button>
   ${currentRole==='admin'?`<button class="btn" id="add-ep-btn2">+ Add Episode</button>`:''}
   <span class="count-lbl" style="margin-left:0">${episodes.length} episodes</span>
 </div>
