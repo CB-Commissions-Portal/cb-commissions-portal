@@ -290,7 +290,9 @@ const DEL_LABELS=['Call Sheets','Insert Scripts','Release Forms','Footage Agr.',
 const OPS_ED=['dop','ca','editor','afm'];
 const PROD_ED=[...DEL_KEYS];
 
-function canEdit(role,f){if(role==='admin')return true;if(role==='editorial')return false;if(role==='operations')return OPS_ED.includes(f);if(role==='production')return PROD_ED.includes(f);return false;}
+function getEffectiveRole(){return previewRole||currentRole;}
+function canEdit(role,f){if(role==='admin')return true;if(role==='editorial')return false;if(f==='decommissionMotivation')return true;
+if(role==='operations')return OPS_ED.includes(f);if(role==='production')return PROD_ED.includes(f);return false;}
 function suggestCode(n){if(!n)return'';const stop=/^(the|and|for|from|with|into|a|an|of|in|at|to|or|by|down|up)$/i;const w=n.trim().split(/\s+/).filter(x=>x.length>1&&!stop.test(x));if(!w.length)return n.substring(0,5).toUpperCase();if(w.length===1)return w[0].substring(0,6).toUpperCase();if(w.length===2)return(w[0].substring(0,3)+w[1].substring(0,3)).toUpperCase();return w.slice(0,3).map(x=>x.substring(0,2)).join('').toUpperCase();}
 function fmtHMS(v){
   // Accepts decimal minutes (e.g. 12.5) or HH:MM:SS / MM:SS strings
@@ -363,7 +365,7 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').re
 let db,auth,fbApp;
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
-let tab='commissions',sortField='commNum',sortDir='asc',search='',filter='all',currentSeason='S39';
+let tab='commissions',sortField='commNum',sortDir='asc',search='',filter='all',currentSeason='S39',previewRole=null;
 let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,tempDate='';
 let addUserModal=false,newUserData={email:'',password:'',displayName:'',role:'editorial'};
 let toast=null,toastTimer=null,pendingFocusId=null;
@@ -589,9 +591,20 @@ function renderApp(){
     </select>
     <div class="sync-pill"><span class="sync-dot ${syncStatus}" id="sync-dot"></span><span id="sync-lbl">${syncStatus==='live'?'Live':syncStatus==='saving'?'Saving…':'Offline'}</span></div>
     <div class="user-area">
+      ${currentRole==='admin'?`
+      <div style="display:flex;align-items:center;gap:6px;margin-right:8px">
+        <span style="font-size:10px;color:#6e7681;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Preview as:</span>
+        <select id="preview-role-sel" style="background:#252d3d;border:1px solid ${previewRole?'#f5a623':'#2e3a50'};color:${previewRole?'#f5a623':'#7a8ba0'};padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">
+          <option value="">Admin (you)</option>
+          <option value="editorial" ${previewRole==='editorial'?'selected':''}>Editorial</option>
+          <option value="operations" ${previewRole==='operations'?'selected':''}>Operations</option>
+          <option value="production" ${previewRole==='production'?'selected':''}>Production</option>
+        </select>
+        ${previewRole?`<span style="font-size:10px;background:#2d2200;color:#f5a623;border:1px solid #f5a623;padding:2px 8px;border-radius:4px;font-weight:700">PREVIEW MODE</span>`:''}
+      </div>`:''}
       <div class="user-chip">
         <div class="avatar" style="background:${rm.bg};color:${rm.color}">${initials(currentUser.displayName||currentUser.email)}</div>
-        <div><div class="u-name">${esc(currentUser.displayName||currentUser.email)}</div><div class="u-role-lbl" style="color:${rm.color}">${rm.label}</div></div>
+        <div><div class="u-name">${esc(currentUser.displayName||currentUser.email)}</div><div class="u-role-lbl" style="color:${rm.color}">${previewRole?`Previewing: ${ROLE_META[previewRole].label}`:rm.label}</div></div>
       </div>
       <button class="sign-out" id="logout-btn">Sign Out</button>
     </div>
@@ -608,14 +621,14 @@ function renderApp(){
     </div>
   </div>
   <div class="tabs no-print">
-    ${currentRole!=='editorial'?`<div class="tab-btn${tab==='commissions'?' active':''}" data-tab="commissions">Commission List ${currentSeason}</div>`:''}
+    ${getEffectiveRole()!=='editorial'?`<div class="tab-btn${tab==='commissions'?' active':''}" data-tab="commissions">Commission List ${currentSeason}</div>`:''}
     <div class="tab-btn${tab==='episodes'?' active':''}" data-tab="episodes">Episode Register</div>
-    ${currentRole==='admin'?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
+    ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
   </div>
   <div class="content">
-    ${tab==='commissions'&&currentRole!=='editorial'?renderCommList(epNums,nextEp):''}
+    ${tab==='commissions'&&getEffectiveRole()!=='editorial'?renderCommList(epNums,nextEp):''}
     ${tab==='episodes'?renderEpisodes(epNums,paid,remaining):''}
-    ${tab==='admin'&&currentRole==='admin'?renderAdmin():''}
+    ${tab==='admin'&&currentRole==='admin'&&!previewRole?renderAdmin():''}
   </div>
 </div>
 ${renderModals(epNums,nextEp)}
@@ -636,7 +649,7 @@ function renderCommList(epNums,nextEp){
     <option value="decom"${filter==='decom'?' selected':''}>Decommissioned</option>
     <option value="inhouse"${filter==='inhouse'?' selected':''}>In-House</option>
   </select>
-  ${currentRole==='admin'?`<button class="btn primary" id="add-row-btn">+ Add Commission</button><button class="btn" id="add-ep-btn">+ Add Episode</button>`:''}
+  ${currentRole==='admin'&&!previewRole?`<button class="btn primary" id="add-row-btn">+ Add Commission</button><button class="btn" id="add-ep-btn">+ Add Episode</button>`:''}
   <span class="count-lbl">${filtered.length} shown</span>
 </div>
 <div class="table-outer">
@@ -670,19 +683,19 @@ ${filtered.map(c=>{
   const dup=isDup(c.id,c.shortName);
   const epOpts=epNums.map(n=>`<option value="${n}"${c.broadcastEpisode==n?' selected':''}>Ep ${n}</option>`).join('');
   const nextOpt=!epNums.includes(nextEp)?`<option value="${nextEp}">+ Ep ${nextEp}</option>`:'';
-  function ci(field,w,ph=''){const dis=!canEdit(currentRole,field);const val=String(c[field]||'');return`<input class="ci" value="${esc(val)}" data-field="${field}" placeholder="${ph}" ${dis?'disabled':''}>`;}
+  function ci(field,w,ph=''){const dis=!canEdit(getEffectiveRole(),field);const val=String(c[field]||'');return`<input class="ci" value="${esc(val)}" data-field="${field}" placeholder="${ph}" ${dis?'disabled':''}>`;}
   return`<tr class="${cls}" data-id="${c.id}">
-<td class="st st-1" style="text-align:center"><input type="checkbox" class="cb" data-field="portal" tabindex="-1" ${c.portal?'checked':''} ${!canEdit(currentRole,'portal')?'disabled':''}></td>
+<td class="st st-1" style="text-align:center"><input type="checkbox" class="cb" data-field="portal" tabindex="-1" ${c.portal?'checked':''} ${!canEdit(getEffectiveRole(),'portal')?'disabled':''}></td>
 <td class="st st-2">${ci('commNum')}</td>
 <td class="st st-3">
-  <input class="sc${dup?' dup':''}" value="${esc(c.shortName||'')}" data-field="shortName" maxlength="20" placeholder="CODE" ${!canEdit(currentRole,'shortName')?'disabled':''}>
+  <input class="sc${dup?' dup':''}" value="${esc(c.shortName||'')}" data-field="shortName" maxlength="20" placeholder="CODE" ${!canEdit(getEffectiveRole(),'shortName')?'disabled':''}>
   ${dup?'<span class="dup-warn">⚠ Duplicate</span>':''}
 </td>
 <td class="st st-4" style="min-width:180px">${ci('storyName',220)}</td>
 <td>${ci('commDuration')}</td>
 <td>${ci('deliveredDuration')}</td>
 <td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}">${c.isInHouse?`<span class="badge ih" style="opacity:.5">N/A</span>`:ci('paidDuration',54)}</td>
-<td style="text-align:center"><input type="checkbox" class="cb" data-field="isInHouse" tabindex="-1" ${c.isInHouse?'checked':''} ${currentRole!=='admin'?'disabled':''}></td>
+<td style="text-align:center"><input type="checkbox" class="cb" data-field="isInHouse" tabindex="-1" ${c.isInHouse?'checked':''} ${getEffectiveRole()!=='admin'?'disabled':''}></td>
 <td>${ci('producer')}</td>
 <td>${ci('presenterVO')}</td>
 <td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'Not applicable for in-house':''}">${ci('dop')}</td>
@@ -691,12 +704,12 @@ ${filtered.map(c=>{
 <td>${ci('afm')}</td>
 ${DEL_KEYS.map((k,ki)=>{
   const isIHGrey = c.isInHouse && k === 'callSheets';
-  return `<td style="text-align:center${isIHGrey?';opacity:.3;pointer-events:none':''}"><input type="checkbox" class="cb${c[k]?' g':''}" data-field="${k}" tabindex="-1" ${c[k]?'checked':''} ${!canEdit(currentRole,k)||isIHGrey?'disabled':''}></td>`;
+  return `<td style="text-align:center${isIHGrey?';opacity:.3;pointer-events:none':''}"><input type="checkbox" class="cb${c[k]?' g':''}" data-field="${k}" tabindex="-1" ${c[k]?'checked':''} ${!canEdit(getEffectiveRole(),k)||isIHGrey?'disabled':''}></td>`;
 }).join('')}
-<td style="text-align:center;${c.isInHouse?'opacity:.3;pointer-events:none':''}">${canEdit(currentRole,'approvedForPayment')&&!c.isInHouse?`<input type="checkbox" class="cb" data-field="approvedForPayment" tabindex="-1" ${c.approvedForPayment?'checked':''} style="${c.approvedForPayment?'accent-color:#388bfd':''}">`:c.approvedForPayment?`<span class="badge paid">✓ Paid</span>`:`<span style="color:#484f58">—</span>`}</td>
-<td><select class="ep-sel" data-field="broadcastEpisode" tabindex="-1" ${currentRole!=='admin'?'disabled':''}><option value="">—</option>${epOpts}${nextOpt}</select></td>
-<td>${c.decommissioned?`${currentRole==='admin'?`<button class="undo-btn" data-undo="${c.id}">↩ Undo</button>`:''} <span class="badge decom">Decom</span>`:`<button class="decom-btn" data-decom="${c.id}" tabindex="-1" ${!canEdit(currentRole,'decommissioned')&&currentRole!=='admin'?'disabled':''}>Decommission</button>`}</td>
-<td style="min-width:160px;max-width:220px"><span style="color:#6e7681;font-size:11px;font-style:italic;white-space:normal;line-height:1.4" title="${esc(c.decommissionMotivation||'')}">${esc(c.decommissionMotivation||'')}</span></td>
+<td style="text-align:center;${c.isInHouse?'opacity:.3;pointer-events:none':''}">${canEdit(getEffectiveRole(),'approvedForPayment')&&!c.isInHouse?`<input type="checkbox" class="cb" data-field="approvedForPayment" tabindex="-1" ${c.approvedForPayment?'checked':''} style="${c.approvedForPayment?'accent-color:#388bfd':''}">`:c.approvedForPayment?`<span class="badge paid">✓ Paid</span>`:`<span style="color:#484f58">—</span>`}</td>
+<td><select class="ep-sel" data-field="broadcastEpisode" tabindex="-1" ${getEffectiveRole()!=='admin'?'disabled':''}><option value="">—</option>${epOpts}${nextOpt}</select></td>
+<td>${c.decommissioned?`${currentRole==='admin'?`<button class="undo-btn" data-undo="${c.id}">↩ Undo</button>`:''} <span class="badge decom">Decom</span>`:`<button class="decom-btn" data-decom="${c.id}" tabindex="-1" ${!canEdit(getEffectiveRole(),'decommissioned')&&getEffectiveRole()!=='admin'?'disabled':''}>Decommission</button>`}</td>
+<td style="min-width:200px;max-width:300px"><input class="ci" value="${esc(c.decommissionMotivation||'')}" data-field="decommissionMotivation" placeholder="Add notes…" style="width:100%;color:#a855f7;font-style:italic;font-size:12px" ${canEdit(getEffectiveRole(),'decommissionMotivation')?'':'disabled'}></td>
 </tr>`;}).join('')}
 </tbody>
 </table>
@@ -795,6 +808,13 @@ function renderModals(epNums,nextEp){
 
 function bindApp(){
   document.getElementById('logout-btn')?.addEventListener('click',()=>signOut(auth));
+  document.getElementById('preview-role-sel')?.addEventListener('change',e=>{
+    previewRole=e.target.value||null;
+    // If switching to editorial, go to episodes tab
+    if(previewRole==='editorial')tab='episodes';
+    else if(!previewRole)tab='commissions';
+    render();
+  });
   document.getElementById('season-sel')?.addEventListener('change',e=>{
     if(e.target.value==='new'){
       const name=prompt('Enter new season name (e.g. S40):');
@@ -1057,22 +1077,44 @@ function attachAllAutocomplete() {
   });
 }
 
+// Baked-in Firebase config — works on any domain without setup screen
+const BAKED_CONFIG = {
+  apiKey: "AIzaSyBDSrxjYt9AcRFiDB33CKSl_HzYwhv9XhY",
+  authDomain: "cb-commissions-portal.firebaseapp.com",
+  projectId: "cb-commissions-portal",
+  storageBucket: "cb-commissions-portal.firebasestorage.app",
+  messagingSenderId: "679597020811",
+  appId: "1:679597020811:web:f18e392a2482fd8c8ce68e"
+};
+
 async function boot(){
-  const cfg=getCfg();
+  // Try stored config first, fall back to baked-in config
+  let cfg=getCfg();
+  if(!cfg){
+    cfg=BAKED_CONFIG;
+    saveCfg(cfg);
+  }
   if(cfg){const ok=initFB(cfg);if(!ok){localStorage.removeItem(STORAGE_KEY);render();return;}}
   render();
   if(!auth)return;
   onAuthStateChanged(auth,async user=>{
     if(user){
       currentUser=user;
-      if(user.email===ADMIN_EMAIL){
-        currentRole='admin';
-        await setDoc(doc(db,'users',user.uid),{email:user.email,displayName:user.displayName||user.email,role:'admin',createdAt:serverTimestamp()});
-      } else {
-        currentRole=await getUserRole(user.uid);
-        if(!currentRole)currentRole='editorial';
+      try{
+        if(user.email===ADMIN_EMAIL){
+          currentRole='admin';
+          await setDoc(doc(db,'users',user.uid),{email:user.email,displayName:user.displayName||user.email,role:'admin',createdAt:serverTimestamp()});
+        } else {
+          currentRole=await getUserRole(user.uid);
+          if(!currentRole)currentRole='editorial';
+        }
+      }catch(e){
+        console.error('Role error:',e);
+        currentRole=user.email===ADMIN_EMAIL?'admin':'editorial';
       }
-      subscribeData();await loadUsers();render();
+      try{subscribeData();}catch(e){console.error('Subscribe error:',e);}
+      try{await loadUsers();}catch(e){console.error('Load users error:',e);}
+      render();
     } else {
       currentUser=null;currentRole=null;
       if(unsubComms){unsubComms();unsubComms=null;}
