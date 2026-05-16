@@ -397,7 +397,7 @@ let toast=null,toastTimer=null,pendingFocusId=null;
 function initFB(cfg){try{fbApp=initializeApp(cfg);auth=getAuth(fbApp);db=getFirestore(fbApp);return true;}catch(e){console.error(e);return false;}}
 
 async function saveComm(c){setSyncDot('saving');try{await setDoc(doc(db,'commissions',String(c.id)),{...c,updatedAt:serverTimestamp()});setSyncDot('live');}catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}}
-const STUDIO_FIELDS=[['studioDirector','Studio Director'],['assistantDirector','Assistant Director'],['floorManager','Floor Manager'],['autocueOperator','Autocue Operator'],['vtOperator','VT Operator'],['visionController','Vision Controller'],['lightingDirector','Lighting Director'],['graphicsOperator','Graphics Operator'],['visionMixer','Vision Mixer'],['jibbOperator','Jibb Operator'],['cameraOp1','Camera Operator 1'],['cameraOp2','Camera Operator 2'],['soundEngineer','Sound Engineer'],['soundAssistant','Sound Assistant'],['makeupArtist','Make-Up Artist'],['studioStylist','Studio Stylist']];
+const STUDIO_FIELDS=[['studioDirector','Studio Director'],['assistantDirector','Assistant Director'],['floorManager','Floor Manager'],['autocueOperator','Autocue Operator'],['vtOperator','VT Operator'],['visionController','Vision Controller'],['lightingDirector','Lighting Director'],['graphicsOperator','Graphics Operator'],['visionMixer','Vision Mixer'],['jibOperator','Jib Operator'],['cameraOp1','Camera Operator 1'],['cameraOp2','Camera Operator 2'],['soundEngineer','Sound Engineer'],['soundAssistant','Sound Assistant'],['makeupArtist','Make-Up Artist'],['studioStylist','Studio Stylist']];
 
 async function saveStudioCrew(ep,data){
   setSyncDot('saving');
@@ -922,9 +922,11 @@ function renderStudioCrew(epNums){
       </div>
       <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:0">
         ${STUDIO_FIELDS.map(([key,label])=>`
-        <div style="display:flex;align-items:center;padding:8px 12px;border-bottom:1px solid #252d3d">
+        <div style="position:relative;display:flex;align-items:center;padding:8px 12px;border-bottom:1px solid #252d3d">
           <span style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;letter-spacing:.4px;width:180px;flex-shrink:0">${label}</span>
-          <input class="ci studio-ci" value="${esc(String(crew[key]||''))}" data-ep="${n}" data-field="${key}" placeholder="—" style="flex:1;font-size:13px" ${!canEd?'disabled':''}>
+          <div style="flex:1;position:relative">
+            <input class="ci studio-ci" value="${esc(String(crew[key]||''))}" data-ep="${n}" data-field="${key}" placeholder="—" style="width:100%;font-size:13px" ${!canEd?'disabled':''}>
+          </div>
         </div>`).join('')}
       </div>
     </div>`;
@@ -1107,12 +1109,32 @@ function bindApp(){
         </div>`;
       }).join('');
 
+      // Build studio crew section for PDF
+      const sc=studioCrew[String(n)]||{};
+      const hasStudio=STUDIO_FIELDS.some(([k])=>sc[k]&&String(sc[k]).trim());
+      const half=Math.ceil(STUDIO_FIELDS.length/2);
+      const scCol1=STUDIO_FIELDS.slice(0,half);
+      const scCol2=STUDIO_FIELDS.slice(half);
+      const studioCrHTML=hasStudio?`
+        <div style="margin-top:24px;break-inside:avoid;page-break-inside:avoid">
+          <div style="background:#1a3a6a;color:#fff;padding:8px 14px;border-radius:4px 4px 0 0;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Studio Crew — Episode ${n}</div>
+          <div style="border:1px solid #d0d8e8;border-top:none;border-radius:0 0 4px 4px;display:flex">
+            <table style="flex:1;border-collapse:collapse;border-right:1px solid #e5eaf2">
+              ${scCol1.map(([k,l])=>`<tr><td style="padding:7px 10px;font-size:9px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.4px;width:45%;background:#f8fafc;border-bottom:1px solid #f0f4f8">${l}</td><td style="padding:7px 10px;font-size:11px;color:#111;border-bottom:1px solid #f0f4f8">${esc(sc[k]||'—')}</td></tr>`).join('')}
+            </table>
+            <table style="flex:1;border-collapse:collapse">
+              ${scCol2.map(([k,l])=>`<tr><td style="padding:7px 10px;font-size:9px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.4px;width:45%;background:#f8fafc;border-bottom:1px solid #f0f4f8">${l}</td><td style="padding:7px 10px;font-size:11px;color:#111;border-bottom:1px solid #f0f4f8">${esc(sc[k]||'—')}</td></tr>`).join('')}
+            </table>
+          </div>
+        </div>`:'';
+
       return`<div style="break-after:page;page-break-after:always">
         ${headerHTML}
         ${epBanner}
         <div style="padding:4px 0">
           ${storyBlocks}
         </div>
+        ${studioCrHTML}
         <div style="margin-top:20px;padding-top:8px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:8px;color:#bbb">
           <span>CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason}</span>
           <span>Episode ${n} · ${fmtDate(date)}</span>
@@ -1546,21 +1568,76 @@ function attachStudioAutocomplete(inp, field) {
       const q=inp.value.trim();const idx=val.toLowerCase().indexOf(q.toLowerCase());
       if(idx>=0){item.innerHTML=esc(val.substring(0,idx))+'<em>'+esc(val.substring(idx,idx+q.length))+'</em>'+esc(val.substring(idx+q.length));}
       else{item.textContent=val;}
-      item.addEventListener('mousedown',e=>{e.preventDefault();inp.value=val;inp.dispatchEvent(new Event('input',{bubbles:true}));inp.dispatchEvent(new Event('blur',{bubbles:false}));closeDrop();});
+      item.addEventListener('mousedown',e=>{
+        e.preventDefault();
+        inp.value=val;
+        inp.dispatchEvent(new Event('input',{bubbles:true}));
+        // Save and stay in field
+        const ep=inp.dataset.ep;
+        if(ep){
+          if(!studioCrew[ep])studioCrew[ep]={};
+          studioCrew[ep][inp.dataset.field]=val;
+          saveStudioCrew(ep,studioCrew[ep]);
+        } else {
+          inp.dispatchEvent(new Event('blur',{bubbles:false}));
+        }
+        closeDrop();
+        setTimeout(()=>{inp.focus();inp.select();},10);
+      });
       dropEl.appendChild(item);
     });
-    inp.parentElement.style.position='relative';inp.parentElement.appendChild(dropEl);
+    // Attach to the input's parent div (the relative-positioned wrapper)
+    const wrapper=inp.parentElement;
+    wrapper.style.position='relative';
+    wrapper.appendChild(dropEl);
   }
-  inp.addEventListener('input',()=>{const q=inp.value.trim();if(!q){closeDrop();return;}const vals=getStudioACValues(field);openDrop(vals.filter(v=>v.toLowerCase().includes(q.toLowerCase())&&v!==q).slice(0,8));selectedIdx=-1;});
+  inp.addEventListener('input',()=>{
+    const q=inp.value.trim();
+    if(!q){closeDrop();return;}
+    const vals=getStudioACValues(field);
+    openDrop(vals.filter(v=>v.toLowerCase().includes(q.toLowerCase())&&v!==q).slice(0,8));
+    selectedIdx=-1;
+  });
   inp.addEventListener('keydown',e=>{
-    if(!dropEl)return;const items=dropEl.querySelectorAll('.ac-item');
+    // Tab moves to next studio-ci input
+    if(e.key==='Tab'){
+      e.preventDefault();
+      inp.dispatchEvent(new Event('blur',{bubbles:false}));
+      const allStudio=Array.from(document.querySelectorAll('input.studio-ci'));
+      const idx=allStudio.indexOf(inp);
+      const next=allStudio[idx+(e.shiftKey?-1:1)];
+      if(next){next.focus();next.select();}
+      closeDrop();
+      return;
+    }
+    if(!dropEl){
+      // No dropdown open — Enter just saves and stays
+      if(e.key==='Enter'){e.preventDefault();inp.blur();inp.focus();}
+      return;
+    }
+    const items=dropEl.querySelectorAll('.ac-item');
     if(e.key==='ArrowDown'){e.preventDefault();selectedIdx=Math.min(selectedIdx+1,items.length-1);items.forEach((el,i)=>el.classList.toggle('selected',i===selectedIdx));}
     else if(e.key==='ArrowUp'){e.preventDefault();selectedIdx=Math.max(selectedIdx-1,0);items.forEach((el,i)=>el.classList.toggle('selected',i===selectedIdx));}
-    else if(e.key==='Enter'&&selectedIdx>=0){e.preventDefault();e.stopPropagation();inp.value=items[selectedIdx].textContent;inp.dispatchEvent(new Event('input',{bubbles:true}));closeDrop();saveStudioCrew(inp.dataset.ep,studioCrew[inp.dataset.ep]||{});setTimeout(()=>{inp.focus();inp.select();},10);}
+    else if(e.key==='Enter'){
+      e.preventDefault();e.stopPropagation();
+      if(selectedIdx>=0){
+        inp.value=items[selectedIdx].textContent;
+      }
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      closeDrop();
+      const ep=inp.dataset.ep;
+      if(!studioCrew[ep])studioCrew[ep]={};
+      studioCrew[ep][field]=inp.value;
+      saveStudioCrew(ep,studioCrew[ep]);
+      setTimeout(()=>{inp.focus();inp.select();},10);
+    }
     else if(e.key==='Escape'){closeDrop();}
   });
   inp.addEventListener('blur',()=>setTimeout(closeDrop,150));
-  inp.addEventListener('focus',()=>{const q=inp.value.trim();if(q){const vals=getStudioACValues(field);openDrop(vals.filter(v=>v.toLowerCase().includes(q.toLowerCase())&&v!==q).slice(0,8));}});
+  inp.addEventListener('focus',()=>{
+    const q=inp.value.trim();
+    if(q){const vals=getStudioACValues(field);openDrop(vals.filter(v=>v.toLowerCase().includes(q.toLowerCase())&&v!==q).slice(0,8));}
+  });
 }
 
 function attachAllAutocomplete() {
