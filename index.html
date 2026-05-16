@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CB Commission Management Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --font-main: -apple-system, 'SF Pro Display', 'Plus Jakarta Sans', 'Helvetica Neue', Arial, sans-serif; }
+</style>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-main);background:#161c2a;color:#e8eef8;font-size:13px;min-height:100vh}
+input,select,textarea,button{font-family:var(--font-main)}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:#161b22}
+::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#484f58}
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#161c2a 0%,#1e2535 100%)}
+.auth-card{background:#1e2535;border:1px solid #30363d;border-radius:12px;padding:36px 32px;width:380px;max-width:92vw}
+.auth-brand{font-size:10px;font-weight:600;letter-spacing:2px;color:#7a8ba0;text-transform:uppercase;margin-bottom:8px}
+.auth-title{font-size:22px;font-weight:700;color:#eaf0ff;margin-bottom:4px}
+.auth-sub{font-size:12px;color:#6e7681;margin-bottom:24px}
+.auth-label{display:block;font-size:11px;font-weight:600;color:#9aaabe;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+.auth-inp{width:100%;background:#141924;border:1px solid #30363d;color:#e6edf3;padding:9px 12px;border-radius:7px;font-size:14px;margin-bottom:14px;transition:border .15s}
+.auth-inp:focus{outline:none;border-color:#388bfd}
+.auth-btn{width:100%;padding:10px;background:#238636;color:#fff;border:none;border-radius:7px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;margin-top:4px}
+.auth-btn:hover{background:#2ea043}
+.auth-btn:disabled{opacity:.5;cursor:not-allowed}
+.auth-err{background:#3d1c1c;border:1px solid #6e3535;color:#ff7b72;padding:9px 12px;border-radius:7px;font-size:12px;margin-bottom:14px}
+.auth-note{font-size:11px;color:#6e7681;text-align:center;margin-top:14px}
+.app{display:flex;flex-direction:column;height:100vh;overflow:hidden;background:#161c2a}
+.topbar{background:#1e2535;border-bottom:1px solid #2e3a50;height:52px;display:flex;align-items:center;padding:0 20px;gap:14px;flex-shrink:0}
+.logo{font-size:15px;font-weight:800;color:#58a6ff;letter-spacing:.5px}
+.logo-sep{color:#30363d;font-size:16px;margin:0 2px}
+.logo-sub{font-size:13px;color:#7a8ba0;font-weight:500}
+.sync-pill{display:flex;align-items:center;gap:5px;font-size:11px;color:#6e7681;margin-left:6px}
+.sync-dot{width:6px;height:6px;border-radius:50%}
+.sync-dot.live{background:#3fb950;box-shadow:0 0 5px #3fb950;animation:blink 2s infinite}
+.sync-dot.saving{background:#d29922;animation:blink .5s infinite}
+.sync-dot.offline{background:#f85149}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.user-area{margin-left:auto;display:flex;align-items:center;gap:8px}
+.user-chip{display:flex;align-items:center;gap:7px;background:#252d3d;border:1px solid #2e3a50;border-radius:20px;padding:4px 12px 4px 5px}
+.avatar{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0}
+.u-name{font-size:13px;font-weight:600;color:#eaf0ff}
+.u-role-lbl{font-size:11px;font-weight:600}
+.sign-out{background:none;border:1px solid #30363d;color:#6e7681;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;transition:all .15s}
+.sign-out:hover{border-color:#f85149;color:#f85149}
+.ticker{background:#1e2535;border-bottom:1px solid #2e3a50;padding:10px 20px;display:flex;align-items:center;flex-shrink:0;gap:0}
+.t-item{display:flex;flex-direction:column;align-items:center;padding:0 28px;border-right:1px solid #252d3d}
+.t-item:first-child{padding-left:0}
+.t-item:last-child{border-right:none}
+.t-lbl{font-size:10px;font-weight:600;color:#7a8ba0;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.t-val{font-size:26px;font-weight:800;font-family:'JetBrains Mono',monospace;line-height:1}
+.t-val.c{color:#58a6ff}
+.t-val.p{color:#3fb950}
+.t-val.r{color:#d29922}
+.t-inp{background:#252d3d;border:1px solid #30363d;color:#58a6ff;font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;width:72px;padding:1px 6px;border-radius:5px;text-align:center}
+.t-sep{font-size:20px;color:#30363d;padding:0 6px;align-self:center}
+.t-meta{padding-left:18px;margin-left:14px;border-left:1px solid #21262d;font-size:11px;color:#6e7681;display:flex;flex-direction:column;gap:4px}
+.t-ready{color:#3fb950;font-weight:600}
+.tabs{display:flex;background:#1e2535;border-bottom:1px solid #30363d;padding:0 16px;flex-shrink:0}
+.tab-btn{padding:9px 16px;font-size:12px;font-weight:600;color:#6e7681;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;text-transform:uppercase;letter-spacing:.3px}
+.tab-btn.active{color:#58a6ff;border-bottom-color:#388bfd}
+.tab-btn:hover:not(.active){color:#8b949e}
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 16px;background:#1e2535;border-bottom:1px solid #30363d;flex-shrink:0}
+.s-inp{background:#252d3d;border:1px solid #2e3a50;color:#e8eef8;padding:8px 12px;border-radius:7px;font-size:13px;width:210px;transition:border .15s}
+.s-inp:focus{outline:none;border-color:#388bfd}
+.f-sel{background:#252d3d;border:1px solid #2e3a50;color:#9aaabe;padding:8px 12px;border-radius:7px;font-size:13px;cursor:pointer}
+.btn{padding:8px 16px;border-radius:7px;border:1px solid #2e3a50;background:#252d3d;color:#9aaabe;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;white-space:nowrap}
+.btn:hover{background:#30363d;color:#e6edf3}
+.btn.primary{background:#1f4023;color:#3fb950;border-color:#2d6a2d}
+.btn.primary:hover{background:#2d6a2d}
+.btn.danger{background:#3d1c1c;color:#f85149;border-color:#6e3535}
+.count-lbl{margin-left:auto;font-size:11px;color:#6e7681}
+/* TABLE */
+.table-outer{flex:1;overflow:auto;padding:12px 16px}
+table{width:max-content;min-width:100%;border-collapse:collapse;table-layout:auto}
+thead{position:sticky;top:0;z-index:10}
+th{background:#1e2535;color:#7a8ba0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;padding:11px 12px;text-align:left;white-space:nowrap;cursor:pointer;border-bottom:2px solid #30363d;user-select:none}
+th:hover{color:#8b949e}
+td{padding:13px 12px;border-bottom:1px solid #252d3d;vertical-align:middle;white-space:nowrap}
+tr:hover td{background:#1e2535}
+/* Sticky first 4 columns */
+.st{position:sticky;z-index:4;background:#161c2a}
+th.st{background:#1e2535;z-index:12}
+tr:hover td.st{background:#1e2535}
+tr.paid-row td.st{background:#003d52}
+tr.green-row td.st{background:#122a1a}
+tr.yellow-row td.st{background:#2d2200!important}
+tr.decom-row td.st{background:#2d0a0a!important}
+.st-1{left:0px}
+.st-2{left:52px}
+.st-3{left:132px}
+.st-4{left:252px}
+td.st-4,th.st-4{border-right:2px solid #2e3a50;box-shadow:4px 0 8px rgba(0,0,0,.3)}
+tr.paid-row td{background:#003d52!important}
+tr.paid-row td .ci{color:#e0f8ff!important;background:transparent}
+tr.paid-row td .ci:focus{background:#005570!important}
+tr.paid-row{border-left:5px solid #00d4f0}
+tr.paid-row:hover td{background:#004d66!important}
+tr.paid-row .sc{background:#005570!important;color:#80f0ff!important;border-color:#00c8e0!important}
+tr.paid-row .badge{border-color:rgba(0,212,240,.4)!important}
+tr.green-row td{background:#122a1a}
+tr.yellow-row td{background:#2d2200!important}
+tr.yellow-row td.st{background:#2d2200!important}
+tr.yellow-row td:first-child{border-left:5px solid #f5a623!important}
+tr:hover.yellow-row td{background:#3a2d00!important}
+tr:hover.yellow-row td.st{background:#3a2d00!important}
+tr.yellow-row .ci{color:#ffe082!important}
+tr.yellow-row .sc{background:#3a2d00!important;border-color:#f5a623!important;color:#ffe082!important}
+tr.yellow-row .badge{border-color:rgba(245,166,35,.4)!important}
+tr.decom-row td{background:#2d0a0a!important;opacity:1}
+tr.decom-row td.st{background:#2d0a0a!important}
+tr.decom-row td:first-child{border-left:5px solid #f85149!important}
+tr:hover.decom-row td{background:#3d0f0f!important}
+tr:hover.decom-row td.st{background:#3d0f0f!important}
+tr.decom-row .ci{color:#ff9999!important;opacity:.7}
+tr.decom-row .sc{background:#3d0f0f!important;border-color:#f85149!important;color:#ff9999!important}
+.ci{background:transparent;border:1px solid transparent;color:#e8eef8;font-size:13px;padding:5px 8px;border-radius:5px;transition:border .15s,background .15s;font-family:var(--font-main);width:100%;box-sizing:border-box}
+.ci:hover{border-color:#2e3a50;background:#1e2535}
+.ci:focus{outline:none;background:#252d3d;border-color:#388bfd}
+.ci:disabled{opacity:.35;cursor:not-allowed}
+.ci::placeholder{color:#546070}
+.ep-ci{font-size:12px;color:#e6edf3;background:transparent;border:1px solid transparent;padding:3px 6px;border-radius:4px;transition:all .15s;font-family:var(--font-main)}
+.ep-ci:focus{outline:none;background:#21262d;border-color:#388bfd}
+.ep-ci:hover{border-color:#30363d}
+.sc{background:#252d3d;border:1px solid #30363d;color:#79c0ff;font-size:11px;font-weight:600;padding:4px 8px;border-radius:5px;font-family:'JetBrains Mono',monospace;width:130px;transition:border .15s}
+.sc:focus{outline:none;border-color:#388bfd;background:#2a3347}
+.sc:disabled{opacity:.4;cursor:not-allowed}
+.sc.dup{border-color:#f85149;color:#f85149}
+.dup-warn{color:#f85149;font-size:9px;display:block;margin-top:1px}
+.cb{width:16px;height:16px;cursor:pointer;accent-color:#388bfd}
+.cb.g{accent-color:#3fb950}
+.ep-sel{background:#21262d;border:1px solid #30363d;color:#8b949e;padding:4px 7px;border-radius:5px;font-size:11px;width:90px}
+.badge{display:inline-block;padding:4px 10px;border-radius:5px;font-size:11px;font-weight:700;white-space:nowrap}
+.badge.paid{background:#102a4c;color:#79c0ff;border:1px solid #1f4b7a}
+.badge.pending{background:#2d2000;color:#d29922;border:1px solid #4d3800}
+.badge.decom{background:#2d0f2d;color:#bc8cff;border:1px solid #4d1f6d}
+.badge.ih{background:#1c1c2d;color:#818cf8;border:1px solid #2d2d4d}
+.decom-btn{padding:3px 9px;border-radius:4px;border:1px solid #30363d;background:transparent;color:#6e7681;cursor:pointer;font-size:10px;font-weight:600;transition:all .15s;white-space:nowrap}
+.decom-btn:hover{border-color:#bc8cff;color:#bc8cff;background:#1a0a2a}
+.decom-btn:disabled{opacity:.3;cursor:not-allowed}
+.undo-btn{padding:3px 9px;border-radius:4px;border:1px solid #30363d;background:transparent;color:#6e7681;cursor:pointer;font-size:10px;font-weight:600;transition:all .15s}
+.undo-btn:hover{border-color:#3fb950;color:#3fb950}
+.add-row-btn{width:100%;padding:9px;border:1px dashed #30363d;border-radius:6px;background:transparent;color:#6e7681;cursor:pointer;font-size:12px;transition:all .2s;margin-top:10px}
+.add-row-btn:hover{color:#8b949e;border-color:#484f58;background:#161b22}
+/* EPISODES */
+.ep-wrap{flex:1;overflow:auto;padding:14px 16px}
+.info-box{background:#0d1b2a;border:1px solid #1f4b7a;border-radius:6px;padding:10px 14px;margin-bottom:12px;color:#79c0ff;font-size:12px}
+.ep-card{background:#1e2535;border:1px solid #2e3a50;border-radius:10px;margin-bottom:14px;overflow:hidden}
+.ep-head{background:#252d3d;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ep-num{background:#1f4023;color:#3fb950;font-size:13px;font-weight:800;padding:5px 12px;border-radius:5px;font-family:'JetBrains Mono',monospace}
+.ep-date-btn{background:#252d3d;border:1px solid #2e3a50;color:#9aaabe;font-size:13px;padding:5px 10px;border-radius:5px;cursor:pointer;transition:all .15s}
+.ep-date-btn:hover{border-color:#388bfd;color:#e6edf3}
+.ep-date-inp{background:#252d3d;border:1px solid #388bfd;color:#e6edf3;font-size:12px;padding:3px 7px;border-radius:4px}
+.ep-date-inp:focus{outline:none}
+.type-toggle{margin-left:auto;display:flex;gap:3px}
+.type-btn{padding:5px 12px;border-radius:5px;border:1px solid #2e3a50;background:transparent;color:#7a8ba0;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s}
+.type-btn.on.normal{background:#1f4023;color:#3fb950;border-color:#2d6a2d}
+.type-btn.on.extended{background:#2d2000;color:#d29922;border-color:#4d3800}
+.ep-body{padding:0;overflow-x:auto}
+.ep-tbl{width:100%;min-width:900px;border-collapse:collapse;font-size:13px;table-layout:fixed}
+.ep-tbl th{color:#7a8ba0;font-size:11px;font-weight:700;padding:10px 12px;text-align:left;border-bottom:2px solid #2e3a50;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ep-tbl td{padding:11px 12px;border-bottom:1px solid #252d3d;color:#b0bdd8;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ep-tbl tr:last-child td{border-bottom:none}
+.ep-tbl td.story{color:#eaf0ff;font-weight:600;font-size:14px;white-space:normal}
+.ep-tbl tr:hover td{background:rgba(255,255,255,.03)}
+/* Fixed column widths for consistent alignment */
+.ep-tbl th:nth-child(1),.ep-tbl td:nth-child(1){width:28%}
+.ep-tbl th:nth-child(2),.ep-tbl td:nth-child(2){width:10%;text-align:right}
+.ep-tbl th:nth-child(3),.ep-tbl td:nth-child(3){width:18%;text-align:right}
+.ep-tbl th:nth-child(4),.ep-tbl td:nth-child(4){width:18%;text-align:right}
+.ep-tbl th:nth-child(5),.ep-tbl td:nth-child(5){width:16%;text-align:right}
+.ep-tbl th:nth-child(6),.ep-tbl td:nth-child(6){width:10%;text-align:center}
+.ep-foot{display:flex;gap:20px;padding:10px 16px;background:#141924;border-top:1px solid #252d3d;font-size:13px;flex-wrap:wrap}
+.ep-stat{color:#6e7681}
+.ep-stat b{font-weight:700}
+.ep-stat b.bl{color:#58a6ff}
+.ep-stat b.gr{color:#3fb950}
+.ep-stat b.am{color:#d29922}
+.dur{display:inline-block;padding:4px 8px;border-radius:4px;font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;text-align:center;letter-spacing:.5px}
+.dur.gr{background:#0d1f12;color:#3fb950}
+.dur.am{background:#1f1500;color:#d29922}
+.dur.bl{background:#0d1b2a;color:#58a6ff}
+/* ADMIN */
+.admin-wrap{flex:1;overflow:auto;padding:16px}
+.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.admin-card{background:#1e2535;border:1px solid #2e3a50;border-radius:8px;padding:18px}
+.admin-card h4{font-size:11px;font-weight:700;color:#6e7681;margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px}
+.user-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #252d3d}
+.user-row:last-of-type{border-bottom:none}
+.u-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.u-name{font-size:13px;font-weight:600;color:#e6edf3}
+.u-email{font-size:10px;color:#6e7681}
+.u-role-badge{font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px}
+.perm-row{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #252d3d;align-items:flex-start}
+.perm-row:last-child{border-bottom:none}
+.perm-desc{font-size:11px;color:#8b949e;line-height:1.6}
+/* MODALS */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.modal{background:#1e2535;border:1px solid #2e3a50;border-radius:10px;padding:24px;width:460px;max-width:90vw}
+.modal h3{font-size:15px;font-weight:700;margin-bottom:6px;color:#e6edf3}
+.modal p{color:#6e7681;font-size:12px;margin-bottom:10px;line-height:1.6}
+.modal label{display:block;font-size:10px;font-weight:600;color:#6e7681;margin-bottom:4px;margin-top:12px;text-transform:uppercase;letter-spacing:.5px}
+.modal input,.modal select,.modal textarea{width:100%;background:#141924;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:8px 12px;font-size:13px;font-family:var(--font-main)}
+.modal input:focus,.modal select:focus,.modal textarea:focus{outline:none;border-color:#388bfd}
+.modal textarea{resize:vertical;min-height:80px}
+.modal-actions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}
+.modal-story{font-size:13px;color:#e6edf3;padding:4px 0;font-weight:500}
+/* SETUP */
+.setup-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0d1117;padding:24px}
+.setup-inner{max-width:600px;width:100%}
+.setup-title{font-size:24px;font-weight:700;margin-bottom:4px;color:#e6edf3;text-align:center}
+.setup-sub{font-size:13px;color:#6e7681;text-align:center;margin-bottom:24px}
+.setup-step{background:#1e2535;border:1px solid #2e3a50;border-radius:8px;padding:18px 20px;margin-bottom:10px}
+.step-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.step-num{width:24px;height:24px;border-radius:50%;background:#1f4023;color:#3fb950;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step-title{font-size:13px;font-weight:600;color:#e6edf3}
+.step-body{font-size:12px;color:#8b949e;line-height:1.8;padding-left:34px}
+.step-body code{background:#21262d;color:#79c0ff;padding:1px 6px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:11px}
+.step-body a{color:#58a6ff;text-decoration:none}
+.cfg-fields{padding-left:34px;margin-top:10px}
+.cfg-inp{width:100%;background:#141924;border:1px solid #30363d;color:#e6edf3;padding:8px 12px;border-radius:6px;font-size:12px;font-family:'JetBrains Mono',monospace;margin-bottom:6px;transition:border .15s}
+.cfg-inp:focus{outline:none;border-color:#388bfd}
+.cfg-inp::placeholder{color:#484f58}
+.connect-btn{width:100%;padding:10px;background:#1f4023;color:#3fb950;border:1px solid #2d6a2d;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px;font-family:'Inter',sans-serif;transition:all .15s}
+.connect-btn:hover{background:#2d6a2d}
+.connect-btn:disabled{opacity:.5;cursor:not-allowed}
+.cfg-err{color:#f85149;font-size:12px;margin-top:6px;display:none}
+/* TOAST */
+.toast{position:fixed;bottom:20px;right:20px;background:#1f4023;border:1px solid #2d6a2d;color:#3fb950;padding:10px 16px;border-radius:8px;font-size:12px;font-weight:600;z-index:200;animation:fup .25s ease}
+.toast.err{background:#3d1c1c;border-color:#6e3535;color:#f85149}
+@keyframes fup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media print{
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:#fff!important;color:#000!important;font-size:11px}
+  .no-print{display:none!important}
+  .app{height:auto!important;overflow:visible!important;display:block!important}
+  .content{overflow:visible!important;display:block!important;height:auto!important}
+  .ep-wrap{overflow:visible!important;height:auto!important;padding:0!important}
+  .tabs,.topbar,.ticker,.toolbar{display:none!important}
+  .print-head{display:block!important;padding:0 0 14px;border-bottom:2px solid #000;margin-bottom:16px}
+  .ep-card{border:1px solid #aaa!important;break-inside:avoid;page-break-inside:avoid;margin-bottom:14px;background:#fff!important}
+  .ep-head{background:#e8eef8!important;padding:8px 12px}
+  .ep-num{background:#c8d8f0!important;color:#003!important}
+  .ep-date-btn{background:transparent!important;border:none!important;color:#333!important;font-size:12px}
+  .type-toggle{display:none!important}
+  .ep-tbl th{color:#444!important;font-size:9px;border-bottom:1px solid #ccc!important}
+  .ep-tbl td{color:#000!important;border-bottom:1px solid #eee!important}
+  .ep-tbl td.story{font-weight:600!important}
+  .ep-foot{background:#f5f5f5!important;border-top:1px solid #ccc!important}
+  .ep-stat{color:#333!important}
+  .ep-stat b{color:#000!important}
+  .dur{background:#eee!important;color:#000!important;border:1px solid #ccc}
+  .badge{background:#eee!important;color:#333!important;border:1px solid #ccc!important}
+  .ep-num{font-family:monospace}
+}
+.print-head{display:none}
+.ph-ticker{display:flex;gap:28px;margin-top:8px}
+.ph-item .ph-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555}
+.ph-item .ph-val{font-size:20px;font-weight:700}
+
+/* ── AUTOCOMPLETE ── */
+.ac-wrap{position:relative;display:inline-block}
+.ac-wrap input{width:100%}
+.ac-drop{position:absolute;top:100%;left:0;z-index:50;background:#1e2535;border:1px solid #388bfd;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.5);min-width:200px;max-width:340px;max-height:180px;overflow-y:auto;margin-top:2px}
+.ac-item{padding:7px 12px;font-size:12px;color:#e6edf3;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .1s}
+.ac-item:hover,.ac-item.selected{background:#2a4a6e;color:#fff}
+.ac-item em{color:#79c0ff;font-style:normal;font-weight:600}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="module">
+import{initializeApp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,createUserWithEmailAndPassword,updateProfile}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import{getFirestore,doc,collection,onSnapshot,setDoc,getDoc,getDocs,serverTimestamp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+const STORAGE_KEY='cb_portal_cfg_v2';
+const ADMIN_EMAIL='rudi@combinedartists.co.za';
+function getCfg(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||null;}catch{return null;}}
+function saveCfg(c){localStorage.setItem(STORAGE_KEY,JSON.stringify(c));}
+
+const ROLE_META={admin:{label:'Admin',color:'#58a6ff',bg:'rgba(88,166,255,.12)'},editorial:{label:'Editorial',color:'#3fb950',bg:'rgba(63,185,80,.12)'},operations:{label:'Operations',color:'#d29922',bg:'rgba(210,153,34,.12)'},production:{label:'Production',color:'#bc8cff',bg:'rgba(188,140,255,.12)'}};
+const DEL_KEYS=['callSheets','insertScripts','releaseForms','footageAgreement','musicCueSheet','footageDeclaration','carpUpload'];
+const DEL_LABELS=['Call Sheets','Insert Scripts','Release Forms','Footage Agr.','Music Cue','Footage Decl.','CARP Upload'];
+const OPS_ED=['dop','ca','editor','afm'];
+const PROD_ED=[...DEL_KEYS];
+
+function canEdit(role,f){if(role==='admin')return true;if(role==='editorial')return false;if(role==='operations')return OPS_ED.includes(f);if(role==='production')return PROD_ED.includes(f);return false;}
+function suggestCode(n){if(!n)return'';const stop=/^(the|and|for|from|with|into|a|an|of|in|at|to|or|by|down|up)$/i;const w=n.trim().split(/\s+/).filter(x=>x.length>1&&!stop.test(x));if(!w.length)return n.substring(0,5).toUpperCase();if(w.length===1)return w[0].substring(0,6).toUpperCase();if(w.length===2)return(w[0].substring(0,3)+w[1].substring(0,3)).toUpperCase();return w.slice(0,3).map(x=>x.substring(0,2)).join('').toUpperCase();}
+function fmtHMS(v){
+  // Accepts decimal minutes (e.g. 12.5) or HH:MM:SS / MM:SS strings
+  if(v===''||v===null||v===undefined)return'—';
+  const str=String(v).trim();
+  // Already HH:MM:SS or MM:SS
+  if(/^\d+:\d{2}(:\d{2})?$/.test(str)){
+    const parts=str.split(':').map(Number);
+    if(parts.length===3){
+      const [h,m,s]=parts;
+      return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
+    if(parts.length===2){
+      const [m,s]=parts;
+      const h=Math.floor(m/60),rm=m%60;
+      return `${String(h).padStart(2,'0')}:${String(rm).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
+  }
+  // Decimal minutes
+  const n=parseFloat(str);
+  if(isNaN(n))return str||'—';
+  const totalSecs=Math.round(n*60);
+  const h=Math.floor(totalSecs/3600);
+  const m=Math.floor((totalSecs%3600)/60);
+  const s=totalSecs%60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function fmtMins(v){return fmtHMS(v);} // alias for backward compat
+
+function toDecimalMins(v){
+  // Convert any duration format to decimal minutes for arithmetic
+  if(v===''||v===null||v===undefined)return 0;
+  const str=String(v).trim();
+  if(/^\d+:\d{2}(:\d{2})?$/.test(str)){
+    const parts=str.split(':').map(Number);
+    if(parts.length===3)return parts[0]*60+parts[1]+parts[2]/60;
+    if(parts.length===2)return parts[0]+parts[1]/60;
+  }
+  const n=parseFloat(str);
+  return isNaN(n)?0:n;
+}
+function addDays(iso,d){const dt=new Date(iso+'T00:00:00');dt.setDate(dt.getDate()+d);return dt.toISOString().split('T')[0];}
+
+function insertMinsDisplay(insertMins){
+  // 34 minutes = 2040 seconds
+  const allocatedSecs = 34 * 60;
+  const totalSecs = Math.round(insertMins * 60);
+  const diffSecs = totalSecs - allocatedSecs;
+  const absSecs = Math.abs(diffSecs);
+  const h = Math.floor(absSecs / 3600);
+  const m = Math.floor((absSecs % 3600) / 60);
+  const s = absSecs % 60;
+  const diffStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  const mainStr = fmtHMS(insertMins);
+  if(diffSecs > 0){
+    // Over — RED with (+HH:MM:SS)
+    return `<strong style="color:#f85149;font-family:'JetBrains Mono',monospace;font-size:13px">${mainStr} <span style="font-size:11px;opacity:.9">(+${diffStr})</span></strong>`;
+  } else if(diffSecs < 0){
+    // Under — GREEN with (-HH:MM:SS)
+    return `<strong style="color:#3fb950;font-family:'JetBrains Mono',monospace;font-size:13px">${mainStr} <span style="font-size:11px;opacity:.9">(-${diffStr})</span></strong>`;
+  } else {
+    // Exact — GREEN, no bracket
+    return `<strong style="color:#3fb950;font-family:'JetBrains Mono',monospace;font-size:13px">${mainStr}</strong>`;
+  }
+}
+function fmtDate(iso){if(!iso)return'';return new Date(iso+'T00:00:00').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});}
+function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+let db,auth,fbApp;
+let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
+let syncStatus='offline',unsubComms=null,unsubSettings=null;
+let tab='commissions',sortField='commNum',sortDir='asc',search='',filter='all',currentSeason='S39';
+let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,tempDate='';
+let addUserModal=false,newUserData={email:'',password:'',displayName:'',role:'editorial'};
+let toast=null,toastTimer=null,pendingFocusId=null;
+
+function initFB(cfg){try{fbApp=initializeApp(cfg);auth=getAuth(fbApp);db=getFirestore(fbApp);return true;}catch(e){console.error(e);return false;}}
+
+async function saveComm(c){setSyncDot('saving');try{await setDoc(doc(db,'commissions',String(c.id)),{...c,updatedAt:serverTimestamp()});setSyncDot('live');}catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}}
+async function saveSettings(){setSyncDot('saving');try{await setDoc(doc(db,'settings','main'),{...settings,updatedAt:serverTimestamp()});setSyncDot('live');}catch(e){setSyncDot('offline');}}
+
+function subscribeData(){
+  if(unsubComms)unsubComms();if(unsubSettings)unsubSettings();
+  unsubComms=onSnapshot(collection(db,'commissions'),snap=>{
+    const incoming=snap.docs.map(d=>d.data()).sort((a,b)=>a.id>b.id?1:-1);
+    setSyncDot('live');
+    const active=document.activeElement;
+    const editRow=active?.closest('tr[data-id]');
+    const editId=editRow?Number(editRow.dataset.id):null;
+    if(editId){comms=incoming.map(c=>c.id===editId?(comms.find(x=>x.id===editId)||c):c);updateTicker();}
+    else{comms=incoming;render();}
+  },()=>setSyncDot('offline'));
+  unsubSettings=onSnapshot(doc(db,'settings','main'),snap=>{
+    if(snap.exists())settings={...settings,...snap.data()};
+    if(!document.activeElement?.closest('tr[data-id]'))render();
+  });
+}
+
+async function loadUsers(){try{const snap=await getDocs(collection(db,'users'));users=snap.docs.map(d=>({uid:d.id,...d.data()}));render();}catch(e){console.error(e);}}
+
+function setSyncDot(s){syncStatus=s;const dot=document.getElementById('sync-dot');const lbl=document.getElementById('sync-lbl');if(!dot)return;dot.className='sync-dot '+s;lbl.textContent=s==='live'?'Live':s==='saving'?'Saving…':'Offline';}
+
+async function login(email,pass){try{await signInWithEmailAndPassword(auth,email,pass);return{ok:true};}catch(e){return{ok:false,error:e.message.replace('Firebase:','').replace(/\(auth\/.*\)/,'').trim()};}}
+async function getUserRole(uid){try{const s=await getDoc(doc(db,'users',uid));return s.exists()?s.data().role:null;}catch{return null;}}
+async function createUser(email,pass,displayName,role){try{const cred=await createUserWithEmailAndPassword(auth,email,pass);await updateProfile(cred.user,{displayName});await setDoc(doc(db,'users',cred.user.uid),{email,displayName,role,createdAt:serverTimestamp()});showToast(displayName+' created successfully');await loadUsers();return{ok:true};}catch(e){return{ok:false,error:e.message.replace('Firebase:','').trim()};}}
+
+function updateComm(id,field,val){
+  comms=comms.map(c=>c.id===id?{...c,[field]:val}:c);
+  const updated=comms.find(c=>c.id===id);
+  if(updated)saveComm(updated);
+  // Update row class and checkbox styles in-place without re-render
+  const row=document.querySelector(`tr[data-id="${id}"]`);
+  if(row&&updated){
+    const c=updated,allDone=DEL_KEYS.every(k=>c[k]);
+    const incRow=!c.decommissioned&&!c.approvedForPayment&&!c.isInHouse&&c.storyName&&(!c.deliveredDuration||!c.paidDuration);
+    row.className=c.decommissioned?'decom-row':c.approvedForPayment?'paid-row':allDone?'green-row':incRow?'yellow-row':'';
+    const pCb=row.querySelector('input[data-field="approvedForPayment"]');
+    if(pCb)pCb.style.accentColor=c.approvedForPayment?'#388bfd':'';
+    DEL_KEYS.forEach(k=>{const cb=row.querySelector(`input[data-field="${k}"]`);if(cb)cb.className='cb'+(c[k]?' g':'');});
+    // Re-apply in-house greying
+    const ihFields=['dop','ca','editor'];
+    ihFields.forEach(f=>{
+      const td=row.querySelector(`input[data-field="${f}"]`)?.closest('td');
+      if(td){td.style.opacity=c.isInHouse?'0.3':'';td.style.pointerEvents=c.isInHouse?'none':'';}
+    });
+    const csTd=row.querySelector('input[data-field="callSheets"]')?.closest('td');
+    if(csTd){csTd.style.opacity=c.isInHouse?'0.3':'';csTd.style.pointerEvents=c.isInHouse?'none':'';}
+    // Grey paid duration cell for in-house
+    const paidDurTd=row.querySelector('input[data-field="paidDuration"]')?.closest('td');
+    if(paidDurTd){paidDurTd.style.opacity=c.isInHouse?'0.3':'';paidDurTd.style.pointerEvents=c.isInHouse?'none':'';}
+    // Grey ✓ Paid checkbox TD for in-house
+    const paidCbTd=row.querySelector('input[data-field="approvedForPayment"]')?.closest('td');
+    if(paidCbTd){paidCbTd.style.opacity=c.isInHouse?'0.3':'';paidCbTd.style.pointerEvents=c.isInHouse?'none':'';}
+  }
+  updateTicker();
+}
+
+function updateTicker(){
+  const paid=comms.filter(c=>!c.isInHouse&&!c.decommissioned).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);
+  const rem=(settings.contractedMinutes||438)-paid;
+  const pe=document.querySelector('.t-val.p');const re=document.querySelector('.t-val.r');
+  if(pe)pe.textContent=paid.toFixed(1);if(re)re.textContent=rem.toFixed(1);
+}
+
+async function addRow(){
+  const maxId=comms.length?Math.max(...comms.map(c=>Number(c.id)||0)):0;
+  const newId=maxId+1;
+  const blank={id:newId,portal:false,commNum:'',shortName:'',storyName:'',commDuration:'',deliveredDuration:'',paidDuration:'',producer:'',presenterVO:'',dop:'',ca:'',editor:'',afm:'',callSheets:false,insertScripts:false,releaseForms:false,footageAgreement:false,musicCueSheet:false,footageDeclaration:false,carpUpload:false,approvedForPayment:false,decommissioned:false,decommissionMotivation:'',broadcastEpisode:'',isInHouse:false};
+  pendingFocusId=newId;await saveComm(blank);
+}
+
+function getEpNums(){const s=new Set();comms.forEach(c=>{if(c.broadcastEpisode)s.add(Number(c.broadcastEpisode));});Object.keys(settings.epDates||{}).forEach(k=>s.add(Number(k)));return Array.from(s).sort((a,b)=>a-b);}
+function nextSunday(iso){
+  // Given an ISO date, return the next Sunday on or after it
+  const d=new Date(iso+'T00:00:00');
+  const day=d.getDay(); // 0=Sun
+  if(day===0)return iso;
+  d.setDate(d.getDate()+(7-day));
+  return d.toISOString().split('T')[0];
+}
+function resolveDate(n){
+  if(n===1)return'2026-04-05'; // fixed start — already a Sunday
+  if(settings.epDates&&settings.epDates[n])return settings.epDates[n];
+  // Auto: previous episode date + 7 days (always lands on Sunday since ep1 is Sunday)
+  const prev=resolveDate(n-1);
+  const auto=addDays(prev,7);
+  return nextSunday(auto); // safety snap to Sunday
+}
+function assignEpisode(id,val){const num=Number(val);if(val&&!getEpNums().includes(num))showToast(`Episode ${num} created — ${fmtDate(resolveDate(num))}`);updateComm(id,'broadcastEpisode',val);}
+function allDel(c){return DEL_KEYS.every(k=>c[k]);}
+function isDup(id,code){if(!code)return false;return comms.some(c=>c.id!==id&&(c.shortName||'').toUpperCase()===(code||'').toUpperCase());}
+function getPaidMins(){
+  // Ticker: contracted minus sum of all INSERT (paid) minutes across all episodes
+  return comms.filter(c=>!c.isInHouse&&!c.decommissioned).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);
+}
+
+function getFiltered(){
+  let list=[...comms];
+  if(search){const q=search.toLowerCase();list=list.filter(c=>(c.storyName||'').toLowerCase().includes(q)||(c.shortName||'').toLowerCase().includes(q)||String(c.commNum).includes(q)||(c.producer||'').toLowerCase().includes(q)||(c.presenterVO||'').toLowerCase().includes(q));}
+  if(filter==='paid')list=list.filter(c=>c.approvedForPayment);
+  if(filter==='unpaid')list=list.filter(c=>!c.approvedForPayment&&!c.decommissioned);
+  if(filter==='portal')list=list.filter(c=>c.portal);
+  if(filter==='decom')list=list.filter(c=>c.decommissioned);
+  if(filter==='inhouse')list=list.filter(c=>c.isInHouse);
+  if(filter==='ready')list=list.filter(c=>allDel(c)&&!c.approvedForPayment&&!c.decommissioned);
+  list.sort((a,b)=>{let av=a[sortField],bv=b[sortField];if(typeof av==='boolean')av=av?1:0;if(typeof bv==='boolean')bv=bv?1:0;if(typeof av==='string')av=av.toLowerCase();if(typeof bv==='string')bv=bv.toLowerCase();return av<bv?(sortDir==='asc'?-1:1):av>bv?(sortDir==='asc'?1:-1):0;});
+  return list;
+}
+
+function showToast(msg,err=false){
+  toast={msg,err};clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{const t=document.getElementById('toast-el');if(t)t.style.display='none';toast=null;},3000);
+  const t=document.getElementById('toast-el');
+  if(t){t.textContent='✓ '+msg;t.className='toast'+(err?' err':'');t.style.display='block';}
+  else{render();}
+}
+
+function render(){
+  const root=document.getElementById('root');
+  const cfg=getCfg();
+  if(!cfg){root.innerHTML=renderSetup();bindSetup();return;}
+  if(!currentUser){root.innerHTML=renderAuth();bindAuth();return;}
+  root.innerHTML=renderApp();
+  bindApp();
+  if(pendingFocusId!==null){
+    const newRow=document.querySelector(`tr[data-id="${pendingFocusId}"]`);
+    if(newRow){
+      const fi=newRow.querySelector('input.ci[data-field="commNum"]');
+      if(fi){fi.focus();fi.select();}
+      newRow.scrollIntoView({block:'nearest',behavior:'smooth'});
+      pendingFocusId=null;
+    }
+  }
+}
+
+function renderSetup(){return`<div class="setup-wrap"><div class="setup-inner">
+<div class="setup-title">CB Commission Management Portal</div>
+<div class="setup-sub">Connect your Firebase project to get started</div>
+<div class="setup-step"><div class="step-head"><span class="step-num">1</span><span class="step-title">Create a Firebase project</span></div>
+<div class="step-body">Go to <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a> → Add project → name it <code>cb-commission-portal</code> → disable Analytics → Create.</div></div>
+<div class="setup-step"><div class="step-head"><span class="step-num">2</span><span class="step-title">Enable Authentication</span></div>
+<div class="step-body">Build → Authentication → Get started → Enable <code>Email/Password</code>.</div></div>
+<div class="setup-step"><div class="step-head"><span class="step-num">3</span><span class="step-title">Create Firestore Database</span></div>
+<div class="step-body">Build → Firestore Database → Create database → Production mode → <code>europe-west1</code>.<br>In the Rules tab change <code>if false</code> to <code>if request.auth != null</code> and Publish.</div></div>
+<div class="setup-step"><div class="step-head"><span class="step-num">4</span><span class="step-title">Paste your Firebase config below</span></div>
+<div class="step-body">Project settings → Your apps → &lt;/&gt; → copy the config values.</div>
+<div class="cfg-fields">
+<input class="cfg-inp" id="cfg-apiKey" placeholder="apiKey"/>
+<input class="cfg-inp" id="cfg-authDomain" placeholder="authDomain"/>
+<input class="cfg-inp" id="cfg-projectId" placeholder="projectId"/>
+<input class="cfg-inp" id="cfg-storageBucket" placeholder="storageBucket"/>
+<input class="cfg-inp" id="cfg-messagingSenderId" placeholder="messagingSenderId"/>
+<input class="cfg-inp" id="cfg-appId" placeholder="appId"/>
+<button class="connect-btn" id="connect-btn">Connect to Firebase</button>
+<div class="cfg-err" id="cfg-err"></div>
+</div></div>
+</div></div>`;}
+
+function bindSetup(){
+  document.getElementById('connect-btn').addEventListener('click',async()=>{
+    const fields=['apiKey','authDomain','projectId','storageBucket','messagingSenderId','appId'];
+    const cfg={};let valid=true;
+    fields.forEach(f=>{const v=document.getElementById('cfg-'+f).value.trim();if(!v)valid=false;cfg[f]=v;});
+    if(!valid){const e=document.getElementById('cfg-err');e.textContent='Please fill in all fields.';e.style.display='block';return;}
+    const btn=document.getElementById('connect-btn');btn.disabled=true;btn.textContent='Connecting…';
+    if(initFB(cfg)){saveCfg(cfg);render();}
+    else{const e=document.getElementById('cfg-err');e.textContent='Connection failed. Check config values.';e.style.display='block';btn.disabled=false;btn.textContent='Connect to Firebase';}
+  });
+}
+
+function renderAuth(){return`<div class="auth-wrap"><div class="auth-card">
+<div class="auth-brand">CB Media Group</div>
+<div class="auth-title">Commission Management Portal</div>
+<div class="auth-sub">Sign in to your workspace</div>
+<div id="auth-err" class="auth-err" style="display:none"></div>
+<label class="auth-label">Email</label>
+<input type="email" id="login-email" class="auth-inp" placeholder="you@example.com" autocomplete="email"/>
+<label class="auth-label">Password</label>
+<input type="password" id="login-pass" class="auth-inp" placeholder="••••••••" autocomplete="current-password"/>
+<button class="auth-btn" id="login-btn">Sign In</button>
+<div class="auth-note">Access is by invitation only. Contact your administrator.</div>
+</div></div>`;}
+
+function bindAuth(){
+  const doLogin=async()=>{
+    const email=document.getElementById('login-email').value.trim();
+    const pass=document.getElementById('login-pass').value;
+    const btn=document.getElementById('login-btn');
+    const err=document.getElementById('auth-err');
+    if(!email||!pass){err.textContent='Please enter email and password.';err.style.display='block';return;}
+    btn.disabled=true;btn.textContent='Signing in…';
+    const res=await login(email,pass);
+    if(!res.ok){err.textContent=res.error;err.style.display='block';btn.disabled=false;btn.textContent='Sign In';}
+  };
+  document.getElementById('login-btn').addEventListener('click',doLogin);
+  document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+}
+
+function renderApp(){
+  const paid=getPaidMins(),contracted=settings.contractedMinutes||438,remaining=contracted-paid;
+  const epNums=getEpNums(),maxEp=epNums.length?Math.max(...epNums):0,nextEp=maxEp+1;
+  const readyCount=comms.filter(c=>allDel(c)&&!c.approvedForPayment&&!c.decommissioned).length;
+  const rm=ROLE_META[currentRole]||ROLE_META.editorial;
+  return`
+<div class="print-head">
+  <div style="font-size:20px;font-weight:700;margin-bottom:8px">CB Commission Management Portal — Broadcast Schedule</div>
+  <div class="ph-ticker">${[['Contracted',contracted],['Paid',paid.toFixed(1)],['Remaining',remaining.toFixed(1)]].map(([l,v])=>`<div class="ph-item"><div class="ph-lbl">${l}</div><div class="ph-val">${v}</div></div>`).join('')}</div>
+</div>
+<div class="app">
+  <div class="topbar no-print">
+    <div class="logo">CB</div><div class="logo-sep">|</div><div class="logo-sub">Commission Management Portal</div>
+    <select id="season-sel" style="background:#252d3d;border:1px solid #2e3a50;color:#58a6ff;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;margin-left:8px;font-family:var(--font-main)">
+      <option value="S39" ${currentSeason==='S39'?'selected':''}>Season 39</option>
+      <option value="new">+ Add Season…</option>
+    </select>
+    <div class="sync-pill"><span class="sync-dot ${syncStatus}" id="sync-dot"></span><span id="sync-lbl">${syncStatus==='live'?'Live':syncStatus==='saving'?'Saving…':'Offline'}</span></div>
+    <div class="user-area">
+      <div class="user-chip">
+        <div class="avatar" style="background:${rm.bg};color:${rm.color}">${initials(currentUser.displayName||currentUser.email)}</div>
+        <div><div class="u-name">${esc(currentUser.displayName||currentUser.email)}</div><div class="u-role-lbl" style="color:${rm.color}">${rm.label}</div></div>
+      </div>
+      <button class="sign-out" id="logout-btn">Sign Out</button>
+    </div>
+  </div>
+  <div class="ticker no-print">
+    <div class="t-item"><div class="t-lbl">Contracted Mins</div>${currentRole==='admin'?`<input class="t-inp" type="number" id="contracted-input" tabindex="-1" value="${contracted}">`:`<div class="t-val c">${contracted}</div>`}</div>
+    <div class="t-sep">−</div>
+    <div class="t-item"><div class="t-lbl">Paid Mins</div><div class="t-val p">${paid.toFixed(1)}</div></div>
+    <div class="t-sep">=</div>
+    <div class="t-item"><div class="t-lbl">Remaining Mins</div><div class="t-val r">${remaining.toFixed(1)}</div></div>
+    <div class="t-meta">
+      <span>${comms.filter(c=>c.approvedForPayment).length} paid · ${comms.filter(c=>!c.decommissioned).length} active · ${epNums.length} episodes</span>
+      ${readyCount>0?`<span class="t-ready">● ${readyCount} ready for payment</span>`:''}
+    </div>
+  </div>
+  <div class="tabs no-print">
+    ${currentRole!=='editorial'?`<div class="tab-btn${tab==='commissions'?' active':''}" data-tab="commissions">Commission List ${currentSeason}</div>`:''}
+    <div class="tab-btn${tab==='episodes'?' active':''}" data-tab="episodes">Episode Register</div>
+    ${currentRole==='admin'?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
+  </div>
+  <div class="content">
+    ${tab==='commissions'&&currentRole!=='editorial'?renderCommList(epNums,nextEp):''}
+    ${tab==='episodes'?renderEpisodes(epNums,paid,remaining):''}
+    ${tab==='admin'&&currentRole==='admin'?renderAdmin():''}
+  </div>
+</div>
+${renderModals(epNums,nextEp)}
+<div id="toast-el" class="toast" style="display:none"></div>`;}
+
+function renderCommList(epNums,nextEp){
+  const filtered=getFiltered();
+  function sh(label,field){const a=sortField===field;return`<th data-sort="${field}">${label}${a?' '+(sortDir==='asc'?'↑':'↓'):''}</th>`;}
+  return`
+<div class="toolbar">
+  <input class="s-inp" placeholder="Search commissions…" id="search-inp" tabindex="-1" value="${esc(search)}">
+  <select class="f-sel" id="filter-sel" tabindex="-1">
+    <option value="all"${filter==='all'?' selected':''}>All Commissions</option>
+    <option value="ready"${filter==='ready'?' selected':''}>Ready for Payment</option>
+    <option value="paid"${filter==='paid'?' selected':''}>Approved for Payment</option>
+    <option value="unpaid"${filter==='unpaid'?' selected':''}>Not Yet Paid</option>
+    <option value="portal"${filter==='portal'?' selected':''}>On Portal</option>
+    <option value="decom"${filter==='decom'?' selected':''}>Decommissioned</option>
+    <option value="inhouse"${filter==='inhouse'?' selected':''}>In-House</option>
+  </select>
+  ${currentRole==='admin'?`<button class="btn primary" id="add-row-btn">+ Add Commission</button><button class="btn" id="add-ep-btn">+ Add Episode</button>`:''}
+  <span class="count-lbl">${filtered.length} shown</span>
+</div>
+<div class="table-outer">
+<table>
+<thead><tr>
+  <th data-sort="portal" class="st st-1" style="width:52px">Portal</th>
+  <th data-sort="commNum" class="st st-2" style="width:80px">Comm #</th>
+  <th class="st st-3" style="width:120px">Short Name</th>
+  <th data-sort="storyName" class="st st-4" style="width:220px">Story Name</th>
+  <th data-sort="commDuration" style="width:110px">Comm Dur</th>
+  <th data-sort="deliveredDuration" style="width:110px">Del Dur</th>
+  <th data-sort="paidDuration" style="width:110px">Paid Dur</th>
+  <th data-sort="isInHouse" style="width:70px">In-House</th>
+  <th data-sort="producer" style="width:360px">Producer</th>
+  <th data-sort="presenterVO" style="width:200px">Presenter / VO</th>
+  <th data-sort="dop" style="width:200px">DOP</th>
+  <th data-sort="ca" >Cam Asst</th>
+  <th data-sort="editor" style="width:200px">Editor</th>
+  <th data-sort="afm" style="width:120px">AFM Op</th>
+  ${DEL_LABELS.map(l=>`<th style="width:80px">${l}</th>`).join('')}
+  <th data-sort="approvedForPayment" style="width:80px">✓ Paid</th>
+  <th style="width:100px">Episode</th>
+  <th >Decom</th>
+  <th style="width:180px">Motivation</th>
+</tr></thead>
+<tbody>
+${filtered.map(c=>{
+  const green=allDel(c)&&!c.approvedForPayment&&!c.decommissioned;
+  const incomplete=!c.decommissioned&&!c.approvedForPayment&&!c.isInHouse&&c.storyName&&(!c.deliveredDuration||!c.paidDuration);
+  const cls=c.decommissioned?'decom-row':c.approvedForPayment?'paid-row':green?'green-row':incomplete?'yellow-row':'';
+  const dup=isDup(c.id,c.shortName);
+  const epOpts=epNums.map(n=>`<option value="${n}"${c.broadcastEpisode==n?' selected':''}>Ep ${n}</option>`).join('');
+  const nextOpt=!epNums.includes(nextEp)?`<option value="${nextEp}">+ Ep ${nextEp}</option>`:'';
+  function ci(field,w,ph=''){const dis=!canEdit(currentRole,field);const val=String(c[field]||'');return`<input class="ci" value="${esc(val)}" data-field="${field}" placeholder="${ph}" ${dis?'disabled':''}>`;}
+  return`<tr class="${cls}" data-id="${c.id}">
+<td class="st st-1" style="text-align:center"><input type="checkbox" class="cb" data-field="portal" tabindex="-1" ${c.portal?'checked':''} ${!canEdit(currentRole,'portal')?'disabled':''}></td>
+<td class="st st-2">${ci('commNum')}</td>
+<td class="st st-3">
+  <input class="sc${dup?' dup':''}" value="${esc(c.shortName||'')}" data-field="shortName" maxlength="20" placeholder="CODE" ${!canEdit(currentRole,'shortName')?'disabled':''}>
+  ${dup?'<span class="dup-warn">⚠ Duplicate</span>':''}
+</td>
+<td class="st st-4" style="min-width:180px">${ci('storyName',220)}</td>
+<td>${ci('commDuration')}</td>
+<td>${ci('deliveredDuration')}</td>
+<td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}">${c.isInHouse?`<span class="badge ih" style="opacity:.5">N/A</span>`:ci('paidDuration',54)}</td>
+<td style="text-align:center"><input type="checkbox" class="cb" data-field="isInHouse" tabindex="-1" ${c.isInHouse?'checked':''} ${currentRole!=='admin'?'disabled':''}></td>
+<td>${ci('producer')}</td>
+<td>${ci('presenterVO')}</td>
+<td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'Not applicable for in-house':''}">${ci('dop')}</td>
+<td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'Not applicable for in-house':''}">${ci('ca')}</td>
+<td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'Not applicable for in-house':''}">${ci('editor')}</td>
+<td>${ci('afm')}</td>
+${DEL_KEYS.map((k,ki)=>{
+  const isIHGrey = c.isInHouse && k === 'callSheets';
+  return `<td style="text-align:center${isIHGrey?';opacity:.3;pointer-events:none':''}"><input type="checkbox" class="cb${c[k]?' g':''}" data-field="${k}" tabindex="-1" ${c[k]?'checked':''} ${!canEdit(currentRole,k)||isIHGrey?'disabled':''}></td>`;
+}).join('')}
+<td style="text-align:center;${c.isInHouse?'opacity:.3;pointer-events:none':''}">${canEdit(currentRole,'approvedForPayment')&&!c.isInHouse?`<input type="checkbox" class="cb" data-field="approvedForPayment" tabindex="-1" ${c.approvedForPayment?'checked':''} style="${c.approvedForPayment?'accent-color:#388bfd':''}">`:c.approvedForPayment?`<span class="badge paid">✓ Paid</span>`:`<span style="color:#484f58">—</span>`}</td>
+<td><select class="ep-sel" data-field="broadcastEpisode" tabindex="-1" ${currentRole!=='admin'?'disabled':''}><option value="">—</option>${epOpts}${nextOpt}</select></td>
+<td>${c.decommissioned?`${currentRole==='admin'?`<button class="undo-btn" data-undo="${c.id}">↩ Undo</button>`:''} <span class="badge decom">Decom</span>`:`<button class="decom-btn" data-decom="${c.id}" tabindex="-1" ${!canEdit(currentRole,'decommissioned')&&currentRole!=='admin'?'disabled':''}>Decommission</button>`}</td>
+<td style="min-width:160px;max-width:220px"><span style="color:#6e7681;font-size:11px;font-style:italic;white-space:normal;line-height:1.4" title="${esc(c.decommissionMotivation||'')}">${esc(c.decommissionMotivation||'')}</span></td>
+</tr>`;}).join('')}
+</tbody>
+</table>
+${currentRole==='admin'?`<button class="add-row-btn" id="add-row-btn2">+ Add Commission Row</button>`:''}
+</div>`;}
+
+function renderEpisodes(epNums,paid,remaining){
+  const episodes=epNums.map(n=>({ep:n,date:resolveDate(n),stories:comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned)}));
+  return`<div class="ep-wrap">
+${currentRole==='editorial'?`<div class="info-box"><strong>Editorial view</strong> — Contracted: <strong>${settings.contractedMinutes||438}</strong> · Paid: <strong>${paid.toFixed(1)}</strong> · Remaining: <strong>${remaining.toFixed(1)}</strong></div>`:''}
+<div style="display:flex;gap:8px;margin-bottom:12px" class="no-print">
+  <button class="btn primary" onclick="window.print()">Export PDF</button>
+  ${currentRole==='admin'?`<button class="btn" id="add-ep-btn2">+ Add Episode</button>`:''}
+  <span class="count-lbl" style="margin-left:0">${episodes.length} episodes</span>
+</div>
+${episodes.map(({ep,date,stories})=>{
+  const k=String(ep),epType=(settings.epTypes||{})[k]||'normal';
+  // Ep Content = sum of ALL delivered durations (paid + inhouse)
+  const epContentMins=stories.reduce((s,c)=>s+toDecimalMins(c.deliveredDuration||c.commDuration),0);
+  // Insert Mins = paidDuration for NON-inhouse, NON-decommissioned stories ONLY
+  const insertMins=stories.filter(s=>!s.isInHouse&&!s.decommissioned).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);
+  // Non-Insert = sum of deliveredDuration for inhouse stories
+  const nonMins=stories.filter(s=>s.isInHouse).reduce((s,c)=>s+toDecimalMins(c.deliveredDuration||c.commDuration),0);
+  const isEd=editingDate===ep;
+  return`<div class="ep-card">
+<div class="ep-head">
+  <span class="ep-num">EP ${ep}</span>
+  ${ep===1?`<span style="color:#8b949e;font-size:12px">${fmtDate('2026-04-05')} <span style="color:#6e7681;font-size:10px">(fixed)</span></span>`:isEd?`<input type="date" class="ep-date-inp" id="ep-date-inp" value="${tempDate}">`:
+  `<span class="ep-date-btn" data-ep-date="${ep}">${fmtDate(date)}${currentRole==='admin'?' ✎':''}</span>`}
+  <span style="font-size:13px;color:#7a8ba0;font-weight:500">${stories.length} ${stories.length===1?'story':'stories'}</span>
+  <span style="display:inline-flex;align-items:center;gap:14px;margin-left:12px;padding-left:12px;border-left:1px solid #2e3a50;font-size:12px;flex-wrap:wrap">
+    <span style="color:#7a8ba0">Allocated: <strong style="color:#58a6ff;font-family:'JetBrains Mono',monospace;font-size:13px">00:34:00</strong></span>
+    <span style="color:#7a8ba0">Ep Content: <strong style="color:#eaf0ff;font-family:'JetBrains Mono',monospace;font-size:13px">${fmtHMS(epContentMins)}</strong></span>
+    <span style="color:#7a8ba0">Insert Mins: ${insertMinsDisplay(insertMins)}</span>
+    <span style="color:#7a8ba0">Non-Insert: <strong style="color:#d29922;font-family:'JetBrains Mono',monospace;font-size:13px">${fmtHMS(nonMins)}</strong></span>
+  </span>
+  <div class="type-toggle no-print" style="margin-left:auto">
+    <button class="type-btn normal${epType==='normal'?' on':''}" data-eptype="${k}" data-val="normal">Normal</button>
+    <button class="type-btn extended${epType==='extended'?' on':''}" data-eptype="${k}" data-val="extended">Extended</button>
+  </div>
+  <span style="font-size:11px;font-weight:600;margin-left:4px;color:${epType==='extended'?'#d29922':'#3fb950'}">${epType==='extended'?'★ Extended':'Normal'}</span>
+</div>
+${stories.length>0?`<div class="ep-body"><table class="ep-tbl"><thead><tr>
+<th>Story Name</th>
+<th style="text-align:right">Comm #</th>
+<th style="text-align:right">Delivered Mins</th>
+<th style="text-align:right">Insert Mins (Paid)</th>
+<th style="text-align:right">Non-Insert (IH)</th>
+<th style="text-align:center">Status</th>
+</tr></thead><tbody>
+${stories.map((s,idx)=>{const pd=toDecimalMins(s.paidDuration);const dd=toDecimalMins(s.deliveredDuration)||toDecimalMins(s.commDuration)||0;
+const canEd=currentRole==='admin';
+function epci(field,w){return canEd?`<input class="ci ep-ci" value="${esc(String(s[field]||''))}" data-id="${s.id}" data-field="${field}" style="width:${w}px">`:esc(String(s[field]||'—'));}
+return`<tr data-ep-row="${s.id}">
+<td class="story" style="font-weight:600;color:#eaf0ff;font-size:14px;white-space:normal">${esc(s.storyName||'')}</td>
+<td style="text-align:right;font-family:'JetBrains Mono',monospace;color:#58a6ff;font-size:13px">${s.commNum}</td>
+<td style="text-align:right">
+  ${dd ? (s.isInHouse ? `<span class="dur am">${fmtHMS(dd)}</span>` : `<span class="dur gr">${fmtHMS(dd)}</span>`) : '—'}
+</td>
+<td style="text-align:right">
+  ${!s.isInHouse && pd > 0 ? `<span class="dur gr">${fmtHMS(pd)}</span>` : '—'}
+</td>
+<td style="text-align:right">
+  ${s.isInHouse && dd ? `<span class="dur am">${fmtHMS(dd)}</span>` : '—'}
+</td>
+<td style="text-align:center">${s.approvedForPayment?`<span class="badge paid">Paid</span>`:s.isInHouse?`<span class="badge ih">In-House</span>`:`<span class="badge pending">Pending</span>`}</td>
+</tr>`;}).join('')}
+</tbody></table></div>`:`<div style="padding:10px 14px;color:#6e7681;font-size:12px;font-style:italic">No stories assigned yet.</div>`}
+<div class="ep-foot">
+  <div class="ep-stat">Ep Content: <b style="color:#eaf0ff">${fmtHMS(epContentMins)}</b></div>
+  <div class="ep-stat">Insert Mins: <b class="gr">${fmtHMS(insertMins)}</b></div>
+  <div class="ep-stat">Non-Insert: <b class="am">${fmtHMS(nonMins)}</b></div>
+  <div class="ep-stat">Type: <b style="color:#eaf0ff">${epType==='extended'?'★ Extended':'Normal'}</b></div>
+</div>
+</div>`;}).join('')}
+${episodes.length===0?`<div style="color:#6e7681;padding:32px;text-align:center">No episodes yet. Assign a broadcast episode from the Comm List tab.</div>`:''}
+</div>`;}
+
+function renderAdmin(){return`<div class="admin-wrap"><div class="admin-grid">
+<div class="admin-card"><h4>Users &amp; Access</h4>
+${users.length===0?`<div style="color:#6e7681;font-size:12px">No users found.</div>`:users.map(u=>{const rm=ROLE_META[u.role]||ROLE_META.editorial;return`<div class="user-row"><div class="u-av" style="background:${rm.bg};color:${rm.color}">${initials(u.displayName||u.email)}</div><div style="flex:1"><div class="u-name">${esc(u.displayName||'')}</div><div class="u-email">${esc(u.email||'')}</div></div><span class="u-role-badge" style="background:${rm.bg};color:${rm.color};padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700">${rm.label}</span></div>`;}).join('')}
+<button class="btn primary" id="add-user-btn" style="margin-top:14px;width:100%">+ Create User Account</button>
+</div>
+<div class="admin-card"><h4>Role Permissions</h4>
+${Object.entries(ROLE_META).map(([k,v])=>`<div class="perm-row"><span class="u-role-badge" style="background:${v.bg};color:${v.color};padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700;white-space:nowrap">${v.label}</span><div class="perm-desc">${k==='admin'?'Full access — edit everything, create users.':k==='editorial'?'Read-only: Episodes tab and minute ticker only.':k==='operations'?'Can edit: DOP, Camera Asst, Editor, AFM.':'Can edit: all 7 Deliverable checkboxes.'}</div></div>`).join('')}
+</div>
+</div></div>`;}
+
+function renderModals(epNums,nextEp){
+  let out='';
+  if(decomModal!==null){const c=comms.find(x=>x.id===decomModal);out+=`<div class="modal-overlay" id="decom-overlay"><div class="modal"><h3>Decommission Story</h3><p>A written motivation is required. Reversible only by Admin.</p><label>Story</label><div class="modal-story">${esc(c?.storyName||'')}</div><label>Motivation *</label><textarea id="decom-text" placeholder="Enter reason for decommissioning…">${esc(decomText)}</textarea><div class="modal-actions"><button class="btn" id="decom-cancel">Cancel</button><button class="btn danger" id="decom-confirm">Confirm Decommission</button></div></div></div>`;}
+  if(addEpModal){const autoDate=resolveDate(parseInt(newEpNum)||nextEp);const exists=epNums.includes(parseInt(newEpNum));out+=`<div class="modal-overlay" id="ep-overlay"><div class="modal"><h3>Add Episode</h3><p>Creates a new episode slot. Date is auto-calculated (+7 days) and editable after creation.</p><label>Episode Number</label><input type="number" id="new-ep-num" value="${newEpNum}" min="1" placeholder="${nextEp}">${newEpNum&&!isNaN(parseInt(newEpNum))?`<div style="margin-top:8px;font-size:12px;color:#8b949e">Date: <strong style="color:#e6edf3">${fmtDate(autoDate)}</strong></div>`:''}${exists?`<div style="color:#f85149;font-size:12px;margin-top:6px">⚠ Episode ${newEpNum} already exists.</div>`:''}<div class="modal-actions"><button class="btn" id="ep-cancel">Cancel</button><button class="btn primary" id="ep-confirm">Create Episode ${newEpNum||nextEp}</button></div></div></div>`;}
+  if(addUserModal){out+=`<div class="modal-overlay" id="user-overlay"><div class="modal"><h3>Create User Account</h3><p>The user can log in immediately with these credentials. Share them securely.</p><label>Full Name</label><input type="text" id="nu-name" value="${esc(newUserData.displayName)}" placeholder="e.g. Joy Summers"><label>Email</label><input type="email" id="nu-email" value="${esc(newUserData.email)}" placeholder="user@example.com"><label>Password</label><input type="text" id="nu-pass" value="${esc(newUserData.password)}" placeholder="Minimum 6 characters"><label>Role</label><select id="nu-role">${Object.entries(ROLE_META).filter(([k])=>k!=='admin').map(([k,v])=>`<option value="${k}"${newUserData.role===k?' selected':''}>${v.label}</option>`).join('')}</select><div id="nu-err" style="color:#f85149;font-size:12px;margin-top:8px;display:none"></div><div class="modal-actions"><button class="btn" id="user-cancel">Cancel</button><button class="btn primary" id="user-confirm">Create Account</button></div></div></div>`;}
+  return out;
+}
+
+function bindApp(){
+  document.getElementById('logout-btn')?.addEventListener('click',()=>signOut(auth));
+  document.getElementById('season-sel')?.addEventListener('change',e=>{
+    if(e.target.value==='new'){
+      const name=prompt('Enter new season name (e.g. S40):');
+      if(name&&name.trim()){
+        const opt=document.createElement('option');
+        opt.value=name.trim();opt.textContent='Season '+name.trim().replace(/^s/i,'');
+        const sel=document.getElementById('season-sel');
+        sel.insertBefore(opt,sel.lastElementChild);
+        currentSeason=name.trim();
+        sel.value=currentSeason;
+        showToast('Season '+currentSeason+' added');
+      } else {
+        e.target.value=currentSeason; // revert
+      }
+    } else {
+      currentSeason=e.target.value;
+      showToast('Switched to Season '+currentSeason.replace(/^s/i,''));
+    }
+  });
+  document.querySelectorAll('[data-tab]').forEach(el=>el.addEventListener('click',()=>{tab=el.dataset.tab;render();}));
+  document.getElementById('contracted-input')?.addEventListener('change',e=>{settings.contractedMinutes=Number(e.target.value);saveSettings();render();});
+  document.querySelectorAll('[data-sort]').forEach(th=>th.addEventListener('click',()=>{const f=th.dataset.sort;if(sortField===f)sortDir=sortDir==='asc'?'desc':'asc';else{sortField=f;sortDir='asc';}render();}));
+  document.getElementById('search-inp')?.addEventListener('input',e=>{search=e.target.value;render();});
+  document.getElementById('filter-sel')?.addEventListener('change',e=>{filter=e.target.value;render();});
+  ['add-row-btn','add-row-btn2'].forEach(id=>document.getElementById(id)?.addEventListener('click',addRow));
+  ['add-ep-btn','add-ep-btn2'].forEach(id=>document.getElementById(id)?.addEventListener('click',()=>{const e=getEpNums();newEpNum=String(e.length?Math.max(...e)+1:1);addEpModal=true;render();}));
+
+  // Collect all focusable text inputs for Tab navigation
+  const getTextInputs=()=>Array.from(document.querySelectorAll('.table-outer input.ci, .table-outer input.sc'));
+
+  document.querySelectorAll('tr[data-id]').forEach(row=>{
+    const id=Number(row.dataset.id);
+    row.querySelectorAll('input[data-field]').forEach(inp=>{
+      const field=inp.dataset.field;
+      if(inp.type==='checkbox'){
+        inp.addEventListener('change',()=>{
+          updateComm(id,field,inp.checked);
+          // Auto-fill producer when marked as In-House
+          if(field==='isInHouse' && inp.checked){
+            const c=comms.find(x=>x.id===id);
+            if(!c?.producer){
+              // Set producer field value in DOM and save
+              const prodInp=row.querySelector('input[data-field="producer"]');
+              if(prodInp){prodInp.value='Combined Artists Productions';}
+              updateComm(id,'producer','Combined Artists Productions');
+            }
+          }
+        });
+      } else {
+        // Update local state while typing — no save, no render
+        inp.addEventListener('input',e=>{
+          let val=e.target.value;
+          if(field==='shortName'){val=val.toUpperCase().replace(/[^A-Z0-9\-_ ]/g,'');e.target.value=val;}
+          comms=comms.map(c=>c.id===id?{...c,[field]:val}:c);
+        });
+        // Save when leaving the field
+        inp.addEventListener('blur',e=>{
+          let val=e.target.value;
+          if(field==='shortName')val=val.toUpperCase();
+          updateComm(id,field,val);
+        });
+        // Tab navigation between text inputs only
+        inp.addEventListener('keydown',e=>{
+          if(e.key==='Tab'){
+            e.preventDefault();
+            // Trigger blur/save on current field first
+            inp.dispatchEvent(new Event('blur',{bubbles:false}));
+            const all=getTextInputs();
+            const idx=all.indexOf(inp);
+            const next=all[idx+(e.shiftKey?-1:1)];
+            if(next){
+              next.focus();
+              next.select();
+              next.scrollIntoView({behavior:'smooth',block:'nearest',inline:'nearest'});
+            }
+          }
+          if(e.key==='Enter'){
+            // If autocomplete dropdown has a selected item, let autocomplete handle it
+            const acDrop=inp.parentElement?.querySelector('.ac-drop');
+            const acSelected=acDrop?.querySelector('.ac-item.selected');
+            if(acSelected){
+              // Autocomplete mousedown handler will fire — just prevent default
+              e.preventDefault();
+              return;
+            }
+            // No autocomplete active — save the field and stay put (Tab moves between fields)
+            e.preventDefault();
+            inp.blur();
+            inp.focus();
+          }
+        });
+      }
+    });
+    row.querySelectorAll('select[data-field]').forEach(sel=>sel.addEventListener('change',e=>{if(sel.dataset.field==='broadcastEpisode')assignEpisode(id,e.target.value);else updateComm(id,sel.dataset.field,e.target.value);}));
+    row.querySelector('[data-decom]')?.addEventListener('click',()=>{decomModal=id;decomText=comms.find(c=>c.id===id)?.decommissionMotivation||'';render();});
+    row.querySelector('[data-undo]')?.addEventListener('click',()=>{updateComm(id,'decommissioned',false);updateComm(id,'decommissionMotivation','');});
+  });
+
+  document.querySelectorAll('[data-ep-date]').forEach(el=>el.addEventListener('click',()=>{
+    if(currentRole!=='admin')return;
+    const ep=Number(el.dataset.epDate);editingDate=ep;tempDate=resolveDate(ep);render();
+    setTimeout(()=>{
+      const inp=document.getElementById('ep-date-inp');if(!inp)return;inp.focus();
+      inp.addEventListener('blur',()=>{if(inp.value){settings.epDates={...settings.epDates,[ep]:inp.value};saveSettings();}editingDate=null;render();});
+      inp.addEventListener('keydown',e=>{if(e.key==='Enter')inp.blur();if(e.key==='Escape'){editingDate=null;render();}});
+    },50);
+  }));
+  document.querySelectorAll('[data-eptype]').forEach(btn=>btn.addEventListener('click',()=>{const k=btn.dataset.eptype;settings.epTypes={...(settings.epTypes||{}),[k]:btn.dataset.val};saveSettings();render();}));
+  document.getElementById('decom-cancel')?.addEventListener('click',()=>{decomModal=null;render();});
+  document.getElementById('decom-overlay')?.addEventListener('click',e=>{if(e.target.id==='decom-overlay'){decomModal=null;render();}});
+  document.getElementById('decom-confirm')?.addEventListener('click',()=>{const txt=document.getElementById('decom-text').value.trim();if(!txt){showToast('A motivation is required.',true);return;}updateComm(decomModal,'decommissioned',true);updateComm(decomModal,'decommissionMotivation',txt);decomModal=null;render();});
+  document.getElementById('ep-cancel')?.addEventListener('click',()=>{addEpModal=false;render();});
+  document.getElementById('ep-overlay')?.addEventListener('click',e=>{if(e.target.id==='ep-overlay'){addEpModal=false;render();}});
+  document.getElementById('new-ep-num')?.addEventListener('input',e=>{newEpNum=e.target.value;render();});
+  document.getElementById('ep-confirm')?.addEventListener('click',()=>{const num=parseInt(newEpNum);if(isNaN(num)||num<1){showToast('Enter a valid episode number.',true);return;}if(getEpNums().includes(num)){showToast(`Episode ${num} already exists.`,true);return;}const autoDate=resolveDate(num);settings.epDates={...(settings.epDates||{}),[num]:autoDate};saveSettings();showToast(`Episode ${num} added — ${fmtDate(autoDate)}`);addEpModal=false;render();});
+  // Episode tab inline editing
+  document.querySelectorAll('input.ep-ci').forEach(inp=>{
+    const id=Number(inp.dataset.id);
+    const field=inp.dataset.field;
+    inp.addEventListener('input',e=>{
+      comms=comms.map(c=>c.id===id?{...c,[field]:e.target.value}:c);
+    });
+    inp.addEventListener('blur',e=>{
+      updateComm(id,field,e.target.value);
+    });
+    inp.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){inp.blur();}
+    });
+  });
+
+  document.getElementById('add-user-btn')?.addEventListener('click',()=>{addUserModal=true;render();});
+  document.getElementById('user-cancel')?.addEventListener('click',()=>{addUserModal=false;render();});
+  document.getElementById('user-overlay')?.addEventListener('click',e=>{if(e.target.id==='user-overlay'){addUserModal=false;render();}});
+  // Attach autocomplete to all relevant fields
+  attachAllAutocomplete();
+
+  document.getElementById('user-confirm')?.addEventListener('click',async()=>{
+    const name=document.getElementById('nu-name').value.trim();
+    const email=document.getElementById('nu-email').value.trim();
+    const pass=document.getElementById('nu-pass').value;
+    const role=document.getElementById('nu-role').value;
+    const err=document.getElementById('nu-err');
+    if(!name||!email||!pass){err.textContent='All fields are required.';err.style.display='block';return;}
+    if(pass.length<6){err.textContent='Password must be at least 6 characters.';err.style.display='block';return;}
+    const btn=document.getElementById('user-confirm');btn.disabled=true;btn.textContent='Creating…';
+    const res=await createUser(email,pass,name,role);
+    if(!res.ok){err.textContent=res.error;err.style.display='block';btn.disabled=false;btn.textContent='Create Account';return;}
+    newUserData={email:'',password:'',displayName:'',role:'editorial'};addUserModal=false;render();
+  });
+}
+
+
+// ── AUTOCOMPLETE ────────────────────────────────────────────────
+const AC_FIELDS = ['producer','presenterVO','dop','ca','editor','afm'];
+
+function getACValues(field) {
+  // Collect all unique non-empty values for this field from current commissions
+  const vals = new Set();
+  comms.forEach(c => { if (c[field] && String(c[field]).trim()) vals.add(String(c[field]).trim()); });
+  return Array.from(vals).sort();
+}
+
+function attachAutocomplete(inp, field) {
+  if (!inp || inp.dataset.acAttached) return;
+  inp.dataset.acAttached = '1';
+
+  let dropEl = null;
+  let selectedIdx = -1;
+
+  function closeDrop() {
+    if (dropEl) { dropEl.remove(); dropEl = null; }
+    selectedIdx = -1;
+  }
+
+  function openDrop(matches) {
+    closeDrop();
+    if (!matches.length) return;
+    const wrap = inp.closest('.ac-wrap') || inp.parentElement;
+    dropEl = document.createElement('div');
+    dropEl.className = 'ac-drop';
+    matches.forEach((val, i) => {
+      const item = document.createElement('div');
+      item.className = 'ac-item';
+      // Highlight the matching part
+      const q = inp.value.trim();
+      const idx = val.toLowerCase().indexOf(q.toLowerCase());
+      if (idx >= 0) {
+        item.innerHTML = esc(val.substring(0,idx)) + '<em>' + esc(val.substring(idx,idx+q.length)) + '</em>' + esc(val.substring(idx+q.length));
+      } else {
+        item.textContent = val;
+      }
+      item.addEventListener('mousedown', e => {
+        e.preventDefault();
+        inp.value = val;
+        inp.dispatchEvent(new Event('input', {bubbles:true}));
+        inp.dispatchEvent(new Event('blur', {bubbles:false}));
+        closeDrop();
+      });
+      dropEl.appendChild(item);
+    });
+    // Position relative to input
+    inp.parentElement.style.position = 'relative';
+    inp.parentElement.appendChild(dropEl);
+  }
+
+  inp.addEventListener('input', () => {
+    const q = inp.value.trim();
+    if (!q) { closeDrop(); return; }
+    const vals = getACValues(field);
+    const matches = vals.filter(v => v.toLowerCase().includes(q.toLowerCase()) && v !== q);
+    openDrop(matches.slice(0, 8));
+    selectedIdx = -1;
+  });
+
+  inp.addEventListener('keydown', e => {
+    if (!dropEl) return;
+    const items = dropEl.querySelectorAll('.ac-item');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIdx = Math.min(selectedIdx + 1, items.length - 1);
+      items.forEach((el,i) => el.classList.toggle('selected', i === selectedIdx));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIdx = Math.max(selectedIdx - 1, 0);
+      items.forEach((el,i) => el.classList.toggle('selected', i === selectedIdx));
+    } else if (e.key === 'Enter' && selectedIdx >= 0) {
+      e.preventDefault();
+      e.stopPropagation(); // prevent the row-level Enter handler from firing
+      inp.value = items[selectedIdx].textContent;
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      closeDrop();
+      // Save the value then refocus — stays in the same field
+      updateComm(Number(inp.closest('tr[data-id]')?.dataset?.id), inp.dataset.field, inp.value);
+      setTimeout(()=>{ inp.focus(); inp.select(); }, 10);
+    } else if (e.key === 'Escape') {
+      closeDrop();
+    }
+  });
+
+  inp.addEventListener('blur', () => {
+    // Small delay so mousedown on item fires first
+    setTimeout(closeDrop, 150);
+  });
+
+  inp.addEventListener('focus', () => {
+    const q = inp.value.trim();
+    if (q) {
+      const vals = getACValues(field);
+      const matches = vals.filter(v => v.toLowerCase().includes(q.toLowerCase()) && v !== q);
+      openDrop(matches.slice(0, 8));
+    }
+  });
+}
+
+function attachAllAutocomplete() {
+  AC_FIELDS.forEach(field => {
+    document.querySelectorAll(`input.ci[data-field="${field}"]`).forEach(inp => {
+      attachAutocomplete(inp, field);
+    });
+  });
+}
+
+async function boot(){
+  const cfg=getCfg();
+  if(cfg){const ok=initFB(cfg);if(!ok){localStorage.removeItem(STORAGE_KEY);render();return;}}
+  render();
+  if(!auth)return;
+  onAuthStateChanged(auth,async user=>{
+    if(user){
+      currentUser=user;
+      if(user.email===ADMIN_EMAIL){
+        currentRole='admin';
+        await setDoc(doc(db,'users',user.uid),{email:user.email,displayName:user.displayName||user.email,role:'admin',createdAt:serverTimestamp()});
+      } else {
+        currentRole=await getUserRole(user.uid);
+        if(!currentRole)currentRole='editorial';
+      }
+      subscribeData();await loadUsers();render();
+    } else {
+      currentUser=null;currentRole=null;
+      if(unsubComms){unsubComms();unsubComms=null;}
+      if(unsubSettings){unsubSettings();unsubSettings=null;}
+      render();
+    }
+  });
+}
+boot();
+</script>
+</body>
+</html>
