@@ -390,6 +390,7 @@ let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,e
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
 let tab='commissions',sortField='commNum',sortDir='asc',search='',filter='all',currentSeason='39',previewRole=null;
 let studioCrew={}; // {epNum: {studioDirector:'', ad:'', ...}}
+let endCredits={}; // {epNum: {presenters:[], storyCrew:[], studioCrew2:[], viewerPanel:[], etc}}
 let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,tempDate='';
 let addUserModal=false,newUserData={email:'',password:'',displayName:'',role:'editorial'},editUserModal=null,deleteUserModal=null;
 let toast=null,toastTimer=null,pendingFocusId=null;
@@ -398,6 +399,85 @@ function initFB(cfg){try{fbApp=initializeApp(cfg);auth=getAuth(fbApp);db=getFire
 
 async function saveComm(c){setSyncDot('saving');try{await setDoc(doc(db,'commissions',String(c.id)),{...c,updatedAt:serverTimestamp()});setSyncDot('live');}catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}}
 const STUDIO_FIELDS=[['studioDirector','Studio Director'],['assistantDirector','Assistant Director'],['floorManager','Floor Manager'],['autocueOperator','Autocue Operator'],['vtOperator','VT Operator'],['visionController','Vision Controller'],['lightingDirector','Lighting Director'],['graphicsOperator','Graphics Operator'],['visionMixer','Vision Mixer'],['jibOperator','Jib Operator'],['cameraOp1','Camera Operator 1'],['cameraOp2','Camera Operator 2'],['soundEngineer','Sound Engineer'],['soundAssistant','Sound Assistant'],['makeupArtist','Make-Up Artist'],['studioStylist','Studio Stylist']];
+
+async function saveEndCredits(ep,data){
+  setSyncDot('saving');
+  try{
+    await setDoc(doc(db,'end_credits',String(ep)),{...data,ep:Number(ep),updatedAt:serverTimestamp()});
+    endCredits[ep]={...data};
+    setSyncDot('live');
+  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}
+}
+
+async function exportCreditsPDF(epNum){
+  if(!window.html2pdf){
+    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+  }
+  const n=epNum;
+  const date=fmtDate(resolveDate(Number(n)));
+  const printDate=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
+
+  function ecVal(secId,key,def){return getECValue(n,secId,key,def)||def||'';}
+
+  // Story crew from comms
+  const storiesHTML=comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse).map(s=>`
+    <tr><td colspan="2" style="padding:8px 0 2px;font-weight:800;font-size:11px;color:#1a3a6a">"${esc(s.storyName.toUpperCase())}"</td></tr>
+    ${[['DIRECTOR OF PHOTOGRAPHY',s.dop],['CAMERA ASSISTANT',s.ca],['EDITOR',s.editor],['AUDIO FINAL MIX',s.afm]].filter(([,v])=>v).map(([l,v])=>`<tr><td style="padding:3px 0;font-size:9px;font-weight:700;color:#555;text-transform:uppercase;width:45%">${l}</td><td style="padding:3px 0;font-size:10px">${esc(v)}</td></tr>`).join('')}
+  `).join('');
+
+  function secRows(sectionDef, secId){
+    return sectionDef.map(r=>r.fields
+      ? r.fields.map(f=>`<tr><td style="padding:3px 0;font-size:10px">${esc(ecVal(secId,f.key,f.default))}</td></tr>`).join('')
+      : `<tr><td style="padding:3px 0;font-size:9px;font-weight:700;color:#555;text-transform:uppercase;width:45%">${r.label}</td><td style="padding:3px 0;font-size:10px">${esc(ecVal(secId,r.key,r.default))}</td></tr>`
+    ).join('');
+  }
+
+  const thStyle='font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#fff;background:#1a3a6a;padding:6px 10px';
+  const tblStyle='width:100%;border-collapse:collapse;margin-bottom:14px';
+  const tdLabel='padding:3px 0;font-size:9px;font-weight:700;color:#555;text-transform:uppercase;width:45%;vertical-align:top';
+  const tdVal='padding:3px 0;font-size:10px;vertical-align:top';
+
+  function section(title, rows){
+    return`<table style="${tblStyle}"><thead><tr><th colspan="2" style="${thStyle}">${title}</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;padding:20px;font-size:10px}@page{margin:12mm;size:A4 portrait}</style>
+  </head><body>
+  <!-- HEADER -->
+  <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;border-bottom:3px solid #1a3a6a;margin-bottom:16px">
+    <img src="${BAKED_CB_LOGO}" style="height:52px;width:auto;object-fit:contain">
+    <div style="text-align:center;flex:1;padding:0 20px">
+      <div style="font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#111">CARTE BLANCHE END CREDITS</div>
+      <div style="font-size:9px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">Episode ${n} · ${date} · Season ${currentSeason}</div>
+    </div>
+    <img src="${BAKED_CAP_LOGO}" style="height:44px;width:auto;object-fit:contain">
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div>
+      ${section('PRESENTERS', EC_FIXED_SECTIONS[0].fields.map(f=>`<tr><td colspan="2" style="padding:3px 0;font-size:10px">${esc(ecVal('presenters',f.key,f.default))}</td></tr>`).join(''))}
+      ${section('CARTE BLANCHE VIEWER PANEL', EC_FIXED_SECTIONS[1].fields.map(f=>`<tr><td colspan="2" style="padding:3px 0;font-size:10px">${esc(ecVal('viewerPanel',f.key,f.default))}</td></tr>`).join(''))}
+      ${section('CARTE BLANCHE THEME', EC_FIXED_SECTIONS[2].rows.map(r=>`<tr><td style="${tdLabel}">${r.label}</td><td style="${tdVal}">${esc(ecVal('theme',r.key,r.default))}</td></tr>`).join(''))}
+      ${storiesHTML?section('STORY CREW',storiesHTML):''}
+    </div>
+    <div>
+      ${section('STUDIO', EC_FIXED_SECTIONS[3].rows.map(r=>`<tr><td style="${tdLabel}">${r.label}</td><td style="${tdVal}">${esc(ecVal('studio',r.key,r.default))}</td></tr>`).join(''))}
+      ${section('PRODUCTION', EC_FIXED_SECTIONS[4].rows.map(r=>`<tr><td style="${tdLabel}">${r.label}</td><td style="${tdVal}">${esc(ecVal('production',r.key,r.default))}</td></tr>`).join(''))}
+      ${section('FOR CARTE BLANCHE', EC_FIXED_SECTIONS[5].rows.map(r=>`<tr><td style="${tdLabel}">${r.label}</td><td style="${tdVal}">${esc(ecVal('carteBlanche',r.key,r.default))}</td></tr>`).join(''))}
+    </div>
+  </div>
+  <div style="margin-top:16px;text-align:center;font-size:8px;color:#aaa;border-top:1px solid #ddd;padding-top:8px">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
+  </body></html>`;
+
+  html2pdf().set({margin:[8,8,8,8],filename:`CB-End-Credits-Season${currentSeason}-EP${n}.pdf`,image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true,allowTaint:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(html).save();
+}
+
+async function loadEndCredits(){
+  try{
+    const snap=await getDocs(collection(db,'end_credits'));
+    snap.docs.forEach(d=>{endCredits[d.id]={...d.data()};});
+  }catch(e){console.error('End credits load error:',e);}
+}
 
 async function saveStudioCrew(ep,data){
   setSyncDot('saving');
@@ -715,13 +795,15 @@ function renderApp(){
   <div class="tabs no-print">
     ${getEffectiveRole()!=='editorial'?`<div class="tab-btn${tab==='commissions'?' active':''}" data-tab="commissions">Commission List ${currentSeason}</div>`:''}
     <div class="tab-btn${tab==='episodes'?' active':''}" data-tab="episodes">Episode Register</div>
-    ${getEffectiveRole()!=='production'?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}
+    ${getEffectiveRole()!=='production'?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}    
+    ${getEffectiveRole()!=='production'?`<div class="tab-btn${tab==='credits'?' active':''}" data-tab="credits">End Credits</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
   </div>
   <div class="content">
     ${tab==='commissions'&&getEffectiveRole()!=='editorial'?renderCommList(epNums,nextEp):''}
     ${tab==='episodes'?renderEpisodes(epNums,paid,remaining):''}
     ${tab==='studio'?renderStudioCrew(epNums):''}
+    ${tab==='credits'?renderEndCredits(epNums):''}
     ${tab==='admin'&&currentRole==='admin'&&!previewRole?renderAdmin():''}
   </div>
 </div>
@@ -906,6 +988,171 @@ return`<tr data-ep-row="${s.id}">
 </div>`;}).join('')}
 ${episodes.length===0?`<div style="color:#6e7681;padding:32px;text-align:center">No episodes yet. Assign a broadcast episode from the Comm List tab.</div>`:''}
 </div>`;}
+
+
+// END CREDITS STRUCTURE
+// Each section: {id, label, type}
+// type 'fixed' = stored in endCredits['fixed'], editable but same every ep
+// type 'perEp' = stored in endCredits[epNum], changes per episode
+// type 'readonly' = never changes
+
+const EC_FIXED_SECTIONS = [
+  {id:'presenters', label:'PRESENTERS', fields:[
+    {key:'p1',default:'ERIN BATES'},{key:'p2',default:'MASA KEKANA'},{key:'p3',default:'CLAIRE MAWISA'},
+    {key:'p4',default:'GOVAN WHITTLES'},{key:'p5',default:'LOURENSA ECKARD'},{key:'p6',default:'MACFARLANE MOLELI'}
+  ]},
+  {id:'viewerPanel', label:'CARTE BLANCHE VIEWER PANEL', fields:[
+    {key:'vp1',default:'ANNA MOYO'},{key:'vp2',default:'DANIE HATTINGH'},{key:'vp3',default:'LINTHURI MOONSAMY'},
+    {key:'vp4',default:'LUCILLE PAULICK'},{key:'vp5',default:'SIBONGILE SIDLAYI'}
+  ]},
+  {id:'theme', label:'CARTE BLANCHE THEME', rows:[
+    {label:'COMPOSED BY', key:'composedBy', default:'DAVE POLLECUTT'},
+    {label:'ORCHESTRATION BY', key:'orchBy', default:'KURT HERMAN'},
+    {label:'LOGO & IMAGING BY', key:'logoBy', default:'FOR BLUEBERRY ENTERTAINMENT'},
+    {label:'LEGAL ADVISORS', key:'legal1', default:'DARIO MILO'},
+    {label:'', key:'legal2', default:'POOJA DELA-CRON'},
+    {label:'', key:'legal3', default:'ODWA ABRAHAM'},
+    {label:'', key:'legal4', default:'KUHLE MAVUSO'},
+    {label:'', key:'legal5', default:'WEBBER WENTZEL ATTORNEYS'},
+  ]},
+  {id:'studio', label:'STUDIO FACILITIES', rows:[
+    {label:'STUDIO FACILITIES', key:'studioFac', default:'STARK STUDIOS'},
+    {label:'SET & SET DESIGN', key:'setDesign', default:'DEWET MEYER'},
+    {label:'LIGHTING DESIGN ENGINEERS', key:'lightEng', default:'JD UNLIMITED'},
+    {label:'', key:'lightEng2', default:'VISUAL FRONTIER'},
+    {label:'SOUND ASSISTANT', key:'stSoundAsst', default:'MARIUS KEMP'},
+    {label:'AUTOCUE', key:'autocue', default:'CARLA HAMILTON / EASIQ.CO.ZA'},
+    {label:'GRAPHICS', key:'graphics', default:'MATTHEW COLEMAN'},
+    {label:'CAMERAS', key:'cameras', default:'ROHAN DASS / SIBUSISO MNCUBE'},
+    {label:'JIMMY JIB', key:'jimmyJib', default:'BRAD BELLAS (CLUTCH MEDIA)'},
+    {label:'VISION CONTROL', key:'visionCtrl', default:'OSCAR CHAVALALA'},
+    {label:'LIGHTING', key:'lighting', default:'PAUL MODISE'},
+    {label:'VT OPERATOR', key:'vtOp', default:'ANDREW BARTLETT'},
+    {label:'SOUND ENGINEER', key:'soundEng', default:'JOSHUA VAN AS'},
+    {label:'VISION MIXER', key:'visionMix', default:'JACO LOMBARD'},
+  ]},
+  {id:'production', label:'PRODUCTION', rows:[
+    {label:'PRODUCTION', key:'prod', default:'VINCENT BUTJE'},
+    {label:'PRODUCTION COORDINATOR', key:'prodCoord', default:'MIHLE KLAAS'},
+    {label:'VIDEO EDITORS', key:'vidEd1', default:'BRYAN BARTLE'},
+    {label:'', key:'vidEd2', default:'STENETTE GROSSKOPF'},
+    {label:'PATRON: MAKING A DIFFERENCE TRUST', key:'patron', default:''},
+    {label:'FINANCE MANAGER', key:'finMgr', default:'MY ACCOUNTANT'},
+  ]},
+  {id:'carteBlanche', label:'FOR CARTE BLANCHE:', rows:[
+    {label:'MAKE-UP & STYLING', key:'makeupStyling', default:'ANNAMARIE BRONKHORST'},
+    {label:'PRODUCTION MANAGER', key:'prodMgr', default:'NOMBUSO NKOSI'},
+    {label:'OPERATIONAL MANAGER', key:'opsMgr', default:'MEINIE HEYDENRYCH'},
+    {label:'FLOOR MANAGER', key:'floorMgr', default:'KAI MASTERTON'},
+    {label:'ASSISTANT STUDIO DIRECTOR', key:'asd', default:'JANA PIENAAR'},
+    {label:'STUDIO DIRECTOR', key:'sd', default:'MICHAEL SCHNEIDER'},
+    {label:'EDITORIAL ASSISTANT', key:'editAsst', default:'OFENTSE LAMOLA'},
+    {label:'CONTENT EDITOR', key:'contentEd', default:'LAURA BYRNE'},
+    {label:'ONLINE EDITOR', key:'onlineEd', default:'LEZANNE JANSE VAN RENSBURG'},
+    {label:'EDITORIAL MANAGER', key:'editMgr', default:'STENETTE GROSSKOPF'},
+    {label:'PRODUCER', key:'producer', default:'RUDI BOTHA'},
+    {label:'EXECUTIVE PRODUCER', key:'execProd', default:'JOHN WEBB'},
+  ]},
+];
+
+function getECValue(epNum, sectionId, key, def){
+  // Per-episode override first, then fixed, then default
+  const ep = endCredits[String(epNum)]||{};
+  const fixed = endCredits['fixed']||{};
+  const k = sectionId+'_'+key;
+  if(ep[k]!==undefined && ep[k]!=='') return ep[k];
+  if(fixed[k]!==undefined && fixed[k]!=='') return fixed[k];
+  return def||'';
+}
+
+function saveECValue(epNum, sectionId, key, val){
+  const k = sectionId+'_'+key;
+  if(epNum==='fixed'){
+    if(!endCredits['fixed'])endCredits['fixed']={};
+    endCredits['fixed'][k]=val;
+    saveEndCredits('fixed', endCredits['fixed']);
+  } else {
+    if(!endCredits[epNum])endCredits[epNum]={};
+    endCredits[epNum][k]=val;
+    saveEndCredits(epNum, endCredits[epNum]);
+  }
+}
+
+
+function renderEndCredits(epNums){
+  if(!epNums.length) return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet. Add episodes in the Episode Register first.</div></div>`;
+  const canEd=getEffectiveRole()==='admin'||getEffectiveRole()==='operations';
+
+  // Build per-episode story crew rows from comms
+  function storyCrewRows(n){
+    return comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse)
+      .map(s=>`<div style="margin-bottom:14px">
+        <div style="font-weight:800;font-size:13px;color:#eaf0ff;margin-bottom:6px">"${esc(s.storyName.toUpperCase())}"</div>
+        ${[['DIRECTOR OF PHOTOGRAPHY',s.dop],['CAMERA ASSISTANT',s.ca],['EDITOR',s.editor],['AUDIO FINAL MIX',s.afm]].filter(([,v])=>v).map(([l,v])=>`
+        <div style="display:flex;padding:4px 0;border-bottom:1px solid #252d3d">
+          <span style="width:240px;font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;letter-spacing:.4px;flex-shrink:0">${l}</span>
+          <span style="font-size:13px;color:#eaf0ff">${esc(v)}</span>
+        </div>`).join('')}
+      </div>`).join('');
+  }
+
+  function ecInput(epNum, sectionId, key, def, style=''){
+    const val = getECValue(epNum, sectionId, key, def);
+    if(!canEd) return`<span style="font-size:13px;color:#eaf0ff">${esc(val||'—')}</span>`;
+    return`<input class="ci ec-inp" value="${esc(val)}" data-ep="${epNum}" data-sec="${sectionId}" data-key="${key}" data-def="${esc(def)}" placeholder="${esc(def)||'—'}" style="font-size:13px;color:#eaf0ff;${style}">`;
+  }
+
+  function sectionBlock(title, rows, epNum){
+    return`<div style="margin-bottom:18px">
+      <div style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;border-bottom:1px solid #252d3d;padding-bottom:4px">${title}</div>
+      ${rows}
+    </div>`;
+  }
+
+  function fieldRow(label, content){
+    return`<div style="display:flex;padding:5px 0;border-bottom:1px solid #21262d;align-items:center">
+      ${label?`<span style="width:240px;font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;letter-spacing:.4px;flex-shrink:0">${label}</span>`:'<span style="width:240px;flex-shrink:0"></span>'}
+      <div style="flex:1">${content}</div>
+    </div>`;
+  }
+
+  return`<div class="ep-wrap">
+  <div style="margin-bottom:10px;color:#6e7681;font-size:12px">Fields highlighted in blue are per-episode. All others are fixed defaults editable in "Fixed Defaults" mode.</div>
+  ${epNums.map(n=>{
+    const epLabel=`EP ${n} · ${fmtDate(resolveDate(n))}`;
+    const storyCrew=storyCrewRows(n);
+    return`<div class="ep-card" style="margin-bottom:14px">
+      <div class="ep-head" style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="ep-num">EP ${n}</span>
+          <span style="font-size:13px;font-weight:600;color:#9aaabe">${fmtDate(resolveDate(n))}</span>
+        </div>
+        ${canEd?`<button class="btn" style="font-size:11px" data-ep-credits-pdf="${n}">⬇ Export Credits PDF</button>`:''}
+      </div>
+      <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:24px">
+        <div>
+          <!-- PRESENTERS -->
+          ${sectionBlock('Presenters', EC_FIXED_SECTIONS[0].fields.map(f=>fieldRow('',ecInput('fixed','presenters',f.key,f.default))).join(''), n)}
+          <!-- VIEWER PANEL -->
+          ${sectionBlock('Carte Blanche Viewer Panel', EC_FIXED_SECTIONS[1].fields.map(f=>fieldRow('',ecInput('fixed','viewerPanel',f.key,f.default))).join(''), n)}
+          <!-- THEME -->
+          ${sectionBlock('Carte Blanche Theme', EC_FIXED_SECTIONS[2].rows.map(r=>fieldRow(r.label, ecInput('fixed','theme',r.key,r.default))).join(''), n)}
+          <!-- STORY CREW (per ep, auto from comms) -->
+          ${storyCrew?sectionBlock('Story Crew (from Commission List)', storyCrew, n):''}
+        </div>
+        <div>
+          <!-- STUDIO -->
+          ${sectionBlock('Studio', EC_FIXED_SECTIONS[3].rows.map(r=>fieldRow(r.label, ecInput('fixed','studio',r.key,r.default))).join(''), n)}
+          <!-- PRODUCTION -->
+          ${sectionBlock('Production', EC_FIXED_SECTIONS[4].rows.map(r=>fieldRow(r.label, ecInput('fixed','production',r.key,r.default))).join(''), n)}
+          <!-- FOR CARTE BLANCHE -->
+          ${sectionBlock('For Carte Blanche', EC_FIXED_SECTIONS[5].rows.map(r=>fieldRow(r.label, ecInput('fixed','carteBlanche',r.key,r.default))).join(''), n)}
+        </div>
+      </div>
+    </div>`;
+  }).join('')}
+  </div>`;
+}
 
 function renderStudioCrew(epNums){
   if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet. Add episodes in the Episode Register first.</div></div>`;
@@ -1371,6 +1618,34 @@ function bindApp(){
   document.getElementById('ep-overlay')?.addEventListener('click',e=>{if(e.target.id==='ep-overlay'){addEpModal=false;render();}});
   document.getElementById('new-ep-num')?.addEventListener('input',e=>{newEpNum=e.target.value;render();});
   document.getElementById('ep-confirm')?.addEventListener('click',()=>{const num=parseInt(newEpNum);if(isNaN(num)||num<1){showToast('Enter a valid episode number.',true);return;}if(getEpNums().includes(num)){showToast(`Episode ${num} already exists.`,true);return;}const autoDate=resolveDate(num);settings.epDates={...(settings.epDates||{}),[num]:autoDate};saveSettings();showToast(`Episode ${num} added — ${fmtDate(autoDate)}`);addEpModal=false;render();});
+  // End Credits inputs
+  document.querySelectorAll('input.ec-inp').forEach(inp=>{
+    inp.addEventListener('input',e=>{
+      saveECValue(inp.dataset.ep, inp.dataset.sec, inp.dataset.key, e.target.value);
+    });
+    inp.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();inp.blur();inp.focus();}
+      if(e.key==='Tab'){
+        e.preventDefault();
+        inp.blur();
+        const all=Array.from(document.querySelectorAll('input.ec-inp'));
+        const idx=all.indexOf(inp);
+        const next=all[idx+(e.shiftKey?-1:1)];
+        if(next){next.focus();next.select();}
+      }
+    });
+  });
+
+  // Per-episode credits PDF export
+  document.querySelectorAll('[data-ep-credits-pdf]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const epNum=btn.dataset.epCreditsPdf;
+      btn.innerHTML='⏳ Preparing…';btn.disabled=true;
+      await exportCreditsPDF(epNum);
+      btn.innerHTML='⬇ Export Credits PDF';btn.disabled=false;
+    });
+  });
+
   // Studio Crew inputs
   document.querySelectorAll('input.studio-ci').forEach(inp=>{
     const ep=inp.dataset.ep;
@@ -1701,6 +1976,7 @@ async function boot(){
       try{subscribeData();}catch(e){console.error('Subscribe error:',e);}
       try{await loadUsers();}catch(e){console.error('Load users error:',e);}
       try{await loadStudioCrew();}catch(e){console.error('Studio crew error:',e);}
+      try{await loadEndCredits();}catch(e){console.error('End credits error:',e);}
       render();
     } else {
       currentUser=null;currentRole=null;
