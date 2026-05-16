@@ -441,35 +441,124 @@ async function exportCreditsPDF(epNum){
     return`<table style="${tblStyle}"><thead><tr><th colspan="2" style="${thStyle}">${title}</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
+  // Use table-based two-column layout — CSS grid/flex don't work in html2pdf
+  // Helper: label line + bold name(s) line
+  function credLine(label, ...names){
+    const nameRows=names.filter(Boolean).map(n=>`<div style="font-weight:700;font-size:10px;color:#111;letter-spacing:.5px">${esc(n)}</div>`).join('');
+    return`<div style="margin-bottom:10px">
+      ${label?`<div style="font-size:8px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px">${label}</div>`:''}
+      ${nameRows}
+    </div>`;
+  }
+  function credSection(title){
+    return`<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#111;border-bottom:1px solid #ccc;padding-bottom:3px;margin:14px 0 8px">
+      ${title}
+    </div>`;
+  }
+
+  // Story crew from commissions
+  const storyCrewBlocks=comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse).map(s=>`
+    <div style="margin-bottom:10px">
+      <div style="font-weight:800;font-size:10px;color:#111;margin-bottom:6px">"${esc(s.storyName.toUpperCase())}"</div>
+      ${s.dop?credLine('DIRECTOR OF PHOTOGRAPHY',s.dop):''}
+      ${s.ca?credLine('CAMERA ASSISTANT',s.ca):''}
+      ${s.editor?credLine('EDITOR',s.editor):''}
+      ${s.afm?credLine('AUDIO FINAL MIX',s.afm):''}
+    </div>`).join('');
+
+  // Get all field values with defaults
+  function ev(sec,key,def){return getECValue(n,sec,key,def)||def||'';}
+
+  const credBody=`
+    ${credSection('PRESENTERS')}
+    ${EC_FIXED_SECTIONS[0].fields.map(f=>`<div style="font-weight:700;font-size:10px;color:#111;margin-bottom:4px">${esc(ev('presenters',f.key,f.default))}</div>`).join('')}
+
+    ${credSection('CARTE BLANCHE VIEWER PANEL')}
+    ${EC_FIXED_SECTIONS[1].fields.map(f=>`<div style="font-weight:700;font-size:10px;color:#111;margin-bottom:4px">${esc(ev('viewerPanel',f.key,f.default))}</div>`).join('')}
+
+    ${credSection('CARTE BLANCHE THEME')}
+    ${credLine('COMPOSED BY', ev('theme','composedBy','DAVE POLLECUTT'))}
+    ${credLine('ORCHESTRATION BY', ev('theme','orchBy','KURT HERMAN') + (ev('theme','orchBy2','FOR BLUEBERRY ENTERTAINMENT')?'<br>'+ev('theme','orchBy2','FOR BLUEBERRY ENTERTAINMENT'):''))}
+    ${credLine('LOGO & IMAGING BY', ev('theme','logoBy','MONARCY'))}
+    ${credLine('LEGAL ADVISORS', ev('theme','legal1','DARIO MILO'))}
+    ${ev('theme','legal2','POOJA DELA-CRON')?`<div style="font-weight:700;font-size:10px;color:#111;margin-bottom:4px">${esc(ev('theme','legal2','POOJA DELA-CRON'))}</div>`:''}
+    ${ev('theme','legal3','ODWA ABRAHAM')?`<div style="font-weight:700;font-size:10px;color:#111;margin-bottom:4px">${esc(ev('theme','legal3','ODWA ABRAHAM'))}</div>`:''}
+    ${ev('theme','legal4','KUHLE MAVUSO')?`<div style="font-weight:700;font-size:10px;color:#111;margin-bottom:4px">${esc(ev('theme','legal4','KUHLE MAVUSO'))}</div>`:''}
+    ${ev('theme','legal5','WEBBER WENTZEL ATTORNEYS')?`<div style="font-weight:700;font-size:10px;color:#111;margin-bottom:10px">${esc(ev('theme','legal5','WEBBER WENTZEL ATTORNEYS'))}</div>`:''}
+
+    ${storyCrewBlocks}
+
+    ${credSection('STUDIO')}
+    ${credLine('STUDIO FACILITIES', ev('studio','studioFac','STARK STUDIOS'))}
+    ${credLine('SET & SET DESIGN', ev('studio','setDesign','DEWET MEYER'))}
+    ${ev('studio','setDesign2','JD UNLIMITED')?credLine('',ev('studio','setDesign2','JD UNLIMITED')):''}
+    ${credLine('LIGHTING DESIGN', ev('studio','lightEng','JOSHUA CUTTS'))}
+    ${ev('studio','lightEng2','VISUAL FRONTIER')?credLine('ENGINEERS',ev('studio','lightEng2','VISUAL FRONTIER')):''}
+    ${credLine('SOUND ASSISTANT', ev('studio','stSoundAsst','MARIUS KEMP'))}
+    ${credLine('AUTOCUE', ev('studio','autocue','CARLA HAMILTON / EASIQ.CO.ZA'))}
+    ${credLine('GRAPHICS', ev('studio','graphics','MATTHEW COLEMAN'))}
+    ${credLine('CAMERAS', ev('studio','cameras','ROHAN DASS / SIBUSISO MNCUBE'))}
+    ${credLine('JIMMY JIB', ev('studio','jimmyJib','BRAD BELLAS (CLUTCH MEDIA)'))}
+    ${credLine('VISION CONTROL', ev('studio','visionCtrl','OSCAR CHAVALALA'))}
+    ${credLine('LIGHTING', ev('studio','lighting','PAUL MODISE'))}
+    ${credLine('VT OPERATOR', ev('studio','vtOp','ANDREW BARTLETT'))}
+    ${credLine('SOUND ENGINEER', ev('studio','soundEng','JOSHUA VAN AS'))}
+    ${credLine('VISION MIXER', ev('studio','visionMix','JACO LOMBARD'))}
+
+    ${credSection('PRODUCTION')}
+    ${credLine('PRODUCTION', ev('production','prod','VINCENT BUTJE'))}
+    ${credLine('PRODUCTION COORDINATOR', ev('production','prodCoord','MIHLE KLAAS'))}
+    ${credLine('VIDEO EDITORS', ev('production','vidEd1','BRYAN BARTLE'))}
+    ${ev('production','vidEd2','STENETTE GROSSKOPF')?`<div style="font-weight:700;font-size:10px;color:#111;margin-bottom:4px">${esc(ev('production','vidEd2','STENETTE GROSSKOPF'))}</div>`:''}
+    ${ev('production','patron','')?credLine('PATRON: MAKING A DIFFERENCE TRUST',ev('production','patron','')):''}
+    ${credLine('FINANCE MANAGER', ev('production','finMgr','MY ACCOUNTANT'))}
+
+    ${credSection('FOR CARTE BLANCHE:')}
+    ${credLine('MAKE-UP & STYLING', ev('carteBlanche','makeupStyling','ANNAMARIE BRONKHORST'))}
+    ${credLine('PRODUCTION MANAGER', ev('carteBlanche','prodMgr','NOMBUSO NKOSI'))}
+    ${credLine('OPERATIONAL MANAGER', ev('carteBlanche','opsMgr','MEINIE HEYDENRYCH'))}
+    ${credLine('FLOOR MANAGER', ev('carteBlanche','floorMgr','KAI MASTERTON'))}
+    ${credLine('ASSISTANT STUDIO DIRECTOR', ev('carteBlanche','asd','JANA PIENAAR'))}
+    ${credLine('STUDIO DIRECTOR', ev('carteBlanche','sd','MICHAEL SCHNEIDER'))}
+    ${credLine('EDITORIAL ASSISTANT', ev('carteBlanche','editAsst','OFENTSE LAMOLA'))}
+    ${credLine('CONTENT EDITOR', ev('carteBlanche','contentEd','LAURA BYRNE'))}
+    ${credLine('ONLINE EDITOR', ev('carteBlanche','onlineEd','LEZANNE JANSE VAN RENSBURG'))}
+    ${credLine('EDITORIAL MANAGER', ev('carteBlanche','editMgr','STENETTE GROSSKOPF'))}
+    ${credLine('PRODUCER', ev('carteBlanche','producer','RUDI BOTHA'))}
+    ${credLine('EXECUTIVE PRODUCER', ev('carteBlanche','execProd','JOHN WEBB'))}
+  `;
+
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;padding:20px;font-size:10px}@page{margin:12mm;size:A4 portrait}</style>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;font-size:9px}
+    @page{margin:10mm;size:A4 portrait}
+    table{table-layout:fixed}
+  </style>
   </head><body>
   <!-- HEADER -->
-  <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;border-bottom:3px solid #1a3a6a;margin-bottom:16px">
-    <img src="${BAKED_CB_LOGO}" style="height:52px;width:auto;object-fit:contain">
-    <div style="text-align:center;flex:1;padding:0 20px">
-      <div style="font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#111">CARTE BLANCHE END CREDITS</div>
-      <div style="font-size:9px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">Episode ${n} · ${date} · Season ${currentSeason}</div>
-    </div>
-    <img src="${BAKED_CAP_LOGO}" style="height:44px;width:auto;object-fit:contain">
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-    <div>
-      ${section('PRESENTERS', EC_FIXED_SECTIONS[0].fields.map(f=>`<tr><td colspan="2" style="padding:3px 0;font-size:10px">${esc(ecVal('presenters',f.key,f.default))}</td></tr>`).join(''))}
-      ${section('CARTE BLANCHE VIEWER PANEL', EC_FIXED_SECTIONS[1].fields.map(f=>`<tr><td colspan="2" style="padding:3px 0;font-size:10px">${esc(ecVal('viewerPanel',f.key,f.default))}</td></tr>`).join(''))}
-      ${section('CARTE BLANCHE THEME', EC_FIXED_SECTIONS[2].rows.map(r=>`<tr><td style="${tdLabel}">${r.label}</td><td style="${tdVal}">${esc(ecVal('theme',r.key,r.default))}</td></tr>`).join(''))}
-      ${storiesHTML?section('STORY CREW',storiesHTML):''}
-    </div>
-    <div>
-      ${section('STUDIO', EC_FIXED_SECTIONS[3].rows.map(r=>`<tr><td style="${tdLabel}">${r.label}</td><td style="${tdVal}">${esc(ecVal('studio',r.key,r.default))}</td></tr>`).join(''))}
-      ${section('PRODUCTION', EC_FIXED_SECTIONS[4].rows.map(r=>`<tr><td style="${tdLabel}">${r.label}</td><td style="${tdVal}">${esc(ecVal('production',r.key,r.default))}</td></tr>`).join(''))}
-      ${section('FOR CARTE BLANCHE', EC_FIXED_SECTIONS[5].rows.map(r=>`<tr><td style="${tdLabel}">${r.label}</td><td style="${tdVal}">${esc(ecVal('carteBlanche',r.key,r.default))}</td></tr>`).join(''))}
-    </div>
-  </div>
-  <div style="margin-top:16px;text-align:center;font-size:8px;color:#aaa;border-top:1px solid #ddd;padding-top:8px">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
+  <table style="width:100%;border-collapse:collapse;border-bottom:3px solid #1a3a6a;margin-bottom:14px;padding-bottom:10px">
+    <tr valign="middle">
+      <td style="width:90px;padding-bottom:10px"><img src="${BAKED_CB_LOGO}" style="height:46px;width:auto;display:block"></td>
+      <td style="text-align:center;padding:0 12px 10px">
+        <div style="font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#111;line-height:1.1;font-family:Arial,sans-serif">CARTE BLANCHE END CREDITS</div>
+        <div style="font-size:8px;color:#888;margin-top:4px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;font-family:Arial,sans-serif">Episode ${n} &nbsp;·&nbsp; ${date} &nbsp;·&nbsp; Season ${currentSeason}</div>
+      </td>
+      <td style="width:90px;text-align:right;padding-bottom:10px"><img src="${BAKED_CAP_LOGO}" style="height:38px;width:auto;display:block;margin-left:auto"></td>
+    </tr>
+  </table>
+  <!-- CREDITS BODY - single column list matching docx format -->
+  ${credBody}
+  <div style="margin-top:12px;text-align:center;font-size:7px;color:#aaa;border-top:1px solid #ddd;padding-top:6px">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
   </body></html>`;
 
-  html2pdf().set({margin:[8,8,8,8],filename:`CB-End-Credits-Season${currentSeason}-EP${n}.pdf`,image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true,allowTaint:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(html).save();
+  html2pdf().set({
+    margin:[10,12,10,12],
+    filename:`CB-End-Credits-Season${currentSeason}-EP${n}.pdf`,
+    image:{type:'jpeg',quality:0.98},
+    html2canvas:{scale:2,useCORS:true,allowTaint:true},
+    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+  }).from(html).save();
 }
 
 async function loadEndCredits(){
@@ -1323,7 +1412,7 @@ function bindApp(){
     const epPages=epNums.map(n=>{
       const date=resolveDate(n);
       const stories=comms.filter(c=>
-        c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName
+        c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse
       ).sort((a,b)=>a.commNum>b.commNum?1:-1);
       if(!stories.length)return'';
 
@@ -1363,7 +1452,7 @@ function bindApp(){
       const scCol1=STUDIO_FIELDS.slice(0,half);
       const scCol2=STUDIO_FIELDS.slice(half);
       const studioCrHTML=hasStudio?`
-        <div style="margin-top:24px">
+        <div style="margin-top:20px;page-break-inside:avoid;break-inside:avoid;page-break-before:auto">
           <div style="background:#1a3a6a;color:#fff;padding:8px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Studio Crew — Episode ${n}</div>
           <table style="width:100%;border-collapse:collapse;border:1px solid #d0d8e8;border-top:none">
             ${STUDIO_FIELDS.map(([k,l],i)=>{
