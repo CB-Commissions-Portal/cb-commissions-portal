@@ -760,16 +760,11 @@ function renderEpisodes(epNums,paid,remaining){
   return`<div class="ep-wrap">
 ${currentRole==='editorial'?`<div class="info-box"><strong>Editorial view</strong> — Contracted: <strong>${settings.contractedMinutes||438}</strong> · Paid: <strong>${paid.toFixed(1)}</strong> · Remaining: <strong>${remaining.toFixed(1)}</strong></div>`:''}
 <div style="display:flex;gap:8px;margin-bottom:12px" class="no-print">
-  <button class="btn primary" id="export-pdf-btn" onclick="
-    const btn=document.getElementById('export-pdf-btn');
-    btn.textContent='⏳ Preparing PDF…';
-    btn.disabled=true;
-    btn.style.opacity='0.7';
-    setTimeout(()=>{
-      window.print();
-      setTimeout(()=>{btn.textContent='Export PDF';btn.disabled=false;btn.style.opacity='1';},1000);
-    },400);
-  ">Export PDF</button>
+  <button class="btn primary" id="export-pdf-btn">⬇ Export PDF</button>
+  ${currentRole==='admin'?`<select id="ep-export-sel" class="f-sel" tabindex="-1" style="font-size:12px">
+    <option value="all">All Episodes</option>
+    ${epNums.map(n=>`<option value="${n}">Episode ${n} only</option>`).join('')}
+  </select>`:''}
   ${currentRole==='admin'?`<button class="btn" id="add-ep-btn2">+ Add Episode</button>`:''}
   <span class="count-lbl" style="margin-left:0">${episodes.length} episodes</span>
 </div>
@@ -889,6 +884,120 @@ function bindApp(){
   document.getElementById('filter-sel')?.addEventListener('change',e=>{filter=e.target.value;render();});
   ['add-row-btn','add-row-btn2'].forEach(id=>document.getElementById(id)?.addEventListener('click',addRow));
   ['add-ep-btn','add-ep-btn2'].forEach(id=>document.getElementById(id)?.addEventListener('click',()=>{const e=getEpNums();newEpNum=String(e.length?Math.max(...e)+1:1);addEpModal=true;render();}));
+
+  // PDF Export
+  document.getElementById('export-pdf-btn')?.addEventListener('click',async()=>{
+    const btn=document.getElementById('export-pdf-btn');
+    const epSel=document.getElementById('ep-export-sel');
+    const filterEp=epSel?epSel.value:'all';
+    btn.innerHTML='⏳ Preparing PDF…';
+    btn.disabled=true;
+
+    // Load html2pdf if not already loaded
+    if(!window.html2pdf){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+        s.onload=res;s.onerror=rej;
+        document.head.appendChild(s);
+      });
+    }
+
+    // Build clean HTML for PDF
+    const paid=getPaidMins(),contracted=settings.contractedMinutes||438,remaining=contracted-paid;
+    const epNums=getEpNums();
+    const episodes=epNums
+      .filter(n=>filterEp==='all'||String(n)===filterEp)
+      .map(n=>({ep:n,date:resolveDate(n),stories:comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned)}));
+
+    const epCards=episodes.map(({ep,date,stories})=>{
+      const k=String(ep),epType=(settings.epTypes||{})[k]||'normal';
+      const epContentMins=stories.reduce((s,c)=>s+toDecimalMins(c.deliveredDuration||c.commDuration),0);
+      const insertMins=stories.filter(s=>!s.isInHouse&&!s.decommissioned).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);
+      const nonMins=stories.filter(s=>s.isInHouse).reduce((s,c)=>s+toDecimalMins(c.deliveredDuration||c.commDuration),0);
+      const diff=insertMins-34;
+      const absSecs=Math.round(Math.abs(diff)*60);
+      const dh=Math.floor(absSecs/3600),dm=Math.floor((absSecs%3600)/60),ds=absSecs%60;
+      const diffStr=`${String(dh).padStart(2,'0')}:${String(dm).padStart(2,'0')}:${String(ds).padStart(2,'0')}`;
+      const insertDisplay=diff>0?`<span style="color:#c0392b">${fmtHMS(insertMins)} <small>(+${diffStr})</small></span>`:
+                          diff<0?`<span style="color:#1a7a1a">${fmtHMS(insertMins)} <small>(-${diffStr})</small></span>`:
+                          `<span style="color:#1a7a1a">${fmtHMS(insertMins)}</span>`;
+      const rows=stories.map(s=>{
+        const pd=toDecimalMins(s.paidDuration),dd=toDecimalMins(s.deliveredDuration)||toDecimalMins(s.commDuration)||0;
+        return`<tr>
+          <td style="padding:7px 10px;border-bottom:1px solid #eee;font-weight:600;color:#111;font-size:11px">${esc(s.storyName||'')}</td>
+          <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace;color:#1a3a6a;font-size:11px">${s.commNum}</td>
+          <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;font-size:11px">${dd?`<span style="background:${s.isInHouse?'#fff8e8':'#e8f5e8'};color:${s.isInHouse?'#b8860b':'#1a5c1a'};padding:2px 7px;border-radius:3px;font-family:monospace;font-weight:700">${fmtHMS(dd)}</span>`:'—'}</td>
+          <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;font-size:11px">${!s.isInHouse&&pd>0?`<span style="background:#e8f5e8;color:#1a5c1a;padding:2px 7px;border-radius:3px;font-family:monospace;font-weight:700">${fmtHMS(pd)}</span>`:'—'}</td>
+          <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;font-size:11px">${s.isInHouse&&dd?`<span style="background:#fff8e8;color:#b8860b;padding:2px 7px;border-radius:3px;font-family:monospace;font-weight:700">${fmtHMS(dd)}</span>`:'—'}</td>
+          <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:center;font-size:10px">${s.approvedForPayment?'<span style="background:#e8eef8;color:#0047ab;padding:2px 7px;border-radius:3px;font-weight:700;font-size:9px">PAID</span>':s.isInHouse?'<span style="background:#f0f0f8;color:#555;padding:2px 7px;border-radius:3px;font-weight:700;font-size:9px">IN-HOUSE</span>':'<span style="background:#fff8e8;color:#b8860b;padding:2px 7px;border-radius:3px;font-weight:700;font-size:9px">PENDING</span>'}</td>
+        </tr>`;
+      }).join('');
+      return`<div style="border:1px solid #ccc;border-radius:6px;margin-bottom:16px;overflow:hidden;break-inside:avoid;page-break-inside:avoid">
+        <div style="background:#f0f4f8;padding:10px 14px;border-bottom:1px solid #ccc;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <span style="background:#1a3a6a;color:#fff;font-family:monospace;font-weight:800;font-size:11px;padding:4px 10px;border-radius:3px">EP ${ep}</span>
+          <span style="font-weight:700;font-size:12px;color:#222">${fmtDate(date)}</span>
+          <span style="font-size:11px;color:#666">${stories.length} ${stories.length===1?'story':'stories'}</span>
+          <span style="font-size:10px;color:#888;margin-left:8px;padding-left:8px;border-left:1px solid #ccc">
+            Allocated: <strong style="font-family:monospace;color:#0047ab">00:34:00</strong> &nbsp;|&nbsp;
+            Ep Content: <strong style="font-family:monospace">${fmtHMS(epContentMins)}</strong> &nbsp;|&nbsp;
+            Insert: ${insertDisplay} &nbsp;|&nbsp;
+            Non-Insert: <strong style="font-family:monospace;color:#b8860b">${fmtHMS(nonMins)}</strong>
+          </span>
+          <span style="margin-left:auto;font-size:10px;font-weight:700;color:${epType==='extended'?'#b8860b':'#1a7a1a'}">${epType==='extended'?'★ EXTENDED':'NORMAL'}</span>
+        </div>
+        ${stories.length>0?`
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:#f8f8f8">
+            <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ccc">Story Name</th>
+            <th style="padding:7px 10px;text-align:right;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ccc">Comm #</th>
+            <th style="padding:7px 10px;text-align:right;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ccc">Delivered Mins</th>
+            <th style="padding:7px 10px;text-align:right;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ccc">Insert Mins (Paid)</th>
+            <th style="padding:7px 10px;text-align:right;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ccc">Non-Insert (IH)</th>
+            <th style="padding:7px 10px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ccc">Status</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div style="background:#f8f8f8;padding:8px 14px;border-top:2px solid #ddd;display:flex;gap:20px;font-size:10px;font-weight:600;color:#444">
+          <span>Insert Mins: <strong style="font-family:monospace;color:#1a5c1a">${fmtHMS(insertMins)}</strong></span>
+          <span>Non-Insert: <strong style="font-family:monospace;color:#b8860b">${fmtHMS(nonMins)}</strong></span>
+          <span>Type: <strong>${epType==='extended'?'Extended ★':'Normal'}</strong></span>
+        </div>`:'<div style="padding:12px 14px;color:#888;font-size:11px;font-style:italic">No stories assigned yet.</div>'}
+      </div>`;
+    }).join('');
+
+    const printDate=new Date().toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+    const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;padding:24px;font-size:11px}
+    </style></head><body>
+    <div style="border-bottom:3px solid #111;padding-bottom:14px;margin-bottom:20px">
+      <div style="font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">CB Commission Management Portal — Broadcast Schedule</div>
+      <div style="display:flex;gap:24px;align-items:center">
+        <div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#666;margin-bottom:2px">Contracted Minutes</div><div style="font-size:26px;font-weight:900;font-family:monospace;color:#b8860b">${contracted}</div></div>
+        <div style="font-size:20px;color:#ccc">−</div>
+        <div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#666;margin-bottom:2px">Paid Minutes</div><div style="font-size:26px;font-weight:900;font-family:monospace;color:#111">${paid.toFixed(1)}</div></div>
+        <div style="font-size:20px;color:#ccc">=</div>
+        <div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#666;margin-bottom:2px">Remaining Minutes</div><div style="font-size:26px;font-weight:900;font-family:monospace;color:#0047ab">${remaining.toFixed(1)}</div></div>
+        <div style="margin-left:auto;text-align:right;font-size:10px;color:#666">Season ${currentSeason}<br>${printDate}${filterEp!=='all'?`<br><strong>Episode ${filterEp} only</strong>`:''}</div>
+      </div>
+    </div>
+    ${epCards}
+    </body></html>`;
+
+    const filename=filterEp==='all'?`CB-Broadcast-Schedule-${currentSeason}.pdf`:`CB-Episode-${filterEp}-${currentSeason}.pdf`;
+    html2pdf().set({
+      margin:10,
+      filename,
+      image:{type:'jpeg',quality:0.98},
+      html2canvas:{scale:2,useCORS:true},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+    }).from(html).save().then(()=>{
+      btn.innerHTML='⬇ Export PDF';
+      btn.disabled=false;
+    });
+  });
 
   // Collect all focusable text inputs for Tab navigation
   const getTextInputs=()=>Array.from(document.querySelectorAll('.table-outer input.ci, .table-outer input.sc'));
