@@ -390,7 +390,7 @@ let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,e
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
 let tab='commissions',sortField='commNum',sortDir='asc',search='',filter='all',currentSeason='S39',previewRole=null;
 let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,tempDate='';
-let addUserModal=false,newUserData={email:'',password:'',displayName:'',role:'editorial'};
+let addUserModal=false,newUserData={email:'',password:'',displayName:'',role:'editorial'},editUserModal=null,deleteUserModal=null;
 let toast=null,toastTimer=null,pendingFocusId=null;
 
 function initFB(cfg){try{fbApp=initializeApp(cfg);auth=getAuth(fbApp);db=getFirestore(fbApp);return true;}catch(e){console.error(e);return false;}}
@@ -421,6 +421,25 @@ function setSyncDot(s){syncStatus=s;const dot=document.getElementById('sync-dot'
 
 async function login(email,pass){try{await signInWithEmailAndPassword(auth,email,pass);return{ok:true};}catch(e){return{ok:false,error:e.message.replace('Firebase:','').replace(/\(auth\/.*\)/,'').trim()};}}
 async function getUserRole(uid){try{const s=await getDoc(doc(db,'users',uid));return s.exists()?s.data().role:null;}catch{return null;}}
+async function updateUserRole(uid,role){
+  try{
+    await setDoc(doc(db,'users',uid),{role},{merge:true});
+    showToast('Role updated successfully');
+    await loadUsers();
+    render();
+  }catch(e){showToast('Failed to update role: '+e.message,true);}
+}
+
+async function deleteUserFromDB(uid){
+  try{
+    const {deleteDoc}=await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+    await deleteDoc(doc(db,'users',uid));
+    users=users.filter(u=>u.uid!==uid);
+    showToast('User removed');
+    render();
+  }catch(e){showToast('Failed to remove user: '+e.message,true);}
+}
+
 async function createUser(email,pass,displayName,role){try{const cred=await createUserWithEmailAndPassword(auth,email,pass);await updateProfile(cred.user,{displayName});await setDoc(doc(db,'users',cred.user.uid),{email,displayName,role,createdAt:serverTimestamp()});showToast(displayName+' created successfully');await loadUsers();return{ok:true};}catch(e){return{ok:false,error:e.message.replace('Firebase:','').trim()};}}
 
 function updateComm(id,field,val){
@@ -833,21 +852,68 @@ return`<tr data-ep-row="${s.id}">
 ${episodes.length===0?`<div style="color:#6e7681;padding:32px;text-align:center">No episodes yet. Assign a broadcast episode from the Comm List tab.</div>`:''}
 </div>`;}
 
-function renderAdmin(){return`<div class="admin-wrap"><div class="admin-grid">
-<div class="admin-card"><h4>Users &amp; Access</h4>
-${users.length===0?`<div style="color:#6e7681;font-size:12px">No users found.</div>`:users.map(u=>{const rm=ROLE_META[u.role]||ROLE_META.editorial;return`<div class="user-row"><div class="u-av" style="background:${rm.bg};color:${rm.color}">${initials(u.displayName||u.email)}</div><div style="flex:1"><div class="u-name">${esc(u.displayName||'')}</div><div class="u-email">${esc(u.email||'')}</div></div><span class="u-role-badge" style="background:${rm.bg};color:${rm.color};padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700">${rm.label}</span></div>`;}).join('')}
-<button class="btn primary" id="add-user-btn" style="margin-top:14px;width:100%">+ Create User Account</button>
-</div>
-<div class="admin-card"><h4>Role Permissions</h4>
-${Object.entries(ROLE_META).map(([k,v])=>`<div class="perm-row"><span class="u-role-badge" style="background:${v.bg};color:${v.color};padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700;white-space:nowrap">${v.label}</span><div class="perm-desc">${k==='admin'?'Full access — edit everything, create users.':k==='editorial'?'Read-only: Episodes tab and minute ticker only.':k==='operations'?'Can edit: DOP, Camera Asst, Editor, AFM.':'Can edit: all 7 Deliverable checkboxes.'}</div></div>`).join('')}
-</div>
-</div></div>`;}
+function renderAdmin(){
+  const allRoles=Object.entries(ROLE_META);
+  return`<div class="admin-wrap">
+  <div class="admin-grid">
+  <div class="admin-card" style="grid-column:1/-1">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h4 style="margin:0">Users &amp; Access</h4>
+      <button class="btn primary" id="add-user-btn">+ Create User</button>
+    </div>
+    ${users.length===0?`<div style="color:#6e7681;font-size:12px;padding:12px 0">No users found.</div>`:`
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:700;color:#6e7681;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #2e3a50">User</th>
+        <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:700;color:#6e7681;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #2e3a50">Email</th>
+        <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:700;color:#6e7681;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #2e3a50">Role</th>
+        <th style="text-align:center;padding:8px 10px;font-size:10px;font-weight:700;color:#6e7681;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #2e3a50">Actions</th>
+      </tr></thead>
+      <tbody>
+      ${users.map(u=>{
+        const rm=ROLE_META[u.role]||ROLE_META.editorial;
+        const isSelf=currentUser&&u.uid===currentUser.uid;
+        return`<tr style="border-bottom:1px solid #21262d">
+          <td style="padding:10px"><div style="display:flex;align-items:center;gap:8px">
+            <div class="u-av" style="background:${rm.bg};color:${rm.color};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${initials(u.displayName||u.email)}</div>
+            <div class="u-name" style="font-size:13px;font-weight:600">${esc(u.displayName||'No name')}</div>
+            ${isSelf?`<span style="font-size:9px;background:#1f4023;color:#3fb950;padding:1px 6px;border-radius:3px;font-weight:700">YOU</span>`:''}
+          </div></td>
+          <td style="padding:10px;font-size:12px;color:#8b949e">${esc(u.email||'')}</td>
+          <td style="padding:10px">
+            <select data-uid="${u.uid}" data-current-role="${u.role}" class="role-change-sel" style="background:#252d3d;border:1px solid #2e3a50;color:${rm.color};padding:4px 8px;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer" ${isSelf?'disabled':''}>
+              ${allRoles.map(([k,v])=>`<option value="${k}" ${u.role===k?'selected':''}>${v.label}</option>`).join('')}
+            </select>
+          </td>
+          <td style="padding:10px;text-align:center">
+            ${!isSelf?`<button class="btn danger" data-delete-uid="${u.uid}" data-delete-name="${esc(u.displayName||u.email)}" style="font-size:11px;padding:4px 10px">Remove</button>`:`<span style="color:#484f58;font-size:11px">—</span>`}
+          </td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+    </table>`}
+  </div>
+  <div class="admin-card">
+    <h4>Role Permissions</h4>
+    ${Object.entries(ROLE_META).map(([k,v])=>`<div class="perm-row"><span class="u-role-badge" style="background:${v.bg};color:${v.color};padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700;white-space:nowrap">${v.label}</span><div class="perm-desc">${k==='admin'?'Full access — edit everything, create users, change roles.':k==='editorial'?'Read-only: Episodes tab and minute ticker only.':k==='operations'?'Can edit: DOP, Camera Asst, Editor, AFM.':'Can edit: all 7 Deliverable checkboxes.'}</div></div>`).join('')}
+  </div>
+  </div>
+  ${deleteUserModal?`<div class="modal-overlay" id="delete-user-overlay"><div class="modal">
+    <h3>Remove User</h3>
+    <p>Are you sure you want to remove <strong>${esc(deleteUserModal.name)}</strong>? They will lose access immediately.</p>
+    <div class="modal-actions">
+      <button class="btn" id="delete-user-cancel">Cancel</button>
+      <button class="btn danger" id="delete-user-confirm">Remove User</button>
+    </div>
+  </div></div>`:''}
+  </div>`;
+}
 
 function renderModals(epNums,nextEp){
   let out='';
   if(decomModal!==null){const c=comms.find(x=>x.id===decomModal);out+=`<div class="modal-overlay" id="decom-overlay"><div class="modal"><h3>Decommission Story</h3><p>A written motivation is required. Reversible only by Admin.</p><label>Story</label><div class="modal-story">${esc(c?.storyName||'')}</div><label>Motivation *</label><textarea id="decom-text" placeholder="Enter reason for decommissioning…">${esc(decomText)}</textarea><div class="modal-actions"><button class="btn" id="decom-cancel">Cancel</button><button class="btn danger" id="decom-confirm">Confirm Decommission</button></div></div></div>`;}
   if(addEpModal){const autoDate=resolveDate(parseInt(newEpNum)||nextEp);const exists=epNums.includes(parseInt(newEpNum));out+=`<div class="modal-overlay" id="ep-overlay"><div class="modal"><h3>Add Episode</h3><p>Creates a new episode slot. Date is auto-calculated (+7 days) and editable after creation.</p><label>Episode Number</label><input type="number" id="new-ep-num" value="${newEpNum}" min="1" placeholder="${nextEp}">${newEpNum&&!isNaN(parseInt(newEpNum))?`<div style="margin-top:8px;font-size:12px;color:#8b949e">Date: <strong style="color:#e6edf3">${fmtDate(autoDate)}</strong></div>`:''}${exists?`<div style="color:#f85149;font-size:12px;margin-top:6px">⚠ Episode ${newEpNum} already exists.</div>`:''}<div class="modal-actions"><button class="btn" id="ep-cancel">Cancel</button><button class="btn primary" id="ep-confirm">Create Episode ${newEpNum||nextEp}</button></div></div></div>`;}
-  if(addUserModal){out+=`<div class="modal-overlay" id="user-overlay"><div class="modal"><h3>Create User Account</h3><p>The user can log in immediately with these credentials. Share them securely.</p><label>Full Name</label><input type="text" id="nu-name" value="${esc(newUserData.displayName)}" placeholder="e.g. Joy Summers"><label>Email</label><input type="email" id="nu-email" value="${esc(newUserData.email)}" placeholder="user@example.com"><label>Password</label><input type="text" id="nu-pass" value="${esc(newUserData.password)}" placeholder="Minimum 6 characters"><label>Role</label><select id="nu-role">${Object.entries(ROLE_META).filter(([k])=>k!=='admin').map(([k,v])=>`<option value="${k}"${newUserData.role===k?' selected':''}>${v.label}</option>`).join('')}</select><div id="nu-err" style="color:#f85149;font-size:12px;margin-top:8px;display:none"></div><div class="modal-actions"><button class="btn" id="user-cancel">Cancel</button><button class="btn primary" id="user-confirm">Create Account</button></div></div></div>`;}
+  if(addUserModal){out+=`<div class="modal-overlay" id="user-overlay"><div class="modal"><h3>Create User Account</h3><p>The user can log in immediately with these credentials. Share them securely.</p><label>Full Name</label><input type="text" id="nu-name" value="${esc(newUserData.displayName)}" placeholder="e.g. Joy Summers"><label>Email</label><input type="email" id="nu-email" value="${esc(newUserData.email)}" placeholder="user@example.com"><label>Password</label><input type="text" id="nu-pass" value="${esc(newUserData.password)}" placeholder="Minimum 6 characters"><label>Role</label><select id="nu-role">${Object.entries(ROLE_META).map(([k,v])=>`<option value="${k}"${newUserData.role===k?' selected':''}>${v.label}</option>`).join('')}</select><div id="nu-err" style="color:#f85149;font-size:12px;margin-top:8px;display:none"></div><div class="modal-actions"><button class="btn" id="user-cancel">Cancel</button><button class="btn primary" id="user-confirm">Create Account</button></div></div></div>`;}
   return out;
 }
 
@@ -1105,6 +1171,34 @@ function bindApp(){
   });
 
   document.getElementById('add-user-btn')?.addEventListener('click',()=>{addUserModal=true;render();});
+
+  // Role change dropdowns
+  document.querySelectorAll('.role-change-sel').forEach(sel=>{
+    sel.addEventListener('change',async e=>{
+      const uid=sel.dataset.uid;
+      const newRole=e.target.value;
+      const oldRole=sel.dataset.currentRole;
+      if(newRole===oldRole)return;
+      sel.disabled=true;
+      await updateUserRole(uid,newRole);
+      sel.disabled=false;
+    });
+  });
+
+  // Delete user buttons
+  document.querySelectorAll('[data-delete-uid]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      deleteUserModal={uid:btn.dataset.deleteUid,name:btn.dataset.deleteName};
+      render();
+    });
+  });
+  document.getElementById('delete-user-cancel')?.addEventListener('click',()=>{deleteUserModal=null;render();});
+  document.getElementById('delete-user-overlay')?.addEventListener('click',e=>{if(e.target.id==='delete-user-overlay'){deleteUserModal=null;render();}});
+  document.getElementById('delete-user-confirm')?.addEventListener('click',async()=>{
+    if(!deleteUserModal)return;
+    await deleteUserFromDB(deleteUserModal.uid);
+    deleteUserModal=null;
+  });
   document.getElementById('user-cancel')?.addEventListener('click',()=>{addUserModal=false;render();});
   document.getElementById('user-overlay')?.addEventListener('click',e=>{if(e.target.id==='user-overlay'){addUserModal=false;render();}});
   // Attach autocomplete to all relevant fields
@@ -1260,12 +1354,15 @@ async function boot(){
     if(user){
       currentUser=user;
       try{
-        if(user.email===ADMIN_EMAIL){
+        // Check Firestore role first, fall back to hardcoded admin email
+        const firestoreRole=await getUserRole(user.uid);
+        if(firestoreRole){
+          currentRole=firestoreRole;
+        } else if(user.email===ADMIN_EMAIL){
           currentRole='admin';
           await setDoc(doc(db,'users',user.uid),{email:user.email,displayName:user.displayName||user.email,role:'admin',createdAt:serverTimestamp()});
         } else {
-          currentRole=await getUserRole(user.uid);
-          if(!currentRole)currentRole='editorial';
+          currentRole='editorial';
         }
       }catch(e){
         console.error('Role error:',e);
