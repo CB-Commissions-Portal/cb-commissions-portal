@@ -987,17 +987,17 @@ function bindApp(){
         const isIH=s.isInHouse;
         return`
         <tr style="background:${i%2===0?'#fff':'#f9f9f9'}">
-          <td style="padding:10px 12px;border-bottom:1px solid #eee;font-weight:700;font-size:12px;color:#111;vertical-align:top">
+          <td style="padding:7px 8px;border-bottom:1px solid #eee;font-weight:700;font-size:11px;color:#111;vertical-align:top">
             ${esc(s.storyName||'')}<br>
             <span style="font-family:monospace;font-size:10px;color:#1a3a6a;font-weight:600">${s.commNum}</span>
             ${isIH?`<span style="margin-left:6px;background:#f0f0f8;color:#555;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700">IN-HOUSE</span>`:''}
           </td>
-          <td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:11px;color:#333;vertical-align:top">${esc(s.producer||'—')}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:11px;color:#333;vertical-align:top">${esc(s.presenterVO||'—')}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:11px;color:#333;vertical-align:top">${isIH?'<span style="color:#bbb">N/A</span>':esc(s.dop||'—')}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:11px;color:#333;vertical-align:top">${isIH?'<span style="color:#bbb">N/A</span>':esc(s.ca||'—')}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:11px;color:#333;vertical-align:top">${isIH?'<span style="color:#bbb">N/A</span>':esc(s.editor||'—')}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:11px;color:#333;vertical-align:top">${esc(s.afm||'—')}</td>
+          <td style="padding:7px 8px;border-bottom:1px solid #eee;font-size:10px;color:#333;vertical-align:top">${esc(s.producer||'—')}</td>
+          <td style="padding:7px 8px;border-bottom:1px solid #eee;font-size:10px;color:#333;vertical-align:top">${esc(s.presenterVO||'—')}</td>
+          <td style="padding:7px 8px;border-bottom:1px solid #eee;font-size:10px;color:#333;vertical-align:top">${isIH?'<span style="color:#bbb">N/A</span>':esc(s.dop||'—')}</td>
+          <td style="padding:7px 8px;border-bottom:1px solid #eee;font-size:10px;color:#333;vertical-align:top">${isIH?'<span style="color:#bbb">N/A</span>':esc(s.ca||'—')}</td>
+          <td style="padding:7px 8px;border-bottom:1px solid #eee;font-size:10px;color:#333;vertical-align:top">${isIH?'<span style="color:#bbb">N/A</span>':esc(s.editor||'—')}</td>
+          <td style="padding:7px 8px;border-bottom:1px solid #eee;font-size:10px;color:#333;vertical-align:top">${esc(s.afm||'—')}</td>
           <td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:11px;text-align:center;vertical-align:top">
             <span style="font-family:monospace;font-weight:700;background:#e8f5e8;color:#1a5c1a;padding:3px 8px;border-radius:3px;font-size:11px">${del}</span>
           </td>
@@ -1013,17 +1013,17 @@ function bindApp(){
           </div>
           <span style="font-size:11px;opacity:.8">${stories.length} ${stories.length===1?'story':'stories'}</span>
         </div>
-        <table style="width:100%;border-collapse:collapse;border:1px solid #ddd;border-top:none;border-radius:0 0 5px 5px;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse;table-layout:fixed;border:1px solid #ddd;border-top:none">
           <thead>
             <tr style="background:#f0f4f8">
-              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:20%">Story / Comm #</th>
-              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:16%">Producer</th>
-              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:13%">Presenter / VO</th>
-              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:13%">DOP</th>
-              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:12%">Cam Asst</th>
-              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:12%">Editor</th>
-              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:10%">AFM Op</th>
-              <th style="padding:8px 12px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:9%">Delivered</th>
+              <th style="padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:18%">Story / Comm #</th>
+              <th style="padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:16%">Producer</th>
+              <th style="padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:12%">Presenter / VO</th>
+              <th style="padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:13%">DOP</th>
+              <th style="padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:11%">Cam Asst</th>
+              <th style="padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:11%">Editor</th>
+              <th style="padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:10%">AFM Op</th>
+              <th style="padding:6px 8px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ddd;width:9%">Delivered</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -1034,7 +1034,7 @@ function bindApp(){
     const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
     <style>
       *{box-sizing:border-box;margin:0;padding:0}
-      body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;padding:24px;font-size:11px}
+      body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;padding:16px;font-size:11px}
       @page{margin:15mm}
     </style></head><body>
     <div style="border-bottom:3px solid #111;padding-bottom:14px;margin-bottom:24px">
@@ -1046,7 +1046,7 @@ function bindApp(){
     </body></html>`;
 
     html2pdf().set({
-      margin:[10,8,10,8],
+      margin:[8,6,8,6],
       filename:`CB-Commission-Report-${currentSeason}.pdf`,
       image:{type:'jpeg',quality:0.98},
       html2canvas:{scale:2,useCORS:true},
@@ -1142,7 +1142,7 @@ function bindApp(){
     const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
     <style>
       *{box-sizing:border-box;margin:0;padding:0}
-      body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;padding:24px;font-size:11px}
+      body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;padding:16px;font-size:11px}
     </style></head><body>
     <div style="border-bottom:3px solid #111;padding-bottom:14px;margin-bottom:20px">
       <div style="font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">CB Commission Management Portal — Broadcast Schedule</div>
