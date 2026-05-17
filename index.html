@@ -386,6 +386,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
+const BUILD_VERSION='1.0.0';
+const BUILD_DATE='17 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
 let tab='home',sortField='commNum',sortDir='asc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -1169,7 +1171,8 @@ function renderHome(){
 
     <!-- FOOTER -->
     <div style="margin-top:48px;text-align:center;font-size:11px;color:#9ca3af">
-      Combined Artists Productions · Carte Blanche Production Portal
+      Combined Artists Productions · Carte Blanche Production Portal<br>
+      <span style="font-size:10px;color:#9ca3af">Build v${BUILD_VERSION} &nbsp;·&nbsp; ${BUILD_DATE}</span>
     </div>
   </div>`;
 }
@@ -1245,6 +1248,7 @@ function renderApp(){
         ${previewRole?`<span style="font-size:10px;background:#2d2200;color:#f5a623;border:1px solid #f5a623;padding:2px 8px;border-radius:4px;font-weight:700">PREVIEW MODE</span>`:''}
       </div>`:''}
       <div class="user-chip">
+        <span style="font-size:9px;color:#484f58;margin-right:8px;font-family:'JetBrains Mono',monospace">v${BUILD_VERSION}</span>
         <div class="avatar" style="background:${rm.bg};color:${rm.color}">${initials(currentUser.displayName||currentUser.email)}</div>
         <div><div class="u-name">${esc(currentUser.displayName||currentUser.email)}</div><div class="u-role-lbl" style="color:${rm.color}">${previewRole?`Previewing: ${ROLE_META[previewRole].label}`:rm.label}</div></div>
       </div>
