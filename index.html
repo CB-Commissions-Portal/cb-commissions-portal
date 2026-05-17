@@ -456,77 +456,113 @@ async function exportCreditsPDF(epNum){
     </div>`;
   }
 
-  // Story crew from commissions
+  // Story crew from commissions — licensed shows producer only, in-house excluded
   const storyCrewBlocks=comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse).map(s=>`
     <div style="margin-bottom:10px">
       <div style="font-weight:800;font-size:10px;color:#111;margin-bottom:6px">"${esc(s.storyName.toUpperCase())}"</div>
-      ${s.dop?credLine('DIRECTOR OF PHOTOGRAPHY',s.dop):''}
-      ${s.ca?credLine('CAMERA ASSISTANT',s.ca):''}
-      ${s.editor?credLine('EDITOR',s.editor):''}
-      ${s.afm?credLine('AUDIO FINAL MIX',s.afm):''}
+      ${s.isLicensed
+        ? credLine('PRODUCER', s.producer)
+        : `${s.dop?credLine('DIRECTOR OF PHOTOGRAPHY',s.dop):''}
+           ${s.ca?credLine('CAMERA ASSISTANT',s.ca):''}
+           ${s.editor?credLine('EDITOR',s.editor):''}
+           ${s.afm?credLine('AUDIO FINAL MIX',s.afm):''}`
+      }
     </div>`).join('');
 
   // Get all field values with defaults
   function ev(sec,key,def){return getECValue(n,sec,key,def)||def||'';}
 
-  const credBody=`
-    ${credSection('PRESENTERS')}
-    ${EC_FIXED_SECTIONS[0].fields.map(f=>`<div style="font-weight:700;font-size:10px;color:#111;margin-bottom:4px">${esc(ev('presenters',f.key,f.default))}</div>`).join('')}
+  // Build centred, spaced credits body using tables (html2pdf safe)
+  const C='text-align:center';
+  const LBL='font-size:8px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.9px;text-align:center;padding-top:16px;padding-bottom:2px';
+  const NAME='font-size:11px;font-weight:800;color:#111;letter-spacing:.4px;text-align:center;padding-bottom:3px';
+  const SEC='font-size:9px;font-weight:900;color:#111;text-transform:uppercase;letter-spacing:1.5px;text-align:center;border-bottom:2px solid #1a3a6a;padding:18px 0 5px;margin-bottom:4px';
 
-    ${credSection('CARTE BLANCHE VIEWER PANEL')}
-    ${EC_FIXED_SECTIONS[1].fields.map(f=>`<div style="font-weight:700;font-size:10px;color:#111;margin-bottom:4px">${esc(ev('viewerPanel',f.key,f.default))}</div>`).join('')}
+  function cRow(style,val){return val?`<tr><td style="${style}">${val}</td></tr>`:'';}
+  function cLabel(l){return cRow(LBL,l);}
+  function cName(n){return cRow(NAME,esc(n));}
+  function cSec(t){return`<tr><td style="${SEC}">${t}</td></tr>`;}
+  function cGap(){return`<tr><td style="padding:6px 0"></td></tr>`;}
 
-    ${credSection('CARTE BLANCHE THEME')}
-    ${credLine('COMPOSED BY', ev('theme','composedBy','DAVE POLLECUTT'))}
-    ${credLine('ORCHESTRATION BY', ev('theme','orchBy','KURT HERMAN') + (ev('theme','orchBy2','FOR BLUEBERRY ENTERTAINMENT')?'<br>'+ev('theme','orchBy2','FOR BLUEBERRY ENTERTAINMENT'):''))}
-    ${credLine('LOGO & IMAGING BY', ev('theme','logoBy','MONARCY'))}
-    ${credLine('LEGAL ADVISORS', ev('theme','legal1','DARIO MILO'))}
-    ${ev('theme','legal2','POOJA DELA-CRON')?`<div style="font-weight:700;font-size:10px;color:#111;margin-bottom:4px">${esc(ev('theme','legal2','POOJA DELA-CRON'))}</div>`:''}
-    ${ev('theme','legal3','ODWA ABRAHAM')?`<div style="font-weight:700;font-size:10px;color:#111;margin-bottom:4px">${esc(ev('theme','legal3','ODWA ABRAHAM'))}</div>`:''}
-    ${ev('theme','legal4','KUHLE MAVUSO')?`<div style="font-weight:700;font-size:10px;color:#111;margin-bottom:4px">${esc(ev('theme','legal4','KUHLE MAVUSO'))}</div>`:''}
-    ${ev('theme','legal5','WEBBER WENTZEL ATTORNEYS')?`<div style="font-weight:700;font-size:10px;color:#111;margin-bottom:10px">${esc(ev('theme','legal5','WEBBER WENTZEL ATTORNEYS'))}</div>`:''}
+  // Story crew rows
+  const storyRows=comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse).map(s=>`
+    ${cGap()}
+    ${cRow('font-size:11px;font-weight:800;color:#1a3a6a;text-align:center;padding-top:8px;padding-bottom:2px','"'+esc(s.storyName.toUpperCase())+'"')}
+    ${s.isLicensed
+      ? s.producer?`${cLabel('PRODUCER')}${cName(s.producer)}`  :''
+      : `${s.dop?`${cLabel('DIRECTOR OF PHOTOGRAPHY')}${cName(s.dop)}`:''}
+         ${s.ca?`${cLabel('CAMERA ASSISTANT')}${cName(s.ca)}`:''}
+         ${s.editor?`${cLabel('EDITOR')}${cName(s.editor)}`:''}
+         ${s.afm?`${cLabel('AUDIO FINAL MIX')}${cName(s.afm)}`:''}`
+    }`).join('');
 
-    ${storyCrewBlocks}
+  const credBody=`<table style="width:100%;border-collapse:collapse"><tbody>
 
-    ${credSection('STUDIO')}
-    ${credLine('STUDIO FACILITIES', ev('studio','studioFac','STARK STUDIOS'))}
-    ${credLine('SET & SET DESIGN', ev('studio','setDesign','DEWET MEYER'))}
-    ${ev('studio','setDesign2','JD UNLIMITED')?credLine('',ev('studio','setDesign2','JD UNLIMITED')):''}
-    ${credLine('LIGHTING DESIGN', ev('studio','lightEng','JOSHUA CUTTS'))}
-    ${ev('studio','lightEng2','VISUAL FRONTIER')?credLine('ENGINEERS',ev('studio','lightEng2','VISUAL FRONTIER')):''}
-    ${credLine('SOUND ASSISTANT', ev('studio','stSoundAsst','MARIUS KEMP'))}
-    ${credLine('AUTOCUE', ev('studio','autocue','CARLA HAMILTON / EASIQ.CO.ZA'))}
-    ${credLine('GRAPHICS', ev('studio','graphics','MATTHEW COLEMAN'))}
-    ${credLine('CAMERAS', ev('studio','cameras','ROHAN DASS / SIBUSISO MNCUBE'))}
-    ${credLine('JIMMY JIB', ev('studio','jimmyJib','BRAD BELLAS (CLUTCH MEDIA)'))}
-    ${credLine('VISION CONTROL', ev('studio','visionCtrl','OSCAR CHAVALALA'))}
-    ${credLine('LIGHTING', ev('studio','lighting','PAUL MODISE'))}
-    ${credLine('VT OPERATOR', ev('studio','vtOp','ANDREW BARTLETT'))}
-    ${credLine('SOUND ENGINEER', ev('studio','soundEng','JOSHUA VAN AS'))}
-    ${credLine('VISION MIXER', ev('studio','visionMix','JACO LOMBARD'))}
+    ${cSec('PRESENTERS')}
+    ${EC_FIXED_SECTIONS[0].fields.map(f=>cName(ev('presenters',f.key,f.default))).join('')}
+    ${cGap()}
 
-    ${credSection('PRODUCTION')}
-    ${credLine('PRODUCTION', ev('production','prod','VINCENT BUTJE'))}
-    ${credLine('PRODUCTION COORDINATOR', ev('production','prodCoord','MIHLE KLAAS'))}
-    ${credLine('VIDEO EDITORS', ev('production','vidEd1','BRYAN BARTLE'))}
-    ${ev('production','vidEd2','STENETTE GROSSKOPF')?`<div style="font-weight:700;font-size:10px;color:#111;margin-bottom:4px">${esc(ev('production','vidEd2','STENETTE GROSSKOPF'))}</div>`:''}
-    ${ev('production','patron','')?credLine('PATRON: MAKING A DIFFERENCE TRUST',ev('production','patron','')):''}
-    ${credLine('FINANCE MANAGER', ev('production','finMgr','MY ACCOUNTANT'))}
+    ${cSec('CARTE BLANCHE VIEWER PANEL')}
+    ${EC_FIXED_SECTIONS[1].fields.map(f=>cName(ev('viewerPanel',f.key,f.default))).join('')}
+    ${cGap()}
 
-    ${credSection('FOR CARTE BLANCHE:')}
-    ${credLine('MAKE-UP & STYLING', ev('carteBlanche','makeupStyling','ANNAMARIE BRONKHORST'))}
-    ${credLine('PRODUCTION MANAGER', ev('carteBlanche','prodMgr','NOMBUSO NKOSI'))}
-    ${credLine('OPERATIONAL MANAGER', ev('carteBlanche','opsMgr','MEINIE HEYDENRYCH'))}
-    ${credLine('FLOOR MANAGER', ev('carteBlanche','floorMgr','KAI MASTERTON'))}
-    ${credLine('ASSISTANT STUDIO DIRECTOR', ev('carteBlanche','asd','JANA PIENAAR'))}
-    ${credLine('STUDIO DIRECTOR', ev('carteBlanche','sd','MICHAEL SCHNEIDER'))}
-    ${credLine('EDITORIAL ASSISTANT', ev('carteBlanche','editAsst','OFENTSE LAMOLA'))}
-    ${credLine('CONTENT EDITOR', ev('carteBlanche','contentEd','LAURA BYRNE'))}
-    ${credLine('ONLINE EDITOR', ev('carteBlanche','onlineEd','LEZANNE JANSE VAN RENSBURG'))}
-    ${credLine('EDITORIAL MANAGER', ev('carteBlanche','editMgr','STENETTE GROSSKOPF'))}
-    ${credLine('PRODUCER', ev('carteBlanche','producer','RUDI BOTHA'))}
-    ${credLine('EXECUTIVE PRODUCER', ev('carteBlanche','execProd','JOHN WEBB'))}
-  `;
+    ${cSec('CARTE BLANCHE THEME')}
+    ${cLabel('COMPOSED BY')}${cName(ev('theme','composedBy','DAVE POLLECUTT'))}
+    ${cLabel('ORCHESTRATION BY')}${cName(ev('theme','orchBy','KURT HERMAN'))}
+    ${cLabel('LOGO & IMAGING BY')}${cName(ev('theme','logoBy','MONARCY'))}
+    ${cLabel('LEGAL ADVISORS')}
+    ${cName(ev('theme','legal1','DARIO MILO'))}
+    ${ev('theme','legal2','POOJA DELA-CRON')?cName(ev('theme','legal2','POOJA DELA-CRON')):''}
+    ${ev('theme','legal3','ODWA ABRAHAM')?cName(ev('theme','legal3','ODWA ABRAHAM')):''}
+    ${ev('theme','legal4','KUHLE MAVUSO')?cName(ev('theme','legal4','KUHLE MAVUSO')):''}
+    ${ev('theme','legal5','WEBBER WENTZEL ATTORNEYS')?cName(ev('theme','legal5','WEBBER WENTZEL ATTORNEYS')):''}
+    ${cGap()}
+
+    ${storyRows}
+    ${cGap()}
+
+    ${cSec('STUDIO')}
+    ${cLabel('STUDIO FACILITIES')}${cName(ev('studio','studioFac','STARK STUDIOS'))}
+    ${cLabel('SET & SET DESIGN')}${cName(ev('studio','setDesign','DEWET MEYER'))}
+    ${ev('studio','setDesign2','')?cName(ev('studio','setDesign2','')):''}
+    ${cLabel('LIGHTING DESIGN ENGINEERS')}${cName(ev('studio','lightEng','JD UNLIMITED'))}
+    ${ev('studio','lightEng2','VISUAL FRONTIER')?cName(ev('studio','lightEng2','VISUAL FRONTIER')):''}
+    ${cLabel('SOUND ASSISTANT')}${cName(ev('studio','stSoundAsst','MARIUS KEMP'))}
+    ${cLabel('AUTOCUE')}${cName(ev('studio','autocue','CARLA HAMILTON / EASIQ.CO.ZA'))}
+    ${cLabel('GRAPHICS')}${cName(ev('studio','graphics','MATTHEW COLEMAN'))}
+    ${cLabel('CAMERAS')}${cName(ev('studio','cameras','ROHAN DASS / SIBUSISO MNCUBE'))}
+    ${cLabel('JIMMY JIB')}${cName(ev('studio','jimmyJib','BRAD BELLAS (CLUTCH MEDIA)'))}
+    ${cLabel('VISION CONTROL')}${cName(ev('studio','visionCtrl','OSCAR CHAVALALA'))}
+    ${cLabel('LIGHTING')}${cName(ev('studio','lighting','PAUL MODISE'))}
+    ${cLabel('VT OPERATOR')}${cName(ev('studio','vtOp','ANDREW BARTLETT'))}
+    ${cLabel('SOUND ENGINEER')}${cName(ev('studio','soundEng','JOSHUA VAN AS'))}
+    ${cLabel('VISION MIXER')}${cName(ev('studio','visionMix','JACO LOMBARD'))}
+    ${cGap()}
+
+    ${cSec('PRODUCTION')}
+    ${cLabel('PRODUCTION')}${cName(ev('production','prod','VINCENT BUTJE'))}
+    ${cLabel('PRODUCTION COORDINATOR')}${cName(ev('production','prodCoord','MIHLE KLAAS'))}
+    ${cLabel('VIDEO EDITORS')}${cName(ev('production','vidEd1','BRYAN BARTLE'))}
+    ${ev('production','vidEd2','STENETTE GROSSKOPF')?cName(ev('production','vidEd2','STENETTE GROSSKOPF')):''}
+    ${ev('production','patron','')?`${cLabel('PATRON: MAKING A DIFFERENCE TRUST')}${cName(ev('production','patron',''))}`:''}
+    ${cLabel('FINANCE MANAGER')}${cName(ev('production','finMgr','MY ACCOUNTANT'))}
+    ${cGap()}
+
+    ${cSec('FOR CARTE BLANCHE:')}
+    ${cLabel('MAKE-UP & STYLING')}${cName(ev('carteBlanche','makeupStyling','ANNAMARIE BRONKHORST'))}
+    ${cLabel('PRODUCTION MANAGER')}${cName(ev('carteBlanche','prodMgr','NOMBUSO NKOSI'))}
+    ${cLabel('OPERATIONAL MANAGER')}${cName(ev('carteBlanche','opsMgr','MEINIE HEYDENRYCH'))}
+    ${cLabel('FLOOR MANAGER')}${cName(ev('carteBlanche','floorMgr','KAI MASTERTON'))}
+    ${cLabel('ASSISTANT STUDIO DIRECTOR')}${cName(ev('carteBlanche','asd','JANA PIENAAR'))}
+    ${cLabel('STUDIO DIRECTOR')}${cName(ev('carteBlanche','sd','MICHAEL SCHNEIDER'))}
+    ${cLabel('EDITORIAL ASSISTANT')}${cName(ev('carteBlanche','editAsst','OFENTSE LAMOLA'))}
+    ${cLabel('CONTENT EDITOR')}${cName(ev('carteBlanche','contentEd','LAURA BYRNE'))}
+    ${cLabel('ONLINE EDITOR')}${cName(ev('carteBlanche','onlineEd','LEZANNE JANSE VAN RENSBURG'))}
+    ${cLabel('EDITORIAL MANAGER')}${cName(ev('carteBlanche','editMgr','STENETTE GROSSKOPF'))}
+    ${cLabel('PRODUCER')}${cName(ev('carteBlanche','producer','RUDI BOTHA'))}
+    ${cLabel('EXECUTIVE PRODUCER')}${cName(ev('carteBlanche','execProd','JOHN WEBB'))}
+
+  </tbody></table>`;
 
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <style>
@@ -652,13 +688,16 @@ function updateComm(id,field,val){
     if(pCb)pCb.style.accentColor=c.approvedForPayment?'#388bfd':'';
     DEL_KEYS.forEach(k=>{const cb=row.querySelector(`input[data-field="${k}"]`);if(cb)cb.className='cb'+(c[k]?' g':'');});
     // Re-apply in-house greying
-    const ihFields=['dop','ca','editor'];
-    ihFields.forEach(f=>{
+    const greyCrewFields=['dop','ca','editor'];
+    const greyForIHorLic=c.isInHouse||c.isLicensed;
+    greyCrewFields.forEach(f=>{
       const td=row.querySelector(`input[data-field="${f}"]`)?.closest('td');
-      if(td){td.style.opacity=c.isInHouse?'0.3':'';td.style.pointerEvents=c.isInHouse?'none':'';}
+      if(td){td.style.opacity=greyForIHorLic?'0.3':'';td.style.pointerEvents=greyForIHorLic?'none':'';}
     });
+    const afmTd=row.querySelector('input[data-field="afm"]')?.closest('td');
+    if(afmTd){afmTd.style.opacity=c.isLicensed?'0.3':'';afmTd.style.pointerEvents=c.isLicensed?'none':'';}
     const csTd=row.querySelector('input[data-field="callSheets"]')?.closest('td');
-    if(csTd){csTd.style.opacity=c.isInHouse?'0.3':'';csTd.style.pointerEvents=c.isInHouse?'none':'';}
+    if(csTd){csTd.style.opacity=greyForIHorLic?'0.3':'';csTd.style.pointerEvents=greyForIHorLic?'none':'';}
     // Grey paid duration cell for in-house
     const paidDurTd=row.querySelector('input[data-field="paidDuration"]')?.closest('td');
     if(paidDurTd){paidDurTd.style.opacity=c.isInHouse?'0.3':'';paidDurTd.style.pointerEvents=c.isInHouse?'none':'';}
@@ -690,7 +729,7 @@ async function deleteComm(id){
 async function addRow(){
   const maxId=comms.length?Math.max(...comms.map(c=>Number(c.id)||0)):0;
   const newId=maxId+1;
-  const blank={id:newId,portal:false,commNum:'',shortName:'',storyName:'',commDuration:'',deliveredDuration:'',paidDuration:'',producer:'',presenterVO:'',dop:'',ca:'',editor:'',afm:'',callSheets:false,insertScripts:false,releaseForms:false,footageAgreement:false,musicCueSheet:false,footageDeclaration:false,carpUpload:false,approvedForPayment:false,decommissioned:false,decommissionMotivation:'',broadcastEpisode:'',isInHouse:false};
+  const blank={id:newId,portal:false,commNum:'',shortName:'',storyName:'',commDuration:'',deliveredDuration:'',paidDuration:'',producer:'',presenterVO:'',dop:'',ca:'',editor:'',afm:'',callSheets:false,insertScripts:false,releaseForms:false,footageAgreement:false,musicCueSheet:false,footageDeclaration:false,carpUpload:false,approvedForPayment:false,decommissioned:false,decommissionMotivation:'',broadcastEpisode:'',isInHouse:false,isLicensed:false};
   pendingFocusId=newId;await saveComm(blank);
 }
 
@@ -937,6 +976,7 @@ function renderCommList(epNums,nextEp){
   <th data-sort="deliveredDuration" style="width:110px">Del Dur</th>
   <th data-sort="paidDuration" style="width:110px">Paid Dur</th>
   <th data-sort="isInHouse" style="width:70px">In-House</th>
+  <th data-sort="isLicensed" style="width:75px">Licensed</th>
   <th data-sort="producer" style="width:360px">Producer</th>
   <th data-sort="presenterVO" style="width:200px">Presenter / VO</th>
   <th data-sort="dop" style="width:200px">DOP</th>
@@ -977,16 +1017,17 @@ ${filtered.map(c=>{
 <td class="st st-4" style="min-width:180px">${ci('storyName',220)}</td>
 <td>${ci('commDuration')}</td>
 <td>${ci('deliveredDuration')}</td>
-<td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}">${c.isInHouse?`<span class="badge ih" style="opacity:.5">N/A</span>`:ci('paidDuration',54)}</td>
+<td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}">${c.isInHouse?`<span class="badge ih" style="opacity:.5">N/A</span>`:ci('paidDuration',54)}${c.isLicensed&&!c.isInHouse?`<span class="badge" style="font-size:9px;background:#1c2d1c;color:#3fb950;border:1px solid #2d6a2d;margin-left:4px">INSERT</span>`:''}</td>
 <td style="text-align:center"><input type="checkbox" class="cb" data-field="isInHouse" tabindex="-1" ${c.isInHouse?'checked':''} ${getEffectiveRole()!=='admin'?'disabled':''}></td>
+<td style="text-align:center"><input type="checkbox" class="cb${c.isLicensed?' g':''}" data-field="isLicensed" tabindex="-1" ${c.isLicensed?'checked':''} ${getEffectiveRole()!=='admin'?'disabled':''}></td>
 <td>${ci('producer')}</td>
 <td>${ci('presenterVO')}</td>
-<td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'Not applicable for in-house':''}">${ci('dop')}</td>
-<td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'Not applicable for in-house':''}">${ci('ca')}</td>
-<td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'Not applicable for in-house':''}">${ci('editor')}</td>
-<td>${ci('afm')}</td>
+<td style="${(c.isInHouse||c.isLicensed)?'opacity:.3;pointer-events:none':''}" title="${(c.isInHouse||c.isLicensed)?'Not applicable':''}">  ${ci('dop')}</td>
+<td style="${(c.isInHouse||c.isLicensed)?'opacity:.3;pointer-events:none':''}" title="${(c.isInHouse||c.isLicensed)?'Not applicable':''}">  ${ci('ca')}</td>
+<td style="${(c.isInHouse||c.isLicensed)?'opacity:.3;pointer-events:none':''}" title="${(c.isInHouse||c.isLicensed)?'Not applicable':''}">  ${ci('editor')}</td>
+<td style="${c.isLicensed?'opacity:.3;pointer-events:none':''}">${ci('afm')}</td>
 ${DEL_KEYS.map((k,ki)=>{
-  const isIHGrey = c.isInHouse && k === 'callSheets';
+  const isIHGrey = (c.isInHouse || c.isLicensed) && k === 'callSheets';
   const role=getEffectiveRole();
   const needsCbAttn=!!c.broadcastEpisode&&!c.decommissioned&&!c[k]&&canEdit(role,k)&&role==='production';
   return `<td style="text-align:center${isIHGrey?';opacity:.3;pointer-events:none':''}${needsCbAttn?';background:rgba(245,166,35,.12)':''}"><input type="checkbox" class="cb${c[k]?' g':''}" data-field="${k}" tabindex="-1" ${c[k]?'checked':''} ${!canEdit(role,k)||isIHGrey?'disabled':''}></td>`;
@@ -1172,43 +1213,31 @@ function renderEndCredits(epNums){
   if(!epNums.length) return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet. Add episodes in the Episode Register first.</div></div>`;
   const canEd=getEffectiveRole()==='admin'||getEffectiveRole()==='operations';
 
-  // Build per-episode story crew rows from comms
+  function ecInp(secId,key,def){
+    const val=getECValue('x',secId,key,def); // 'x' means fixed only
+    if(!canEd)return`<div style="font-size:13px;font-weight:700;color:#eaf0ff;text-align:center;padding:2px 0">${esc(val||def||'—')}</div>`;
+    return`<input class="ci ec-inp" value="${esc(val)}" data-ep="fixed" data-sec="${secId}" data-key="${key}" placeholder="${esc(def)||'—'}" style="font-size:13px;font-weight:700;color:#eaf0ff;text-align:center;width:100%;background:transparent;border:none;border-bottom:1px solid #2e3a50;padding:3px 0">`;
+  }
+
+  function scLabel(l){return l?`<div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;letter-spacing:.7px;text-align:center;margin-top:14px;margin-bottom:2px">${l}</div>`:'';}
+  function scSec(t){return`<div style="font-size:10px;font-weight:900;color:#58a6ff;text-transform:uppercase;letter-spacing:1.2px;text-align:center;border-bottom:1px solid #2e3a50;padding:18px 0 6px;margin-bottom:8px">${t}</div>`;}
+  function scName(v){return`<div style="font-size:13px;font-weight:700;color:#eaf0ff;text-align:center;padding:2px 0">${esc(v)}</div>`;}
+
   function storyCrewRows(n){
     return comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse)
-      .map(s=>`<div style="margin-bottom:14px">
-        <div style="font-weight:800;font-size:13px;color:#eaf0ff;margin-bottom:6px">"${esc(s.storyName.toUpperCase())}"</div>
-        ${[['DIRECTOR OF PHOTOGRAPHY',s.dop],['CAMERA ASSISTANT',s.ca],['EDITOR',s.editor],['AUDIO FINAL MIX',s.afm]].filter(([,v])=>v).map(([l,v])=>`
-        <div style="display:flex;padding:4px 0;border-bottom:1px solid #252d3d">
-          <span style="width:240px;font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;letter-spacing:.4px;flex-shrink:0">${l}</span>
-          <span style="font-size:13px;color:#eaf0ff">${esc(v)}</span>
-        </div>`).join('')}
-      </div>`).join('');
-  }
-
-  function ecInput(epNum, sectionId, key, def, style=''){
-    const val = getECValue(epNum, sectionId, key, def);
-    if(!canEd) return`<span style="font-size:13px;color:#eaf0ff">${esc(val||'—')}</span>`;
-    return`<input class="ci ec-inp" value="${esc(val)}" data-ep="${epNum}" data-sec="${sectionId}" data-key="${key}" data-def="${esc(def)}" placeholder="${esc(def)||'—'}" style="font-size:13px;color:#eaf0ff;${style}">`;
-  }
-
-  function sectionBlock(title, rows, epNum){
-    return`<div style="margin-bottom:18px">
-      <div style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;border-bottom:1px solid #252d3d;padding-bottom:4px">${title}</div>
-      ${rows}
-    </div>`;
-  }
-
-  function fieldRow(label, content){
-    return`<div style="display:flex;padding:5px 0;border-bottom:1px solid #21262d;align-items:center">
-      ${label?`<span style="width:240px;font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;letter-spacing:.4px;flex-shrink:0">${label}</span>`:'<span style="width:240px;flex-shrink:0"></span>'}
-      <div style="flex:1">${content}</div>
-    </div>`;
+      .map(s=>{
+        const lines=s.isLicensed
+          ?[['PRODUCER',s.producer]].filter(([,v])=>v)
+          :[['DIRECTOR OF PHOTOGRAPHY',s.dop],['CAMERA ASSISTANT',s.ca],['EDITOR',s.editor],['AUDIO FINAL MIX',s.afm]].filter(([,v])=>v);
+        return`<div style="margin-top:14px;margin-bottom:4px">
+          <div style="font-size:12px;font-weight:800;color:#58a6ff;text-align:center;margin-bottom:4px">"${esc(s.storyName.toUpperCase())}"${s.isLicensed?' <span style="font-size:9px;background:#1c2d1c;color:#3fb950;border:1px solid #2d6a2d;padding:1px 5px;border-radius:3px">LICENSED</span>':''}</div>
+          ${lines.map(([l,v])=>`${scLabel(l)}${scName(v)}`).join('')}
+        </div>`;
+      }).join('');
   }
 
   return`<div class="ep-wrap">
-  <div style="margin-bottom:10px;color:#6e7681;font-size:12px">Fields highlighted in blue are per-episode. All others are fixed defaults editable in "Fixed Defaults" mode.</div>
   ${epNums.map(n=>{
-    const epLabel=`EP ${n} · ${fmtDate(resolveDate(n))}`;
     const storyCrew=storyCrewRows(n);
     return`<div class="ep-card" style="margin-bottom:14px">
       <div class="ep-head" style="display:flex;align-items:center;justify-content:space-between">
@@ -1218,25 +1247,26 @@ function renderEndCredits(epNums){
         </div>
         ${canEd?`<button class="btn" style="font-size:11px" data-ep-credits-pdf="${n}">⬇ Export Credits PDF</button>`:''}
       </div>
-      <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:24px">
-        <div>
-          <!-- PRESENTERS -->
-          ${sectionBlock('Presenters', EC_FIXED_SECTIONS[0].fields.map(f=>fieldRow('',ecInput('fixed','presenters',f.key,f.default))).join(''), n)}
-          <!-- VIEWER PANEL -->
-          ${sectionBlock('Carte Blanche Viewer Panel', EC_FIXED_SECTIONS[1].fields.map(f=>fieldRow('',ecInput('fixed','viewerPanel',f.key,f.default))).join(''), n)}
-          <!-- THEME -->
-          ${sectionBlock('Carte Blanche Theme', EC_FIXED_SECTIONS[2].rows.map(r=>fieldRow(r.label, ecInput('fixed','theme',r.key,r.default))).join(''), n)}
-          <!-- STORY CREW (per ep, auto from comms) -->
-          ${storyCrew?sectionBlock('Story Crew (from Commission List)', storyCrew, n):''}
-        </div>
-        <div>
-          <!-- STUDIO -->
-          ${sectionBlock('Studio', EC_FIXED_SECTIONS[3].rows.map(r=>fieldRow(r.label, ecInput('fixed','studio',r.key,r.default))).join(''), n)}
-          <!-- PRODUCTION -->
-          ${sectionBlock('Production', EC_FIXED_SECTIONS[4].rows.map(r=>fieldRow(r.label, ecInput('fixed','production',r.key,r.default))).join(''), n)}
-          <!-- FOR CARTE BLANCHE -->
-          ${sectionBlock('For Carte Blanche', EC_FIXED_SECTIONS[5].rows.map(r=>fieldRow(r.label, ecInput('fixed','carteBlanche',r.key,r.default))).join(''), n)}
-        </div>
+      <div style="padding:20px;max-width:560px;margin:0 auto">
+        ${scSec('Presenters')}
+        ${EC_FIXED_SECTIONS[0].fields.map(f=>ecInp('presenters',f.key,f.default)).join('')}
+
+        ${scSec('Carte Blanche Viewer Panel')}
+        ${EC_FIXED_SECTIONS[1].fields.map(f=>ecInp('viewerPanel',f.key,f.default)).join('')}
+
+        ${scSec('Carte Blanche Theme')}
+        ${EC_FIXED_SECTIONS[2].rows.map(r=>`${scLabel(r.label)}${ecInp('theme',r.key,r.default)}`).join('')}
+
+        ${storyCrew?`${scSec('Story Crew')}${storyCrew}`:''}
+
+        ${scSec('Studio')}
+        ${EC_FIXED_SECTIONS[3].rows.map(r=>`${scLabel(r.label)}${ecInp('studio',r.key,r.default)}`).join('')}
+
+        ${scSec('Production')}
+        ${EC_FIXED_SECTIONS[4].rows.map(r=>`${scLabel(r.label)}${ecInp('production',r.key,r.default)}`).join('')}
+
+        ${scSec('For Carte Blanche')}
+        ${EC_FIXED_SECTIONS[5].rows.map(r=>`${scLabel(r.label)}${ecInp('carteBlanche',r.key,r.default)}`).join('')}
       </div>
     </div>`;
   }).join('')}
@@ -1709,18 +1739,22 @@ function bindApp(){
   document.getElementById('ep-confirm')?.addEventListener('click',()=>{const num=parseInt(newEpNum);if(isNaN(num)||num<1){showToast('Enter a valid episode number.',true);return;}if(getEpNums().includes(num)){showToast(`Episode ${num} already exists.`,true);return;}const autoDate=resolveDate(num);settings.epDates={...(settings.epDates||{}),[num]:autoDate};saveSettings();showToast(`Episode ${num} added — ${fmtDate(autoDate)}`);addEpModal=false;render();});
   // End Credits inputs
   document.querySelectorAll('input.ec-inp').forEach(inp=>{
-    inp.addEventListener('input',e=>{
+    inp.addEventListener('blur',e=>{
       saveECValue(inp.dataset.ep, inp.dataset.sec, inp.dataset.key, e.target.value);
     });
     inp.addEventListener('keydown',e=>{
-      if(e.key==='Enter'){e.preventDefault();inp.blur();inp.focus();}
+      if(e.key==='Enter'){
+        e.preventDefault();
+        saveECValue(inp.dataset.ep, inp.dataset.sec, inp.dataset.key, inp.value);
+        setTimeout(()=>{inp.focus();inp.select();},10);
+      }
       if(e.key==='Tab'){
         e.preventDefault();
-        inp.blur();
+        saveECValue(inp.dataset.ep, inp.dataset.sec, inp.dataset.key, inp.value);
         const all=Array.from(document.querySelectorAll('input.ec-inp'));
         const idx=all.indexOf(inp);
         const next=all[idx+(e.shiftKey?-1:1)];
-        if(next){next.focus();next.select();}
+        if(next){setTimeout(()=>{next.focus();next.select();},10);}
       }
     });
   });
