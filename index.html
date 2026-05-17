@@ -455,31 +455,28 @@ async function exportPromoPDF(epNum){
         <div style="font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#111">PROMO SCHEDULING CARTE BLANCHE SEASON ${currentSeason} EPISODE ${epStr}</div>
         <div style="font-size:9px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase">Broadcast: ${sunDate} &nbsp;·&nbsp; Generated: ${printDate}</div>
       </td>
-      <td style="width:80px;text-align:right"><img src="${BAKED_CAP_LOGO}" style="height:36px;width:auto;display:block;margin-left:auto"></td>
+      <td style="width:80px;text-align:left;padding-left:4px"><img src="${BAKED_CAP_LOGO}" style="height:36px;width:auto;max-width:76px;display:block"></td>
     </tr>
   </table>
   <!-- LIVE SHOW ROW -->
   <table style="margin-bottom:12px;border:2px solid #1a3a6a;border-radius:4px">
     <tr style="background:#e8f5e8">
       <td style="padding:8px 12px;font-weight:800;font-size:12px;color:#1a5c1a;width:130px">${esc(liveType)}</td>
-      <td style="padding:8px 12px;font-size:10px;color:#555">${sunDate}</td>
+      <td style="padding:8px 12px;font-size:10px;color:#555"><span style="font-weight:700;color:#888">TX:</span> ${sunDate}</td>
       <td style="padding:8px 12px;font-size:10px;font-weight:700;font-family:monospace;color:#1a3a6a;letter-spacing:1px">${liveUID?`UID: ${esc(liveUID)}`:'<span style="color:#aaa">No UID entered</span>'}</td>
-      <td style="padding:8px 12px;font-size:9px;color:#aaa;font-style:italic">No slug for live show</td>
+
     </tr>
   </table>
   <!-- PROMO TABLE -->
   <table>
     <colgroup>
-      <col style="width:13%"><col style="width:11%"><col style="width:11%">
-      <col style="width:10%"><col style="width:27%"><col style="width:28%">
+      <col style="width:20%"><col style="width:17%"><col style="width:17%"><col style="width:46%">
     </colgroup>
     <thead><tr>
       <th style="${thS}">Type</th>
       <th style="${thS}">TX From</th>
       <th style="${thS}">TX To</th>
-      <th style="${thS}">UID</th>
-      <th style="${thS}">Slug</th>
-      <th style="${thS}">UID + Slug (Combined)</th>
+      <th style="${thS}">Promo Scheduling Code</th>
     </tr></thead>
     <tbody>${promoRows}</tbody>
   </table>
@@ -491,8 +488,69 @@ async function exportPromoPDF(epNum){
     filename:`CB-Promo-Schedule-S${currentSeason}-EP${epStr}.pdf`,
     image:{type:'jpeg',quality:0.98},
     html2canvas:{scale:2,useCORS:true,allowTaint:true},
-    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
+    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
   }).from(html).save();
+}
+
+async function exportPromoXLSX(epNum){
+  // Load SheetJS on demand
+  if(!window.XLSX){
+    await new Promise((res,rej)=>{
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload=res;s.onerror=rej;document.head.appendChild(s);
+    });
+  }
+  const n=epNum;
+  const epDate=resolveDate(Number(n));
+  const epStr=String(n).padStart(2,'0');
+  const sunDate=new Date(epDate).toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  const pd=promoData[String(n)]||{};
+  const uids=pd.uids||{};
+  const liveUID=pd.liveUID||'';
+  const liveType=pd.liveType||'LIVE SHOW';
+
+  const wb=XLSX.utils.book_new();
+  const title=`PROMO SCHEDULING CARTE BLANCHE SEASON ${currentSeason} EPISODE ${epStr}`;
+
+  // Build rows
+  const rows=[
+    [title],
+    [`Broadcast: TX: ${sunDate}`],
+    [],
+    ['TYPE','TX FROM','TX TO','PROMO SCHEDULING CODE'],
+    // Live show row
+    [liveType, `TX: ${sunDate}`, '', liveUID||''],
+    [],
+  ];
+
+  PROMO_TYPES.forEach(pt=>{
+    const txDates=getPromoTXDates(epDate,pt.txType);
+    const uid=uids[pt.key]||'';
+    const slug=buildSlug(currentSeason,n,pt.slug);
+    const combined=uid?`${uid} ${slug}`:'';
+    rows.push([
+      pt.label,
+      pd['txFrom_'+pt.key]||txDates.from,
+      pd['txTo_'+pt.key]||txDates.to,
+      combined
+    ]);
+  });
+
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+
+  // Column widths
+  ws['!cols']=[{wch:20},{wch:18},{wch:18},{wch:45}];
+
+  // Merge title row across 4 cols
+  ws['!merges']=[
+    {s:{r:0,c:0},e:{r:0,c:3}},
+    {s:{r:1,c:0},e:{r:1,c:3}},
+  ];
+
+  XLSX.utils.book_append_sheet(wb,ws,`EP${epStr} Promos`);
+  XLSX.writeFile(wb,`CB-Promo-Schedule-S${currentSeason}-EP${epStr}.xlsx`);
+  showToast(`Excel exported for Episode ${n}`);
 }
 
 async function loadPromoData(){
@@ -1479,6 +1537,7 @@ function renderPromoScheduling(epNums){
             <input type="file" accept=".xlsx,.xls,.csv" class="promo-uid-import" data-ep="${n}" style="display:none">
           </label>`:''}
           <button class="btn" style="font-size:11px;border-color:#388bfd;color:#58a6ff" data-promo-pdf="${n}">⬇ Export PDF</button>
+          <button class="btn" style="font-size:11px;border-color:#3fb950;color:#3fb950" data-promo-xlsx="${n}">⬇ Export Excel</button>
         </div>
       </div>
 
@@ -1486,11 +1545,11 @@ function renderPromoScheduling(epNums){
       <div style="padding:10px 16px;background:#1a2a1a;border-bottom:2px solid #2e3a50;display:flex;align-items:center;gap:16px">
         <input class="ci promo-live-type" value="${esc(liveType)}" data-ep="${n}"
           placeholder="LIVE SHOW" style="font-size:13px;font-weight:800;color:#3fb950;width:130px;background:transparent;border:none;border-bottom:1px solid #2d6a2d" ${!canEd?'disabled':''}>
-        <span style="font-size:11px;color:#6e7681;width:220px">${sunDate}</span>
+        <span style="font-size:11px;color:#6e7681;width:220px"><span style="font-weight:700;color:#7a8ba0">TX:</span> ${sunDate}</span>
         <span style="font-size:10px;color:#7a8ba0;margin-right:4px">UID:</span>
         <input class="ci promo-live-uid" value="${esc(liveUID)}" data-ep="${n}"
           placeholder="Enter UID" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#58a6ff;width:130px;letter-spacing:1px" ${!canEd?'disabled':''}>
-        <span style="font-size:10px;color:#484f58;font-style:italic">No slug for live show</span>
+
       </div>
 
       <!-- PROMO TABLE -->
@@ -2108,6 +2167,16 @@ function bindApp(){
       btn.innerHTML='⏳ Preparing…';btn.disabled=true;
       await exportPromoPDF(n);
       btn.innerHTML='⬇ Export PDF';btn.disabled=false;
+    });
+  });
+
+  // Promo Excel export
+  document.querySelectorAll('[data-promo-xlsx]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const n=btn.dataset.promoXlsx;
+      btn.innerHTML='⏳ Preparing…';btn.disabled=true;
+      await exportPromoXLSX(n);
+      btn.innerHTML='⬇ Export Excel';btn.disabled=false;
     });
   });
 
