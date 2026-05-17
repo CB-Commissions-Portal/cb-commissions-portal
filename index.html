@@ -756,7 +756,7 @@ async function exportCreditsPDF(epNum){
   </style>
   </head><body>
   <!-- HEADER -->
-  <table style="width:100%;border-collapse:collapse;border-bottom:3px solid #1a3a6a;margin-bottom:14px;padding-bottom:10px">
+  <table style="width:100%;border-collapse:collapse;margin-bottom:14px;padding-bottom:14px">
     <tr valign="middle">
       <td style="width:90px;padding-bottom:10px"><img src="${BAKED_CB_LOGO}" style="height:46px;width:auto;display:block"></td>
       <td style="text-align:center;padding:0 12px 10px">
@@ -768,7 +768,7 @@ async function exportCreditsPDF(epNum){
   </table>
   <!-- CREDITS BODY - single column list matching docx format -->
   ${credBody}
-  <div style="margin-top:12px;text-align:center;font-size:7px;color:#aaa;border-top:1px solid #ddd;padding-top:6px">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
+  <div style="margin-top:16px;text-align:center;font-size:7px;color:#aaa;padding-top:6px">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
   </body></html>`;
 
   html2pdf().set({
