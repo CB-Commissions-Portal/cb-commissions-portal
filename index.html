@@ -1744,7 +1744,8 @@ function renderPromoScheduling(epNums){
     return`<tr style="${bg}"><td style="padding:6px 12px;font-size:11px;color:#484f58">${i+1}</td>
       <td style="padding:6px 12px;font-family:monospace;font-size:12px;font-weight:700;color:${u.pulled?'#484f58':isAss?'#3fb950':'#9aaabe'};letter-spacing:1px;text-decoration:${u.pulled?'line-through':'none'}">${esc(u.uid)}</td>
       <td style="padding:6px 12px">${status}</td>
-      <td style="padding:6px 12px;font-size:11px;color:#6e7681">${info}</td></tr>`;
+      <td style="padding:6px 12px;font-size:11px;color:#6e7681;flex:1">${info}</td>
+      <td style="padding:6px 12px;text-align:center">${canEd&&!isAss?`<button class="btn danger uid-delete-btn" data-uid="${esc(u.uid)}" style="padding:2px 8px;font-size:10px">✕</button>`:'<span style="color:#484f58;font-size:11px">—</span>'}</td></tr>`;
   }).join('');
 
   const assignCards=avail.map(u=>{
@@ -1791,6 +1792,7 @@ function renderPromoScheduling(epNums){
           <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">UID</th>
           <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Status</th>
           <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Assigned To</th>
+          <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:center">Delete</th>
         </tr></thead>
         <tbody>${poolRows}${!uidPool.length?`<tr><td colspan="4" style="padding:24px;text-align:center;color:#484f58;font-size:12px">No UIDs yet. Import to get started.</td></tr>`:''}</tbody>
       </table>
@@ -1909,12 +1911,16 @@ function renderMusicCues(epNums){
       <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="artist" value="${esc(r.artist||r.composer)}" placeholder="Artist/Performer" style="${inpS}"></td>
       <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="albumTitle" value="${esc(r.albumTitle||'N/A')}" placeholder="N/A" style="${inpS}"></td>
       <td style="padding:4px;width:55px"><input class="mc-row-inp" data-row="${i}" data-field="trackNumber" value="${esc(r.trackNumber||'0')}" placeholder="0" style="${inpS}"></td>
-      <td style="padding:4px;width:130px"><select class="mc-row-inp" data-row="${i}" data-field="usage" style="${inpS}">
+      <td style="padding:4px;width:160px"><select class="mc-row-inp" data-row="${i}" data-field="usage" style="${inpS}">
         <option value="">— Select —</option>
         <option value="Background Instrumental (BI)" ${r.usage==='Background Instrumental (BI)'?'selected':''}>Background Instrumental (BI)</option>
         <option value="Background Vocal (BV)" ${r.usage==='Background Vocal (BV)'?'selected':''}>Background Vocal (BV)</option>
+        <option value="Commissioned Music (CM)" ${r.usage==='Commissioned Music (CM)'?'selected':''}>Commissioned Music (CM)</option>
       </select></td>
-      <td style="padding:4px;width:90px"><input value="PRODUCTION" disabled style="${inpS};color:#7a8ba0;cursor:not-allowed"></td>
+      <td style="padding:4px;width:130px"><select class="mc-row-inp" data-row="${i}" data-field="musicType" style="${inpS}">
+        <option value="PRODUCTION" ${(!r.musicType||r.musicType==='PRODUCTION')?'selected':''}>PRODUCTION</option>
+        <option value="ORIGINAL COMPOSITION" ${r.musicType==='ORIGINAL COMPOSITION'?'selected':''}>ORIGINAL COMPOSITION</option>
+      </select></td>
       <td style="padding:4px;width:110px"><input class="mc-row-inp" data-row="${i}" data-field="duration" value="${esc(r.duration)}" placeholder="00:00:00:00" style="${inpS};font-family:monospace"></td>
       <td style="padding:4px;width:36px;text-align:center"><button class="btn danger mc-del-row" data-row="${i}" style="padding:3px 7px;font-size:11px">✕</button></td>
     </tr>`).join('');
@@ -2649,6 +2655,19 @@ function bindApp(){
   });
   document.getElementById('pool-view-btn')?.addEventListener('click',()=>{uidPoolView=uidPoolView==='pool'?'assign':'pool';selectedPoolUIDs=[];render();});
   document.getElementById('clear-pool-btn')?.addEventListener('click',()=>{if(confirm('Clear all UIDs from the pool?')){uidPool=[];saveUIDPool();render();}});
+
+  // Delete individual UID
+  document.querySelectorAll('.uid-delete-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const uid=btn.dataset.uid;
+      if(confirm(`Delete UID ${uid} from the pool? This cannot be undone.`)){
+        uidPool=uidPool.filter(u=>u.uid!==uid);
+        saveUIDPool();
+        showToast(`UID ${uid} deleted`);
+        render();
+      }
+    });
+  });
   document.getElementById('clear-sel-btn')?.addEventListener('click',()=>{selectedPoolUIDs=[];render();});
   document.getElementById('assign-ep-sel')?.addEventListener('change',e=>{assignTargetEp=e.target.value;render();});
   document.getElementById('do-assign-btn')?.addEventListener('click',async()=>{
@@ -2837,11 +2856,33 @@ function bindApp(){
       mcEditId=id;mcTab='edit';mcDraft={...sheet};render();
     });
   });
+  // Commission number — update draft on input but only re-render on blur/Enter
+  // (re-rendering on every keystroke destroys focus)
   document.getElementById('mc-comm-num')?.addEventListener('input',e=>{
-    const val=e.target.value.trim();mcDraft.commNum=val;
+    const val=e.target.value.trim();
+    mcDraft.commNum=val;
     const c=comms.find(c=>c.commNum===val);
-    if(c){mcDraft.storyName=c.storyName||'';mcDraft.producer=c.producer||'';}
-    render();
+    if(c){
+      mcDraft.storyName=c.storyName||'';
+      mcDraft.producer=c.producer||'';
+      // Update story/producer fields in-place without full re-render
+      const sn=document.getElementById('mc-story-name');
+      const pr=document.getElementById('mc-producer');
+      if(sn){sn.value=c.storyName||'';sn.style.borderColor='#2d6a2d';sn.style.color='#3fb950';sn.readOnly=true;}
+      if(pr){pr.value=c.producer||'';pr.style.borderColor='#2d6a2d';pr.style.color='#3fb950';pr.readOnly=true;}
+    } else {
+      const sn=document.getElementById('mc-story-name');
+      const pr=document.getElementById('mc-producer');
+      if(sn){sn.style.borderColor='';sn.style.color='';sn.readOnly=false;}
+      if(pr){pr.style.borderColor='';pr.style.color='';pr.readOnly=false;}
+    }
+  });
+  document.getElementById('mc-comm-num')?.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.target.blur();}
+  });
+  document.getElementById('mc-comm-num')?.addEventListener('blur',e=>{
+    mcDraft.commNum=e.target.value.trim();
+    render(); // Only re-render on blur
   });
   // Studio cue sheet button — auto-fills commission number for studio music
   document.getElementById('mc-studio-btn')?.addEventListener('click',()=>{
