@@ -663,78 +663,81 @@ async function exportCreditsPDF(epNum){
   // Gap between disciplines = 20px. Gap between sections = 30px.
   const credBody=`<table style="width:100%;border-collapse:collapse"><tbody>
 
-    ${cSec('PRESENTERS')}${cGap(6)}
+    ${cSec('PRESENTERS')}${cGap(8)}
     ${EC_FIXED_SECTIONS[0].fields.map(f=>cName(ev('presenters',f.key,f.default))).join('')}
-    ${cGap(30)}
+    ${cGap(28)}
 
-    ${cSec('CARTE BLANCHE VIEWER PANEL')}${cGap(6)}
+    ${cSec('CARTE BLANCHE VIEWER PANEL')}${cGap(8)}
     ${EC_FIXED_SECTIONS[1].fields.map(f=>cName(ev('viewerPanel',f.key,f.default))).join('')}
-    ${cGap(30)}
+    ${cGap(28)}
 
-    ${cSec('CARTE BLANCHE THEME')}${cGap(6)}
-    ${cLabel('COMPOSED BY')}
+    ${cLabel('CARTE BLANCHE THEME COMPOSED BY')}
     ${cName(ev('theme','composedBy','DAVE POLLECUTT'))}
     ${cGap(20)}
     ${cLabel('ORCHESTRATION BY')}
-    ${cName(ev('theme','orchBy','KURT HERMAN') + (ev('theme','orchBy2','FOR BLUEBERRY ENTERTAINMENT')?' FOR BLUEBERRY ENTERTAINMENT':''))}
+    ${cName(ev('theme','orchBy','KURT HERMAN FOR BLUEBERRY ENTERTAINMENT'))}
     ${cGap(20)}
-    ${cLabel('LOGO & IMAGING')}
+    ${cLabel('LOGO & IMAGING BY')}
     ${cName(ev('theme','logoBy','MONARCHY'))}
     ${cGap(20)}
     ${cLabel('LEGAL ADVISORS')}
     ${cName(ev('theme','legal1','DARIO MILO'))}
-    ${ev('theme','legal2','POOJA DELA-CRON')?cName(ev('theme','legal2','POOJA DELA-CRON')):''}
-    ${ev('theme','legal3','ODWA ABRAHAM')?cName(ev('theme','legal3','ODWA ABRAHAM')):''}
-    ${ev('theme','legal4','KUHLE MAVUSO')?cName(ev('theme','legal4','KUHLE MAVUSO')):''}
-    ${ev('theme','legal5','WEBBER WENTZEL ATTORNEYS')?cName(ev('theme','legal5','WEBBER WENTZEL ATTORNEYS')):''}
-    ${cGap(30)}
+    ${ev('theme','legal2','')?cName(ev('theme','legal2','POOJA DELA-CRON')):''}
+    ${ev('theme','legal3','')?cName(ev('theme','legal3','ODWA ABRAHAM')):''}
+    ${ev('theme','legal4','')?cName(ev('theme','legal4','KUHLE MAVUSO')):''}
+    ${ev('theme','legal5','')?cName(ev('theme','legal5','WEBBER WENTZEL ATTORNEYS')):''}
+    ${cGap(28)}
 
     ${storyRows}
-    ${cGap(30)}
+    ${cGap(28)}
 
     ${cLabel('STUDIO FACILITIES')}
     ${cName(ev('studio','studioFac','STARK STUDIOS'))}
     ${cGap(20)}
     ${cLabel('SET & SET DESIGN')}
     ${cName(ev('studio','setDesign','DEWET MEYER'))}
-    ${cName(ev('studio','setDesign2','JD UNLIMITED'))}
+    ${ev('studio','setDesign2','')?cName(ev('studio','setDesign2','JD UNLIMITED')):''}
     ${cGap(20)}
     ${cLabel('LIGHTING DESIGN')}
     ${cName(ev('studio','lightEng','JOSHUA CUTTS'))}
-    ${cName(ev('studio','lightEng2','VISUAL FRONTIER'))}
+    ${ev('studio','lightEng2','')?cName(ev('studio','lightEng2','VISUAL FRONTIER')):''}
+    ${cGap(20)}
+    ${cLabel('ENGINEERS')}
+    ${cName(ev('studio','engineers1','OSCAR CHAVALALA'))}
+    ${ev('studio','engineers2','')?cName(ev('studio','engineers2','ANDREW BARTLETT')):''}
     ${cGap(20)}
     ${cLabel('SOUND ASSISTANT')}
     ${cName(ev('studio','stSoundAsst','MARIUS KEMP'))}
     ${cGap(20)}
     ${cLabel('AUTOCUE')}
     ${cName(ev('studio','autocue','CARLA HAMILTON'))}
-    ${cName(ev('studio','autocue2','EASIQ.CO.ZA'))}
+    ${ev('studio','autocue2','')?cName(ev('studio','autocue2','EASIQ.CO.ZA')):''}
     ${cGap(20)}
     ${cLabel('GRAPHICS')}
     ${cName(ev('studio','graphics','MATTHEW COLEMAN'))}
     ${cGap(20)}
     ${cLabel('CAMERAS')}
     ${cName(ev('studio','cameras','ROHAN DASS'))}
-    ${cName(ev('studio','cameras2','SIBUSISO MNCUBE'))}
+    ${ev('studio','cameras2','')?cName(ev('studio','cameras2','SIBUSISO MNCUBE')):''}
     ${cGap(20)}
     ${cLabel('JIMMY JIB')}
-    ${cName(ev('studio','jimmyJib','BRAD BELLAS (CLUTCH MEDIA)'))}
+    ${cName(ev('studio','jimmyJib','FRANIE LUBBE'))}
     ${cGap(20)}
     ${cLabel('VISION CONTROL')}
-    ${cName(ev('studio','visionCtrl','OSCAR CHAVALALA'))}
+    ${cName(ev('studio','visionCtrl','ANDREW BARTLETT'))}
     ${cGap(20)}
     ${cLabel('LIGHTING')}
     ${cName(ev('studio','lighting','PAUL MODISE'))}
     ${cGap(20)}
     ${cLabel('VT OPERATOR')}
-    ${cName(ev('studio','vtOp','ANDREW BARTLETT'))}
+    ${cName(ev('studio','vtOp','OSCAR CHAVALALA'))}
     ${cGap(20)}
     ${cLabel('SOUND ENGINEER')}
-    ${cName(ev('studio','soundEng','JOSHUA VAN AS'))}
+    ${cName(ev('studio','soundEng','BONGANI GWAMANDA'))}
     ${cGap(20)}
     ${cLabel('VISION MIXER')}
     ${cName(ev('studio','visionMix','JACO LOMBARD'))}
-    ${cGap(30)}
+    ${cGap(28)}
 
     ${cLabel('PRODUCTION')}
     ${cName(ev('production','prod','VINCENT BUTJE'))}
@@ -744,53 +747,22 @@ async function exportCreditsPDF(epNum){
     ${cGap(20)}
     ${cLabel('VIDEO EDITORS')}
     ${cName(ev('production','vidEd1','BRYAN BARTLE'))}
-    ${cName(ev('production','vidEd2','STENETTE GROSSKOPF'))}
+    ${ev('production','vidEd2','')?cName(ev('production','vidEd2','STENETTE GROSSKOPF')):''}
     ${cGap(20)}
     ${cLabel('PATRON: MAKING A DIFFERENCE TRUST')}
     ${cName(ev('production','patron','KAROLINA ANDROPOULOS'))}
     ${cGap(20)}
     ${cLabel('FINANCE MANAGER')}
     ${cName(ev('production','finMgr','KEVIN FREESE'))}
-    ${cName(ev('production','finMgr2','MY ACCOUNTANT'))}
-    ${cGap(30)}
+    ${ev('production','finMgr2','')?cName(ev('production','finMgr2','MY ACCOUNTANT')):''}
+    ${cGap(28)}
 
-    ${cSec('FOR CARTE BLANCHE:')}${cGap(6)}
-    ${cLabel('MAKE-UP & STYLING')}
-    ${cName(ev('carteBlanche','makeupStyling','ANNAMARIE BRONKHORST'))}
-    ${cGap(20)}
-    ${cLabel('PRODUCTION MANAGER')}
-    ${cName(ev('carteBlanche','prodMgr','NOMBUSO NKOSI'))}
-    ${cGap(20)}
-    ${cLabel('OPERATIONAL MANAGER')}
-    ${cName(ev('carteBlanche','opsMgr','MEINIE HEYDENRYCH'))}
-    ${cGap(20)}
-    ${cLabel('FLOOR MANAGER')}
-    ${cName(ev('carteBlanche','floorMgr','KAI MASTERTON'))}
-    ${cGap(20)}
-    ${cLabel('ASSISTANT STUDIO DIRECTOR')}
-    ${cName(ev('carteBlanche','asd','JANA PIENAAR'))}
-    ${cGap(20)}
-    ${cLabel('STUDIO DIRECTOR')}
-    ${cName(ev('carteBlanche','sd','MICHAEL SCHNEIDER'))}
-    ${cGap(20)}
-    ${cLabel('EDITORIAL ASSISTANT')}
-    ${cName(ev('carteBlanche','editAsst','OFENTSE LAMOLA'))}
-    ${cGap(20)}
-    ${cLabel('CONTENT EDITOR')}
-    ${cName(ev('carteBlanche','contentEd','LAURA BYRNE'))}
-    ${cGap(20)}
-    ${cLabel('ONLINE EDITOR')}
-    ${cName(ev('carteBlanche','onlineEd','LEZANNE JANSE VAN RENSBURG'))}
-    ${cGap(20)}
-    ${cLabel('EDITORIAL MANAGER')}
-    ${cName(ev('carteBlanche','editMgr','STENETTE GROSSKOPF'))}
-    ${cGap(20)}
-    ${cLabel('PRODUCER')}
-    ${cName(ev('carteBlanche','producer','RUDI BOTHA'))}
-    ${cGap(20)}
-    ${cLabel('EXECUTIVE PRODUCER')}
-    ${cName(ev('carteBlanche','execProd','JOHN WEBB'))}
-    ${cGap(30)}
+    ${cSec('FOR M-NET CHANNELS:')}${cGap(8)}
+    ${EC_FIXED_SECTIONS[5].rows.map(r=>`${r.label?cLabel(r.label):''}${cName(ev('mnet',r.key,r.default))}`).join('')}
+    ${cGap(28)}
+
+    ${cSec('FOR CARTE BLANCHE:')}${cGap(8)}
+    ${EC_FIXED_SECTIONS[6].rows.map(r=>`${cLabel(r.label)}${cName(ev('carteBlanche',r.key,r.default))}${cGap(16)}`).join('')}
 
   </tbody></table>`;
 
@@ -1487,11 +1459,10 @@ const EC_FIXED_SECTIONS = [
     {key:'vp1',default:'ANNA MOYO'},{key:'vp2',default:'DANIE HATTINGH'},{key:'vp3',default:'LINTHURI MOONSAMY'},
     {key:'vp4',default:'LUCILLE PAULICK'},{key:'vp5',default:'SIBONGILE SIDLAYI'}
   ]},
-  {id:'theme', label:'CARTE BLANCHE THEME', rows:[
-    {label:'COMPOSED BY', key:'composedBy', default:'DAVE POLLECUTT'},
-    {label:'ORCHESTRATION BY', key:'orchBy', default:'KURT HERMAN'},
-    {label:'', key:'orchBy2', default:'FOR BLUEBERRY ENTERTAINMENT'},
-    {label:'LOGO & IMAGING', key:'logoBy', default:'MONARCHY'},
+  {id:'theme', label:'CARTE BLANCHE THEME COMPOSED BY', rows:[
+    {label:'CARTE BLANCHE THEME COMPOSED BY', key:'composedBy', default:'DAVE POLLECUTT'},
+    {label:'ORCHESTRATION BY', key:'orchBy', default:'KURT HERMAN FOR BLUEBERRY ENTERTAINMENT'},
+    {label:'LOGO & IMAGING BY', key:'logoBy', default:'MONARCHY'},
     {label:'LEGAL ADVISORS', key:'legal1', default:'DARIO MILO'},
     {label:'', key:'legal2', default:'POOJA DELA-CRON'},
     {label:'', key:'legal3', default:'ODWA ABRAHAM'},
@@ -1504,17 +1475,19 @@ const EC_FIXED_SECTIONS = [
     {label:'', key:'setDesign2', default:'JD UNLIMITED'},
     {label:'LIGHTING DESIGN', key:'lightEng', default:'JOSHUA CUTTS'},
     {label:'', key:'lightEng2', default:'VISUAL FRONTIER'},
+    {label:'ENGINEERS', key:'engineers1', default:'OSCAR CHAVALALA'},
+    {label:'', key:'engineers2', default:'ANDREW BARTLETT'},
     {label:'SOUND ASSISTANT', key:'stSoundAsst', default:'MARIUS KEMP'},
     {label:'AUTOCUE', key:'autocue', default:'CARLA HAMILTON'},
     {label:'', key:'autocue2', default:'EASIQ.CO.ZA'},
     {label:'GRAPHICS', key:'graphics', default:'MATTHEW COLEMAN'},
     {label:'CAMERAS', key:'cameras', default:'ROHAN DASS'},
     {label:'', key:'cameras2', default:'SIBUSISO MNCUBE'},
-    {label:'JIMMY JIB', key:'jimmyJib', default:'BRAD BELLAS (CLUTCH MEDIA)'},
-    {label:'VISION CONTROL', key:'visionCtrl', default:'OSCAR CHAVALALA'},
+    {label:'JIMMY JIB', key:'jimmyJib', default:'FRANIE LUBBE'},
+    {label:'VISION CONTROL', key:'visionCtrl', default:'ANDREW BARTLETT'},
     {label:'LIGHTING', key:'lighting', default:'PAUL MODISE'},
-    {label:'VT OPERATOR', key:'vtOp', default:'ANDREW BARTLETT'},
-    {label:'SOUND ENGINEER', key:'soundEng', default:'JOSHUA VAN AS'},
+    {label:'VT OPERATOR', key:'vtOp', default:'OSCAR CHAVALALA'},
+    {label:'SOUND ENGINEER', key:'soundEng', default:'BONGANI GWAMANDA'},
     {label:'VISION MIXER', key:'visionMix', default:'JACO LOMBARD'},
   ]},
   {id:'production', label:'PRODUCTION', rows:[
@@ -1525,6 +1498,53 @@ const EC_FIXED_SECTIONS = [
     {label:'PATRON: MAKING A DIFFERENCE TRUST', key:'patron', default:'KAROLINA ANDROPOULOS'},
     {label:'FINANCE MANAGER', key:'finMgr', default:'KEVIN FREESE'},
     {label:'', key:'finMgr2', default:'MY ACCOUNTANT'},
+  ]},
+  {id:'mnet', label:'FOR M-NET CHANNELS:', rows:[
+    {label:'CEO: GENERAL ENTERTAINMENT', key:'ceo', default:'NOMSA PHILISO'},
+    {label:'M-NET CHANNELS DIRECTOR', key:'mnetDir', default:'WALDIMAR PELSER'},
+    {label:'PERSONAL ASSISTANT', key:'pa', default:'CHARNE MOLEVELD'},
+    {label:'HEAD OF PREMIUM CONTENT & CO-PRODUCTIONS', key:'headPremium', default:'SCHARL VAN DER MERWE'},
+    {label:'SENIOR MANAGER: REALITY & ENTERTAINMENT', key:'srMgrReality', default:'TERJA BENEY'},
+    {label:'COMMISSIONING EDITOR', key:'commEd', default:'LORHREN-ROSE JOSEPH'},
+    {label:'CONTENT COORDINATOR', key:'contentCoord', default:'QAMA MASE'},
+    {label:'HEAD OF INTEGRATION & PROGRAMME MANAGEMENT', key:'headIntegration', default:'PORTIA HESHU'},
+    {label:'SENIOR MANAGER: CONTENT OPERATIONS', key:'srMgrContent', default:'CHANÉ SAUNDERS'},
+    {label:'EXECUTIVE HEAD: MARKETING GENERAL ENTERTAINMENT', key:'execHeadMktg', default:'CHRISTINAH MAZIBUKO'},
+    {label:'SENIOR MANAGER: MARKETING', key:'srMgrMktg', default:'LEO SMIT'},
+    {label:'MARKETING MANAGER', key:'mktgMgr', default:'SAMIKSHA SOOKHDEO'},
+    {label:'BRAND MANAGER', key:'brandMgr', default:'LYDIA MOLALE'},
+    {label:'SENIOR MANAGER: PUBLICITY', key:'srMgrPub', default:'SUZAAN KEYTER'},
+    {label:'SENIOR MANAGER: DIGITAL MARKETING', key:'srMgrDigital', default:'THANDIE MAYEKISO'},
+    {label:'MARKETING MANAGER: ON-AIR PROMO SCHEDULING', key:'mktgMgrPromo', default:'KOKETSO MONONI'},
+    {label:'ON-AIR MARKETING TEAM', key:'onAir1', default:'NICHOLAS NGWENYA'},
+    {label:'', key:'onAir2', default:'THEMBELIHLE TWALA'},
+    {label:'', key:'onAir3', default:'KEEGAN JOKO'},
+    {label:'', key:'onAir4', default:'SIZWE TSHABALALA'},
+    {label:'', key:'onAir5', default:'NHLANHLA NKAMUBELE'},
+    {label:'CFO: GENERAL ENTERTAINMENT', key:'cfo', default:'RUSSELL EDWARDS'},
+    {label:'HEAD OF FINANCE: GE CONTENT', key:'headFinance', default:'RILIEN NIENABER'},
+    {label:'FINANCIAL MANAGER', key:'financeMgr', default:'RILEY EAGER'},
+    {label:'SENIOR PRODUCTION ACCOUNTANT', key:'srProdAcc', default:'THANDO DLOVA'},
+    {label:'FINANCE ANALYST', key:'finAnalyst', default:'SHARMLA MOODLEY'},
+    {label:'HEAD OF LEGAL', key:'headLegal', default:'BRANDON VERMEULEN'},
+    {label:'SENIOR LEGAL COUNSEL', key:'srLegal1', default:'LAVANYA PILLAY'},
+    {label:'', key:'srLegal2', default:'MSA GAXO'},
+    {label:'CONTRACT MANAGEMENT SPECIALIST', key:'contractMgmt', default:'NTHABISENG DUBE'},
+    {label:'SENIOR MANAGER: SERIES ACQUISITION & SCHEDULING', key:'srMgrSeries', default:'THEOLA AKERMANIDIS'},
+    {label:'SERIES ACQUISITIONS MANAGER', key:'seriesAcqMgr', default:'ATHINI MPHONGWANA'},
+    {label:'CONTENT CONTROLLER', key:'contentCtrl', default:'POCCY RAMPHISA'},
+    {label:'SERIES CONTENT SCHEDULING MANAGER', key:'seriesSchedMgr', default:'LERATO SEDIBE'},
+    {label:'SCHEDULING SPECIALISTS', key:'schedSpec1', default:'LIZELLE ROOI'},
+    {label:'', key:'schedSpec2', default:'SANDISIWE JAMES'},
+    {label:'PRESENTATION SCHEDULING MANAGER', key:'presSchedMgr', default:'BONGANI MAHAPA'},
+    {label:'PRESENTATION SCHEDULERS', key:'presSched1', default:'NOMVULA CINDI'},
+    {label:'', key:'presSched2', default:'NOKUTHULA MAKUA'},
+    {label:'', key:'presSched3', default:'NDUDUZO DANISA'},
+    {label:'', key:'presSched4', default:'MAATSOBANE SEKELE'},
+    {label:'', key:'presSched5', default:'WASHU RATSHIUNGO'},
+    {label:'', key:'presSched6', default:'MERRIAM RAMOOLLA'},
+    {label:'DSTV MEDIA SALES', key:'dstvSales1', default:'ATO MOKWENA'},
+    {label:'', key:'dstvSales2', default:'NOKWANDA MHLAMBO'},
   ]},
   {id:'carteBlanche', label:'FOR CARTE BLANCHE:', rows:[
     {label:'MAKE-UP & STYLING', key:'makeupStyling', default:'ANNAMARIE BRONKHORST'},
@@ -1627,8 +1647,11 @@ function renderEndCredits(epNums){
         ${scSec('Production')}
         ${EC_FIXED_SECTIONS[4].rows.map(r=>`${scLabel(r.label)}${ecInp('production',r.key,r.default)}`).join('')}
 
+        ${scSec('For M-Net Channels')}
+        ${EC_FIXED_SECTIONS[5].rows.map(r=>`${r.label?scLabel(r.label):''}${ecInp('mnet',r.key,r.default)}`).join('')}
+
         ${scSec('For Carte Blanche')}
-        ${EC_FIXED_SECTIONS[5].rows.map(r=>`${scLabel(r.label)}${ecInp('carteBlanche',r.key,r.default)}`).join('')}
+        ${EC_FIXED_SECTIONS[6].rows.map(r=>`${scLabel(r.label)}${ecInp('carteBlanche',r.key,r.default)}`).join('')}
       </div>
     </div>`;
   }).join('')}
