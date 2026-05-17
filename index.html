@@ -393,6 +393,7 @@ let syncStatus='offline',unsubComms=null,unsubSettings=null;
 let tab='home',sortField='commNum',sortDir='asc',search='',filter='all',currentSeason='39',previewRole=null;
 let studioCrew={}; // {epNum: {studioDirector:'', ad:'', ...}}
 let endCredits={}; // {epNum: {presenters:[], storyCrew:[], studioCrew2:[], viewerPanel:[], etc}}
+let creditsExpandedEp=null; // which episode card is expanded
 let promoData={}; // {epNum: {uids:{TSR1:'25XEJN0',...}, liveUID:'', liveType:'LIVE SHOW'}}
 let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,tempDate='';
 let addUserModal=false,newUserData={email:'',password:'',displayName:'',role:'editorial'},editUserModal=null,deleteUserModal=null;
@@ -603,89 +604,68 @@ async function exportCreditsPDF(epNum){
     return`<table style="${tblStyle}"><thead><tr><th colspan="2" style="${thStyle}">${title}</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
-  // Use table-based two-column layout — CSS grid/flex don't work in html2pdf
-  // Helper: label line + bold name(s) line
-  function credLine(label, ...names){
-    const nameRows=names.filter(Boolean).map(n=>`<div style="font-weight:700;font-size:10px;color:#111;letter-spacing:.5px">${esc(n)}</div>`).join('');
-    return`<div style="margin-bottom:10px">
-      ${label?`<div style="font-size:8px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px">${label}</div>`:''}
-      ${nameRows}
-    </div>`;
-  }
-  function credSection(title){
-    return`<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#111;border-bottom:1px solid #ccc;padding-bottom:3px;margin:14px 0 8px">
-      ${title}
-    </div>`;
-  }
-
-  // Story crew from commissions — licensed shows producer only, in-house excluded
-  const storyCrewBlocks=comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse).map(s=>`
-    <div style="margin-bottom:10px">
-      <div style="font-weight:800;font-size:10px;color:#111;margin-bottom:6px">"${esc(s.storyName.toUpperCase())}"</div>
-      ${s.isLicensed
-        ? credLine('PRODUCER', s.producer)
-        : `${s.dop?credLine('DIRECTOR OF PHOTOGRAPHY',s.dop):''}
-           ${s.ca?credLine('CAMERA ASSISTANT',s.ca):''}
-           ${s.editor?credLine('EDITOR',s.editor):''}
-           ${s.afm?credLine('AUDIO FINAL MIX',s.afm):''}`
-      }
-    </div>`).join('');
-
-  // Get all field values with defaults
-  function ev(sec,key,def){return getECValue(n,sec,key,def)||def||'';}
-
-  // Build centred, spaced credits body — no border lines, generous gaps
-  const LBL='font-size:9px;font-weight:800;color:#1a3a6a;text-transform:uppercase;letter-spacing:.9px;text-align:center;padding-top:0;padding-bottom:2px';
-  const NAME='font-size:11px;font-weight:800;color:#111;letter-spacing:.4px;text-align:center;padding-bottom:2px';
-  const SEC='font-size:10px;font-weight:900;color:#1a3a6a;text-transform:uppercase;letter-spacing:1.5px;text-align:center;padding:22px 0 4px';
+  // ── PDF CREDITS HELPERS ──────────────────────────────────────
+  // No lines anywhere. Each discipline block has break-inside:avoid.
+  // cSec  = BLUE CENTRED HEADING (PRESENTERS, FOR M-NET, FOR CARTE BLANCHE)
+  // cLabel = BLUE CENTRED DISCIPLINE LINE (COMPOSED BY, DOP, etc.) — NOT a heading
+  // cName  = BOLD BLACK CENTRED NAME
+  // cGap   = whitespace row
 
   function cRow(style,val){return val?`<tr><td style="${style}">${val}</td></tr>`:'';}
-  function cLabel(l){return l?cRow(LBL,l):'';}
-  function cName(v){return v?cRow(NAME,esc(String(v).toUpperCase())):''}
-  function cSec(t){return`<tr><td style="${SEC}">${t}</td></tr>`;}
-  function cGap(h=14){return`<tr><td style="padding:${h}px 0"></td></tr>`;}
-
-  // Story rows — licensed: PRODUCER label + producer name. Regular: crew. No N/A ever.
-  const storyRows=comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse).map((s,i,arr)=>`
-    ${i>0?cGap(18):''}
-    ${cRow('font-size:12px;font-weight:900;color:#1a3a6a;text-align:center;padding-top:10px;padding-bottom:2px','"'+esc(s.storyName.toUpperCase())+'"')}
-    ${s.isLicensed
-      ? `${cLabel('PRODUCER')}${cName(s.producer)}`
-      : `${s.dop?`${cLabel('DIRECTOR OF PHOTOGRAPHY')}${cName(s.dop)}`:''}
-         ${s.ca?`${cLabel('CAMERA ASSISTANT')}${cName(s.ca)}`:''}
-         ${s.editor?`${cLabel('EDITOR')}${cName(s.editor)}`:''}
-         ${s.afm?`${cLabel('AUDIO FINAL MIX')}${cName(s.afm)}`:''}`
-    }`).join('');
+  function cSec(t){
+    return`<tr><td style="font-size:11px;font-weight:900;color:#1a3a6a;text-transform:uppercase;letter-spacing:1.5px;text-align:center;padding:28px 0 6px">${t}</td></tr>`;
+  }
+  function cLabel(l){
+    if(!l)return'';
+    return`<tr><td style="font-size:9px;font-weight:800;color:#1a3a6a;text-transform:uppercase;letter-spacing:.9px;text-align:center;padding-top:24px;padding-bottom:3px">${l}</td></tr>`;
+  }
+  function cName(v){
+    if(!v)return'';
+    return`<tr><td style="font-size:11px;font-weight:800;color:#111;letter-spacing:.3px;text-align:center;padding-bottom:2px">${esc(String(v).toUpperCase())}</td></tr>`;
+  }
+  function cGap(h=8){return`<tr><td style="padding:${h}px 0;line-height:0"> </td></tr>`;}
 
   function ev(sec,key,def){return getECValue(n,sec,key,def)||def||'';}
 
-  // cSec = blue heading. cLabel = blue discipline line (same style). cName = bold black name.
-  // Gap between disciplines = 20px. Gap between sections = 30px.
+  // Story rows — blue story title, then crew. Licensed = PRODUCER only. In-house = excluded.
+  const storyRows=comms
+    .filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse)
+    .map((s,i)=>`
+      ${cGap(i===0?4:28)}
+      <tr><td style="font-size:12px;font-weight:900;color:#1a3a6a;text-align:center;padding:6px 0 2px">"${esc(s.storyName.toUpperCase())}"</td></tr>
+      ${s.isLicensed
+        ? `${cLabel('PRODUCER')}${cName(s.producer)}`
+        : `${s.dop?`${cLabel('DIRECTOR OF PHOTOGRAPHY')}${cName(s.dop)}`:''}
+           ${s.ca?`${cLabel('CAMERA ASSISTANT')}${cName(s.ca)}`:''}
+           ${s.editor?`${cLabel('EDITOR')}${cName(s.editor)}`:''}
+           ${s.afm?`${cLabel('AUDIO FINAL MIX')}${cName(s.afm)}`:''}`
+      }`).join('');
+
   const credBody=`<table style="width:100%;border-collapse:collapse"><tbody>
 
-    ${cSec('PRESENTERS')}${cGap(8)}
+    ${cSec('PRESENTERS')}
     ${EC_FIXED_SECTIONS[0].fields.map(f=>cName(ev('presenters',f.key,f.default))).join('')}
     ${cGap(28)}
 
-    ${cSec('CARTE BLANCHE VIEWER PANEL')}${cGap(8)}
+    ${cSec('CARTE BLANCHE VIEWER PANEL')}
     ${EC_FIXED_SECTIONS[1].fields.map(f=>cName(ev('viewerPanel',f.key,f.default))).join('')}
     ${cGap(28)}
 
     ${cLabel('CARTE BLANCHE THEME COMPOSED BY')}
     ${cName(ev('theme','composedBy','DAVE POLLECUTT'))}
-    ${cGap(20)}
+
     ${cLabel('ORCHESTRATION BY')}
     ${cName(ev('theme','orchBy','KURT HERMAN FOR BLUEBERRY ENTERTAINMENT'))}
-    ${cGap(20)}
+
     ${cLabel('LOGO & IMAGING BY')}
     ${cName(ev('theme','logoBy','MONARCHY'))}
-    ${cGap(20)}
+
     ${cLabel('LEGAL ADVISORS')}
     ${cName(ev('theme','legal1','DARIO MILO'))}
-    ${ev('theme','legal2','')?cName(ev('theme','legal2','POOJA DELA-CRON')):''}
-    ${ev('theme','legal3','')?cName(ev('theme','legal3','ODWA ABRAHAM')):''}
-    ${ev('theme','legal4','')?cName(ev('theme','legal4','KUHLE MAVUSO')):''}
-    ${ev('theme','legal5','')?cName(ev('theme','legal5','WEBBER WENTZEL ATTORNEYS')):''}
+    ${cName(ev('theme','legal2','POOJA DELA-CRON'))}
+    ${cName(ev('theme','legal3','ODWA ABRAHAM'))}
+    ${cName(ev('theme','legal4','KUHLE MAVUSO'))}
+    ${cName(ev('theme','legal5','WEBBER WENTZEL ATTORNEYS'))}
     ${cGap(28)}
 
     ${storyRows}
@@ -693,76 +673,77 @@ async function exportCreditsPDF(epNum){
 
     ${cLabel('STUDIO FACILITIES')}
     ${cName(ev('studio','studioFac','STARK STUDIOS'))}
-    ${cGap(20)}
+
     ${cLabel('SET & SET DESIGN')}
     ${cName(ev('studio','setDesign','DEWET MEYER'))}
-    ${ev('studio','setDesign2','')?cName(ev('studio','setDesign2','JD UNLIMITED')):''}
-    ${cGap(20)}
+    ${cName(ev('studio','setDesign2','JD UNLIMITED'))}
+
     ${cLabel('LIGHTING DESIGN')}
     ${cName(ev('studio','lightEng','JOSHUA CUTTS'))}
-    ${ev('studio','lightEng2','')?cName(ev('studio','lightEng2','VISUAL FRONTIER')):''}
-    ${cGap(20)}
+    ${cName(ev('studio','lightEng2','VISUAL FRONTIER'))}
+
     ${cLabel('ENGINEERS')}
     ${cName(ev('studio','engineers1','OSCAR CHAVALALA'))}
-    ${ev('studio','engineers2','')?cName(ev('studio','engineers2','ANDREW BARTLETT')):''}
-    ${cGap(20)}
+    ${cName(ev('studio','engineers2','ANDREW BARTLETT'))}
+
     ${cLabel('SOUND ASSISTANT')}
     ${cName(ev('studio','stSoundAsst','MARIUS KEMP'))}
-    ${cGap(20)}
+
     ${cLabel('AUTOCUE')}
     ${cName(ev('studio','autocue','CARLA HAMILTON'))}
-    ${ev('studio','autocue2','')?cName(ev('studio','autocue2','EASIQ.CO.ZA')):''}
-    ${cGap(20)}
+    ${cName(ev('studio','autocue2','EASIQ.CO.ZA'))}
+
     ${cLabel('GRAPHICS')}
     ${cName(ev('studio','graphics','MATTHEW COLEMAN'))}
-    ${cGap(20)}
+
     ${cLabel('CAMERAS')}
     ${cName(ev('studio','cameras','ROHAN DASS'))}
-    ${ev('studio','cameras2','')?cName(ev('studio','cameras2','SIBUSISO MNCUBE')):''}
-    ${cGap(20)}
+    ${cName(ev('studio','cameras2','SIBUSISO MNCUBE'))}
+
     ${cLabel('JIMMY JIB')}
     ${cName(ev('studio','jimmyJib','FRANIE LUBBE'))}
-    ${cGap(20)}
+
     ${cLabel('VISION CONTROL')}
     ${cName(ev('studio','visionCtrl','ANDREW BARTLETT'))}
-    ${cGap(20)}
+
     ${cLabel('LIGHTING')}
     ${cName(ev('studio','lighting','PAUL MODISE'))}
-    ${cGap(20)}
+
     ${cLabel('VT OPERATOR')}
     ${cName(ev('studio','vtOp','OSCAR CHAVALALA'))}
-    ${cGap(20)}
+
     ${cLabel('SOUND ENGINEER')}
     ${cName(ev('studio','soundEng','BONGANI GWAMANDA'))}
-    ${cGap(20)}
+
     ${cLabel('VISION MIXER')}
     ${cName(ev('studio','visionMix','JACO LOMBARD'))}
     ${cGap(28)}
 
     ${cLabel('PRODUCTION')}
     ${cName(ev('production','prod','VINCENT BUTJE'))}
-    ${cGap(20)}
+
     ${cLabel('PRODUCTION COORDINATOR')}
     ${cName(ev('production','prodCoord','MIHLE KLAAS'))}
-    ${cGap(20)}
+
     ${cLabel('VIDEO EDITORS')}
     ${cName(ev('production','vidEd1','BRYAN BARTLE'))}
-    ${ev('production','vidEd2','')?cName(ev('production','vidEd2','STENETTE GROSSKOPF')):''}
-    ${cGap(20)}
+    ${cName(ev('production','vidEd2','STENETTE GROSSKOPF'))}
+
     ${cLabel('PATRON: MAKING A DIFFERENCE TRUST')}
     ${cName(ev('production','patron','KAROLINA ANDROPOULOS'))}
-    ${cGap(20)}
+
     ${cLabel('FINANCE MANAGER')}
     ${cName(ev('production','finMgr','KEVIN FREESE'))}
-    ${ev('production','finMgr2','')?cName(ev('production','finMgr2','MY ACCOUNTANT')):''}
+    ${cName(ev('production','finMgr2','MY ACCOUNTANT'))}
     ${cGap(28)}
 
-    ${cSec('FOR M-NET CHANNELS:')}${cGap(8)}
+    ${cSec('FOR M-NET CHANNELS:')}
     ${EC_FIXED_SECTIONS[5].rows.map(r=>`${r.label?cLabel(r.label):''}${cName(ev('mnet',r.key,r.default))}`).join('')}
     ${cGap(28)}
 
-    ${cSec('FOR CARTE BLANCHE:')}${cGap(8)}
-    ${EC_FIXED_SECTIONS[6].rows.map(r=>`${cLabel(r.label)}${cName(ev('carteBlanche',r.key,r.default))}${cGap(16)}`).join('')}
+    ${cSec('FOR CARTE BLANCHE:')}
+    ${EC_FIXED_SECTIONS[6].rows.map(r=>`${cLabel(r.label)}${cName(ev('carteBlanche',r.key,r.default))}`).join('')}
+    ${cGap(16)}
 
   </tbody></table>`;
 
@@ -1616,20 +1597,23 @@ function renderEndCredits(epNums){
   return`<div class="ep-wrap">
   ${epNums.map(n=>{
     const storyCrew=storyCrewRows(n);
-    return`<div class="ep-card" style="margin-bottom:14px">
-      <div class="ep-head" style="display:flex;align-items:center;justify-content:space-between">
+    const isExpanded=creditsExpandedEp===String(n);
+    return`<div class="ep-card" style="margin-bottom:8px">
+      <div class="ep-head" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" data-credits-toggle="${n}">
         <div style="display:flex;align-items:center;gap:12px">
           <span class="ep-num">EP ${n}</span>
           <span style="font-size:13px;font-weight:600;color:#9aaabe">${fmtDate(resolveDate(n))}</span>
+          <span style="font-size:11px;color:#484f58">${isExpanded?'▲ collapse':'▼ expand'}</span>
         </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          ${canEd?`<label class="btn" style="font-size:11px;cursor:pointer" title="Import credits from a Word .docx file">
+        <div style="display:flex;gap:8px;align-items:center" onclick="event.stopPropagation()">
+          ${isExpanded&&canEd?`<label class="btn" style="font-size:11px;cursor:pointer" title="Import credits from a Word .docx file">
             ⬆ Import from Word
             <input type="file" accept=".docx" class="credits-word-import" data-ep="${n}" style="display:none">
           </label>`:''}
-          <button class="btn" style="font-size:11px;border-color:#388bfd;color:#58a6ff" data-ep-credits-pdf="${n}">⬇ Export Credits PDF</button>
+          ${isExpanded?`<button class="btn" style="font-size:11px;border-color:#388bfd;color:#58a6ff" data-ep-credits-pdf="${n}">⬇ Export Credits PDF</button>`:''}
         </div>
       </div>
+      ${isExpanded?`<div>`:'<div style="display:none">'}
       <div style="padding:20px;max-width:560px;margin:0 auto">
         ${scSec('Presenters')}
         ${EC_FIXED_SECTIONS[0].fields.map(f=>ecInp('presenters',f.key,f.default)).join('')}
@@ -1815,6 +1799,7 @@ function renderStudioCrew(epNums){
             <input class="ci studio-ci" value="${esc(String(crew[key]||''))}" data-ep="${n}" data-field="${key}" placeholder="—" style="width:100%;font-size:13px" ${!canEd?'disabled':''}>
           </div>
         </div>`).join('')}
+      </div>
       </div>
     </div>`;
   }).join('')}
@@ -2518,6 +2503,15 @@ function bindApp(){
       btn.innerHTML='⏳ Preparing…';btn.disabled=true;
       await exportPromoXLSX(n);
       btn.innerHTML='⬇ Export Excel';btn.disabled=false;
+    });
+  });
+
+  // Credits episode toggle
+  document.querySelectorAll('[data-credits-toggle]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const n=el.dataset.creditsToggle;
+      creditsExpandedEp=creditsExpandedEp===n?null:n;
+      render();
     });
   });
 
