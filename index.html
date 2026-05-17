@@ -391,6 +391,7 @@ let syncStatus='offline',unsubComms=null,unsubSettings=null;
 let tab='commissions',sortField='commNum',sortDir='asc',search='',filter='all',currentSeason='39',previewRole=null;
 let studioCrew={}; // {epNum: {studioDirector:'', ad:'', ...}}
 let endCredits={}; // {epNum: {presenters:[], storyCrew:[], studioCrew2:[], viewerPanel:[], etc}}
+let promoData={}; // {epNum: {uids:{TSR1:'25XEJN0',...}, liveUID:'', liveType:'LIVE SHOW'}}
 let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,tempDate='';
 let addUserModal=false,newUserData={email:'',password:'',displayName:'',role:'editorial'},editUserModal=null,deleteUserModal=null;
 let toast=null,toastTimer=null,pendingFocusId=null;
@@ -399,6 +400,107 @@ function initFB(cfg){try{fbApp=initializeApp(cfg);auth=getAuth(fbApp);db=getFire
 
 async function saveComm(c){setSyncDot('saving');try{await setDoc(doc(db,'commissions',String(c.id)),{...c,updatedAt:serverTimestamp()});setSyncDot('live');}catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}}
 const STUDIO_FIELDS=[['studioDirector','Studio Director'],['assistantDirector','Assistant Director'],['floorManager','Floor Manager'],['autocueOperator','Autocue Operator'],['vtOperator','VT Operator'],['visionController','Vision Controller'],['lightingDirector','Lighting Director'],['graphicsOperator','Graphics Operator'],['visionMixer','Vision Mixer'],['jibOperator','Jib Operator'],['cameraOp1','Camera Operator 1'],['cameraOp2','Camera Operator 2'],['soundEngineer','Sound Engineer'],['soundAssistant','Sound Assistant'],['makeupArtist','Make-Up Artist'],['studioStylist','Studio Stylist']];
+
+async function savePromoData(ep,data){
+  setSyncDot('saving');
+  try{
+    await setDoc(doc(db,'promo_scheduling',String(ep)),{...data,ep:Number(ep),updatedAt:serverTimestamp()});
+    promoData[ep]={...data};
+    setSyncDot('live');
+  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}
+}
+
+
+async function exportPromoPDF(epNum){
+  if(!window.html2pdf){
+    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+  }
+  const n=epNum;
+  const epDate=resolveDate(Number(n));
+  const epStr=String(n).padStart(2,'0');
+  const sunDate=new Date(epDate).toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  const printDate=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
+  const pd=promoData[String(n)]||{};
+  const uids=pd.uids||{};
+  const liveUID=pd.liveUID||'';
+  const liveType=pd.liveType||'LIVE SHOW';
+
+  const thS='padding:8px 10px;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#fff;background:#1a3a6a;text-align:left;border-right:1px solid rgba(255,255,255,.15)';
+  const tdS='padding:8px 10px;font-size:10px;border-bottom:1px solid #e5eaf2;vertical-align:middle';
+
+  const promoRows=PROMO_TYPES.map((pt,i)=>{
+    const txDates=getPromoTXDates(epDate,pt.txType);
+    const uid=uids[pt.key]||'';
+    const slug=buildSlug(currentSeason,n,pt.slug);
+    const combined=uid?`${uid} ${slug}`:'—';
+    const bg=i%2===0?'#fff':'#f7f9fc';
+    return`<tr style="background:${bg}">
+      <td style="${tdS};font-weight:700">${pt.label}</td>
+      <td style="${tdS}">${esc(pd['txFrom_'+pt.key]||txDates.from)}</td>
+      <td style="${tdS}">${esc(pd['txTo_'+pt.key]||txDates.to)}</td>
+      <td style="${tdS};font-family:monospace;font-weight:700;color:#1a3a6a;letter-spacing:1px">${esc(uid)||'—'}</td>
+      <td style="${tdS};font-family:monospace;font-size:9px;color:#555">${esc(slug)}</td>
+      <td style="${tdS};font-family:monospace;font-weight:700;color:#1a5c1a;font-size:10px">${esc(combined)}</td>
+    </tr>`;
+  }).join('');
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;font-size:10px}@page{margin:10mm;size:A4 landscape}table{table-layout:fixed;width:100%;border-collapse:collapse}</style>
+  </head><body>
+  <!-- HEADER -->
+  <table style="margin-bottom:14px;border-bottom:3px solid #1a3a6a;padding-bottom:10px">
+    <tr valign="middle">
+      <td style="width:80px"><img src="${BAKED_CB_LOGO}" style="height:44px;width:auto"></td>
+      <td style="text-align:center;padding:0 16px">
+        <div style="font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#111">PROMO SCHEDULING CARTE BLANCHE SEASON ${currentSeason} EPISODE ${epStr}</div>
+        <div style="font-size:9px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase">Broadcast: ${sunDate} &nbsp;·&nbsp; Generated: ${printDate}</div>
+      </td>
+      <td style="width:80px;text-align:right"><img src="${BAKED_CAP_LOGO}" style="height:36px;width:auto;display:block;margin-left:auto"></td>
+    </tr>
+  </table>
+  <!-- LIVE SHOW ROW -->
+  <table style="margin-bottom:12px;border:2px solid #1a3a6a;border-radius:4px">
+    <tr style="background:#e8f5e8">
+      <td style="padding:8px 12px;font-weight:800;font-size:12px;color:#1a5c1a;width:130px">${esc(liveType)}</td>
+      <td style="padding:8px 12px;font-size:10px;color:#555">${sunDate}</td>
+      <td style="padding:8px 12px;font-size:10px;font-weight:700;font-family:monospace;color:#1a3a6a;letter-spacing:1px">${liveUID?`UID: ${esc(liveUID)}`:'<span style="color:#aaa">No UID entered</span>'}</td>
+      <td style="padding:8px 12px;font-size:9px;color:#aaa;font-style:italic">No slug for live show</td>
+    </tr>
+  </table>
+  <!-- PROMO TABLE -->
+  <table>
+    <colgroup>
+      <col style="width:13%"><col style="width:11%"><col style="width:11%">
+      <col style="width:10%"><col style="width:27%"><col style="width:28%">
+    </colgroup>
+    <thead><tr>
+      <th style="${thS}">Type</th>
+      <th style="${thS}">TX From</th>
+      <th style="${thS}">TX To</th>
+      <th style="${thS}">UID</th>
+      <th style="${thS}">Slug</th>
+      <th style="${thS}">UID + Slug (Combined)</th>
+    </tr></thead>
+    <tbody>${promoRows}</tbody>
+  </table>
+  <div style="margin-top:10px;text-align:center;font-size:7px;color:#aaa;border-top:1px solid #ddd;padding-top:6px">CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason} · Episode ${epStr}</div>
+  </body></html>`;
+
+  html2pdf().set({
+    margin:[6,6,6,6],
+    filename:`CB-Promo-Schedule-S${currentSeason}-EP${epStr}.pdf`,
+    image:{type:'jpeg',quality:0.98},
+    html2canvas:{scale:2,useCORS:true,allowTaint:true},
+    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
+  }).from(html).save();
+}
+
+async function loadPromoData(){
+  try{
+    const snap=await getDocs(collection(db,'promo_scheduling'));
+    snap.docs.forEach(d=>{promoData[d.id]={...d.data()};});
+  }catch(e){console.error('Promo data load error:',e);}
+}
 
 async function saveEndCredits(ep,data){
   setSyncDot('saving');
@@ -925,6 +1027,7 @@ function renderApp(){
     <div class="tab-btn${tab==='episodes'?' active':''}" data-tab="episodes">Episode Register</div>
     ${getEffectiveRole()!=='production'?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}    
     ${getEffectiveRole()!=='production'?`<div class="tab-btn${tab==='credits'?' active':''}" data-tab="credits">End Credits</div>`:''}
+    ${getEffectiveRole()!=='production'?`<div class="tab-btn${tab==='promos'?' active':''}" data-tab="promos">Promo Scheduling</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
   </div>
   <div class="content">
@@ -932,6 +1035,7 @@ function renderApp(){
     ${tab==='episodes'?renderEpisodes(epNums,paid,remaining):''}
     ${tab==='studio'?renderStudioCrew(epNums):''}
     ${tab==='credits'?renderEndCredits(epNums):''}
+    ${tab==='promos'?renderPromoScheduling(epNums):''}
     ${tab==='admin'&&currentRole==='admin'&&!previewRole?renderAdmin():''}
   </div>
 </div>
@@ -1267,6 +1371,141 @@ function renderEndCredits(epNums){
 
         ${scSec('For Carte Blanche')}
         ${EC_FIXED_SECTIONS[5].rows.map(r=>`${scLabel(r.label)}${ecInp('carteBlanche',r.key,r.default)}`).join('')}
+      </div>
+    </div>`;
+  }).join('')}
+  </div>`;
+}
+
+
+const PROMO_TYPES = [
+  {key:'TSR1',  label:'Teaser #1',      slug:'TSR1_30SEC',  txType:'teaser'},
+  {key:'TSR2',  label:'Teaser #2',      slug:'TSR2_30SEC',  txType:'teaser'},
+  {key:'AFR1',  label:'Afrikaans #1',   slug:'AFR1_30SEC',  txType:'teaser'},
+  {key:'AFR2',  label:'Afrikaans #2',   slug:'AFR2_30SEC',  txType:'teaser'},
+  {key:'WKLY1', label:'Weekly #1',      slug:'WKLY1_30SEC', txType:'weekly'},
+  {key:'WKLY2', label:'Weekly #2',      slug:'WKLY2_30SEC', txType:'weekly'},
+  {key:'TON1',  label:'Tonight #1',     slug:'TON1_30SEC',  txType:'tonight'},
+  {key:'TON2',  label:'Tonight #2',     slug:'TON2_30SEC',  txType:'tonight'},
+  {key:'TON3',  label:'Tonight #3',     slug:'TON3_30SEC',  txType:'tonight'},
+  {key:'TON4',  label:'Tonight #4',     slug:'TON4_30SEC',  txType:'tonight'},
+  {key:'CATCH1',label:'Catchup #1',     slug:'CATCH1_30SEC',txType:'catchup'},
+  {key:'CATCH2',label:'Catchup #2',     slug:'CATCH2_30SEC',txType:'catchup'},
+];
+
+// TX date ranges relative to broadcast Sunday (day 0)
+function getPromoTXDates(epDate, txType){
+  const sun = new Date(epDate);
+  function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+  function fmt(d){return d.toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'});}
+  switch(txType){
+    case 'teaser':  return{from:fmt(addDays(sun,-4)), to:fmt(addDays(sun,-1))}; // Wed-Sat
+    case 'weekly':  return{from:fmt(addDays(sun,-3)), to:fmt(addDays(sun,-1))}; // Thu-Sat
+    case 'tonight': return{from:fmt(sun),             to:fmt(sun)};              // Sun only
+    case 'catchup': return{from:fmt(addDays(sun,+1)), to:fmt(addDays(sun,+3))}; // Mon-Wed
+    default:        return{from:'',to:''};
+  }
+}
+
+function buildSlug(season, epNum, slugSuffix){
+  const ep=String(epNum).padStart(2,'0');
+  return`PR_CB_YR${season}E${ep}_${slugSuffix}_HD`;
+}
+
+
+function renderPromoScheduling(epNums){
+  if(!epNums.length) return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet.</div></div>`;
+  const canEd=getEffectiveRole()==='admin'||getEffectiveRole()==='operations';
+
+  return`<div class="ep-wrap">
+  ${epNums.map(n=>{
+    const epDate=resolveDate(n);
+    const pd=promoData[String(n)]||{};
+    const uids=pd.uids||{};
+    const liveUID=pd.liveUID||'';
+    const liveType=pd.liveType||'LIVE SHOW';
+    const epStr=String(n).padStart(2,'0');
+    const sunDate=new Date(epDate).toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+
+    const thStyle='padding:10px 12px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap';
+    const tdBase='padding:9px 12px;font-size:12px;border-bottom:1px solid #21262d;vertical-align:middle';
+
+    const promoRows=PROMO_TYPES.map((pt,i)=>{
+      const txDates=getPromoTXDates(epDate,pt.txType);
+      const uid=uids[pt.key]||'';
+      const slug=buildSlug(currentSeason,n,pt.slug);
+      const combined=uid?`${uid} ${slug}`:'';
+      const bg=i%2===0?'':'background:#1a2035';
+      return`<tr style="${bg}">
+        <td style="${tdBase};font-weight:700;color:#eaf0ff;width:130px">${pt.label}</td>
+        <td style="${tdBase};width:110px">
+          <input class="ci promo-date-inp" value="${esc(pd['txFrom_'+pt.key]||txDates.from)}"
+            data-ep="${n}" data-field="txFrom_${pt.key}" placeholder="${txDates.from}"
+            style="font-size:11px;width:100%" ${!canEd?'disabled':''}>
+        </td>
+        <td style="${tdBase};width:110px">
+          <input class="ci promo-date-inp" value="${esc(pd['txTo_'+pt.key]||txDates.to)}"
+            data-ep="${n}" data-field="txTo_${pt.key}" placeholder="${txDates.to}"
+            style="font-size:11px;width:100%" ${!canEd?'disabled':''}>
+        </td>
+        <td style="${tdBase};width:110px">
+          <input class="ci promo-uid-inp" value="${esc(uid)}"
+            data-ep="${n}" data-key="${pt.key}"
+            placeholder="—" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#58a6ff;width:100%;letter-spacing:1px" ${!canEd?'disabled':''}>
+        </td>
+        <td style="${tdBase};font-size:10px;color:#8b949e;font-family:'JetBrains Mono',monospace;letter-spacing:.5px;word-break:break-all">
+          <span style="color:#7a8ba0;font-size:9px">${slug}</span>
+        </td>
+        <td style="${tdBase};font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:#3fb950;letter-spacing:.5px">
+          ${combined?esc(combined):'<span style="color:#484f58">—</span>'}
+        </td>
+      </tr>`;
+    }).join('');
+
+    return`<div class="ep-card" style="margin-bottom:20px">
+      <div class="ep-head">
+        <div style="display:flex;align-items:center;gap:12px;flex:1">
+          <span class="ep-num">EP ${n}</span>
+          <div>
+            <div style="font-size:14px;font-weight:800;color:#eaf0ff;text-transform:uppercase;letter-spacing:.5px">
+              PROMO SCHEDULING CARTE BLANCHE SEASON ${currentSeason} EPISODE ${epStr}
+            </div>
+            <div style="font-size:11px;color:#6e7681;margin-top:2px">Broadcast: ${sunDate}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${canEd?`<label class="btn" style="font-size:11px;cursor:pointer">
+            ⬆ Import UIDs
+            <input type="file" accept=".xlsx,.xls,.csv" class="promo-uid-import" data-ep="${n}" style="display:none">
+          </label>`:''}
+          <button class="btn" style="font-size:11px;border-color:#388bfd;color:#58a6ff" data-promo-pdf="${n}">⬇ Export PDF</button>
+        </div>
+      </div>
+
+      <!-- LIVE SHOW ROW -->
+      <div style="padding:10px 16px;background:#1a2a1a;border-bottom:2px solid #2e3a50;display:flex;align-items:center;gap:16px">
+        <input class="ci promo-live-type" value="${esc(liveType)}" data-ep="${n}"
+          placeholder="LIVE SHOW" style="font-size:13px;font-weight:800;color:#3fb950;width:130px;background:transparent;border:none;border-bottom:1px solid #2d6a2d" ${!canEd?'disabled':''}>
+        <span style="font-size:11px;color:#6e7681;width:220px">${sunDate}</span>
+        <span style="font-size:10px;color:#7a8ba0;margin-right:4px">UID:</span>
+        <input class="ci promo-live-uid" value="${esc(liveUID)}" data-ep="${n}"
+          placeholder="Enter UID" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#58a6ff;width:130px;letter-spacing:1px" ${!canEd?'disabled':''}>
+        <span style="font-size:10px;color:#484f58;font-style:italic">No slug for live show</span>
+      </div>
+
+      <!-- PROMO TABLE -->
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:900px">
+          <thead><tr>
+            <th style="${thStyle}">Type</th>
+            <th style="${thStyle}">TX From</th>
+            <th style="${thStyle}">TX To</th>
+            <th style="${thStyle}">UID</th>
+            <th style="${thStyle}">Slug</th>
+            <th style="${thStyle}">UID + Slug</th>
+          </tr></thead>
+          <tbody>${promoRows}</tbody>
+        </table>
       </div>
     </div>`;
   }).join('')}
@@ -1759,6 +1998,119 @@ function bindApp(){
     });
   });
 
+  // Promo inputs — TX dates
+  document.querySelectorAll('input.promo-date-inp').forEach(inp=>{
+    inp.addEventListener('blur',e=>{
+      const ep=inp.dataset.ep;
+      if(!promoData[ep])promoData[ep]={};
+      promoData[ep][inp.dataset.field]=e.target.value;
+      savePromoData(ep,promoData[ep]);
+    });
+    inp.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();inp.blur();}
+      if(e.key==='Tab'){
+        e.preventDefault();inp.blur();
+        const all=Array.from(document.querySelectorAll('input.promo-date-inp,input.promo-uid-inp'));
+        const idx=all.indexOf(inp);
+        const next=all[idx+(e.shiftKey?-1:1)];
+        if(next){next.focus();next.select();}
+      }
+    });
+  });
+
+  // Promo UID inputs
+  document.querySelectorAll('input.promo-uid-inp').forEach(inp=>{
+    inp.addEventListener('blur',e=>{
+      const ep=inp.dataset.ep;
+      if(!promoData[ep])promoData[ep]={};
+      if(!promoData[ep].uids)promoData[ep].uids={};
+      promoData[ep].uids[inp.dataset.key]=e.target.value.trim().toUpperCase();
+      savePromoData(ep,promoData[ep]);
+      render(); // refresh combined col
+    });
+    inp.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();inp.blur();}
+      if(e.key==='Tab'){
+        e.preventDefault();inp.blur();
+        const all=Array.from(document.querySelectorAll('input.promo-uid-inp'));
+        const idx=all.indexOf(inp);
+        const next=all[idx+(e.shiftKey?-1:1)];
+        if(next){next.focus();next.select();}
+      }
+    });
+  });
+
+  // Live show type and UID
+  document.querySelectorAll('input.promo-live-type').forEach(inp=>{
+    inp.addEventListener('blur',e=>{
+      const ep=inp.dataset.ep;
+      if(!promoData[ep])promoData[ep]={};
+      promoData[ep].liveType=e.target.value;
+      savePromoData(ep,promoData[ep]);
+    });
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}});
+  });
+  document.querySelectorAll('input.promo-live-uid').forEach(inp=>{
+    inp.addEventListener('blur',e=>{
+      const ep=inp.dataset.ep;
+      if(!promoData[ep])promoData[ep]={};
+      promoData[ep].liveUID=e.target.value.trim().toUpperCase();
+      savePromoData(ep,promoData[ep]);
+    });
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}});
+  });
+
+  // Excel/CSV UID import
+  document.querySelectorAll('input.promo-uid-import').forEach(fileInp=>{
+    fileInp.addEventListener('change',async e=>{
+      const ep=fileInp.dataset.ep;
+      const file=e.target.files[0];
+      if(!file)return;
+      const ext=file.name.split('.').pop().toLowerCase();
+      try{
+        let uids=[];
+        if(ext==='csv'){
+          const text=await file.text();
+          uids=text.split(/\r?\n/).map(l=>l.split(',')[0].trim().replace(/^"|"$/g,'')).filter(Boolean);
+        } else {
+          // xlsx — load SheetJS on demand
+          if(!window.XLSX){
+            await new Promise((res,rej)=>{
+              const s=document.createElement('script');
+              s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+              s.onload=res;s.onerror=rej;document.head.appendChild(s);
+            });
+          }
+          const buf=await file.arrayBuffer();
+          const wb=XLSX.read(buf,{type:'array'});
+          const ws=wb.Sheets[wb.SheetNames[0]];
+          const rows=XLSX.utils.sheet_to_json(ws,{header:1});
+          uids=rows.map(r=>String(r[0]||'').trim()).filter(Boolean);
+        }
+        // Map first 12 non-empty values to the 12 promo types
+        if(!promoData[ep])promoData[ep]={};
+        if(!promoData[ep].uids)promoData[ep].uids={};
+        PROMO_TYPES.forEach((pt,i)=>{
+          if(uids[i])promoData[ep].uids[pt.key]=uids[i].toUpperCase();
+        });
+        await savePromoData(ep,promoData[ep]);
+        showToast(`Imported ${Math.min(uids.length,12)} UIDs for Episode ${ep}`);
+        render();
+      }catch(err){showToast('Import failed: '+err.message,true);}
+      fileInp.value='';
+    });
+  });
+
+  // Promo PDF export
+  document.querySelectorAll('[data-promo-pdf]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const n=btn.dataset.promoPdf;
+      btn.innerHTML='⏳ Preparing…';btn.disabled=true;
+      await exportPromoPDF(n);
+      btn.innerHTML='⬇ Export PDF';btn.disabled=false;
+    });
+  });
+
   // Per-episode credits PDF export
   document.querySelectorAll('[data-ep-credits-pdf]').forEach(btn=>{
     btn.addEventListener('click',async()=>{
@@ -2100,6 +2452,7 @@ async function boot(){
       try{await loadUsers();}catch(e){console.error('Load users error:',e);}
       try{await loadStudioCrew();}catch(e){console.error('Studio crew error:',e);}
       try{await loadEndCredits();}catch(e){console.error('End credits error:',e);}
+      try{await loadPromoData();}catch(e){console.error('Promo data error:',e);}
       render();
     } else {
       currentUser=null;currentRole=null;
