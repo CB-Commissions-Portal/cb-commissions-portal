@@ -78,6 +78,9 @@ input,select,textarea,button{font-family:var(--font-main)}
 /* TABLE */
 .table-outer{flex:1;overflow:auto;padding:12px 16px}
 table{width:max-content;min-width:100%;border-collapse:collapse;table-layout:auto}
+.resizer{position:absolute;right:0;top:0;height:100%;width:6px;cursor:col-resize;user-select:none;z-index:10}
+.resizer:hover,.resizer.active{background:#388bfd}
+th{position:relative}
 thead{position:sticky;top:0;z-index:10}
 th{background:#1e2535;color:#7a8ba0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;padding:11px 12px;text-align:left;white-space:nowrap;cursor:pointer;border-bottom:2px solid #30363d;user-select:none}
 th:hover{color:#8b949e}
@@ -386,7 +389,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='1.7.3';
+const BUILD_VERSION='1.8.0';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -885,7 +888,7 @@ async function deleteComm(id){
 async function addRow(){
   const maxId=comms.length?Math.max(...comms.map(c=>Number(c.id)||0)):0;
   const newId=maxId+1;
-  const blank={id:newId,portal:false,commNum:'',shortName:'',storyName:'',commDuration:'',deliveredDuration:'',paidDuration:'',producer:'',presenterVO:'',dop:'',ca:'',editor:'',afm:'',callSheets:false,insertScripts:false,releaseForms:false,footageAgreement:false,musicCueSheet:false,footageDeclaration:false,carpUpload:false,approvedForPayment:false,decommissioned:false,decommissionMotivation:'',broadcastEpisode:'',isInHouse:false,isLicensed:false};
+  const blank={id:newId,broadcastOrder:0,portal:false,commNum:'',shortName:'',storyName:'',commDuration:'',deliveredDuration:'',paidDuration:'',producer:'',presenterVO:'',dop:'',ca:'',editor:'',afm:'',callSheets:false,insertScripts:false,releaseForms:false,footageAgreement:false,musicCueSheet:false,footageDeclaration:false,carpUpload:false,approvedForPayment:false,decommissioned:false,decommissionMotivation:'',broadcastEpisode:'',isInHouse:false,isLicensed:false};
   pendingFocusId=newId;await saveComm(blank);
 }
 
@@ -1192,7 +1195,7 @@ function renderApp(){
         ${previewRole?`<span style="font-size:10px;background:#2d2200;color:#f5a623;border:1px solid #f5a623;padding:2px 8px;border-radius:4px;font-weight:700">PREVIEW MODE</span>`:''}
       </div>`:''}
       <div class="user-chip">
-        <span style="font-size:9px;color:#484f58;margin-right:8px;font-family:'JetBrains Mono',monospace">v${BUILD_VERSION}</span>
+        <span style="font-size:9px;color:#cdd9e5;margin-right:8px;font-family:'JetBrains Mono',monospace;font-weight:700">v${BUILD_VERSION}</span>
         <div class="avatar" style="background:${rm.bg};color:${rm.color}">${initials(currentUser.displayName||currentUser.email)}</div>
         <div><div class="u-name">${esc(currentUser.displayName||currentUser.email)}</div><div class="u-role-lbl" style="color:${rm.color}">${previewRole?`Previewing: ${ROLE_META[previewRole].label}`:rm.label}</div></div>
       </div>
@@ -1312,12 +1315,12 @@ ${filtered.map(c=>{
   return`<tr class="${cls}" data-id="${c.id}">
 <td class="st st-1" style="text-align:center"><input type="checkbox" class="cb" data-field="portal" tabindex="-1" ${c.portal?'checked':''} ${!canEdit(getEffectiveRole(),'portal')?'disabled':''}></td>
 <td class="st st-2" style="white-space:nowrap;vertical-align:middle">
-  <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">
+  <div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start">
     ${ci('commNum')}
-    <div style="display:flex;gap:3px;flex-wrap:nowrap">
+    <div style="display:flex;gap:3px;flex-wrap:nowrap;align-items:center">
+      ${c.broadcastEpisode&&isEpFinalised(c.broadcastEpisode)?'<span style="background:#2e4a2e;color:#4ade80;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;white-space:nowrap">FINALISED</span>':''}
       ${c.isLicensed?'<span style="background:#1c2d1c;color:#3fb950;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #2d6a2d;white-space:nowrap">LICENSED</span>':''}
       ${c.isInHouse?'<span style="background:#1a2d4a;color:#58a6ff;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #1a3a6a;white-space:nowrap">IN-HOUSE</span>':''}
-      ${c.broadcastEpisode&&isEpFinalised(c.broadcastEpisode)?'<span style="background:#2e4a2e;color:#4ade80;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;white-space:nowrap">FINALISED</span>':''}
     </div>
   </div>
 </td>
@@ -2050,7 +2053,7 @@ function renderLeave(){
       </div>`;
     }).join('');
 
-    return`<div class="ep-wrap">
+    return`<div class="ep-wrap" style="padding-bottom:60px">
       <div style="margin-bottom:20px">
         <div style="font-size:15px;font-weight:800;color:#eaf0ff;margin-bottom:12px">⏳ Pending Requests (${pending.length})</div>
         ${pending.length?pending.map(r=>reqCard(r,true)).join(''):'<div style="color:#484f58;font-size:12px;padding:12px 0">No pending requests.</div>'}
@@ -2161,7 +2164,7 @@ function renderLeave(){
     </div>`;
   }).join('');
 
-  return`<div class="ep-wrap">
+  return`<div class="ep-wrap" style="padding-bottom:60px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <span style="font-size:15px;font-weight:800;color:#eaf0ff">My Leave</span>
       <button class="btn primary" id="leave-new-btn">+ Apply for Leave</button>
@@ -2498,7 +2501,7 @@ function bindApp(){
         return`${sep}
         <div style="padding:0 0 4px 0;break-inside:avoid;page-break-inside:avoid">
           <table style="width:100%;border-collapse:collapse">
-            ${labelRow('Story',`<strong style="font-size:12px">${esc(s.storyName||'')} &nbsp;<span style="font-family:monospace;font-size:10px;color:#1a3a6a">[${s.commNum}]</span>${isIH?` <span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:2px;font-size:9px;font-weight:700;margin-left:6px">IN-HOUSE</span>`:''}</strong>`,true)}
+            ${labelRow('Story',`<strong style="font-size:12px">${isAdminEp?('<input type="number" class="ep-ci ep-order-inp" data-id="'+s.id+'" value="'+(s.broadcastOrder||0)+'" min="0" max="99" style="width:38px;font-size:11px;margin-right:6px;text-align:center;font-weight:900;color:#e3b341" title="Broadcast order">'):'<span style="display:inline-block;width:24px;text-align:center;font-size:11px;color:#e3b341;font-weight:900">'+(s.broadcastOrder||'')+'</span>'}${esc(s.storyName||'')} &nbsp;<span style="font-family:monospace;font-size:10px;color:#1a3a6a">[${s.commNum}]</span>${isIH?` <span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:2px;font-size:9px;font-weight:700;margin-left:6px">IN-HOUSE</span>`:''}</strong>`,true)}
             ${labelRow('Delivered Duration',`<span style="font-family:monospace;font-weight:800;color:#1a5c1a;background:#e8f5e8;padding:2px 8px;border-radius:3px;border:1px solid #aad4aa">${del}</span>`)}
             ${labelRow('Producer',esc(s.producer||''))}
             ${labelRow('Presenter / VO',esc(s.presenterVO||''))}
@@ -3364,13 +3367,31 @@ function bindApp(){
     });
   });
 
+  // Broadcast order inputs in Episode Register
+  document.querySelectorAll('input.ep-order-inp').forEach(inp=>{
+    inp.addEventListener('change',e=>{
+      const id=inp.dataset.id;
+      const val=Number(inp.value)||0;
+      updateComm(id,'broadcastOrder',val);
+    });
+    inp.addEventListener('click',e=>e.stopPropagation());
+  });
+
   // Per-episode credits PDF export
   document.querySelectorAll('[data-ep-credits-pdf]').forEach(btn=>{
-    btn.addEventListener('click',async()=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
       const epNum=btn.dataset.epCreditsPdf;
       exportCreditsPDF(epNum);
     });
   });
+
+  // Re-apply column resizers after every render
+  const _origRender=render;
+  const _resizeObserver=new MutationObserver(()=>{
+    document.querySelectorAll('table').forEach(makeColumnsResizable);
+  });
+  _resizeObserver.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});
 
   // Studio Crew inputs
   document.querySelectorAll('input.studio-ci').forEach(inp=>{
