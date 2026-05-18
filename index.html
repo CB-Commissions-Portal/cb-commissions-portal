@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='1.8.9';
+const BUILD_VERSION='1.9.0';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1401,7 +1401,7 @@ ${episodes.map(({ep,date,stories})=>{
   </div>
   <span style="font-size:11px;font-weight:600;margin-left:4px;color:${epType==='extended'?'#d29922':'#3fb950'}">${epType==='extended'?'★ Extended':'Normal'}</span>
 </div>
-${stories.length>0?`<div class="ep-body"><table class="ep-tbl" data-ep-num="${n}"><thead><tr>
+${stories.length>0?`<div class="ep-body"><table class="ep-tbl"><thead><tr>
 <th style="width:44px;text-align:center">#</th>
 <th>Story Name</th>
 <th style="text-align:right">Comm #</th>
@@ -2493,7 +2493,13 @@ function bindApp(){
       showToast('Switched to Season '+currentSeason.replace(/^s/i,''));
     }
   });
-  document.querySelectorAll('[data-tab]').forEach(el=>el.addEventListener('click',()=>{tab=el.dataset.tab;render();}));
+  document.addEventListener('click',function tabHandler(e){
+    const el=e.target.closest('[data-tab]');
+    if(!el)return;
+    // Ignore if it's inside an ep-order button
+    if(e.target.closest('.ep-order-up,.ep-order-dn'))return;
+    tab=el.dataset.tab;render();
+  });
   document.querySelectorAll('[data-home-tab]').forEach(el=>el.addEventListener('click',()=>{tab=el.dataset.homeTab;render();}));
   document.getElementById('contracted-input')?.addEventListener('change',e=>{settings.contractedMinutes=Number(e.target.value);saveSettings();render();});
   document.querySelectorAll('[data-sort]').forEach(th=>th.addEventListener('click',()=>{const f=th.dataset.sort;if(sortField===f)sortDir=sortDir==='asc'?'desc':'asc';else{sortField=f;sortDir='asc';}render();}));
@@ -3463,10 +3469,11 @@ function bindApp(){
       .filter(c=>(c.broadcastEpisode===epNum||c.broadcastEpisode===String(epNum))&&!c.decommissioned)
       .sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
     // If no episode assigned, just use all stories in the rendered list
-    const list=epStories.length>1?epStories:
-      Array.from(btn.closest('table')?.querySelectorAll('tr[data-ep-row]')||[])
-        .map(tr=>comms.find(c=>Number(c.id)===Number(tr.dataset.epRow)))
-        .filter(Boolean);
+    // Use DOM row order as definitive list
+    const tableRows=Array.from(btn.closest('table')?.querySelectorAll('tr[data-ep-row]')||[]);
+    const list=tableRows.length>0
+      ? tableRows.map(tr=>comms.find(c=>Number(c.id)===Number(tr.dataset.epRow))).filter(Boolean)
+      : epStories;
     const idx=list.findIndex(c=>Number(c.id)===id);
     if(up){
       if(idx<=0)return;
