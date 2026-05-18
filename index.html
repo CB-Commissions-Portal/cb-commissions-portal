@@ -705,26 +705,20 @@ async function exportCreditsPDF(epNum){
   <div style="margin-top:10px;text-align:center;font-size:6pt;color:#aaa">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
   </body></html>`;
 
-  // Render via a hidden iframe to avoid html2pdf string parsing issues
-  const blob=new Blob([html],{type:'text/html'});
-  const url=URL.createObjectURL(blob);
-  const iframe=document.createElement('iframe');
-  iframe.style.cssText='position:fixed;top:-9999px;left:-9999px;width:794px;height:1123px';
-  document.body.appendChild(iframe);
-  iframe.onload=async()=>{
-    try{
-      await html2pdf().set({
-        margin:[8,10,8,10],
-        filename:`CB-End-Credits-Season${currentSeason}-EP${n}.pdf`,
-        image:{type:'jpeg',quality:0.97},
-        html2canvas:{scale:2,useCORS:true,allowTaint:true,logging:false,foreignObjectRendering:false},
-        jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
-      }).from(iframe.contentDocument.body).save();
-    }catch(e){console.error('Credits PDF error:',e);showToast('PDF export failed: '+e.message,true);}
-    document.body.removeChild(iframe);
-    URL.revokeObjectURL(url);
-  };
-  iframe.src=url;
+  const el=document.createElement('div');
+  el.innerHTML=html;
+  el.style.cssText='position:fixed;top:-9999px;left:-9999px;width:794px;font-family:Arial,sans-serif';
+  document.body.appendChild(el);
+  try{
+    await html2pdf().set({
+      margin:[8,10,8,10],
+      filename:`CB-End-Credits-Season${currentSeason}-EP${n}.pdf`,
+      image:{type:'jpeg',quality:0.97},
+      html2canvas:{scale:2,useCORS:true,allowTaint:true,logging:false},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+    }).from(el).save();
+  }catch(e){showToast('PDF export failed: '+e.message,true);console.error(e);}
+  document.body.removeChild(el);
 }
 
 async function loadEndCredits(){
@@ -1506,21 +1500,23 @@ function renderEndCredits(epNums){
   return`<div class="ep-wrap">
   ${epNums.map(n=>{
     const storyCrew=storyCrewRows(n);
-    return`<div class="ep-card" style="margin-bottom:14px">
-      <div class="ep-head" style="display:flex;align-items:center;justify-content:space-between">
+    const isExpEC=creditsExpandedEp===String(n);
+    return`<div class="ep-card" style="margin-bottom:8px">
+      <div class="ep-head" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" data-credits-toggle="${n}">
         <div style="display:flex;align-items:center;gap:12px">
           <span class="ep-num">EP ${n}</span>
           <span style="font-size:13px;font-weight:600;color:#9aaabe">${fmtDate(resolveDate(n))}</span>
+          <span style="font-size:11px;color:#484f58">${isExpEC?"▲":"▼"}</span>
         </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          ${canEd?`<label class="btn" style="font-size:11px;cursor:pointer" title="Import credits from a Word .docx file">
+        <div style="display:flex;gap:8px;align-items:center" onclick="event.stopPropagation()">
+          ${isExpEC&&canEd?`<label class="btn" style="font-size:11px;cursor:pointer" title="Import credits from a Word .docx file">
             ⬆ Import from Word
             <input type="file" accept=".docx" class="credits-word-import" data-ep="${n}" style="display:none">
           </label>`:''}
-          <button class="btn" style="font-size:11px;border-color:#388bfd;color:#58a6ff" data-ep-credits-pdf="${n}">⬇ Export Credits PDF</button>
+          ${isExpEC?`<button class="btn" style="font-size:11px;border-color:#388bfd;color:#58a6ff" data-ep-credits-pdf="${n}">⬇ Export Credits PDF</button>`:''}
         </div>
       </div>
-      <div style="padding:20px;max-width:560px;margin:0 auto">
+      ${isExpEC?`<div style="padding:20px;max-width:560px;margin:0 auto">`:`<div style="display:none">`}
         ${scSec('Presenters')}
         ${EC_FIXED_SECTIONS[0].fields.map(f=>ecInp('presenters',f.key,f.default)).join('')}
 
@@ -1871,7 +1867,7 @@ function renderMusicCues(epNums){
           </div>`:'<div style="font-size:10px;color:#484f58">Not yet assigned to episode</div>'}
         </div>
         <div style="display:flex;gap:8px;margin-left:16px">
-          ${canEdit2?`<button class="btn" data-mc-edit="${s.id}" style="font-size:11px">Edit</button>`:''}
+          ${canEdit2?`<button class="btn" data-mc-edit="${s.id}" style="font-size:11px">Edit</button><button class="btn danger" data-mc-delete="${s.id}" style="font-size:11px;margin-left:6px">Delete</button>`:''}
         </div>
       </div>
     </div>`;
@@ -2792,6 +2788,15 @@ function bindApp(){
     ws['!cols']=[{wch:5},{wch:30},{wch:22},{wch:22},{wch:10},{wch:20},{wch:22},{wch:22},{wch:10},{wch:10},{wch:28},{wch:20},{wch:14}];
     XLSX.utils.book_append_sheet(wb,ws,'EP'+mcEpFilter+' Music Cues');
     XLSX.writeFile(wb,'CB-Music-Cues-S'+currentSeason+'-EP'+mcEpFilter+'.xlsx');showToast('Excel exported!');
+  });
+
+  // Credits collapse toggle
+  document.querySelectorAll('[data-credits-toggle]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const n=el.dataset.creditsToggle;
+      creditsExpandedEp=creditsExpandedEp===n?null:n;
+      render();
+    });
   });
 
   // Per-episode credits PDF export
