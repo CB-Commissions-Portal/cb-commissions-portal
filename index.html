@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='1.8.5';
+const BUILD_VERSION='1.8.6';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -751,9 +751,8 @@ function exportCreditsPDF(epNum){
     a.download=`CB-End-Credits-S${currentSeason}-EP${n}.html`;
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast('Credits downloaded — open the file in your browser then Cmd+P to print/PDF');
+    setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},2000);
+    showToast('Credits downloaded to your Downloads folder — open it then Cmd+P to print');
   }catch(err){
     console.error('Credits export error:',err);
     showToast('Export failed: '+err.message,true);
@@ -1415,7 +1414,7 @@ ${stories.map((s,idx)=>{const pd=toDecimalMins(s.paidDuration);const dd=toDecima
 const canEd=currentRole==='admin';
 function epci(field,w){return canEd?`<input class="ci ep-ci" value="${esc(String(s[field]||''))}" data-id="${s.id}" data-field="${field}" style="width:${w}px">`:esc(String(s[field]||'—'));}
 return`<tr data-ep-row="${s.id}">
-<td style="text-align:center;vertical-align:middle">${canEd?`<input type="number" class="ep-ci ep-order-inp" data-id="${s.id}" value="${s.broadcastOrder||''}" min="1" max="99" placeholder="—" style="width:34px;text-align:center;font-weight:900;color:#e3b341;background:#1a1a00;border:1px solid #4a3800;font-size:12px" title="Broadcast order">`:`<span style="color:#e3b341;font-weight:700">${s.broadcastOrder||'—'}</span>`}</td>
+<td style="text-align:center;vertical-align:middle">${canEd?`<input type="number" class="ep-order-inp" data-id="${s.id}" value="${s.broadcastOrder||''}" min="1" max="99" placeholder="—" style="width:34px;text-align:center;font-weight:900;color:#e3b341;background:#1a1a00;border:1px solid #4a3800;font-size:12px" title="Broadcast order">`:`<span style="color:#e3b341;font-weight:700">${s.broadcastOrder||'—'}</span>`}</td>
 <td class="story" style="font-weight:600;color:#eaf0ff;font-size:14px;white-space:normal">${esc(s.storyName||'')}</td>
 <td style="text-align:right;font-family:'JetBrains Mono',monospace;color:#58a6ff;font-size:13px">${s.commNum}</td>
 <td style="text-align:right">
@@ -2560,7 +2559,7 @@ function bindApp(){
         return`${sep}
         <div style="padding:0 0 4px 0;break-inside:avoid;page-break-inside:avoid">
           <table style="width:100%;border-collapse:collapse">
-            ${labelRow('Story',`<strong style="font-size:12px">${isAdminEp?('<input type="number" class="ep-ci ep-order-inp" data-id="'+s.id+'" value="'+(s.broadcastOrder||0)+'" min="0" max="99" style="width:38px;font-size:11px;margin-right:6px;text-align:center;font-weight:900;color:#e3b341" title="Broadcast order">'):'<span style="display:inline-block;width:24px;text-align:center;font-size:11px;color:#e3b341;font-weight:900">'+(s.broadcastOrder||'')+'</span>'}${esc(s.storyName||'')} &nbsp;<span style="font-family:monospace;font-size:10px;color:#1a3a6a">[${s.commNum}]</span>${isIH?` <span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:2px;font-size:9px;font-weight:700;margin-left:6px">IN-HOUSE</span>`:''}</strong>`,true)}
+            ${labelRow('Story',`<strong style="font-size:12px">${isAdminEp?('<input type="number" class="ep-order-inp" data-id="'+s.id+'" value="'+(s.broadcastOrder||0)+'" min="0" max="99" style="width:38px;font-size:11px;margin-right:6px;text-align:center;font-weight:900;color:#e3b341" title="Broadcast order">'):'<span style="display:inline-block;width:24px;text-align:center;font-size:11px;color:#e3b341;font-weight:900">'+(s.broadcastOrder||'')+'</span>'}${esc(s.storyName||'')} &nbsp;<span style="font-family:monospace;font-size:10px;color:#1a3a6a">[${s.commNum}]</span>${isIH?` <span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:2px;font-size:9px;font-weight:700;margin-left:6px">IN-HOUSE</span>`:''}</strong>`,true)}
             ${labelRow('Delivered Duration',`<span style="font-family:monospace;font-weight:800;color:#1a5c1a;background:#e8f5e8;padding:2px 8px;border-radius:3px;border:1px solid #aad4aa">${del}</span>`)}
             ${labelRow('Producer',esc(s.producer||''))}
             ${labelRow('Presenter / VO',esc(s.presenterVO||''))}
@@ -3466,10 +3465,6 @@ function bindApp(){
       exportCreditsPDF(epNum);
     });
   });
-
-  // Re-apply column resizers after every render
-  const _origRender=render;
-
 
   // Studio Crew inputs
   document.querySelectorAll('input.studio-ci').forEach(inp=>{
