@@ -389,7 +389,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='1.8.2';
+const BUILD_VERSION='1.8.3';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -745,16 +745,22 @@ function exportCreditsPDF(epNum){
   <div class="footer">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
   </body></html>`;
 
-  // Write directly to new window — most cross-browser compatible
-  const printWin=window.open('','_blank','width=850,height=1100,scrollbars=yes');
-  if(!printWin){
-    showToast('Pop-ups blocked. Please allow pop-ups for this site then try again.',true);
-    return;
+  // Open as data URI — no popup blocker issues
+  try{
+    const encoded=encodeURIComponent(html);
+    const dataUri='data:text/html;charset=utf-8,'+encoded;
+    const a=document.createElement('a');
+    a.href=dataUri;
+    a.target='_blank';
+    a.rel='noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{document.body.removeChild(a);},100);
+    showToast('Credits opened in new tab — use Cmd+P to print or save as PDF');
+  }catch(err){
+    console.error('Credits open error:',err);
+    showToast('Could not open credits: '+err.message,true);
   }
-  printWin.document.open();
-  printWin.document.write(html);
-  printWin.document.close();
-  showToast('Credits opened — use Cmd+P to print / save as PDF');
 }
 
 
@@ -2107,21 +2113,24 @@ function renderLeave(){
       </div>
       <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">${myBalCards}</div>
       ${myForm2}
-      <div style="margin-bottom:20px">
-        <div style="font-size:15px;font-weight:800;color:#eaf0ff;margin-bottom:12px">⏳ Pending Requests (${pending.length})</div>
+      <div class="ep-card" style="margin-bottom:16px">
+        <div class="ep-head" style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:14px;font-weight:800;color:#eaf0ff">Staff Leave Balances</span>
+          <span style="font-size:11px;color:#6e7681">Set annual entitlement per staff member</span>
+        </div>
+        <div style="padding:12px 16px;overflow-x:auto">${balEditor||'<div style="color:#484f58;font-size:12px;padding:8px 0">No CAP Staff users yet.<br>Go to <strong>Admin</strong> tab → Create User → set Role to <strong>CAP Staff</strong>, or tick <strong>CAP Leave</strong> under Extra Access for existing users.</div>'}</div>
+      </div>
+      <div style="margin-bottom:16px">
+        <div style="font-size:14px;font-weight:800;color:#eaf0ff;margin-bottom:10px">⏳ Pending Requests (${pending.length})</div>
         ${pending.length?pending.map(r=>reqCard(r,true)).join(''):'<div style="color:#484f58;font-size:12px;padding:12px 0">No pending requests.</div>'}
       </div>
-      <div style="margin-bottom:20px">
-        <div style="font-size:14px;font-weight:700;color:#3fb950;margin-bottom:10px">✓ Approved</div>
+      <div style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:700;color:#3fb950;margin-bottom:8px">✓ Approved</div>
         ${approved.length?approved.map(r=>reqCard(r,false)).join(''):'<div style="color:#484f58;font-size:12px;padding:8px 0">None yet.</div>'}
       </div>
-      <div style="margin-bottom:28px">
-        <div style="font-size:14px;font-weight:700;color:#f85149;margin-bottom:10px">✗ Declined</div>
+      <div style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:700;color:#f85149;margin-bottom:8px">✗ Declined</div>
         ${declined.length?declined.map(r=>reqCard(r,false)).join(''):'<div style="color:#484f58;font-size:12px;padding:8px 0">None yet.</div>'}
-      </div>
-      <div class="ep-card" style="margin-bottom:16px">
-        <div class="ep-head"><span style="font-size:14px;font-weight:800;color:#eaf0ff">Leave Balances</span><span style="font-size:11px;color:#6e7681">Set starting balances per staff member</span></div>
-        <div style="padding:12px 16px">${balEditor||'<div style="color:#484f58;font-size:12px">No CAP Staff users found. Create users and assign CAP Staff role or extra role.</div>'}</div>
       </div>
       ${leaveDeclineModal?renderLeaveDeclineModal():''}
     </div>`;
@@ -3422,19 +3431,24 @@ function bindApp(){
 
   // Broadcast order inputs in Episode Register
   document.querySelectorAll('input.ep-order-inp').forEach(inp=>{
-    // Prevent clicks from bubbling to episode card toggle
     inp.addEventListener('click',e=>e.stopPropagation());
-    // Save on blur (leaving the field) — no re-render so focus isn't lost
+    inp.addEventListener('mousedown',e=>e.stopPropagation());
+    inp.addEventListener('keydown',e=>{
+      e.stopPropagation();
+      if(e.key==='Enter'){
+        e.preventDefault();
+        const id=inp.dataset.id;
+        const val=Number(inp.value)||0;
+        const comm=comms.find(c=>c.id===id);
+        if(comm){comm.broadcastOrder=val;saveComm(comm);showToast('Order '+val+' saved');}
+        inp.blur();
+      }
+    });
     inp.addEventListener('blur',e=>{
       const id=inp.dataset.id;
       const val=Number(inp.value)||0;
-      // Update in memory without re-render
       const comm=comms.find(c=>c.id===id);
-      if(comm){comm.broadcastOrder=val;saveComm(comm);}
-    });
-    // Also save on Enter key
-    inp.addEventListener('keydown',e=>{
-      if(e.key==='Enter'){inp.blur();}
+      if(comm&&comm.broadcastOrder!==val){comm.broadcastOrder=val;saveComm(comm);}
     });
   });
 
