@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='1.8.7';
+const BUILD_VERSION='1.8.8';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3445,46 +3445,36 @@ function bindApp(){
     render();
   }
 
-  document.querySelectorAll('button.ep-order-up').forEach(btn=>{
-    btn.addEventListener('click',e=>{
-      e.stopPropagation();e.preventDefault();
-      const id=Number(btn.dataset.id);
-      const comm=comms.find(c=>c.id===id);
-      if(!comm||!comm.broadcastEpisode)return;
-      const epStories=comms
-        .filter(c=>c.broadcastEpisode===comm.broadcastEpisode&&!c.decommissioned)
-        .sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
-      const idx=epStories.findIndex(c=>c.id===id);
-      if(idx<=0)return; // already first
-      // Swap with previous
+  // Delegated listener — survives re-renders
+  document.addEventListener('click',function epOrderHandler(e){
+    const up=e.target.closest('button.ep-order-up');
+    const dn=e.target.closest('button.ep-order-dn');
+    if(!up&&!dn)return;
+    e.stopPropagation();e.preventDefault();
+    const btn=up||dn;
+    const id=Number(btn.dataset.id);
+    const comm=comms.find(c=>c.id===id);
+    if(!comm||!comm.broadcastEpisode)return;
+    const epStories=comms
+      .filter(c=>c.broadcastEpisode===comm.broadcastEpisode&&!c.decommissioned)
+      .sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
+    const idx=epStories.findIndex(c=>c.id===id);
+    if(up){
+      if(idx<=0)return;
       const prev=epStories[idx-1];
       const tmp=prev.broadcastOrder||idx;
-      prev.broadcastOrder=comm.broadcastOrder||idx+1;
+      prev.broadcastOrder=comm.broadcastOrder||(idx+1);
       comm.broadcastOrder=tmp;
       saveComm(comm);saveComm(prev);
-      render();
-    });
-  });
-
-  document.querySelectorAll('button.ep-order-dn').forEach(btn=>{
-    btn.addEventListener('click',e=>{
-      e.stopPropagation();e.preventDefault();
-      const id=Number(btn.dataset.id);
-      const comm=comms.find(c=>c.id===id);
-      if(!comm||!comm.broadcastEpisode)return;
-      const epStories=comms
-        .filter(c=>c.broadcastEpisode===comm.broadcastEpisode&&!c.decommissioned)
-        .sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
-      const idx=epStories.findIndex(c=>c.id===id);
-      if(idx>=epStories.length-1)return; // already last
-      // Swap with next
+    } else {
+      if(idx>=epStories.length-1)return;
       const next=epStories[idx+1];
-      const tmp=next.broadcastOrder||idx+2;
-      next.broadcastOrder=comm.broadcastOrder||idx+1;
+      const tmp=next.broadcastOrder||(idx+2);
+      next.broadcastOrder=comm.broadcastOrder||(idx+1);
       comm.broadcastOrder=tmp;
       saveComm(comm);saveComm(next);
-      render();
-    });
+    }
+    render();
   });
 
   // Per-episode credits PDF export
