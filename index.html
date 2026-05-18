@@ -740,12 +740,16 @@ function exportCreditsPDF(epNum){
   </div>
   <div class="content">${body}</div>
   <div class="footer">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
-  <scr'+'ipt>window.onload=function(){window.print();}<\/scr'+'ipt>
   </body></html>`;
 
   const win=window.open('','_blank','width=900,height=700');
+  if(!win){showToast('Pop-up blocked — please allow pop-ups for this site.',true);return;}
   win.document.write(html);
   win.document.close();
+  // Wait for content to render then trigger print
+  setTimeout(()=>{
+    try{win.focus();win.print();}catch(e){console.error('Print error:',e);}
+  },800);
 }
 
 
