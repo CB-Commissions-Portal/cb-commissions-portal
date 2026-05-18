@@ -64,7 +64,7 @@ input,select,textarea,button{font-family:var(--font-main)}
 .tab-btn{padding:9px 16px;font-size:12px;font-weight:600;color:#6e7681;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;text-transform:uppercase;letter-spacing:.3px}
 .tab-btn.active{color:#58a6ff;border-bottom-color:#388bfd}
 .tab-btn:hover:not(.active){color:#8b949e}
-.content{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 16px;background:#1e2535;border-bottom:1px solid #30363d;flex-shrink:0}
 .s-inp{background:#252d3d;border:1px solid #2e3a50;color:#e8eef8;padding:8px 12px;border-radius:7px;font-size:13px;width:210px;transition:border .15s}
 .s-inp:focus{outline:none;border-color:#388bfd}
@@ -92,9 +92,9 @@ tr.green-row td.st{background:#122a1a}
 tr.yellow-row td.st{background:#2d2200!important}
 tr.decom-row td.st{background:#2d0a0a!important}
 .st-1{left:0px;width:36px;min-width:36px}
-.st-2{left:52px}
-.st-3{left:132px}
-.st-4{left:252px}
+.st-2{left:36px;min-width:155px;max-width:155px}
+.st-3{left:191px;min-width:90px}
+.st-4{left:281px}
 td.st-4,th.st-4{border-right:2px solid #2e3a50;box-shadow:4px 0 8px rgba(0,0,0,.3)}
 tr.paid-row td{background:#003d52!important}
 tr.paid-row td .ci{color:#e0f8ff!important;background:transparent}
@@ -153,7 +153,7 @@ td.needs-attention-cb{background:rgba(245,166,35,.08)!important}
 .add-row-btn{width:100%;padding:9px;border:1px dashed #30363d;border-radius:6px;background:transparent;color:#6e7681;cursor:pointer;font-size:12px;transition:all .2s;margin-top:10px}
 .add-row-btn:hover{color:#8b949e;border-color:#484f58;background:#161b22}
 /* EPISODES */
-.ep-wrap{flex:1;overflow:auto;padding:14px 16px}
+.ep-wrap{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 16px;min-height:0;height:100%}
 .info-box{background:#0d1b2a;border:1px solid #1f4b7a;border-radius:6px;padding:10px 14px;margin-bottom:12px;color:#79c0ff;font-size:12px}
 .ep-card{background:#1e2535;border:1px solid #2e3a50;border-radius:10px;margin-bottom:14px;overflow:hidden}
 .ep-head{background:#252d3d;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='1.7.0';
+const BUILD_VERSION='1.7.3';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3709,6 +3709,7 @@ async function boot(){
       try{await loadPromoData();}catch(e){console.error('Promo data error:',e);}
       try{await loadUIDPool();}catch(e){console.error('UID pool error:',e);}
       try{await loadMusicCues();}catch(e){console.error('Music cues error:',e);}
+      try{await loadDeliverables();}catch(e){console.error('Deliverables error:',e);}
       try{await loadDeliverables();}catch(e){console.error('Deliverables error:',e);}
       try{await loadLeaveRequests();}catch(e){console.error('Leave requests error:',e);}
       try{await loadLeaveBalances();}catch(e){console.error('Leave balances error:',e);}
