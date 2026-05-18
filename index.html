@@ -77,11 +77,8 @@ input,select,textarea,button{font-family:var(--font-main)}
 .count-lbl{margin-left:auto;font-size:11px;color:#6e7681}
 /* TABLE */
 .table-outer{flex:1;overflow:auto;padding:12px 16px}
-table{width:max-content;min-width:100%;border-collapse:collapse;table-layout:auto}
-.resizer{position:absolute;right:0;top:0;height:100%;width:6px;cursor:col-resize;user-select:none;z-index:10}
-.resizer:hover,.resizer.active{background:#388bfd}
-th{position:relative}
-thead{position:sticky;top:0;z-index:10}
+table{width:max-content;min-width:100%;border-collapse:collapse;table-layout:fixed}
+thead{position:sticky;top:0;z-index:11}
 th{background:#1e2535;color:#7a8ba0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;padding:11px 12px;text-align:left;white-space:nowrap;cursor:pointer;border-bottom:2px solid #30363d;user-select:none}
 th:hover{color:#8b949e}
 td{padding:13px 12px;border-bottom:1px solid #252d3d;vertical-align:middle;white-space:nowrap}
@@ -96,8 +93,8 @@ tr.yellow-row td.st{background:#2d2200!important}
 tr.decom-row td.st{background:#2d0a0a!important}
 .st-1{left:0px;width:36px;min-width:36px}
 .st-2{left:36px;min-width:155px;max-width:155px}
-.st-3{left:191px;min-width:90px}
-.st-4{left:281px}
+.st-3{left:191px;width:160px;min-width:160px}
+.st-4{left:351px}
 td.st-4,th.st-4{border-right:2px solid #2e3a50;box-shadow:4px 0 8px rgba(0,0,0,.3)}
 tr.paid-row td{background:#003d52!important}
 tr.paid-row td .ci{color:#e0f8ff!important;background:transparent}
@@ -389,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='1.8.4';
+const BUILD_VERSION='1.8.5';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1281,21 +1278,21 @@ function renderCommList(epNums,nextEp){
 <div class="table-outer">
 <table>
 <thead><tr>
-  <th data-sort="portal" class="st st-1" style="width:52px">Portal</th>
-  <th data-sort="commNum" class="st st-2" style="min-width:155px">Comm #</th>
-  <th class="st st-3" style="width:120px">Short Name</th>
-  <th data-sort="storyName" class="st st-4" style="width:220px">Story Name</th>
-  <th data-sort="commDuration" style="width:110px">Comm Dur</th>
-  <th data-sort="deliveredDuration" style="width:110px">Del Dur</th>
-  <th data-sort="paidDuration" style="width:110px">Paid Dur</th>
-  <th data-sort="isInHouse" style="width:70px">In-House</th>
-  <th data-sort="isLicensed" style="width:75px">Licensed</th>
-  <th data-sort="producer" style="width:360px">Producer</th>
-  <th data-sort="presenterVO" style="width:200px">Presenter / VO</th>
-  <th data-sort="dop" style="width:200px">DOP</th>
-  <th data-sort="ca" >Cam Asst</th>
-  <th data-sort="editor" style="width:200px">Editor</th>
-  <th data-sort="afm" style="width:120px">AFM Op</th>
+  <th data-sort="portal" class="st st-1" style="width:36px;min-width:36px">✓</th>
+  <th data-sort="commNum" class="st st-2" style="width:155px;min-width:155px">Comm #</th>
+  <th class="st st-3" style="width:160px;min-width:160px">Short Name</th>
+  <th data-sort="storyName" class="st st-4" style="width:320px;min-width:320px">Story Name</th>
+  <th data-sort="commDuration" style="width:96px;min-width:96px">Comm Dur</th>
+  <th data-sort="deliveredDuration" style="width:96px;min-width:96px">Del Dur</th>
+  <th data-sort="paidDuration" style="width:96px;min-width:96px">Paid Dur</th>
+  <th data-sort="isInHouse" style="width:70px;min-width:70px">In-House</th>
+  <th data-sort="isLicensed" style="width:70px;min-width:70px">Licensed</th>
+  <th data-sort="producer" style="width:400px;min-width:400px">Producer</th>
+  <th data-sort="presenterVO" style="width:160px;min-width:160px">Presenter / VO</th>
+  <th data-sort="dop" style="width:320px;min-width:320px">DOP</th>
+  <th data-sort="ca" style="width:160px;min-width:160px">Cam Asst</th>
+  <th data-sort="editor" style="width:160px;min-width:160px">Editor</th>
+  <th data-sort="afm" style="width:160px;min-width:160px">AFM Op</th>
   ${DEL_LABELS.map(l=>`<th style="width:80px">${l}</th>`).join('')}
   <th data-sort="approvedForPayment" style="width:80px">✓ Paid</th>
   <th style="width:100px">Episode</th>
@@ -3472,41 +3469,7 @@ function bindApp(){
 
   // Re-apply column resizers after every render
   const _origRender=render;
-  // Column resizer function
-  function makeColumnsResizable(table){
-    if(!table||table.dataset.resizable)return;
-    table.dataset.resizable='1';
-    Array.from(table.querySelectorAll('th')).forEach(th=>{
-      th.addEventListener('dblclick',()=>{
-        const idx=Array.from(th.parentElement.children).indexOf(th);
-        let max=th.offsetWidth;
-        table.querySelectorAll('tr').forEach(row=>{
-          const cell=row.children[idx];
-          if(cell)max=Math.max(max,cell.scrollWidth);
-        });
-        th.style.minWidth=max+'px';th.style.width=max+'px';
-      });
-      const rz=document.createElement('div');
-      rz.className='resizer';
-      th.style.position='relative';
-      th.appendChild(rz);
-      let startX,startW;
-      rz.addEventListener('mousedown',e=>{
-        startX=e.pageX;startW=th.offsetWidth;
-        rz.classList.add('active');
-        const onMove=e=>{const w=Math.max(40,startW+(e.pageX-startX));th.style.minWidth=w+'px';th.style.width=w+'px';};
-        const onUp=()=>{rz.classList.remove('active');document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);};
-        document.addEventListener('mousemove',onMove);
-        document.addEventListener('mouseup',onUp);
-        e.preventDefault();e.stopPropagation();
-      });
-    });
-  }
 
-  const _resizeObserver=new MutationObserver(()=>{
-    document.querySelectorAll('table').forEach(makeColumnsResizable);
-  });
-  _resizeObserver.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});
 
   // Studio Crew inputs
   document.querySelectorAll('input.studio-ci').forEach(inp=>{
