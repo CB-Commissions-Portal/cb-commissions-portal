@@ -2323,10 +2323,14 @@ function bindApp(){
           if(e.key==='Enter'){
             // If autocomplete dropdown has a selected item, let autocomplete handle it
             const acDrop=inp.parentElement?.querySelector('.ac-drop');
-            const acSelected=acDrop?.querySelector('.ac-item.selected');
-            if(acSelected){
-              // Autocomplete mousedown handler will fire — just prevent default
+            const acSelected=acDrop?.querySelector('.ac-item.selected')||acDrop?.querySelector('.ac-item');
+            if(acSelected&&acDrop){
+              // Select this item
               e.preventDefault();
+              const fieldEl=inp;
+              fieldEl.value=acSelected.dataset.value||acSelected.textContent.trim();
+              acDrop.remove();
+              fieldEl.dispatchEvent(new Event('blur',{bubbles:true}));
               return;
             }
             // No autocomplete active — save the field and stay put (Tab moves between fields)
@@ -2923,6 +2927,7 @@ function attachAutocomplete(inp, field) {
     matches.forEach((val, i) => {
       const item = document.createElement('div');
       item.className = 'ac-item';
+      item.dataset.value = v;
       // Highlight the matching part
       const q = inp.value.trim();
       const idx = val.toLowerCase().indexOf(q.toLowerCase());
@@ -3058,8 +3063,10 @@ function attachStudioAutocomplete(inp, field) {
       e.stopPropagation();
       if(dropEl){
         const items=dropEl.querySelectorAll('.ac-item');
-        if(selectedIdx>=0&&items[selectedIdx]){
-          inp.value=items[selectedIdx].textContent;
+        // If an item is highlighted use it; otherwise use first visible item
+        const targetIdx=selectedIdx>=0?selectedIdx:0;
+        if(items[targetIdx]){
+          inp.value=items[targetIdx].dataset.value||items[targetIdx].textContent.trim();
           inp.dispatchEvent(new Event('input',{bubbles:true}));
         }
         closeDrop();
