@@ -64,7 +64,7 @@ input,select,textarea,button{font-family:var(--font-main)}
 .tab-btn{padding:9px 16px;font-size:12px;font-weight:600;color:#6e7681;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;text-transform:uppercase;letter-spacing:.3px}
 .tab-btn.active{color:#58a6ff;border-bottom-color:#388bfd}
 .tab-btn:hover:not(.active){color:#8b949e}
-.content{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0;max-height:calc(100vh - 90px)}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 16px;background:#1e2535;border-bottom:1px solid #30363d;flex-shrink:0}
 .s-inp{background:#252d3d;border:1px solid #2e3a50;color:#e8eef8;padding:8px 12px;border-radius:7px;font-size:13px;width:210px;transition:border .15s}
 .s-inp:focus{outline:none;border-color:#388bfd}
@@ -156,7 +156,7 @@ td.needs-attention-cb{background:rgba(245,166,35,.08)!important}
 .add-row-btn{width:100%;padding:9px;border:1px dashed #30363d;border-radius:6px;background:transparent;color:#6e7681;cursor:pointer;font-size:12px;transition:all .2s;margin-top:10px}
 .add-row-btn:hover{color:#8b949e;border-color:#484f58;background:#161b22}
 /* EPISODES */
-.ep-wrap{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 16px;min-height:0;height:100%}
+.ep-wrap{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 16px;min-height:0}
 .info-box{background:#0d1b2a;border:1px solid #1f4b7a;border-radius:6px;padding:10px 14px;margin-bottom:12px;color:#79c0ff;font-size:12px}
 .ep-card{background:#1e2535;border:1px solid #2e3a50;border-radius:10px;margin-bottom:14px;overflow:hidden}
 .ep-head{background:#252d3d;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -177,12 +177,12 @@ td.needs-attention-cb{background:rgba(245,166,35,.08)!important}
 .ep-tbl td.story{color:#eaf0ff;font-weight:600;font-size:14px;white-space:normal}
 .ep-tbl tr:hover td{background:rgba(255,255,255,.03)}
 /* Fixed column widths for consistent alignment */
-.ep-tbl th:nth-child(1),.ep-tbl td:nth-child(1){width:28%}
-.ep-tbl th:nth-child(2),.ep-tbl td:nth-child(2){width:10%;text-align:right}
-.ep-tbl th:nth-child(3),.ep-tbl td:nth-child(3){width:18%;text-align:right}
-.ep-tbl th:nth-child(4),.ep-tbl td:nth-child(4){width:18%;text-align:right}
-.ep-tbl th:nth-child(5),.ep-tbl td:nth-child(5){width:16%;text-align:right}
-.ep-tbl th:nth-child(6),.ep-tbl td:nth-child(6){width:10%;text-align:center}
+.ep-tbl th:nth-child(1),.ep-tbl td:nth-child(1){width:44px;text-align:center}.ep-tbl th:nth-child(2),.ep-tbl td:nth-child(2){width:28%}
+.ep-tbl th:nth-child(3),.ep-tbl td:nth-child(3){width:10%;text-align:right}
+.ep-tbl th:nth-child(5),.ep-tbl td:nth-child(5){width:18%;text-align:right}
+.ep-tbl th:nth-child(5),.ep-tbl td:nth-child(5){width:18%;text-align:right}
+.ep-tbl th:nth-child(6),.ep-tbl td:nth-child(6){width:16%;text-align:right}
+.ep-tbl th:nth-child(7),.ep-tbl td:nth-child(7){width:10%;text-align:center}
 .ep-foot{display:flex;gap:20px;padding:10px 16px;background:#141924;border-top:1px solid #252d3d;font-size:13px;flex-wrap:wrap}
 .ep-stat{color:#6e7681}
 .ep-stat b{font-weight:700}
@@ -389,7 +389,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='1.8.0';
+const BUILD_VERSION='1.8.1';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -745,14 +745,12 @@ function exportCreditsPDF(epNum){
   <div class="footer">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
   </body></html>`;
 
-  const win=window.open('','_blank','width=900,height=700');
-  if(!win){showToast('Pop-up blocked — please allow pop-ups for this site.',true);return;}
-  win.document.write(html);
-  win.document.close();
-  // Wait for content to render then trigger print
-  setTimeout(()=>{
-    try{win.focus();win.print();}catch(e){console.error('Print error:',e);}
-  },800);
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const blobUrl=URL.createObjectURL(blob);
+  const printWin=window.open(blobUrl,'_blank');
+  if(!printWin){showToast('Allow pop-ups for this site, then try again.',true);URL.revokeObjectURL(blobUrl);return;}
+  setTimeout(()=>URL.revokeObjectURL(blobUrl),10000);
+  showToast('Credits opened — use Cmd+P to print/save as PDF');
 }
 
 
@@ -1218,12 +1216,12 @@ function renderApp(){
     ${tab!=='home'?`
     ${!['editorial','afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='commissions'?' active':''}" data-tab="commissions">Commission List ${currentSeason}</div>`:''}
     ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='episodes'?' active':''}" data-tab="episodes">Episode Register</div>`:''}
-    ${['admin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}
-    ${['admin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='credits'?' active':''}" data-tab="credits">End Credits</div>`:''}
+    ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='deliverables'?' active':''}" data-tab="deliverables">Deliverables</div>`:''}
     ${['admin','operations','prodmgmt'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='promos'?' active':''}" data-tab="promos">Promo Scheduling</div>`:''}
     ${['admin','operations','afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='musiccues'?' active':''}" data-tab="musiccues">Music Cue Sheets</div>`:''}
+    ${['admin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='credits'?' active':''}" data-tab="credits">End Credits</div>`:''}
+    ${['admin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}
     ${userHasLeaveAccess()?`<div class="tab-btn${tab==='leave'?' active':''}" data-tab="leave">CAP Leave</div>`:''}
-    ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='deliverables'?' active':''}" data-tab="deliverables">Deliverables</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
     `:''}
   </div>
@@ -1398,6 +1396,7 @@ ${episodes.map(({ep,date,stories})=>{
   <span style="font-size:11px;font-weight:600;margin-left:4px;color:${epType==='extended'?'#d29922':'#3fb950'}">${epType==='extended'?'★ Extended':'Normal'}</span>
 </div>
 ${stories.length>0?`<div class="ep-body"><table class="ep-tbl"><thead><tr>
+<th style="width:44px;text-align:center">Order</th>
 <th>Story Name</th>
 <th style="text-align:right">Comm #</th>
 <th style="text-align:right">Delivered Mins</th>
@@ -1409,6 +1408,7 @@ ${stories.map((s,idx)=>{const pd=toDecimalMins(s.paidDuration);const dd=toDecima
 const canEd=currentRole==='admin';
 function epci(field,w){return canEd?`<input class="ci ep-ci" value="${esc(String(s[field]||''))}" data-id="${s.id}" data-field="${field}" style="width:${w}px">`:esc(String(s[field]||'—'));}
 return`<tr data-ep-row="${s.id}">
+<td style="text-align:center;vertical-align:middle">${canEd?`<input type="number" class="ep-ci ep-order-inp" data-id="${s.id}" value="${s.broadcastOrder||''}" min="1" max="99" placeholder="—" style="width:34px;text-align:center;font-weight:900;color:#e3b341;background:#1a1a00;border:1px solid #4a3800;font-size:12px" title="Broadcast order">`:`<span style="color:#e3b341;font-weight:700">${s.broadcastOrder||'—'}</span>`}</td>
 <td class="story" style="font-weight:600;color:#eaf0ff;font-size:14px;white-space:normal">${esc(s.storyName||'')}</td>
 <td style="text-align:right;font-family:'JetBrains Mono',monospace;color:#58a6ff;font-size:13px">${s.commNum}</td>
 <td style="text-align:right">
