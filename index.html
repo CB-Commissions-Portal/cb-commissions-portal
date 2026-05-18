@@ -91,7 +91,7 @@ tr.paid-row td.st{background:#003d52}
 tr.green-row td.st{background:#122a1a}
 tr.yellow-row td.st{background:#2d2200!important}
 tr.decom-row td.st{background:#2d0a0a!important}
-.st-1{left:0px}
+.st-1{left:0px;width:36px;min-width:36px}
 .st-2{left:52px}
 .st-3{left:132px}
 .st-4{left:252px}
@@ -1267,7 +1267,7 @@ function renderCommList(epNums,nextEp){
 <table>
 <thead><tr>
   <th data-sort="portal" class="st st-1" style="width:52px">Portal</th>
-  <th data-sort="commNum" class="st st-2" style="width:80px">Comm #</th>
+  <th data-sort="commNum" class="st st-2" style="min-width:155px">Comm #</th>
   <th class="st st-3" style="width:120px">Short Name</th>
   <th data-sort="storyName" class="st st-4" style="width:220px">Story Name</th>
   <th data-sort="commDuration" style="width:110px">Comm Dur</th>
@@ -1307,7 +1307,16 @@ ${filtered.map(c=>{
     return`<input class="ci${needsAttn?' needs-attention':''}" value="${esc(val)}" data-field="${field}" placeholder="${ph}" ${dis?'disabled':''}>`;}
   return`<tr class="${cls}" data-id="${c.id}">
 <td class="st st-1" style="text-align:center"><input type="checkbox" class="cb" data-field="portal" tabindex="-1" ${c.portal?'checked':''} ${!canEdit(getEffectiveRole(),'portal')?'disabled':''}></td>
-<td class="st st-2" style="white-space:nowrap">${ci('commNum')}${c.broadcastEpisode&&isEpFinalised(c.broadcastEpisode)?'<span style="margin-left:5px;background:#2e4a2e;color:#4ade80;font-size:8px;font-weight:800;padding:2px 6px;border-radius:3px;letter-spacing:.5px;vertical-align:middle">FINALISED</span>':''}</td>
+<td class="st st-2" style="white-space:nowrap;vertical-align:middle">
+  <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">
+    ${ci('commNum')}
+    <div style="display:flex;gap:3px;flex-wrap:nowrap">
+      ${c.isLicensed?'<span style="background:#1c2d1c;color:#3fb950;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #2d6a2d;white-space:nowrap">LICENSED</span>':''}
+      ${c.isInHouse?'<span style="background:#1a2d4a;color:#58a6ff;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #1a3a6a;white-space:nowrap">IN-HOUSE</span>':''}
+      ${c.broadcastEpisode&&isEpFinalised(c.broadcastEpisode)?'<span style="background:#2e4a2e;color:#4ade80;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;white-space:nowrap">FINALISED</span>':''}
+    </div>
+  </div>
+</td>
 <td class="st st-3">
   <input class="sc${dup?' dup':''}" value="${esc(c.shortName||'')}" data-field="shortName" maxlength="20" placeholder="CODE" ${!canEdit(getEffectiveRole(),'shortName')?'disabled':''}>
   ${dup?'<span class="dup-warn">⚠ Duplicate</span>':''}
@@ -1315,7 +1324,7 @@ ${filtered.map(c=>{
 <td class="st st-4" style="min-width:180px">${ci('storyName',220)}</td>
 <td>${ci('commDuration')}</td>
 <td>${ci('deliveredDuration')}</td>
-<td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}">${c.isInHouse?`<span class="badge ih" style="opacity:.5">N/A</span>`:ci('paidDuration',54)}${c.isLicensed&&!c.isInHouse?`<span class="badge" style="font-size:9px;background:#1c2d1c;color:#3fb950;border:1px solid #2d6a2d;margin-left:4px">INSERT</span>`:''}</td>
+<td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}">${c.isInHouse?`<span class="badge ih" style="opacity:.5">N/A</span>`:ci('paidDuration',54)}</td>
 <td style="text-align:center"><input type="checkbox" class="cb" data-field="isInHouse" tabindex="-1" ${c.isInHouse?'checked':''} ${getEffectiveRole()!=='admin'?'disabled':''}></td>
 <td style="text-align:center"><input type="checkbox" class="cb${c.isLicensed?' g':''}" data-field="isLicensed" tabindex="-1" ${c.isLicensed?'checked':''} ${getEffectiveRole()!=='admin'?'disabled':''}></td>
 <td>${ci('producer')}</td>
