@@ -386,8 +386,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='1.3.0';
-const BUILD_DATE='18 May 2026 v2';
+const BUILD_VERSION='1.4.0';
+const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
 let tab='home',sortField='commNum',sortDir='asc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -685,40 +685,33 @@ async function exportCreditsPDF(epNum){
     ${EC_FIXED_SECTIONS[6].rows.map(r=>`${cLbl(r.label)}${cName(ev('carteBlanche',r.key,r.default))}`).join('')}
   `;
 
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-    *{box-sizing:border-box;margin:0;padding:0;border:none!important;outline:none!important}
-    body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:9pt;-webkit-print-color-adjust:exact}
-    @page{margin:10mm;size:A4 portrait}
-    div{page-break-inside:avoid}
-  </style></head><body>
-  <div style="text-align:center;margin-bottom:12px;padding-bottom:10px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <img src="${BAKED_CB_LOGO}" style="height:40px;width:auto">
-      <div>
-        <div style="font-size:13pt;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#111">CARTE BLANCHE END CREDITS</div>
+  // Build as a DOM element — html2pdf works best with real DOM, not HTML strings
+  const wrapper=document.createElement('div');
+  wrapper.style.cssText='position:fixed;top:-9999px;left:-9999px;width:680px;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:9pt;color:#111;padding:8px';
+  wrapper.innerHTML=`
+    <style>*{box-sizing:border-box}div{page-break-inside:avoid}</style>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:10px">
+      <img src="${BAKED_CB_LOGO}" style="height:38px;width:auto">
+      <div style="text-align:center">
+        <div style="font-size:12pt;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#111">CARTE BLANCHE END CREDITS</div>
         <div style="font-size:7pt;color:#888;margin-top:3px;font-weight:700;text-transform:uppercase;letter-spacing:.6px">Episode ${n} &nbsp;·&nbsp; ${date} &nbsp;·&nbsp; Season ${currentSeason}</div>
       </div>
-      <img src="${BAKED_CAP_LOGO}" style="height:34px;width:auto;max-width:80px">
+      <img src="${BAKED_CAP_LOGO}" style="height:32px;width:auto;max-width:76px">
     </div>
-  </div>
-  <div style="max-width:480px;margin:0 auto">${body}</div>
-  <div style="margin-top:10px;text-align:center;font-size:6pt;color:#aaa">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
-  </body></html>`;
-
-  const el=document.createElement('div');
-  el.innerHTML=html;
-  el.style.cssText='position:fixed;top:-9999px;left:-9999px;width:794px;font-family:Arial,sans-serif';
-  document.body.appendChild(el);
+    <div style="max-width:440px;margin:0 auto">${body}</div>
+    <div style="margin-top:10px;text-align:center;font-size:6pt;color:#aaa">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
+  `;
+  document.body.appendChild(wrapper);
   try{
     await html2pdf().set({
       margin:[8,10,8,10],
       filename:`CB-End-Credits-Season${currentSeason}-EP${n}.pdf`,
       image:{type:'jpeg',quality:0.97},
-      html2canvas:{scale:2,useCORS:true,allowTaint:true,logging:false},
+      html2canvas:{scale:2,useCORS:true,allowTaint:true,logging:false,windowWidth:680},
       jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
-    }).from(el).save();
-  }catch(e){showToast('PDF export failed: '+e.message,true);console.error(e);}
-  document.body.removeChild(el);
+    }).from(wrapper).save();
+  }catch(err){showToast('PDF export failed: '+err.message,true);console.error(err);}
+  document.body.removeChild(wrapper);
 }
 
 async function loadEndCredits(){
