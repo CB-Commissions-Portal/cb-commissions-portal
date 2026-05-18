@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='1.4.0';
+const BUILD_VERSION='1.5.0';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -610,25 +610,20 @@ async function saveEndCredits(ep,data){
   }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}
 }
 
-async function exportCreditsPDF(epNum){
-  if(!window.html2pdf){
-    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
-  }
+function exportCreditsPDF(epNum){
   const n=epNum;
   const date=fmtDate(resolveDate(Number(n)));
   function ev(sec,key,def){return getECValue(n,sec,key,def)||def||'';}
 
-  // Build credits as centred divs — NO tables, NO borders
-  function cSec(t){return`<div style="font-size:9pt;font-weight:900;color:#1a3a6a;text-transform:uppercase;letter-spacing:1.5px;text-align:center;margin:16px 0 4px;page-break-inside:avoid">${t}</div>`;}
-  function cLbl(l){if(!l)return'';return`<div style="font-size:7pt;font-weight:800;color:#1a3a6a;text-transform:uppercase;letter-spacing:.8px;text-align:center;margin-top:10px;margin-bottom:1px;page-break-inside:avoid">${l}</div>`;}
-  function cName(v){if(!v)return'';return`<div style="font-size:9pt;font-weight:800;color:#111;text-align:center;margin-bottom:1px;page-break-inside:avoid">${esc(String(v).toUpperCase())}</div>`;}
-  function cGap(){return`<div style="height:8px"></div>`;}
-  function cBigGap(){return`<div style="height:14px"></div>`;}
+  function cSec(t){return`<p class="sec">${t}</p>`;}
+  function cLbl(l){if(!l)return'';return`<p class="lbl">${l}</p>`;}
+  function cName(v){if(!v)return'';return`<p class="name">${esc(String(v).toUpperCase())}</p>`;}
+  function cGap(){return`<div class="gap"></div>`;}
+  function cBigGap(){return`<div class="biggap"></div>`;}
 
-  // Story rows
   const storyHTML=comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse).map((s,i)=>`
     ${i>0?cBigGap():''}
-    <div style="font-size:10pt;font-weight:900;color:#1a3a6a;text-align:center;margin-bottom:2px;page-break-inside:avoid">"${esc(s.storyName.toUpperCase())}"</div>
+    <p class="story">"${esc(s.storyName.toUpperCase())}"</p>
     ${s.isLicensed
       ?`${cLbl('PRODUCER')}${cName(s.producer)}`
       :`${s.dop?`${cLbl('DIRECTOR OF PHOTOGRAPHY')}${cName(s.dop)}`:''}${s.ca?`${cLbl('CAMERA ASSISTANT')}${cName(s.ca)}`:''}${s.editor?`${cLbl('EDITOR')}${cName(s.editor)}`:''}${s.afm?`${cLbl('AUDIO FINAL MIX')}${cName(s.afm)}`:''}`
@@ -636,23 +631,17 @@ async function exportCreditsPDF(epNum){
 
   const body=`
     ${cSec('PRESENTERS')}
-    ${EC_FIXED_SECTIONS[0].fields.map(f=>cName(ev('presenters',f.key,f.default))).join('')}
-    ${cBigGap()}
+    ${EC_FIXED_SECTIONS[0].fields.map(f=>cName(ev('presenters',f.key,f.default))).join('')}${cBigGap()}
 
     ${cSec('CARTE BLANCHE VIEWER PANEL')}
-    ${EC_FIXED_SECTIONS[1].fields.map(f=>cName(ev('viewerPanel',f.key,f.default))).join('')}
-    ${cBigGap()}
+    ${EC_FIXED_SECTIONS[1].fields.map(f=>cName(ev('viewerPanel',f.key,f.default))).join('')}${cBigGap()}
 
     ${cLbl('CARTE BLANCHE THEME COMPOSED BY')}${cName(ev('theme','composedBy','DAVE POLLECUTT'))}
     ${cLbl('ORCHESTRATION BY')}${cName(ev('theme','orchBy','KURT HERMAN FOR BLUEBERRY ENTERTAINMENT'))}
     ${cLbl('LOGO & IMAGING BY')}${cName(ev('theme','logoBy','MONARCHY'))}
-    ${cLbl('LEGAL ADVISORS')}${cName(ev('theme','legal1','DARIO MILO'))}
-    ${cName(ev('theme','legal2','POOJA DELA-CRON'))}${cName(ev('theme','legal3','ODWA ABRAHAM'))}
-    ${cName(ev('theme','legal4','KUHLE MAVUSO'))}${cName(ev('theme','legal5','WEBBER WENTZEL ATTORNEYS'))}
-    ${cBigGap()}
+    ${cLbl('LEGAL ADVISORS')}${cName(ev('theme','legal1','DARIO MILO'))}${cName(ev('theme','legal2','POOJA DELA-CRON'))}${cName(ev('theme','legal3','ODWA ABRAHAM'))}${cName(ev('theme','legal4','KUHLE MAVUSO'))}${cName(ev('theme','legal5','WEBBER WENTZEL ATTORNEYS'))}${cBigGap()}
 
-    ${storyHTML}
-    ${cBigGap()}
+    ${storyHTML}${cBigGap()}
 
     ${cLbl('STUDIO FACILITIES')}${cName(ev('studio','studioFac','STARK STUDIOS'))}
     ${cLbl('SET & SET DESIGN')}${cName(ev('studio','setDesign','DEWET MEYER'))}${cName(ev('studio','setDesign2','JD UNLIMITED'))}
@@ -667,52 +656,62 @@ async function exportCreditsPDF(epNum){
     ${cLbl('LIGHTING')}${cName(ev('studio','lighting','PAUL MODISE'))}
     ${cLbl('VT OPERATOR')}${cName(ev('studio','vtOp','OSCAR CHAVALALA'))}
     ${cLbl('SOUND ENGINEER')}${cName(ev('studio','soundEng','BONGANI GWAMANDA'))}
-    ${cLbl('VISION MIXER')}${cName(ev('studio','visionMix','JACO LOMBARD'))}
-    ${cBigGap()}
+    ${cLbl('VISION MIXER')}${cName(ev('studio','visionMix','JACO LOMBARD'))}${cBigGap()}
 
     ${cLbl('PRODUCTION')}${cName(ev('production','prod','VINCENT BUTJE'))}
     ${cLbl('PRODUCTION COORDINATOR')}${cName(ev('production','prodCoord','MIHLE KLAAS'))}
     ${cLbl('VIDEO EDITORS')}${cName(ev('production','vidEd1','BRYAN BARTLE'))}${cName(ev('production','vidEd2','STENETTE GROSSKOPF'))}
     ${cLbl('PATRON: MAKING A DIFFERENCE TRUST')}${cName(ev('production','patron','KAROLINA ANDROPOULOS'))}
-    ${cLbl('FINANCE MANAGER')}${cName(ev('production','finMgr','KEVIN FREESE'))}${cName(ev('production','finMgr2','MY ACCOUNTANT'))}
-    ${cBigGap()}
+    ${cLbl('FINANCE MANAGER')}${cName(ev('production','finMgr','KEVIN FREESE'))}${cName(ev('production','finMgr2','MY ACCOUNTANT'))}${cBigGap()}
 
     ${cSec('FOR M-NET CHANNELS:')}
-    ${EC_FIXED_SECTIONS[5].rows.map(r=>`${r.label?cLbl(r.label):''}${cName(ev('mnet',r.key,r.default))}`).join('')}
-    ${cBigGap()}
+    ${EC_FIXED_SECTIONS[5].rows.map(r=>`${r.label?cLbl(r.label):''}${cName(ev('mnet',r.key,r.default))}`).join('')}${cBigGap()}
 
     ${cSec('FOR CARTE BLANCHE:')}
     ${EC_FIXED_SECTIONS[6].rows.map(r=>`${cLbl(r.label)}${cName(ev('carteBlanche',r.key,r.default))}`).join('')}
   `;
 
-  // Build as a DOM element — html2pdf works best with real DOM, not HTML strings
-  const wrapper=document.createElement('div');
-  wrapper.style.cssText='position:fixed;top:-9999px;left:-9999px;width:680px;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:9pt;color:#111;padding:8px';
-  wrapper.innerHTML=`
-    <style>*{box-sizing:border-box}div{page-break-inside:avoid}</style>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:10px">
-      <img src="${BAKED_CB_LOGO}" style="height:38px;width:auto">
-      <div style="text-align:center">
-        <div style="font-size:12pt;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#111">CARTE BLANCHE END CREDITS</div>
-        <div style="font-size:7pt;color:#888;margin-top:3px;font-weight:700;text-transform:uppercase;letter-spacing:.6px">Episode ${n} &nbsp;·&nbsp; ${date} &nbsp;·&nbsp; Season ${currentSeason}</div>
-      </div>
-      <img src="${BAKED_CAP_LOGO}" style="height:32px;width:auto;max-width:76px">
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Carte Blanche End Credits – Season ${currentSeason} Episode ${n}</title>
+  <style>
+    @page{size:A4 portrait;margin:14mm 16mm}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#111;font-size:9pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding-bottom:10px}
+    .header-centre{text-align:center}
+    .header-title{font-size:13pt;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#111}
+    .header-sub{font-size:7pt;color:#777;margin-top:3px;font-weight:700;text-transform:uppercase;letter-spacing:.6px}
+    .logo{height:36px;width:auto}
+    .logo2{height:30px;width:auto;max-width:76px}
+    .content{max-width:420px;margin:0 auto}
+    .sec{font-size:8.5pt;font-weight:900;color:#1a3a6a;text-transform:uppercase;letter-spacing:1.2px;text-align:center;margin:16px 0 5px;page-break-after:avoid}
+    .lbl{font-size:7pt;font-weight:800;color:#1a3a6a;text-transform:uppercase;letter-spacing:.7px;text-align:center;margin-top:9px;margin-bottom:1px;page-break-after:avoid}
+    .name{font-size:9pt;font-weight:800;color:#111;text-align:center;margin-bottom:1px;page-break-inside:avoid}
+    .story{font-size:10pt;font-weight:900;color:#1a3a6a;text-align:center;margin-top:8px;margin-bottom:2px;page-break-after:avoid}
+    .gap{height:6px}
+    .biggap{height:12px}
+    .footer{margin-top:12px;text-align:center;font-size:6pt;color:#aaa}
+    @media print{body{font-size:9pt}.sec{font-size:8.5pt}.name{font-size:9pt}}
+  </style>
+  </head><body>
+  <div class="header">
+    <img class="logo" src="${BAKED_CB_LOGO}">
+    <div class="header-centre">
+      <div class="header-title">Carte Blanche End Credits</div>
+      <div class="header-sub">Episode ${n} &nbsp;·&nbsp; ${date} &nbsp;·&nbsp; Season ${currentSeason}</div>
     </div>
-    <div style="max-width:440px;margin:0 auto">${body}</div>
-    <div style="margin-top:10px;text-align:center;font-size:6pt;color:#aaa">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
-  `;
-  document.body.appendChild(wrapper);
-  try{
-    await html2pdf().set({
-      margin:[8,10,8,10],
-      filename:`CB-End-Credits-Season${currentSeason}-EP${n}.pdf`,
-      image:{type:'jpeg',quality:0.97},
-      html2canvas:{scale:2,useCORS:true,allowTaint:true,logging:false,windowWidth:680},
-      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
-    }).from(wrapper).save();
-  }catch(err){showToast('PDF export failed: '+err.message,true);console.error(err);}
-  document.body.removeChild(wrapper);
+    <img class="logo2" src="${BAKED_CAP_LOGO}">
+  </div>
+  <div class="content">${body}</div>
+  <div class="footer">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
+  <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`;
+
+  const win=window.open('','_blank','width=900,height=700');
+  win.document.write(html);
+  win.document.close();
 }
+
 
 async function loadEndCredits(){
   try{
@@ -2800,9 +2799,7 @@ function bindApp(){
   document.querySelectorAll('[data-ep-credits-pdf]').forEach(btn=>{
     btn.addEventListener('click',async()=>{
       const epNum=btn.dataset.epCreditsPdf;
-      btn.innerHTML='⏳ Preparing…';btn.disabled=true;
-      await exportCreditsPDF(epNum);
-      btn.innerHTML='⬇ Export Credits PDF';btn.disabled=false;
+      exportCreditsPDF(epNum);
     });
   });
 
