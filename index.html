@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='1.9.1';
+const BUILD_VERSION='1.9.2';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2258,29 +2258,42 @@ function renderLeaveDeclineModal(){
 // Global story move function — called from inline onclick
 function moveStory(id,dir){
   const comm=comms.find(c=>Number(c.id)===Number(id));
-  if(!comm)return;
-  const epStories=comms
-    .filter(c=>c.broadcastEpisode===comm.broadcastEpisode&&!c.decommissioned)
-    .sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
-  // If no orders set yet, assign them first
+  if(!comm){showToast('ERROR: comm not found for id='+id,true);return;}
+  // Get all stories for this episode using broadcastEpisode
+  // Fall back to finding all comms in same episode by checking epNums
+  let epStories=comms.filter(c=>c.broadcastEpisode&&c.broadcastEpisode===comm.broadcastEpisode&&!c.decommissioned);
+  if(epStories.length<2){
+    // Try finding what episode this story belongs to via the epNums
+    const allEps=getEpNums();
+    for(const ep of allEps){
+      const group=comms.filter(c=>c.broadcastEpisode===String(ep)&&!c.decommissioned);
+      if(group.find(c=>Number(c.id)===Number(id))){epStories=group;break;}
+    }
+  }
+  if(epStories.length<2){showToast('Only one story in episode — nothing to reorder',true);return;}
+  epStories.sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
+  // If no orders set, assign 1,2,3...
   if(epStories.every(c=>!c.broadcastOrder)){
     epStories.forEach((c,i)=>{c.broadcastOrder=i+1;});
   }
   const idx=epStories.findIndex(c=>Number(c.id)===Number(id));
+  if(idx<0){showToast('ERROR: story not in episode list',true);return;}
   if(dir==='up'){
-    if(idx<=0)return;
+    if(idx===0){showToast('Already first',true);return;}
     const prev=epStories[idx-1];
-    const tmp=prev.broadcastOrder;
-    prev.broadcastOrder=comm.broadcastOrder;
+    const tmp=prev.broadcastOrder||idx;
+    prev.broadcastOrder=comm.broadcastOrder||(idx+1);
     comm.broadcastOrder=tmp;
     saveComm(comm);saveComm(prev);
+    showToast('Moved up ✓');
   } else {
-    if(idx>=epStories.length-1)return;
+    if(idx>=epStories.length-1){showToast('Already last',true);return;}
     const next=epStories[idx+1];
-    const tmp=next.broadcastOrder;
-    next.broadcastOrder=comm.broadcastOrder;
+    const tmp=next.broadcastOrder||(idx+2);
+    next.broadcastOrder=comm.broadcastOrder||(idx+1);
     comm.broadcastOrder=tmp;
     saveComm(comm);saveComm(next);
+    showToast('Moved down ✓');
   }
   render();
 }
