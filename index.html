@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='1.9.0';
+const BUILD_VERSION='1.9.1';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1415,9 +1415,9 @@ const canEd=currentRole==='admin';
 function epci(field,w){return canEd?`<input class="ci ep-ci" value="${esc(String(s[field]||''))}" data-id="${s.id}" data-field="${field}" style="width:${w}px">`:esc(String(s[field]||'—'));}
 return`<tr data-ep-row="${s.id}">
 <td style="text-align:center;vertical-align:middle;white-space:nowrap">
-  ${canEd?`<div style="display:flex;flex-direction:column;gap:1px;align-items:center">
-    <button class="ep-order-up" data-id="${s.id}" style="background:#1a1a00;border:1px solid #4a3800;color:#e3b341;width:22px;height:16px;cursor:pointer;font-size:9px;line-height:1;border-radius:3px 3px 0 0;padding:0" title="Move up">▲</button>
-    <button class="ep-order-dn" data-id="${s.id}" style="background:#1a1a00;border:1px solid #4a3800;color:#e3b341;width:22px;height:16px;cursor:pointer;font-size:9px;line-height:1;border-radius:0 0 3px 3px;padding:0" title="Move down">▼</button>
+  ${canEd?`<div style="display:flex;flex-direction:column;gap:1px;align-items:center" onclick="event.stopPropagation()">
+    <button onclick="event.stopPropagation();moveStory(${s.id},'up')" style="background:#1a1a00;border:1px solid #4a3800;color:#e3b341;width:22px;height:16px;cursor:pointer;font-size:9px;line-height:1;border-radius:3px 3px 0 0;padding:0" title="Move up">▲</button>
+    <button onclick="event.stopPropagation();moveStory(${s.id},'dn')" style="background:#1a1a00;border:1px solid #4a3800;color:#e3b341;width:22px;height:16px;cursor:pointer;font-size:9px;line-height:1;border-radius:0 0 3px 3px;padding:0" title="Move down">▼</button>
   </div>`:`<span style="color:#e3b341;font-weight:700;font-size:11px">${s.broadcastOrder||''}</span>`}
 </td>
 <td class="story" style="font-weight:600;color:#eaf0ff;font-size:14px;white-space:normal">${esc(s.storyName||'')}</td>
@@ -2254,6 +2254,36 @@ function renderLeaveDeclineModal(){
   </div></div>`;
 }
 
+
+// Global story move function — called from inline onclick
+function moveStory(id,dir){
+  const comm=comms.find(c=>Number(c.id)===Number(id));
+  if(!comm)return;
+  const epStories=comms
+    .filter(c=>c.broadcastEpisode===comm.broadcastEpisode&&!c.decommissioned)
+    .sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
+  // If no orders set yet, assign them first
+  if(epStories.every(c=>!c.broadcastOrder)){
+    epStories.forEach((c,i)=>{c.broadcastOrder=i+1;});
+  }
+  const idx=epStories.findIndex(c=>Number(c.id)===Number(id));
+  if(dir==='up'){
+    if(idx<=0)return;
+    const prev=epStories[idx-1];
+    const tmp=prev.broadcastOrder;
+    prev.broadcastOrder=comm.broadcastOrder;
+    comm.broadcastOrder=tmp;
+    saveComm(comm);saveComm(prev);
+  } else {
+    if(idx>=epStories.length-1)return;
+    const next=epStories[idx+1];
+    const tmp=next.broadcastOrder;
+    next.broadcastOrder=comm.broadcastOrder;
+    comm.broadcastOrder=tmp;
+    saveComm(comm);saveComm(next);
+  }
+  render();
+}
 
 const DELIVERABLE_TASKS = [
   {key:'comm_list_update',      label:'Commission List – Episode Update'},
