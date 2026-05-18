@@ -389,7 +389,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='1.8.3';
+const BUILD_VERSION='1.8.4';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -734,32 +734,32 @@ function exportCreditsPDF(epNum){
   </style>
   </head><body>
   <div class="header">
-    <img class="logo" src="${BAKED_CB_LOGO}">
+    <img class="logo" src="https://cb-commissions-portal.github.io/cb-commissions-portal/cb_logo.png" onerror="this.style.display='none'">
     <div class="header-centre">
       <div class="header-title">Carte Blanche End Credits</div>
       <div class="header-sub">Episode ${n} &nbsp;·&nbsp; ${date} &nbsp;·&nbsp; Season ${currentSeason}</div>
     </div>
-    <img class="logo2" src="${BAKED_CAP_LOGO}">
+    <img class="logo2" src="https://cb-commissions-portal.github.io/cb-commissions-portal/cap_logo.jpg" onerror="this.style.display='none'">
   </div>
   <div class="content">${body}</div>
   <div class="footer">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
   </body></html>`;
 
-  // Open as data URI — no popup blocker issues
+  // Download as HTML file — open in browser then Cmd+P to print
   try{
-    const encoded=encodeURIComponent(html);
-    const dataUri='data:text/html;charset=utf-8,'+encoded;
+    const blob=new Blob([html],{type:'text/html'});
+    const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
-    a.href=dataUri;
-    a.target='_blank';
-    a.rel='noopener noreferrer';
+    a.href=url;
+    a.download=`CB-End-Credits-S${currentSeason}-EP${n}.html`;
     document.body.appendChild(a);
     a.click();
-    setTimeout(()=>{document.body.removeChild(a);},100);
-    showToast('Credits opened in new tab — use Cmd+P to print or save as PDF');
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Credits downloaded — open the file in your browser then Cmd+P to print/PDF');
   }catch(err){
-    console.error('Credits open error:',err);
-    showToast('Could not open credits: '+err.message,true);
+    console.error('Credits export error:',err);
+    showToast('Export failed: '+err.message,true);
   }
 }
 
@@ -3431,8 +3431,11 @@ function bindApp(){
 
   // Broadcast order inputs in Episode Register
   document.querySelectorAll('input.ep-order-inp').forEach(inp=>{
-    inp.addEventListener('click',e=>e.stopPropagation());
-    inp.addEventListener('mousedown',e=>e.stopPropagation());
+    // Stop ALL events from bubbling to parent episode card
+    ['click','mousedown','mouseup','keydown','keyup','keypress','focus','input'].forEach(ev=>{
+      inp.addEventListener(ev,e=>e.stopPropagation());
+    });
+    // Save on Enter
     inp.addEventListener('keydown',e=>{
       e.stopPropagation();
       if(e.key==='Enter'){
@@ -3440,11 +3443,17 @@ function bindApp(){
         const id=inp.dataset.id;
         const val=Number(inp.value)||0;
         const comm=comms.find(c=>c.id===id);
-        if(comm){comm.broadcastOrder=val;saveComm(comm);showToast('Order '+val+' saved');}
-        inp.blur();
+        if(comm){comm.broadcastOrder=val;saveComm(comm);showToast('Order saved ✓');}
+      }
+      if(e.key==='Tab'){
+        const id=inp.dataset.id;
+        const val=Number(inp.value)||0;
+        const comm=comms.find(c=>c.id===id);
+        if(comm){comm.broadcastOrder=val;saveComm(comm);}
       }
     });
-    inp.addEventListener('blur',e=>{
+    // Save on focusout (more reliable than blur in some browsers)
+    inp.addEventListener('focusout',e=>{
       const id=inp.dataset.id;
       const val=Number(inp.value)||0;
       const comm=comms.find(c=>c.id===id);
@@ -3463,6 +3472,37 @@ function bindApp(){
 
   // Re-apply column resizers after every render
   const _origRender=render;
+  // Column resizer function
+  function makeColumnsResizable(table){
+    if(!table||table.dataset.resizable)return;
+    table.dataset.resizable='1';
+    Array.from(table.querySelectorAll('th')).forEach(th=>{
+      th.addEventListener('dblclick',()=>{
+        const idx=Array.from(th.parentElement.children).indexOf(th);
+        let max=th.offsetWidth;
+        table.querySelectorAll('tr').forEach(row=>{
+          const cell=row.children[idx];
+          if(cell)max=Math.max(max,cell.scrollWidth);
+        });
+        th.style.minWidth=max+'px';th.style.width=max+'px';
+      });
+      const rz=document.createElement('div');
+      rz.className='resizer';
+      th.style.position='relative';
+      th.appendChild(rz);
+      let startX,startW;
+      rz.addEventListener('mousedown',e=>{
+        startX=e.pageX;startW=th.offsetWidth;
+        rz.classList.add('active');
+        const onMove=e=>{const w=Math.max(40,startW+(e.pageX-startX));th.style.minWidth=w+'px';th.style.width=w+'px';};
+        const onUp=()=>{rz.classList.remove('active');document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);};
+        document.addEventListener('mousemove',onMove);
+        document.addEventListener('mouseup',onUp);
+        e.preventDefault();e.stopPropagation();
+      });
+    });
+  }
+
   const _resizeObserver=new MutationObserver(()=>{
     document.querySelectorAll('table').forEach(makeColumnsResizable);
   });
