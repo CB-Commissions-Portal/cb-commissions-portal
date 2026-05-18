@@ -587,11 +587,7 @@ function getAllAssignedUIDs(){
   Object.entries(promoData).forEach(([ep,pd])=>{if(!pd.uids)return;Object.entries(pd.uids).forEach(([key,uid])=>{if(uid)a[uid]={ep,key};});});
   return a;
 }
-function getAvailablePoolUIDs(){
-  const a=getAllAssignedUIDs();
-  return uidPool.filter(u=>!u.pulled&&!a[u.uid]);
-}
-
+function getAvailablePoolUIDs(){const a=getAllAssignedUIDs();return uidPool.filter(u=>!u.pulled&&!a[u.uid]);}
 async function saveMusicCue(id,data){
   setSyncDot('saving');
   try{await setDoc(doc(db,'music_cues',String(id)),{...data,updatedAt:serverTimestamp()});musicCues[id]={...data};setSyncDot('live');}
@@ -601,9 +597,7 @@ async function loadMusicCues(){
   try{const snap=await getDocs(collection(db,'music_cues'));snap.docs.forEach(d=>{musicCues[d.id]={...d.data()};});}
   catch(e){console.error('Music cues error:',e);}
 }
-function blankMCRow(){
-  return{cue:'',trackTitle:'',composer:'',publisher:'',cmo:'',label:'Unknown',artist:'',albumTitle:'N/A',trackNumber:'0',usage:'',musicType:'PRODUCTION',duration:''};
-}
+function blankMCRow(){return{cue:'',trackTitle:'',composer:'',publisher:'',cmo:'',label:'Unknown',artist:'',albumNumber:'',albumTitle:'N/A',trackNumber:'0',usage:'',musicType:'PRODUCTION',duration:''}}
 
 async function saveEndCredits(ep,data){
   setSyncDot('saving');
@@ -656,7 +650,7 @@ async function exportCreditsPDF(epNum){
     </div>`;
   }
   function credSection(title){
-    return`<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#111;border-bottom:1px solid #ccc;padding-bottom:3px;margin:14px 0 8px">
+    return`<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#111;padding-bottom:3px;margin:14px 0 8px">
       ${title}
     </div>`;
   }
@@ -678,7 +672,7 @@ async function exportCreditsPDF(epNum){
   function ev(sec,key,def){return getECValue(n,sec,key,def)||def||'';}
 
   // Build centred, spaced credits body — no border lines, generous gaps
-  const LBL='font-size:9px;font-weight:800;color:#1a3a6a;text-transform:uppercase;letter-spacing:.9px;text-align:center;padding-top:0;padding-bottom:2px';
+  const LBL='font-size:8px;font-weight:800;color:#1a3a6a;text-transform:uppercase;letter-spacing:.7px;text-align:center;padding-top:0;padding-bottom:1px';
   const NAME='font-size:11px;font-weight:800;color:#111;letter-spacing:.4px;text-align:center;padding-bottom:2px';
   const SEC='font-size:10px;font-weight:900;color:#1a3a6a;text-transform:uppercase;letter-spacing:1.5px;text-align:center;padding:22px 0 4px';
 
@@ -686,7 +680,7 @@ async function exportCreditsPDF(epNum){
   function cLabel(l){return l?cRow(LBL,l):'';}
   function cName(v){return v?cRow(NAME,esc(String(v).toUpperCase())):''}
   function cSec(t){return`<tr><td style="${SEC}">${t}</td></tr>`;}
-  function cGap(h=14){return`<tr><td style="padding:${h}px 0"></td></tr>`;}
+  function cGap(h=14){return`<tr><td style="padding:${Math.floor(h*0.6)}px 0"></td></tr>`;}
 
   // Story rows — licensed: PRODUCER label + producer name. Regular: crew. No N/A ever.
   const storyRows=comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse).map((s,i,arr)=>`
@@ -708,11 +702,11 @@ async function exportCreditsPDF(epNum){
 
     ${cSec('PRESENTERS')}${cGap(6)}
     ${EC_FIXED_SECTIONS[0].fields.map(f=>cName(ev('presenters',f.key,f.default))).join('')}
-    ${cGap(30)}
+    ${cGap(16)}
 
     ${cSec('CARTE BLANCHE VIEWER PANEL')}${cGap(6)}
     ${EC_FIXED_SECTIONS[1].fields.map(f=>cName(ev('viewerPanel',f.key,f.default))).join('')}
-    ${cGap(30)}
+    ${cGap(16)}
 
     ${cSec('CARTE BLANCHE THEME')}${cGap(6)}
     ${cLabel('COMPOSED BY')}
@@ -730,10 +724,10 @@ async function exportCreditsPDF(epNum){
     ${ev('theme','legal3','ODWA ABRAHAM')?cName(ev('theme','legal3','ODWA ABRAHAM')):''}
     ${ev('theme','legal4','KUHLE MAVUSO')?cName(ev('theme','legal4','KUHLE MAVUSO')):''}
     ${ev('theme','legal5','WEBBER WENTZEL ATTORNEYS')?cName(ev('theme','legal5','WEBBER WENTZEL ATTORNEYS')):''}
-    ${cGap(30)}
+    ${cGap(16)}
 
     ${storyRows}
-    ${cGap(30)}
+    ${cGap(16)}
 
     ${cLabel('STUDIO FACILITIES')}
     ${cName(ev('studio','studioFac','STARK STUDIOS'))}
@@ -777,7 +771,7 @@ async function exportCreditsPDF(epNum){
     ${cGap(20)}
     ${cLabel('VISION MIXER')}
     ${cName(ev('studio','visionMix','JACO LOMBARD'))}
-    ${cGap(30)}
+    ${cGap(16)}
 
     ${cLabel('PRODUCTION')}
     ${cName(ev('production','prod','VINCENT BUTJE'))}
@@ -795,7 +789,7 @@ async function exportCreditsPDF(epNum){
     ${cLabel('FINANCE MANAGER')}
     ${cName(ev('production','finMgr','KEVIN FREESE'))}
     ${cName(ev('production','finMgr2','MY ACCOUNTANT'))}
-    ${cGap(30)}
+    ${cGap(16)}
 
     ${cSec('FOR CARTE BLANCHE:')}${cGap(6)}
     ${cLabel('MAKE-UP & STYLING')}
@@ -833,7 +827,7 @@ async function exportCreditsPDF(epNum){
     ${cGap(20)}
     ${cLabel('EXECUTIVE PRODUCER')}
     ${cName(ev('carteBlanche','execProd','JOHN WEBB'))}
-    ${cGap(30)}
+    ${cGap(16)}
 
   </tbody></table>`;
 
@@ -841,12 +835,12 @@ async function exportCreditsPDF(epNum){
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;font-size:9px}
-    @page{margin:10mm;size:A4 portrait}
+    @page{margin:8mm;size:A4 portrait}
     table{table-layout:fixed}
   </style>
   </head><body>
   <!-- HEADER -->
-  <table style="width:100%;border-collapse:collapse;border-bottom:3px solid #1a3a6a;margin-bottom:14px;padding-bottom:10px">
+  <table style="width:100%;border-collapse:collapse;margin-bottom:14px;padding-bottom:10px">
     <tr valign="middle">
       <td style="width:90px;padding-bottom:10px"><img src="${BAKED_CB_LOGO}" style="height:46px;width:auto;display:block"></td>
       <td style="text-align:center;padding:0 12px 10px">
@@ -858,7 +852,7 @@ async function exportCreditsPDF(epNum){
   </table>
   <!-- CREDITS BODY - single column list matching docx format -->
   ${credBody}
-  <div style="margin-top:12px;text-align:center;font-size:7px;color:#aaa;border-top:1px solid #ddd;padding-top:6px">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
+  <div style="margin-top:12px;text-align:center;font-size:7px;color:#aaa;padding-top:6px">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
   </body></html>`;
 
   html2pdf().set({
@@ -1117,7 +1111,7 @@ function renderHome(){
       tab:'commissions',
       title:`Commission List`,
       sub:`Season ${season}`,
-      icon:`<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>`,
+      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>`,
       color:'#388bfd',
       bg:'rgba(56,139,253,.1)',
       show: role!=='editorial',
@@ -1127,7 +1121,7 @@ function renderHome(){
       tab:'episodes',
       title:'Episode Register',
       sub:'Broadcast Schedule',
-      icon:`<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
       color:'#58a6ff',
       bg:'rgba(88,166,255,.1)',
       show: true,
@@ -1137,7 +1131,7 @@ function renderHome(){
       tab:'studio',
       title:'Studio Crew',
       sub:'Per Episode',
-      icon:`<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/><circle cx="18" cy="8" r="3"/><path d="M22 21a5 5 0 00-8-4"/></svg>`,
+      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/><circle cx="18" cy="8" r="3"/><path d="M22 21a5 5 0 00-8-4"/></svg>`,
       color:'#3fb950',
       bg:'rgba(63,185,80,.1)',
       show: role!=='editorial',
@@ -1147,7 +1141,7 @@ function renderHome(){
       tab:'credits',
       title:'End Credits',
       sub:'Per Episode',
-      icon:`<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,
+      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,
       color:'#d2a8ff',
       bg:'rgba(210,168,255,.1)',
       show: role!=='editorial',
@@ -1157,7 +1151,7 @@ function renderHome(){
       tab:'promos',
       title:'Promo Scheduling',
       sub:`Season ${season}`,
-      icon:`<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,
+      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,
       color:'#ffa657',
       bg:'rgba(255,166,87,.1)',
       show: ['admin','operations'].includes(role),
@@ -1167,7 +1161,7 @@ function renderHome(){
       tab:'musiccues',
       title:'Music Cue Sheets',
       sub:'Insert Music',
-      icon:`<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
+      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
       color:'#f7768e',
       bg:'rgba(247,118,142,.1)',
       show:['admin','operations','afm'].includes(role),
@@ -1177,7 +1171,7 @@ function renderHome(){
       tab:'admin',
       title:'Admin',
       sub:'Users & Access',
-      icon:`<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
+      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
       color:'#e3b341',
       bg:'rgba(227,179,65,.1)',
       show: currentRole==='admin'&&!previewRole,
@@ -1185,9 +1179,9 @@ function renderHome(){
     },
   ].filter(c=>c.show);
 
-  return`<div style="min-height:100vh;background:#f5f7fa;display:flex;flex-direction:column;align-items:center;padding:40px 20px">
+  return`<div style="min-height:100vh;background:#f5f7fa;display:flex;flex-direction:column;align-items:center;padding:24px 20px;overflow-y:auto">
     <!-- LOGOS -->
-    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;max-width:860px;margin-bottom:40px">
+    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;max-width:860px;margin-bottom:20px">
       <img src="${BAKED_CB_LOGO}" style="height:52px;width:auto;object-fit:contain">
       <div style="text-align:center">
         <div style="font-size:13px;font-weight:700;color:#111827;text-transform:uppercase;letter-spacing:1.5px">Carte Blanche Production Portal</div>
@@ -1197,17 +1191,17 @@ function renderHome(){
     </div>
 
     <!-- WELCOME -->
-    <div style="text-align:center;margin-bottom:44px">
-      <div style="font-size:28px;font-weight:900;color:#111827;letter-spacing:-.5px">Welcome back${user?.displayName?', '+user.displayName.split(' ')[0]:''}.</div>
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:20px;font-weight:900;color:#111827;letter-spacing:-.5px">Welcome back${user?.displayName?', '+user.displayName.split(' ')[0]:''}.</div>
       <div style="font-size:13px;color:#6e7681;margin-top:6px">
         <span style="background:${rm.bg};color:${rm.color};padding:2px 10px;border-radius:3px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">${rm.label}</span>
       </div>
     </div>
 
     <!-- CARDS GRID -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;width:100%;max-width:860px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;width:100%;max-width:940px">
       ${cards.map(c=>`
-        <div data-home-tab="${c.tab}" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:28px 24px;cursor:pointer;transition:border-color .15s,box-shadow .15s;display:flex;flex-direction:column;gap:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)"
+        <div data-home-tab="${c.tab}" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 18px;cursor:pointer;transition:border-color .15s,box-shadow .15s;display:flex;flex-direction:column;gap:8px;box-shadow:0 1px 4px rgba(0,0,0,.06)"
           onmouseover="this.style.borderColor='${c.color}';this.style.boxShadow='0 6px 20px rgba(0,0,0,.10)'"
           onmouseout="this.style.borderColor='#e5e7eb';this.style.boxShadow='0 1px 4px rgba(0,0,0,.06)'">
           <div style="color:${c.color};display:flex;align-items:center;justify-content:space-between">
@@ -1215,8 +1209,8 @@ function renderHome(){
             <div style="background:${c.bg};color:${c.color};font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:3px 8px;border-radius:3px">${c.sub}</div>
           </div>
           <div>
-            <div style="font-size:16px;font-weight:800;color:#111827;margin-bottom:4px">${c.title}</div>
-            <div style="font-size:12px;color:#6b7280;line-height:1.4">${c.desc}</div>
+            <div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:1px">${c.title}</div>
+            <div style="font-size:11px;color:#6b7280;line-height:1.3">${c.desc}</div>
           </div>
           <div style="font-size:11px;color:${c.color};font-weight:600;margin-top:4px">Open →</div>
         </div>`).join('')}
@@ -1308,7 +1302,7 @@ function renderApp(){
       <button class="sign-out" id="logout-btn">Sign Out</button>
     </div>
   </div>
-  <div class="ticker no-print">
+  ${['admin','editorial','operations'].includes(getEffectiveRole())?`  <div class="ticker no-print">
     <div class="t-item"><div class="t-lbl">Contracted Mins</div>${currentRole==='admin'&&!previewRole?`<input class="t-inp" type="number" id="contracted-input" tabindex="-1" value="${contracted}">`:`<div class="t-val c">${contracted}</div>`}</div>
     <div class="t-sep">−</div>
     <div class="t-item"><div class="t-lbl">Paid Mins</div><div class="t-val p">${paid.toFixed(1)}</div></div>
@@ -1318,7 +1312,7 @@ function renderApp(){
       <span>${comms.filter(c=>c.approvedForPayment).length} paid · ${comms.filter(c=>!c.decommissioned).length} active · ${epNums.length} episodes</span>
       ${readyCount>0?`<span class="t-ready">● ${readyCount} ready for payment</span>`:''}
     </div>
-  </div>
+  </div>`:''}  
   <div class="tabs no-print">
     <div class="tab-btn${tab==='home'?' active':''}" data-tab="home" style="font-size:16px;padding:4px 10px" title="Home">⌂</div>
     ${tab!=='home'?`
@@ -1744,8 +1738,7 @@ function renderPromoScheduling(epNums){
     return`<tr style="${bg}"><td style="padding:6px 12px;font-size:11px;color:#484f58">${i+1}</td>
       <td style="padding:6px 12px;font-family:monospace;font-size:12px;font-weight:700;color:${u.pulled?'#484f58':isAss?'#3fb950':'#9aaabe'};letter-spacing:1px;text-decoration:${u.pulled?'line-through':'none'}">${esc(u.uid)}</td>
       <td style="padding:6px 12px">${status}</td>
-      <td style="padding:6px 12px;font-size:11px;color:#6e7681;flex:1">${info}</td>
-      <td style="padding:6px 12px;text-align:center">${canEd&&!isAss?`<button class="btn danger uid-delete-btn" data-uid="${esc(u.uid)}" style="padding:2px 8px;font-size:10px">✕</button>`:'<span style="color:#484f58;font-size:11px">—</span>'}</td></tr>`;
+      <td style="padding:6px 12px;font-size:11px;color:#6e7681">${info}</td></tr>`;
   }).join('');
 
   const assignCards=avail.map(u=>{
@@ -1792,7 +1785,6 @@ function renderPromoScheduling(epNums){
           <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">UID</th>
           <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Status</th>
           <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Assigned To</th>
-          <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:center">Delete</th>
         </tr></thead>
         <tbody>${poolRows}${!uidPool.length?`<tr><td colspan="4" style="padding:24px;text-align:center;color:#484f58;font-size:12px">No UIDs yet. Import to get started.</td></tr>`:''}</tbody>
       </table>
@@ -1909,18 +1901,16 @@ function renderMusicCues(epNums){
       <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="cmo" value="${esc(r.cmo)}" placeholder="CMO" style="${inpS}"></td>
       <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="label" value="${esc(r.label||'Unknown')}" placeholder="Unknown" style="${inpS}"></td>
       <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="artist" value="${esc(r.artist||r.composer)}" placeholder="Artist/Performer" style="${inpS}"></td>
+      <td style="padding:4px;width:70px"><input class="mc-row-inp" data-row="${i}" data-field="albumNumber" value="${esc(r.albumNumber||'')}" placeholder="—" style="${inpS}"></td>
       <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="albumTitle" value="${esc(r.albumTitle||'N/A')}" placeholder="N/A" style="${inpS}"></td>
+      <td style="padding:4px;width:70px"><input class="mc-row-inp" data-row="${i}" data-field="albumNumber" value="${esc(r.albumNumber||'')} " placeholder="—" style="${inpS}"></td>
       <td style="padding:4px;width:55px"><input class="mc-row-inp" data-row="${i}" data-field="trackNumber" value="${esc(r.trackNumber||'0')}" placeholder="0" style="${inpS}"></td>
-      <td style="padding:4px;width:160px"><select class="mc-row-inp" data-row="${i}" data-field="usage" style="${inpS}">
+      <td style="padding:4px;width:130px"><select class="mc-row-inp" data-row="${i}" data-field="usage" style="${inpS}">
         <option value="">— Select —</option>
         <option value="Background Instrumental (BI)" ${r.usage==='Background Instrumental (BI)'?'selected':''}>Background Instrumental (BI)</option>
         <option value="Background Vocal (BV)" ${r.usage==='Background Vocal (BV)'?'selected':''}>Background Vocal (BV)</option>
-        <option value="Commissioned Music (CM)" ${r.usage==='Commissioned Music (CM)'?'selected':''}>Commissioned Music (CM)</option>
       </select></td>
-      <td style="padding:4px;width:130px"><select class="mc-row-inp" data-row="${i}" data-field="musicType" style="${inpS}">
-        <option value="PRODUCTION" ${(!r.musicType||r.musicType==='PRODUCTION')?'selected':''}>PRODUCTION</option>
-        <option value="ORIGINAL COMPOSITION" ${r.musicType==='ORIGINAL COMPOSITION'?'selected':''}>ORIGINAL COMPOSITION</option>
-      </select></td>
+      <td style="padding:4px;width:90px"><input value="PRODUCTION" disabled style="${inpS};color:#7a8ba0;cursor:not-allowed"></td>
       <td style="padding:4px;width:110px"><input class="mc-row-inp" data-row="${i}" data-field="duration" value="${esc(r.duration)}" placeholder="00:00:00:00" style="${inpS};font-family:monospace"></td>
       <td style="padding:4px;width:36px;text-align:center"><button class="btn danger mc-del-row" data-row="${i}" style="padding:3px 7px;font-size:11px">✕</button></td>
     </tr>`).join('');
@@ -1941,10 +1931,7 @@ function renderMusicCues(epNums){
           </div>
           <div>
             <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Commission Number *</label>
-            <div style="display:flex;gap:6px">
-              <input id="mc-comm-num" value="${esc(draft.commNum)}" placeholder="e.g. 6855" style="flex:1;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 10px;border-radius:5px;font-size:13px;font-family:monospace">
-              <button id="mc-studio-btn" class="btn" style="font-size:11px;white-space:nowrap;border-color:#7a3fbf;color:#c084fc" title="Create a Studio music cue sheet for the latest episode">🎙 Studio</button>
-            </div>
+            <input id="mc-comm-num" value="${esc(draft.commNum)}" placeholder="e.g. 6855" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 10px;border-radius:5px;font-size:13px;font-family:monospace">
           </div>
           <div>
             <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Story Name</label>
@@ -1972,7 +1959,9 @@ function renderMusicCues(epNums){
                 <th style="${thS}">CMO</th>
                 <th style="${thS}">Label</th>
                 <th style="${thS}">Artist/Performer</th>
+                <th style="${thS}">Album #</th>
                 <th style="${thS}">Album Title</th>
+                <th style="${thS}">Album #</th>
                 <th style="${thS}">Track #</th>
                 <th style="${thS}">Usage *</th>
                 <th style="${thS}">Music Type</th>
@@ -2203,7 +2192,7 @@ function bindApp(){
     }
 
     const headerHTML=`
-      <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:3px solid #1a3a6a;margin-bottom:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;margin-bottom:0">
         <img src="${CB_LOGO}" style="height:56px;width:auto;object-fit:contain">
         <div style="text-align:center;flex:1;padding:0 24px">
           <div style="font-size:20px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#111;line-height:1.1">CARTE BLANCHE CREW LIST</div>
@@ -2275,7 +2264,7 @@ function bindApp(){
           ${storyBlocks}
         </div>
         ${studioCrHTML}
-        <div style="margin-top:20px;padding-top:8px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:8px;color:#bbb">
+        <div style="margin-top:20px;padding-top:8px;display:flex;justify-content:space-between;font-size:8px;color:#bbb">
           <span>CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason}</span>
           <span>Episode ${n} · ${fmtDate(date)}</span>
         </div>
@@ -2649,25 +2638,12 @@ function bindApp(){
     });
   });
 
-  // Promo episode collapse toggle
+  // Promo collapse toggle
   document.querySelectorAll('[data-promo-toggle]').forEach(el=>{
     el.addEventListener('click',()=>{const n=el.dataset.promoToggle;promoExpandedEp=promoExpandedEp===n?null:n;render();});
   });
   document.getElementById('pool-view-btn')?.addEventListener('click',()=>{uidPoolView=uidPoolView==='pool'?'assign':'pool';selectedPoolUIDs=[];render();});
   document.getElementById('clear-pool-btn')?.addEventListener('click',()=>{if(confirm('Clear all UIDs from the pool?')){uidPool=[];saveUIDPool();render();}});
-
-  // Delete individual UID
-  document.querySelectorAll('.uid-delete-btn').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const uid=btn.dataset.uid;
-      if(confirm(`Delete UID ${uid} from the pool? This cannot be undone.`)){
-        uidPool=uidPool.filter(u=>u.uid!==uid);
-        saveUIDPool();
-        showToast(`UID ${uid} deleted`);
-        render();
-      }
-    });
-  });
   document.getElementById('clear-sel-btn')?.addEventListener('click',()=>{selectedPoolUIDs=[];render();});
   document.getElementById('assign-ep-sel')?.addEventListener('change',e=>{assignTargetEp=e.target.value;render();});
   document.getElementById('do-assign-btn')?.addEventListener('click',async()=>{
@@ -2676,8 +2652,8 @@ function bindApp(){
     if(!promoData[assignTargetEp].uids)promoData[assignTargetEp].uids={};
     PROMO_TYPES.forEach((pt,i)=>{promoData[assignTargetEp].uids[pt.key]=selectedPoolUIDs[i];});
     await savePromoData(assignTargetEp,promoData[assignTargetEp]);
-    showToast(`12 UIDs assigned to Episode ${String(assignTargetEp).padStart(2,'0')}`);
-    selectedPoolUIDs=[];assignTargetEp=null;uidPoolView='pool';promoExpandedEp=String(assignTargetEp);render();
+    showToast('12 UIDs assigned to EP '+String(assignTargetEp).padStart(2,'0'));
+    selectedPoolUIDs=[];const ep=assignTargetEp;assignTargetEp=null;uidPoolView='pool';promoExpandedEp=String(ep);render();
   });
   document.querySelectorAll('[data-pool-uid]').forEach(el=>{
     el.addEventListener('click',()=>{const uid=el.dataset.poolUid;const idx=selectedPoolUIDs.indexOf(uid);
@@ -2697,7 +2673,7 @@ function bindApp(){
       const existing=new Set(uidPool.map(u=>u.uid));
       const added=newUIDs.filter(u=>!existing.has(u)).map(u=>({uid:u,pulled:false}));
       uidPool=[...uidPool,...added];await saveUIDPool();
-      showToast(`Imported ${added.length} new UIDs (${newUIDs.length-added.length} duplicates skipped)`);render();
+      showToast('Imported '+added.length+' new UIDs ('+(newUIDs.length-added.length)+' duplicates skipped)');render();
     }catch(err){showToast('Import failed: '+err.message,true);}
     e.target.value='';
   });
@@ -2706,7 +2682,7 @@ function bindApp(){
       const ep=cb.dataset.ep,key=cb.dataset.key,isPulled=cb.checked;
       if(!promoData[ep])promoData[ep]={};if(!promoData[ep].pulled)promoData[ep].pulled={};
       promoData[ep].pulled[key]=isPulled;await savePromoData(ep,promoData[ep]);
-      if(isPulled){pullReplaceModal={ep,key,uid:promoData[ep]?.uids?.[key]||''};render();}else{render();}
+      if(isPulled){pullReplaceModal={ep,key,uid:promoData[ep]?.uids?.[key]||''};render();}else render();
     });
   });
   document.getElementById('pull-no-btn')?.addEventListener('click',()=>{pullReplaceModal=null;render();});
@@ -2716,7 +2692,15 @@ function bindApp(){
     const{ep,key}=pullReplaceModal;
     if(!promoData[ep])promoData[ep]={};if(!promoData[ep].uids)promoData[ep].uids={};if(!promoData[ep].pulled)promoData[ep].pulled={};
     promoData[ep].uids[key]=suggested.uid;promoData[ep].pulled[key]=false;
-    await savePromoData(ep,promoData[ep]);showToast(`Replaced with ${suggested.uid}`);pullReplaceModal=null;render();
+    await savePromoData(ep,promoData[ep]);showToast('Replaced with '+suggested.uid);pullReplaceModal=null;render();
+  });
+  document.querySelectorAll('.uid-delete-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const uid=btn.dataset.uid;
+      if(confirm('Delete UID '+uid+' from the pool?')){
+        uidPool=uidPool.filter(u=>u.uid!==uid);saveUIDPool();showToast('UID '+uid+' deleted');render();
+      }
+    });
   });
 
   // Promo inputs — TX dates
@@ -2845,58 +2829,39 @@ function bindApp(){
   // Music Cue Sheet bindings
   document.getElementById('mc-new-btn')?.addEventListener('click',()=>{
     mcTab='new';mcEditId=null;
-    mcDraft={afmName:currentUser?.displayName||'',commNum:'',storyName:'',producer:'',rows:[]};
-    render();
+    mcDraft={afmName:currentUser?.displayName||'',commNum:'',storyName:'',producer:'',rows:[]};render();
   });
   document.getElementById('mc-back-btn')?.addEventListener('click',()=>{mcTab='dashboard';render();});
   document.getElementById('mc-ep-filter')?.addEventListener('change',e=>{mcEpFilter=e.target.value;render();});
   document.querySelectorAll('[data-mc-edit]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const id=btn.dataset.mcEdit;const sheet=musicCues[id];if(!sheet)return;
-      mcEditId=id;mcTab='edit';mcDraft={...sheet};render();
-    });
+    btn.addEventListener('click',()=>{const id=btn.dataset.mcEdit;const sheet=musicCues[id];if(!sheet)return;
+      mcEditId=id;mcTab='edit';mcDraft={...sheet,rows:[...(sheet.rows||[])]};render();});
   });
-  // Commission number — update draft on input but only re-render on blur/Enter
-  // (re-rendering on every keystroke destroys focus)
+  // Commission number — no re-render while typing
   document.getElementById('mc-comm-num')?.addEventListener('input',e=>{
-    const val=e.target.value.trim();
-    mcDraft.commNum=val;
+    const val=e.target.value.trim();mcDraft.commNum=val;
     const c=comms.find(c=>c.commNum===val);
     if(c){
-      mcDraft.storyName=c.storyName||'';
-      mcDraft.producer=c.producer||'';
-      // Update story/producer fields in-place without full re-render
-      const sn=document.getElementById('mc-story-name');
-      const pr=document.getElementById('mc-producer');
+      mcDraft.storyName=c.storyName||'';mcDraft.producer=c.producer||'';
+      const sn=document.getElementById('mc-story-name');const pr=document.getElementById('mc-producer');
       if(sn){sn.value=c.storyName||'';sn.style.borderColor='#2d6a2d';sn.style.color='#3fb950';sn.readOnly=true;}
       if(pr){pr.value=c.producer||'';pr.style.borderColor='#2d6a2d';pr.style.color='#3fb950';pr.readOnly=true;}
     } else {
-      const sn=document.getElementById('mc-story-name');
-      const pr=document.getElementById('mc-producer');
+      const sn=document.getElementById('mc-story-name');const pr=document.getElementById('mc-producer');
       if(sn){sn.style.borderColor='';sn.style.color='';sn.readOnly=false;}
       if(pr){pr.style.borderColor='';pr.style.color='';pr.readOnly=false;}
     }
   });
-  document.getElementById('mc-comm-num')?.addEventListener('keydown',e=>{
-    if(e.key==='Enter'){e.target.blur();}
-  });
-  document.getElementById('mc-comm-num')?.addEventListener('blur',e=>{
-    mcDraft.commNum=e.target.value.trim();
-    render(); // Only re-render on blur
-  });
-  // Studio cue sheet button — auto-fills commission number for studio music
-  document.getElementById('mc-studio-btn')?.addEventListener('click',()=>{
-    const epNums=getEpNums();
-    const latestEp=epNums.length?Math.max(...epNums):1;
-    const epStr=String(latestEp).padStart(2,'0');
-    mcDraft.commNum=`Studio-S${currentSeason}E${epStr}`;
-    mcDraft.storyName='Studio Music';
-    mcDraft.producer='Combined Artists Productions';
-    render();
-  });
+  document.getElementById('mc-comm-num')?.addEventListener('blur',e=>{mcDraft.commNum=e.target.value.trim();});
   document.getElementById('mc-afm-name')?.addEventListener('blur',e=>{mcDraft.afmName=e.target.value;});
   document.getElementById('mc-story-name')?.addEventListener('blur',e=>{mcDraft.storyName=e.target.value;});
   document.getElementById('mc-producer')?.addEventListener('blur',e=>{mcDraft.producer=e.target.value;});
+  document.getElementById('mc-studio-btn')?.addEventListener('click',()=>{
+    const epNums=getEpNums();const latestEp=epNums.length?Math.max(...epNums):1;
+    const epStr=String(latestEp).padStart(2,'0');
+    mcDraft.commNum='Studio-S'+currentSeason+'E'+epStr;
+    mcDraft.storyName='Studio Music';mcDraft.producer='Combined Artists Productions';render();
+  });
   document.getElementById('mc-add-row-btn')?.addEventListener('click',()=>{mcDraft.rows.push(blankMCRow());render();});
   document.querySelectorAll('.mc-del-row').forEach(btn=>{
     btn.addEventListener('click',()=>{mcDraft.rows.splice(Number(btn.dataset.row),1);render();});
@@ -2906,7 +2871,6 @@ function bindApp(){
       const row=Number(inp.dataset.row),field=inp.dataset.field;
       if(mcDraft.rows[row]){
         mcDraft.rows[row][field]=e.target.value;
-        // Auto-fill artist from composer if blank
         if(field==='composer'&&!mcDraft.rows[row].artist)mcDraft.rows[row].artist=e.target.value;
       }
     });
@@ -2916,25 +2880,25 @@ function bindApp(){
     const commNum=document.getElementById('mc-comm-num')?.value.trim()||mcDraft.commNum;
     const storyName=document.getElementById('mc-story-name')?.value.trim()||mcDraft.storyName;
     const producer=document.getElementById('mc-producer')?.value.trim()||mcDraft.producer;
-    const isStudio=commNum.toLowerCase().startsWith('studio');
-    if(!afmName||!commNum){showToast('AFM Operator name and Commission Number are required.',true);return;}
+    if(!afmName||!commNum){showToast('AFM Operator and Commission Number required.',true);return;}
     if(!mcDraft.rows.length){showToast('Add at least one cue before submitting.',true);return;}
-    const id=mcEditId||`${commNum}_${Date.now()}`;
-    const data={afmName,afmUid:currentUser?.uid||'',commNum,storyName,producer,rows:mcDraft.rows,submittedAt:{seconds:Math.floor(Date.now()/1000)}};
-    await saveMusicCue(id,data);showToast('Cue sheet saved!');mcTab='dashboard';mcEditId=null;render();
+    const id=mcEditId||(commNum+'_'+Date.now());
+    await saveMusicCue(id,{afmName,afmUid:currentUser?.uid||'',commNum,storyName,producer,rows:mcDraft.rows,submittedAt:{seconds:Math.floor(Date.now()/1000)}});
+    showToast('Cue sheet saved!');mcTab='dashboard';mcEditId=null;render();
   });
   document.getElementById('mc-export-xl')?.addEventListener('click',async()=>{
     if(!window.XLSX){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
     const sheets=Object.values(musicCues).filter(s=>{
       if(mcEpFilter==='all')return true;
-      const c=comms.find(c=>c.commNum===s.commNum);return c&&String(c.broadcastEpisode)===mcEpFilter;
+      const c=comms.find(c=>c.commNum===s.commNum);
+      return (c&&String(c.broadcastEpisode)===mcEpFilter)||(s.commNum&&s.commNum.includes('E'+String(mcEpFilter).padStart(2,'0')));
     });
-    const allRows=[['CUE','TRACK TITLE','COMPOSER','PUBLISHER','CMO','LABEL','ARTIST/PERFORMER','ALBUM TITLE','TRACK NUMBER','USAGE','MUSIC TYPE','DURATION']];
-    sheets.forEach(s=>{s.rows?.forEach((r,i)=>{allRows.push([i+1,r.trackTitle,r.composer,r.publisher,r.cmo,r.label||'Unknown',r.artist||r.composer,r.albumTitle||'N/A',r.trackNumber||'0',r.usage,r.musicType||'PRODUCTION',r.duration]);});});
+    const allRows=[['CUE','TRACK TITLE','COMPOSER','PUBLISHER','CMO','LABEL','ARTIST/PERFORMER','ALBUM TITLE','ALBUM NUMBER','TRACK NUMBER','USAGE','MUSIC TYPE','DURATION']];
+    sheets.forEach(s=>{s.rows?.forEach((r,i)=>{allRows.push([i+1,r.trackTitle,r.composer,r.publisher,r.cmo,r.label||'Unknown',r.artist||r.composer,r.albumTitle||'N/A',r.albumNumber||'',r.trackNumber||'0',r.usage,r.musicType||'PRODUCTION',r.duration]);});});
     const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet(allRows);
-    ws['!cols']=[{wch:6},{wch:30},{wch:22},{wch:22},{wch:10},{wch:20},{wch:22},{wch:22},{wch:10},{wch:28},{wch:12},{wch:14}];
-    XLSX.utils.book_append_sheet(wb,ws,`EP${mcEpFilter} Music Cues`);
-    XLSX.writeFile(wb,`CB-Music-Cues-S${currentSeason}-EP${mcEpFilter}.xlsx`);showToast('Excel exported!');
+    ws['!cols']=[{wch:5},{wch:30},{wch:22},{wch:22},{wch:10},{wch:20},{wch:22},{wch:22},{wch:10},{wch:10},{wch:28},{wch:20},{wch:14}];
+    XLSX.utils.book_append_sheet(wb,ws,'EP'+mcEpFilter+' Music Cues');
+    XLSX.writeFile(wb,'CB-Music-Cues-S'+currentSeason+'-EP'+mcEpFilter+'.xlsx');showToast('Excel exported!');
   });
 
   // Per-episode credits PDF export
