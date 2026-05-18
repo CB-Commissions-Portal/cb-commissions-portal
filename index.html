@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='1.6.0';
+const BUILD_VERSION='1.7.0';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -402,6 +402,7 @@ let assignTargetEp=null;
 let pullReplaceModal=null;
 let musicCues={};
 let leaveRequests={};
+let deliverables={}; // {epNum: {task_key: bool}}
 let leaveBalances={};
 let leaveFormOpen=false;
 let leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',sickNoteFile:null};
@@ -596,6 +597,18 @@ function getAllAssignedUIDs(){
   return a;
 }
 function getAvailablePoolUIDs(){const a=getAllAssignedUIDs();return uidPool.filter(u=>!u.pulled&&!a[u.uid]);}
+async function saveDeliverables(ep,data){
+  try{await setDoc(doc(db,'deliverables',String(ep)),{...data,updatedAt:serverTimestamp()});deliverables[ep]={...data};}
+  catch(e){showToast('Save failed: '+e.message,true);}
+}
+async function loadDeliverables(){
+  try{const snap=await getDocs(collection(db,'deliverables'));snap.docs.forEach(d=>{deliverables[d.id]={...d.data()};});}
+  catch(e){console.error('Deliverables error:',e);}
+}
+function isEpFinalised(epNum){
+  const d=deliverables[String(epNum)]||{};
+  return DELIVERABLE_TASKS.every(t=>d[t.key]);
+}
 async function saveLeaveRequest(id,data){
   setSyncDot('saving');
   try{await setDoc(doc(db,'leave_requests',String(id)),{...data,updatedAt:serverTimestamp()});leaveRequests[id]={...data};setSyncDot('live');}
@@ -1203,6 +1216,7 @@ function renderApp(){
     ${['admin','operations','prodmgmt'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='promos'?' active':''}" data-tab="promos">Promo Scheduling</div>`:''}
     ${['admin','operations','afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='musiccues'?' active':''}" data-tab="musiccues">Music Cue Sheets</div>`:''}
     ${userHasLeaveAccess()?`<div class="tab-btn${tab==='leave'?' active':''}" data-tab="leave">CAP Leave</div>`:''}
+    ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='deliverables'?' active':''}" data-tab="deliverables">Deliverables</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
     `:''}
   </div>
@@ -1215,6 +1229,7 @@ function renderApp(){
     ${tab==='promos'&&['admin','operations','prodmgmt'].includes(getEffectiveRole())?renderPromoScheduling(epNums):''}
     ${tab==='musiccues'?renderMusicCues(epNums):''}
     ${tab==='leave'&&userHasLeaveAccess()?renderLeave():''}
+    ${tab==='deliverables'&&currentRole==='admin'&&!previewRole?renderDeliverables(epNums):''}
     ${tab==='admin'&&currentRole==='admin'&&!previewRole?renderAdmin():''}
   </div>
 </div>
@@ -1292,7 +1307,7 @@ ${filtered.map(c=>{
     return`<input class="ci${needsAttn?' needs-attention':''}" value="${esc(val)}" data-field="${field}" placeholder="${ph}" ${dis?'disabled':''}>`;}
   return`<tr class="${cls}" data-id="${c.id}">
 <td class="st st-1" style="text-align:center"><input type="checkbox" class="cb" data-field="portal" tabindex="-1" ${c.portal?'checked':''} ${!canEdit(getEffectiveRole(),'portal')?'disabled':''}></td>
-<td class="st st-2">${ci('commNum')}</td>
+<td class="st st-2" style="white-space:nowrap">${ci('commNum')}${c.broadcastEpisode&&isEpFinalised(c.broadcastEpisode)?'<span style="margin-left:5px;background:#2e4a2e;color:#4ade80;font-size:8px;font-weight:800;padding:2px 6px;border-radius:3px;letter-spacing:.5px;vertical-align:middle">FINALISED</span>':''}</td>
 <td class="st st-3">
   <input class="sc${dup?' dup':''}" value="${esc(c.shortName||'')}" data-field="shortName" maxlength="20" placeholder="CODE" ${!canEdit(getEffectiveRole(),'shortName')?'disabled':''}>
   ${dup?'<span class="dup-warn">⚠ Duplicate</span>':''}
@@ -2160,6 +2175,117 @@ function renderLeaveDeclineModal(){
   </div></div>`;
 }
 
+
+const DELIVERABLE_TASKS = [
+  {key:'comm_list_update',      label:'Commission List – Episode Update'},
+  {key:'fcc_sheet',             label:'Recue – FCC Sheet'},
+  {key:'ep_music_cue',          label:'Recue – Episode Music Cue Sheet'},
+  {key:'live_transcript',       label:'Recue – Live Show Transcript'},
+  {key:'promo_scheduling',      label:'Promo Scheduling'},
+  {key:'footage_declaration',   label:'Recue – Footage Declaration'},
+  {key:'ep_synopsis',           label:'Recue – Episode Synopsis'},
+  {key:'participants_release',  label:'Recue – Participants Release Forms'},
+  {key:'minor_release',         label:'Recue – Minor Release Forms'},
+  {key:'location_agreements',   label:'Recue – Location Agreements'},
+  {key:'producer_contracts',    label:'Recue – Producer Contracts'},
+  {key:'crew_list',             label:'Recue – Crew List'},
+  {key:'credit_list',           label:'Recue – Credit List'},
+  {key:'script_ros',            label:'Build – Script & ROS'},
+  {key:'promo_music_cue',       label:'Recue – Promo Music Cue Sheets'},
+  {key:'epg_info',              label:'Recue – EPG Information'},
+  {key:'content_frames_studio', label:'Content Frames – Studio'},
+  {key:'supplier_agreements',   label:'Recue – Supplier Agreements'},
+  {key:'barter_agreements',     label:'Recue – Barter Agreements'},
+];
+
+function renderDeliverables(epNums){
+  if(!epNums.length) return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet.</div></div>`;
+
+  const thBase='position:sticky;top:0;z-index:2;background:#1a2035;padding:8px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#7a8ba0;white-space:nowrap;text-align:center;border-bottom:2px solid #2e3a50;min-width:80px';
+  const tdBase='padding:6px 8px;text-align:center;border-bottom:1px solid #1a2035;vertical-align:middle';
+
+  // Episode headers
+  const epHeaders=epNums.map(n=>{
+    const date=new Date(resolveDate(n)).toLocaleDateString('en-ZA',{day:'2-digit',month:'short'});
+    const finalised=isEpFinalised(n);
+    return`<th style="${thBase}">
+      <div style="font-size:11px;font-weight:900;color:${finalised?'#4ade80':'#eaf0ff'}">EP ${String(n).padStart(2,'0')}</div>
+      <div style="font-size:9px;color:#6e7681;font-weight:600;margin-top:2px">${date}</div>
+      ${finalised?`<div style="font-size:8px;color:#4ade80;margin-top:2px">✓ DONE</div>`:''}
+    </th>`;
+  }).join('');
+
+  // Task rows
+  const taskRows=DELIVERABLE_TASKS.map((task,ti)=>{
+    const rowBg=ti%2===0?'':'background:#1a2035';
+    const cells=epNums.map(n=>{
+      const d=deliverables[String(n)]||{};
+      const checked=!!d[task.key];
+      const finalised=isEpFinalised(n);
+      return`<td style="${tdBase};${rowBg}">
+        <input type="checkbox" class="deliv-cb"
+          data-ep="${n}" data-key="${task.key}"
+          ${checked?'checked':''}
+          style="width:16px;height:16px;cursor:pointer;accent-color:${finalised?'#4ade80':'#58a6ff'}">
+      </td>`;
+    }).join('');
+
+    // Count how many episodes have this task done
+    const doneCount=epNums.filter(n=>deliverables[String(n)]?.[task.key]).length;
+    const pct=epNums.length?Math.round(doneCount/epNums.length*100):0;
+
+    return`<tr style="${rowBg}">
+      <td style="padding:7px 12px;font-size:12px;font-weight:600;color:#eaf0ff;white-space:nowrap;position:sticky;left:0;background:${ti%2===0?'#161b22':'#1a2035'};z-index:1;border-bottom:1px solid #1a2035;min-width:260px">
+        ${task.label}
+        <span style="margin-left:8px;font-size:10px;color:#484f58">${doneCount}/${epNums.length}</span>
+      </td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  // Completion row
+  const completionCells=epNums.map(n=>{
+    const d=deliverables[String(n)]||{};
+    const done=DELIVERABLE_TASKS.filter(t=>d[t.key]).length;
+    const total=DELIVERABLE_TASKS.length;
+    const pct=Math.round(done/total*100);
+    const col=pct===100?'#4ade80':pct>=50?'#e3b341':'#f85149';
+    return`<td style="${tdBase};border-top:2px solid #2e3a50">
+      <div style="font-size:11px;font-weight:900;color:${col}">${pct}%</div>
+      <div style="font-size:9px;color:#6e7681">${done}/${total}</div>
+    </td>`;
+  }).join('');
+
+  return`<div class="ep-wrap" style="padding-bottom:40px">
+    <div style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:15px;font-weight:800;color:#eaf0ff">Deliverables</div>
+        <div style="font-size:11px;color:#6e7681;margin-top:2px">Track completion of all episode deliverables · Admin only</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="deliv-reset-btn" style="font-size:11px;border-color:#f85149;color:#f85149">Reset Episode…</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 180px)">
+      <table style="border-collapse:collapse;min-width:max-content">
+        <thead>
+          <tr>
+            <th style="${thBase};text-align:left;position:sticky;left:0;z-index:3;min-width:260px;background:#1a2035">Deliverable</th>
+            ${epHeaders}
+          </tr>
+        </thead>
+        <tbody>
+          ${taskRows}
+          <tr>
+            <td style="padding:7px 12px;font-size:11px;font-weight:800;color:#7a8ba0;text-transform:uppercase;letter-spacing:.5px;position:sticky;left:0;background:#161b22;z-index:1;border-top:2px solid #2e3a50">Completion</td>
+            ${completionCells}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
 function renderStudioCrew(epNums){
   if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet. Add episodes in the Episode Register first.</div></div>`;
   const canEd=['admin','operations','production'].includes(getEffectiveRole());
@@ -2979,6 +3105,34 @@ function bindApp(){
     });
   });
 
+  // Deliverables checkboxes
+  document.querySelectorAll('input.deliv-cb').forEach(cb=>{
+    cb.addEventListener('change',async()=>{
+      const ep=cb.dataset.ep;
+      const key=cb.dataset.key;
+      if(!deliverables[ep])deliverables[ep]={};
+      deliverables[ep][key]=cb.checked;
+      await saveDeliverables(ep,deliverables[ep]);
+      // Re-render to update FINALISED badges and completion row
+      render();
+    });
+  });
+
+  // Reset episode deliverables
+  document.getElementById('deliv-reset-btn')?.addEventListener('click',async()=>{
+    const epNums=getEpNums();
+    if(!epNums.length)return;
+    const sel=prompt('Reset all deliverables for which episode?\nEnter episode number: '+epNums.join(', '));
+    if(!sel)return;
+    const ep=String(Number(sel));
+    if(!epNums.map(String).includes(ep)){showToast('Episode not found',true);return;}
+    if(!confirm('Reset ALL deliverables for Episode '+ep+'? This cannot be undone.'))return;
+    deliverables[ep]={};
+    await saveDeliverables(ep,{});
+    showToast('Episode '+ep+' deliverables reset');
+    render();
+  });
+
   // ── LEAVE BINDINGS ──────────────────────────────────────────────
   // New leave button
   document.getElementById('leave-new-btn')?.addEventListener('click',()=>{
@@ -3542,6 +3696,7 @@ async function boot(){
       try{await loadPromoData();}catch(e){console.error('Promo data error:',e);}
       try{await loadUIDPool();}catch(e){console.error('UID pool error:',e);}
       try{await loadMusicCues();}catch(e){console.error('Music cues error:',e);}
+      try{await loadDeliverables();}catch(e){console.error('Deliverables error:',e);}
       try{await loadLeaveRequests();}catch(e){console.error('Leave requests error:',e);}
       try{await loadLeaveBalances();}catch(e){console.error('Leave balances error:',e);}
       render();
