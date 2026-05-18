@@ -389,7 +389,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='1.8.1';
+const BUILD_VERSION='1.8.2';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -745,12 +745,16 @@ function exportCreditsPDF(epNum){
   <div class="footer">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
   </body></html>`;
 
-  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
-  const blobUrl=URL.createObjectURL(blob);
-  const printWin=window.open(blobUrl,'_blank');
-  if(!printWin){showToast('Allow pop-ups for this site, then try again.',true);URL.revokeObjectURL(blobUrl);return;}
-  setTimeout(()=>URL.revokeObjectURL(blobUrl),10000);
-  showToast('Credits opened — use Cmd+P to print/save as PDF');
+  // Write directly to new window — most cross-browser compatible
+  const printWin=window.open('','_blank','width=850,height=1100,scrollbars=yes');
+  if(!printWin){
+    showToast('Pop-ups blocked. Please allow pop-ups for this site then try again.',true);
+    return;
+  }
+  printWin.document.open();
+  printWin.document.write(html);
+  printWin.document.close();
+  showToast('Credits opened — use Cmd+P to print / save as PDF');
 }
 
 
@@ -2053,7 +2057,56 @@ function renderLeave(){
       </div>`;
     }).join('');
 
-    return`<div class="ep-wrap" style="padding-bottom:60px">
+    // Admin's own balance cards
+    const myBal2=leaveBalances[uid]||{};
+    const myReq2=Object.entries(leaveRequests).filter(([,r])=>r.uid===uid);
+    const myBalCards=LEAVE_TYPES.filter(t=>t.deductsBalance).map(t=>{
+      const total=myBal2[t.key]??21;
+      const used=myReq2.filter(([,r])=>r.leaveType===t.key&&r.status==='approved').reduce((s,[,r])=>s+countWorkingDays(r.startDate,r.endDate),0);
+      const remaining=Math.max(0,total-used);
+      const pct=total>0?Math.round((remaining/total)*100):0;
+      const col=remaining<=3?'#f85149':remaining<=7?'#e3b341':'#3fb950';
+      return`<div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px 16px;flex:1;min-width:120px">
+        <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:6px">${t.label}</div>
+        <div style="font-size:22px;font-weight:900;color:${col}">${remaining}</div>
+        <div style="font-size:9px;color:#484f58">of ${total} days</div>
+        <div style="margin-top:6px;height:3px;background:#21262d;border-radius:2px"><div style="height:3px;border-radius:2px;background:${col};width:${pct}%"></div></div>
+      </div>`;
+    }).join('');
+
+    const fd2=leaveDraft;
+    const myForm2=leaveFormOpen?`<div class="ep-card" style="margin-bottom:16px">
+      <div class="ep-head" style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:14px;font-weight:800;color:#eaf0ff">Apply for My Leave</span>
+        <button class="btn" id="leave-form-close" style="font-size:11px">Cancel</button>
+      </div>
+      <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div><label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Leave Type</label>
+          <select id="leave-type-sel" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px">
+            ${LEAVE_TYPES.map(t=>`<option value="${t.key}" ${fd2.leaveType===t.key?'selected':''}>${t.label}</option>`).join('')}
+          </select></div>
+        <div style="display:flex;gap:8px;align-items:flex-end">
+          <div style="flex:1"><label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Start Date</label>
+            <input type="date" id="leave-start" value="${fd2.startDate||''}" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px"></div>
+          <div style="flex:1"><label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">End Date</label>
+            <input type="date" id="leave-end" value="${fd2.endDate||''}" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px"></div>
+          ${fd2.startDate&&fd2.endDate?`<div style="padding-bottom:8px;font-size:12px;color:#58a6ff;font-weight:700;white-space:nowrap">${countWorkingDays(fd2.startDate,fd2.endDate)} days</div>`:''}
+        </div>
+        <div style="grid-column:1/-1"><label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Reason</label>
+          <textarea id="leave-reason" rows="2" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px;resize:vertical">${esc(fd2.reason||'')}</textarea></div>
+      </div>
+      <div style="padding:0 16px 16px;text-align:right">
+        <button class="btn primary" id="leave-submit-btn">Submit Application</button>
+      </div>
+    </div>`:'';
+
+    return`<div class="ep-wrap" style="padding-bottom:80px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <span style="font-size:15px;font-weight:800;color:#eaf0ff">CAP Leave Management</span>
+        <button class="btn primary" id="leave-new-btn">+ Apply for My Leave</button>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">${myBalCards}</div>
+      ${myForm2}
       <div style="margin-bottom:20px">
         <div style="font-size:15px;font-weight:800;color:#eaf0ff;margin-bottom:12px">⏳ Pending Requests (${pending.length})</div>
         ${pending.length?pending.map(r=>reqCard(r,true)).join(''):'<div style="color:#484f58;font-size:12px;padding:12px 0">No pending requests.</div>'}
@@ -2164,7 +2217,7 @@ function renderLeave(){
     </div>`;
   }).join('');
 
-  return`<div class="ep-wrap" style="padding-bottom:60px">
+  return`<div class="ep-wrap" style="padding-bottom:80px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <span style="font-size:15px;font-weight:800;color:#eaf0ff">My Leave</span>
       <button class="btn primary" id="leave-new-btn">+ Apply for Leave</button>
@@ -3369,12 +3422,20 @@ function bindApp(){
 
   // Broadcast order inputs in Episode Register
   document.querySelectorAll('input.ep-order-inp').forEach(inp=>{
-    inp.addEventListener('change',e=>{
+    // Prevent clicks from bubbling to episode card toggle
+    inp.addEventListener('click',e=>e.stopPropagation());
+    // Save on blur (leaving the field) — no re-render so focus isn't lost
+    inp.addEventListener('blur',e=>{
       const id=inp.dataset.id;
       const val=Number(inp.value)||0;
-      updateComm(id,'broadcastOrder',val);
+      // Update in memory without re-render
+      const comm=comms.find(c=>c.id===id);
+      if(comm){comm.broadcastOrder=val;saveComm(comm);}
     });
-    inp.addEventListener('click',e=>e.stopPropagation());
+    // Also save on Enter key
+    inp.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){inp.blur();}
+    });
   });
 
   // Per-episode credits PDF export
