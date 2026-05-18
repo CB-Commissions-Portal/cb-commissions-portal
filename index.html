@@ -386,8 +386,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='1.2.0';
-const BUILD_DATE='18 May 2026';
+const BUILD_VERSION='1.3.0';
+const BUILD_DATE='18 May 2026 v2';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
 let tab='home',sortField='commNum',sortDir='asc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -599,39 +599,6 @@ async function loadMusicCues(){
   try{const snap=await getDocs(collection(db,'music_cues'));snap.docs.forEach(d=>{musicCues[d.id]={...d.data()};});}
   catch(e){console.error('Music cues error:',e);}
 }
-
-const STUDIO_TEMPLATE_ROWS = [
-  {cue:'1', trackTitle:'CB2026 Opening Logo',
-    composer:'Kurt Michael Herman: 00601040325 (SAMRO) / Dave Pollecutt',
-    publisher:'Sony Publishing SA / Pollysongs', cmo:'CAPASSO / SAMRO', label:'N/A',
-    artist:'Kurt Michael Herman', albumNumber:'0', albumTitle:'Carte Blanche 2026',
-    trackNumber:'0', usage:'Commissioned Music (CM)', musicType:'ORIGINAL COMPOSITION', duration:'00:00:30:00'},
-  {cue:'2', trackTitle:'CB2026 Cold Start',
-    composer:'Kurt Michael Herman: 00601040325 (SAMRO)',
-    publisher:'Sony Publishing SA', cmo:'CAPASSO / SAMRO', label:'N/A',
-    artist:'Kurt Michael Herman', albumNumber:'0', albumTitle:'Carte Blanche 2026',
-    trackNumber:'0', usage:'Commissioned Music (CM)', musicType:'ORIGINAL COMPOSITION', duration:''},
-  {cue:'3', trackTitle:'CB2026 Bumper OUT',
-    composer:'Kurt Michael Herman: 00601040325 (SAMRO) / Dave Pollecutt',
-    publisher:'Sony Publishing SA / Pollysongs', cmo:'CAPASSO / SAMRO', label:'N/A',
-    artist:'Kurt Michael Herman', albumNumber:'0', albumTitle:'Carte Blanche 2026',
-    trackNumber:'0', usage:'Commissioned Music (CM)', musicType:'ORIGINAL COMPOSITION', duration:'00:00:12:00'},
-  {cue:'4', trackTitle:'CB2026 Bumper IN',
-    composer:'Kurt Michael Herman: 00601040325 (SAMRO) / Dave Pollecutt',
-    publisher:'Sony Publishing SA / Pollysongs', cmo:'CAPASSO / SAMRO', label:'N/A',
-    artist:'Kurt Michael Herman', albumNumber:'0', albumTitle:'Carte Blanche 2026',
-    trackNumber:'0', usage:'Commissioned Music (CM)', musicType:'ORIGINAL COMPOSITION', duration:'00:00:12:00'},
-  {cue:'5', trackTitle:'CB2026 Generic',
-    composer:'Kurt Michael Herman: 00601040325 (SAMRO)',
-    publisher:'Sony Publishing SA', cmo:'CAPASSO / SAMRO', label:'N/A',
-    artist:'Kurt Michael Herman', albumNumber:'0', albumTitle:'Carte Blanche 2026',
-    trackNumber:'0', usage:'Commissioned Music (CM)', musicType:'ORIGINAL COMPOSITION', duration:''},
-  {cue:'6', trackTitle:'CB2026 Closing Credits',
-    composer:'Kurt Michael Herman: 00601040325 (SAMRO)',
-    publisher:'Sony Publishing SA', cmo:'CAPASSO / SAMRO', label:'N/A',
-    artist:'Kurt Michael Herman', albumNumber:'0', albumTitle:'Carte Blanche 2026',
-    trackNumber:'0', usage:'Commissioned Music (CM)', musicType:'ORIGINAL COMPOSITION', duration:'00:00:28:00'},
-];
 function blankMCRow(){return{cue:'',trackTitle:'',composer:'',publisher:'',cmo:'',label:'Unknown',artist:'',albumNumber:'',albumTitle:'N/A',trackNumber:'0',usage:'',musicType:'PRODUCTION',duration:''}}
 
 async function saveEndCredits(ep,data){
@@ -1184,9 +1151,7 @@ function renderApp(){
         <span style="font-size:10px;color:#6e7681;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Preview as:</span>
         <select id="preview-role-sel" style="background:#252d3d;border:1px solid ${previewRole?'#f5a623':'#2e3a50'};color:${previewRole?'#f5a623':'#7a8ba0'};padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">
           <option value="">Admin (you)</option>
-          <option value="editorial" ${previewRole==='editorial'?'selected':''}>Editorial</option>
-          <option value="operations" ${previewRole==='operations'?'selected':''}>Operations</option>
-          <option value="production" ${previewRole==='production'?'selected':''}>Production</option>
+          ${Object.entries(ROLE_META).filter(([k])=>k!=='admin').map(([k,v])=>`<option value="${k}" ${previewRole===k?'selected':''}>${v.label}</option>`).join('')}
         </select>
         ${previewRole?`<span style="font-size:10px;background:#2d2200;color:#f5a623;border:1px solid #f5a623;padding:2px 8px;border-radius:4px;font-weight:700">PREVIEW MODE</span>`:''}
       </div>`:''}
@@ -1925,8 +1890,8 @@ function renderMusicCues(epNums){
         </select>
         <button class="btn" id="mc-export-xl" style="font-size:11px;border-color:#3fb950;color:#3fb950${mcEpFilter==='all'?';opacity:.4;cursor:not-allowed':''}">⬇ Export Episode Excel</button>
         `:''}
-        <button class="btn primary" id="mc-new-story-btn" style="background:#1a3a6a;border-color:#1a3a6a">+ Story Cue Sheet</button>
-        <button class="btn primary" id="mc-new-studio-btn" style="background:#7a3fbf;border-color:#7a3fbf">🎙 Studio Cue Sheet</button>
+        <button class="btn primary" id="mc-new-story-btn" style="">+ New Music Cue Sheet</button>
+
       </div>
     </div>
     ${sheetRows||`<div style="text-align:center;padding:40px;color:#484f58;font-size:13px">No cue sheets yet. Click "+ New Music Cue Sheet" to get started.</div>`}
@@ -2004,7 +1969,7 @@ function renderAdmin(){
   </div>
   <div class="admin-card">
     <h4>Role Permissions</h4>
-    ${Object.entries(ROLE_META).map(([k,v])=>`<div class="perm-row"><span class="u-role-badge" style="background:${v.bg};color:${v.color};padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700;white-space:nowrap">${v.label}</span><div class="perm-desc">${k==='admin'?'Full access — edit everything, create users, change roles.':k==='editorial'?'Read-only: Episodes tab and minute ticker only.':k==='operations'?'Can edit: DOP, Camera Asst, Editor, AFM.':'Can edit: all 7 Deliverable checkboxes.'}</div></div>`).join('')}
+    ${Object.entries(ROLE_META).map(([k,v])=>`<div class="perm-row"><span class="u-role-badge" style="background:${v.bg};color:${v.color};padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700;white-space:nowrap">${v.label}</span><div class="perm-desc">${k==='admin'?'Full access — edit everything, create users, change roles.':k==='editorial'?'Read-only: Episodes tab and ticker only.':k==='operations'?'Can edit DOP/CA/Editor/AFM. Studio Crew, End Credits, Promo Scheduling.':k==='production'?'Can edit deliverable checkboxes, Studio Crew, End Credits.':k==='prodmgmt'?'Read-only: Commission List, Episodes. Promo Scheduling: tick pulled, export.':k==='afm'?'Music Cue Sheets only.':''}</div></div>`).join('')}
   </div>
   </div>
   ${deleteUserModal?`<div class="modal-overlay" id="delete-user-overlay"><div class="modal">
@@ -2748,20 +2713,7 @@ function bindApp(){
     mcDraft={afmName:currentUser?.displayName||'',commNum:'',storyName:'',producer:'',rows:[blankMCRow()]};
     render();
   });
-  // Studio cue sheet button — pre-fills everything
-  document.getElementById('mc-new-studio-btn')?.addEventListener('click',()=>{
-    mcTab='new';mcEditId=null;
-    const epNums=getEpNums();const latestEp=epNums.length?Math.max(...epNums):1;
-    const epStr=String(latestEp).padStart(2,'0');
-    mcDraft={
-      afmName:currentUser?.displayName||'',
-      commNum:'Studio-S'+currentSeason+'E'+epStr,
-      storyName:'Studio Music',
-      producer:'Combined Artists Productions',
-      rows:STUDIO_TEMPLATE_ROWS.map(r=>({...r}))
-    };
-    render();
-  });
+
   // Delete music cue sheet
   document.querySelectorAll('[data-mc-delete]').forEach(btn=>{
     btn.addEventListener('click',async()=>{
@@ -2785,16 +2737,6 @@ function bindApp(){
   // Commission number — autocomplete + studio trigger
   document.getElementById('mc-comm-num')?.addEventListener('input',e=>{
     const val=e.target.value.trim();
-    // If user types "studio", auto-generate studio number
-    if(val.toLowerCase()==='studio'){
-      const epNums=getEpNums();const latestEp=epNums.length?Math.max(...epNums):1;
-      const epStr=String(latestEp).padStart(2,'0');
-      const studioNum='Studio-S'+currentSeason+'E'+epStr;
-      e.target.value=studioNum;mcDraft.commNum=studioNum;
-      mcDraft.storyName='Studio Music';mcDraft.producer='Combined Artists Productions';
-      if(!mcDraft.rows.length)mcDraft.rows=STUDIO_TEMPLATE_ROWS.map(r=>({...r}));
-      render();return;
-    }
     mcDraft.commNum=val;
     const c=comms.find(c=>c.commNum===val);
     if(c){
@@ -2812,20 +2754,6 @@ function bindApp(){
   document.getElementById('mc-afm-name')?.addEventListener('blur',e=>{mcDraft.afmName=e.target.value;});
   document.getElementById('mc-story-name')?.addEventListener('blur',e=>{mcDraft.storyName=e.target.value;});
   document.getElementById('mc-producer')?.addEventListener('blur',e=>{mcDraft.producer=e.target.value;});
-  document.getElementById('mc-studio-btn')?.addEventListener('click',()=>{
-    const epNums=getEpNums();const latestEp=epNums.length?Math.max(...epNums):1;
-    const epStr=String(latestEp).padStart(2,'0');
-    mcDraft.commNum='Studio-S'+currentSeason+'E'+epStr;
-    mcDraft.storyName='Studio Music';
-    mcDraft.producer='Combined Artists Productions';
-    // Load studio template rows — only replace if rows are currently empty
-    if(!mcDraft.rows.length){
-      mcDraft.rows=STUDIO_TEMPLATE_ROWS.map(r=>({...r}));
-    } else if(confirm('Load studio template? This will replace your current cues.')){
-      mcDraft.rows=STUDIO_TEMPLATE_ROWS.map(r=>({...r}));
-    }
-    render();
-  });
   document.getElementById('mc-add-row-btn')?.addEventListener('click',()=>{mcDraft.rows.push(blankMCRow());render();});
   document.querySelectorAll('.mc-del-row').forEach(btn=>{
     btn.addEventListener('click',()=>{mcDraft.rows.splice(Number(btn.dataset.row),1);render();});
