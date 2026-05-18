@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='1.8.6';
+const BUILD_VERSION='1.8.7';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1402,7 +1402,7 @@ ${episodes.map(({ep,date,stories})=>{
   <span style="font-size:11px;font-weight:600;margin-left:4px;color:${epType==='extended'?'#d29922':'#3fb950'}">${epType==='extended'?'★ Extended':'Normal'}</span>
 </div>
 ${stories.length>0?`<div class="ep-body"><table class="ep-tbl"><thead><tr>
-<th style="width:44px;text-align:center">Order</th>
+<th style="width:44px;text-align:center">#</th>
 <th>Story Name</th>
 <th style="text-align:right">Comm #</th>
 <th style="text-align:right">Delivered Mins</th>
@@ -1414,7 +1414,12 @@ ${stories.map((s,idx)=>{const pd=toDecimalMins(s.paidDuration);const dd=toDecima
 const canEd=currentRole==='admin';
 function epci(field,w){return canEd?`<input class="ci ep-ci" value="${esc(String(s[field]||''))}" data-id="${s.id}" data-field="${field}" style="width:${w}px">`:esc(String(s[field]||'—'));}
 return`<tr data-ep-row="${s.id}">
-<td style="text-align:center;vertical-align:middle">${canEd?`<input type="number" class="ep-order-inp" data-id="${s.id}" value="${s.broadcastOrder||''}" min="1" max="99" placeholder="—" style="width:34px;text-align:center;font-weight:900;color:#e3b341;background:#1a1a00;border:1px solid #4a3800;font-size:12px" title="Broadcast order">`:`<span style="color:#e3b341;font-weight:700">${s.broadcastOrder||'—'}</span>`}</td>
+<td style="text-align:center;vertical-align:middle;white-space:nowrap">
+  ${canEd?`<div style="display:flex;flex-direction:column;gap:1px;align-items:center">
+    <button class="ep-order-up" data-id="${s.id}" style="background:#1a1a00;border:1px solid #4a3800;color:#e3b341;width:22px;height:16px;cursor:pointer;font-size:9px;line-height:1;border-radius:3px 3px 0 0;padding:0" title="Move up">▲</button>
+    <button class="ep-order-dn" data-id="${s.id}" style="background:#1a1a00;border:1px solid #4a3800;color:#e3b341;width:22px;height:16px;cursor:pointer;font-size:9px;line-height:1;border-radius:0 0 3px 3px;padding:0" title="Move down">▼</button>
+  </div>`:`<span style="color:#e3b341;font-weight:700;font-size:11px">${s.broadcastOrder||''}</span>`}
+</td>
 <td class="story" style="font-weight:600;color:#eaf0ff;font-size:14px;white-space:normal">${esc(s.storyName||'')}</td>
 <td style="text-align:right;font-family:'JetBrains Mono',monospace;color:#58a6ff;font-size:13px">${s.commNum}</td>
 <td style="text-align:right">
@@ -2559,7 +2564,7 @@ function bindApp(){
         return`${sep}
         <div style="padding:0 0 4px 0;break-inside:avoid;page-break-inside:avoid">
           <table style="width:100%;border-collapse:collapse">
-            ${labelRow('Story',`<strong style="font-size:12px">${isAdminEp?('<input type="number" class="ep-order-inp" data-id="'+s.id+'" value="'+(s.broadcastOrder||0)+'" min="0" max="99" style="width:38px;font-size:11px;margin-right:6px;text-align:center;font-weight:900;color:#e3b341" title="Broadcast order">'):'<span style="display:inline-block;width:24px;text-align:center;font-size:11px;color:#e3b341;font-weight:900">'+(s.broadcastOrder||'')+'</span>'}${esc(s.storyName||'')} &nbsp;<span style="font-family:monospace;font-size:10px;color:#1a3a6a">[${s.commNum}]</span>${isIH?` <span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:2px;font-size:9px;font-weight:700;margin-left:6px">IN-HOUSE</span>`:''}</strong>`,true)}
+            ${labelRow('Story',`<strong style="font-size:12px">${s.broadcastOrder?s.broadcastOrder+'. ':''} &nbsp;<span style="font-family:monospace;font-size:10px;color:#1a3a6a">[${s.commNum}]</span>${isIH?` <span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:2px;font-size:9px;font-weight:700;margin-left:6px">IN-HOUSE</span>`:''}</strong>`,true)}
             ${labelRow('Delivered Duration',`<span style="font-family:monospace;font-weight:800;color:#1a5c1a;background:#e8f5e8;padding:2px 8px;border-radius:3px;border:1px solid #aad4aa">${del}</span>`)}
             ${labelRow('Producer',esc(s.producer||''))}
             ${labelRow('Presenter / VO',esc(s.presenterVO||''))}
@@ -3426,34 +3431,59 @@ function bindApp(){
   });
 
   // Broadcast order inputs in Episode Register
-  document.querySelectorAll('input.ep-order-inp').forEach(inp=>{
-    // Stop ALL events from bubbling to parent episode card
-    ['click','mousedown','mouseup','keydown','keyup','keypress','focus','input'].forEach(ev=>{
-      inp.addEventListener(ev,e=>e.stopPropagation());
+  // Episode story order — move up/down buttons
+  function reorderEpStories(epNum){
+    // Get all stories for this episode sorted by current broadcastOrder
+    const epStories=comms
+      .filter(c=>c.broadcastEpisode===String(epNum)&&!c.decommissioned)
+      .sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
+    // Reassign clean 1,2,3... order and save each
+    epStories.forEach((c,i)=>{
+      c.broadcastOrder=i+1;
+      saveComm(c);
     });
-    // Save on Enter
-    inp.addEventListener('keydown',e=>{
-      e.stopPropagation();
-      if(e.key==='Enter'){
-        e.preventDefault();
-        const id=inp.dataset.id;
-        const val=Number(inp.value)||0;
-        const comm=comms.find(c=>c.id===id);
-        if(comm){comm.broadcastOrder=val;saveComm(comm);showToast('Order saved ✓');}
-      }
-      if(e.key==='Tab'){
-        const id=inp.dataset.id;
-        const val=Number(inp.value)||0;
-        const comm=comms.find(c=>c.id===id);
-        if(comm){comm.broadcastOrder=val;saveComm(comm);}
-      }
-    });
-    // Save on focusout (more reliable than blur in some browsers)
-    inp.addEventListener('focusout',e=>{
-      const id=inp.dataset.id;
-      const val=Number(inp.value)||0;
+    render();
+  }
+
+  document.querySelectorAll('button.ep-order-up').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();e.preventDefault();
+      const id=Number(btn.dataset.id);
       const comm=comms.find(c=>c.id===id);
-      if(comm&&comm.broadcastOrder!==val){comm.broadcastOrder=val;saveComm(comm);}
+      if(!comm||!comm.broadcastEpisode)return;
+      const epStories=comms
+        .filter(c=>c.broadcastEpisode===comm.broadcastEpisode&&!c.decommissioned)
+        .sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
+      const idx=epStories.findIndex(c=>c.id===id);
+      if(idx<=0)return; // already first
+      // Swap with previous
+      const prev=epStories[idx-1];
+      const tmp=prev.broadcastOrder||idx;
+      prev.broadcastOrder=comm.broadcastOrder||idx+1;
+      comm.broadcastOrder=tmp;
+      saveComm(comm);saveComm(prev);
+      render();
+    });
+  });
+
+  document.querySelectorAll('button.ep-order-dn').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();e.preventDefault();
+      const id=Number(btn.dataset.id);
+      const comm=comms.find(c=>c.id===id);
+      if(!comm||!comm.broadcastEpisode)return;
+      const epStories=comms
+        .filter(c=>c.broadcastEpisode===comm.broadcastEpisode&&!c.decommissioned)
+        .sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
+      const idx=epStories.findIndex(c=>c.id===id);
+      if(idx>=epStories.length-1)return; // already last
+      // Swap with next
+      const next=epStories[idx+1];
+      const tmp=next.broadcastOrder||idx+2;
+      next.broadcastOrder=comm.broadcastOrder||idx+1;
+      comm.broadcastOrder=tmp;
+      saveComm(comm);saveComm(next);
+      render();
     });
   });
 
