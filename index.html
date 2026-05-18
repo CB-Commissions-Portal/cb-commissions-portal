@@ -597,6 +597,39 @@ async function loadMusicCues(){
   try{const snap=await getDocs(collection(db,'music_cues'));snap.docs.forEach(d=>{musicCues[d.id]={...d.data()};});}
   catch(e){console.error('Music cues error:',e);}
 }
+
+const STUDIO_TEMPLATE_ROWS = [
+  {cue:'1', trackTitle:'CB2026 Opening Logo',
+    composer:'Kurt Michael Herman: 00601040325 (SAMRO) / Dave Pollecutt',
+    publisher:'Sony Publishing SA / Pollysongs', cmo:'CAPASSO / SAMRO', label:'N/A',
+    artist:'Kurt Michael Herman', albumNumber:'0', albumTitle:'Carte Blanche 2026',
+    trackNumber:'0', usage:'Commissioned Music (CM)', musicType:'ORIGINAL COMPOSITION', duration:'00:00:30:00'},
+  {cue:'2', trackTitle:'CB2026 Cold Start',
+    composer:'Kurt Michael Herman: 00601040325 (SAMRO)',
+    publisher:'Sony Publishing SA', cmo:'CAPASSO / SAMRO', label:'N/A',
+    artist:'Kurt Michael Herman', albumNumber:'0', albumTitle:'Carte Blanche 2026',
+    trackNumber:'0', usage:'Commissioned Music (CM)', musicType:'ORIGINAL COMPOSITION', duration:''},
+  {cue:'3', trackTitle:'CB2026 Bumper OUT',
+    composer:'Kurt Michael Herman: 00601040325 (SAMRO) / Dave Pollecutt',
+    publisher:'Sony Publishing SA / Pollysongs', cmo:'CAPASSO / SAMRO', label:'N/A',
+    artist:'Kurt Michael Herman', albumNumber:'0', albumTitle:'Carte Blanche 2026',
+    trackNumber:'0', usage:'Commissioned Music (CM)', musicType:'ORIGINAL COMPOSITION', duration:'00:00:12:00'},
+  {cue:'4', trackTitle:'CB2026 Bumper IN',
+    composer:'Kurt Michael Herman: 00601040325 (SAMRO) / Dave Pollecutt',
+    publisher:'Sony Publishing SA / Pollysongs', cmo:'CAPASSO / SAMRO', label:'N/A',
+    artist:'Kurt Michael Herman', albumNumber:'0', albumTitle:'Carte Blanche 2026',
+    trackNumber:'0', usage:'Commissioned Music (CM)', musicType:'ORIGINAL COMPOSITION', duration:'00:00:12:00'},
+  {cue:'5', trackTitle:'CB2026 Generic',
+    composer:'Kurt Michael Herman: 00601040325 (SAMRO)',
+    publisher:'Sony Publishing SA', cmo:'CAPASSO / SAMRO', label:'N/A',
+    artist:'Kurt Michael Herman', albumNumber:'0', albumTitle:'Carte Blanche 2026',
+    trackNumber:'0', usage:'Commissioned Music (CM)', musicType:'ORIGINAL COMPOSITION', duration:''},
+  {cue:'6', trackTitle:'CB2026 Closing Credits',
+    composer:'Kurt Michael Herman: 00601040325 (SAMRO)',
+    publisher:'Sony Publishing SA', cmo:'CAPASSO / SAMRO', label:'N/A',
+    artist:'Kurt Michael Herman', albumNumber:'0', albumTitle:'Carte Blanche 2026',
+    trackNumber:'0', usage:'Commissioned Music (CM)', musicType:'ORIGINAL COMPOSITION', duration:'00:00:28:00'},
+];
 function blankMCRow(){return{cue:'',trackTitle:'',composer:'',publisher:'',cmo:'',label:'Unknown',artist:'',albumNumber:'',albumTitle:'N/A',trackNumber:'0',usage:'',musicType:'PRODUCTION',duration:''}}
 
 async function saveEndCredits(ep,data){
@@ -2024,7 +2057,7 @@ function renderMusicCues(epNums){
           <option value="all">All Episodes</option>
           ${epOptions}
         </select>
-        ${mcEpFilter!=='all'?`<button class="btn" id="mc-export-xl" style="font-size:11px;border-color:#3fb950;color:#3fb950">⬇ Export Episode Excel</button>`:''}
+        <button class="btn" id="mc-export-xl" style="font-size:11px;border-color:#3fb950;color:#3fb950${mcEpFilter==='all'?';opacity:.4;cursor:not-allowed':''}">⬇ Export Episode Excel</button>
         `:''}
         <button class="btn primary" id="mc-new-btn">+ New Music Cue Sheet</button>
       </div>
@@ -2860,7 +2893,15 @@ function bindApp(){
     const epNums=getEpNums();const latestEp=epNums.length?Math.max(...epNums):1;
     const epStr=String(latestEp).padStart(2,'0');
     mcDraft.commNum='Studio-S'+currentSeason+'E'+epStr;
-    mcDraft.storyName='Studio Music';mcDraft.producer='Combined Artists Productions';render();
+    mcDraft.storyName='Studio Music';
+    mcDraft.producer='Combined Artists Productions';
+    // Load studio template rows — only replace if rows are currently empty
+    if(!mcDraft.rows.length){
+      mcDraft.rows=STUDIO_TEMPLATE_ROWS.map(r=>({...r}));
+    } else if(confirm('Load studio template? This will replace your current cues.')){
+      mcDraft.rows=STUDIO_TEMPLATE_ROWS.map(r=>({...r}));
+    }
+    render();
   });
   document.getElementById('mc-add-row-btn')?.addEventListener('click',()=>{mcDraft.rows.push(blankMCRow());render();});
   document.querySelectorAll('.mc-del-row').forEach(btn=>{
@@ -2887,6 +2928,7 @@ function bindApp(){
     showToast('Cue sheet saved!');mcTab='dashboard';mcEditId=null;render();
   });
   document.getElementById('mc-export-xl')?.addEventListener('click',async()=>{
+    if(mcEpFilter==='all'){showToast('Please select an episode from the filter first.',true);return;}
     if(!window.XLSX){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
     const sheets=Object.values(musicCues).filter(s=>{
       if(mcEpFilter==='all')return true;
