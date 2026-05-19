@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.2.1';
+const BUILD_VERSION='2.2.2';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -957,12 +957,15 @@ function nextSunday(iso){
   return d.toISOString().split('T')[0];
 }
 function resolveDate(n){
-  if(n===1)return'2026-04-05'; // fixed start — already a Sunday
-  if(settings.epDates&&settings.epDates[n])return settings.epDates[n];
-  // Auto: previous episode date + 7 days (always lands on Sunday since ep1 is Sunday)
+  if(n===1)return'2026-04-05'; // fixed start — Sunday 5 Apr 2026
+  if(settings.epDates&&settings.epDates[n]){
+    // Always snap stored dates to Sunday in case they were saved incorrectly
+    return nextSunday(settings.epDates[n]);
+  }
+  // Auto: previous episode date + 7 days, snapped to Sunday
   const prev=resolveDate(n-1);
   const auto=addDays(prev,7);
-  return nextSunday(auto); // safety snap to Sunday
+  return nextSunday(auto);
 }
 function assignEpisode(id,val){const num=Number(val);if(val&&!getEpNums().includes(num))showToast(`Episode ${num} created — ${fmtDate(resolveDate(num))}`);updateComm(id,'broadcastEpisode',val);}
 function allDel(c){return DEL_KEYS.every(k=>c[k]);}
@@ -2886,7 +2889,7 @@ function bindApp(){
     const ep=Number(el.dataset.epDate);editingDate=ep;tempDate=resolveDate(ep);render();
     setTimeout(()=>{
       const inp=document.getElementById('ep-date-inp');if(!inp)return;inp.focus();
-      inp.addEventListener('blur',()=>{if(inp.value){settings.epDates={...settings.epDates,[ep]:inp.value};saveSettings();}editingDate=null;render();});
+      inp.addEventListener('blur',()=>{if(inp.value){const snapped=nextSunday(inp.value);if(snapped!==inp.value)showToast('Date snapped to Sunday: '+fmtDate(snapped));settings.epDates={...settings.epDates,[ep]:snapped};saveSettings();}editingDate=null;render();});
       inp.addEventListener('keydown',e=>{if(e.key==='Enter')inp.blur();if(e.key==='Escape'){editingDate=null;render();}});
     },50);
   }));
@@ -2900,7 +2903,7 @@ function bindApp(){
   document.getElementById('ep-cancel')?.addEventListener('click',()=>{addEpModal=false;render();});
   document.getElementById('ep-overlay')?.addEventListener('click',e=>{if(e.target.id==='ep-overlay'){addEpModal=false;render();}});
   document.getElementById('new-ep-num')?.addEventListener('input',e=>{newEpNum=e.target.value;render();});
-  document.getElementById('ep-confirm')?.addEventListener('click',()=>{const num=parseInt(newEpNum);if(isNaN(num)||num<1){showToast('Enter a valid episode number.',true);return;}if(getEpNums().includes(num)){showToast(`Episode ${num} already exists.`,true);return;}const autoDate=resolveDate(num);settings.epDates={...(settings.epDates||{}),[num]:autoDate};saveSettings();showToast(`Episode ${num} added — ${fmtDate(autoDate)}`);addEpModal=false;render();});
+  document.getElementById('ep-confirm')?.addEventListener('click',()=>{const num=parseInt(newEpNum);if(isNaN(num)||num<1){showToast('Enter a valid episode number.',true);return;}if(getEpNums().includes(num)){showToast(`Episode ${num} already exists.`,true);return;}const autoDate=nextSunday(resolveDate(num));settings.epDates={...(settings.epDates||{}),[num]:autoDate};saveSettings();showToast(`Episode ${num} added — ${fmtDate(autoDate)}`);addEpModal=false;render();});
   // End Credits Word import
   document.querySelectorAll('input.credits-word-import').forEach(fileInp=>{
     fileInp.addEventListener('change',async e=>{
