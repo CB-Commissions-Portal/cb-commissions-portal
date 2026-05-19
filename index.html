@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.0.7';
+const BUILD_VERSION='2.0.8';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3549,34 +3549,16 @@ function bindApp(){
       <div class="footer">Electronic Media Network Proprietary Limited &copy;. All rights reserved.</div>
       <scr'+'ipt>window.addEventListener('load',function(){setTimeout(function(){window.print();},500);})<\/scr'+'ipt>
       </body></html>`;
-      // Auto-download as PDF using html2pdf
-      if(!window.html2pdf){
-        await new Promise((res,rej)=>{
-          const s=document.createElement('script');
-          s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-          s.onload=res;s.onerror=rej;document.head.appendChild(s);
-        });
-      }
-      const container=document.createElement('div');
-      container.style.cssText='position:fixed;top:-9999px;left:-9999px;width:210mm;background:#fff;font-family:Arial,Helvetica,sans-serif';
-      container.innerHTML=html;
-      document.body.appendChild(container);
-      btn.innerHTML='⏳ Generating PDF…';btn.disabled=true;
-      try{
-        await html2pdf().set({
-          margin:[14,16,14,16],
-          filename:'CB-End-Credits-S'+currentSeason+'-EP'+n+'.pdf',
-          image:{type:'jpeg',quality:0.95},
-          html2canvas:{scale:2,useCORS:true,logging:false},
-          jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
-        }).from(container).save();
-        showToast('PDF downloaded ✓');
-      }catch(err){
-        showToast('PDF failed: '+err.message,true);
-        console.error(err);
-      }
-      document.body.removeChild(container);
-      btn.innerHTML='⬇ Print / PDF';btn.disabled=false;
+      // Download as HTML file — open in browser, Cmd+P → Save as PDF
+      const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;
+      a.download='CB-End-Credits-S'+currentSeason+'-EP'+n+'.html';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},3000);
+      showToast('Downloaded — open the file in your browser, then Cmd+P → Save as PDF');
     });
   });
 
