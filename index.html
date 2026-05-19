@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.2.4';
+const BUILD_VERSION='2.2.5';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -412,6 +412,10 @@ let mcTab='dashboard';
 let mcEditId=null;
 let mcDraft={afmName:'',commNum:'',storyName:'',producer:'',rows:[]};
 let mcEpFilter='all';
+let mcImportModal=false;
+let mcImportData=[];
+let mcImportMapping={};
+let mcImportHeaders=[];
 let creditsExpandedEp=null;
 let expandedEps=new Set(); // Episode Register expanded episodes
 let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,tempDate='';
@@ -1423,6 +1427,52 @@ ${currentRole==='admin'?`<button class="add-row-btn" id="add-row-btn2">+ Add Com
 
 function renderEpisodes(epNums,paid,remaining){
   const episodes=epNums.map(n=>({ep:n,date:resolveDate(n),stories:comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned)}));
+  // Import modal
+  const importModal=mcImportModal?`<div class="modal-overlay" id="mc-import-overlay">
+    <div class="modal" style="max-width:700px;max-height:80vh;overflow-y:auto">
+      <h3 style="margin-bottom:12px">Import Music Cues from Excel</h3>
+      ${!mcImportData.length?`
+        <p style="font-size:13px;color:#8b949e;margin-bottom:16px">Select an Excel or CSV file to import cue data.</p>
+        <label class="btn primary" style="cursor:pointer;display:inline-block">
+          Choose File
+          <input type="file" id="mc-import-file" accept=".xlsx,.xls,.csv" style="display:none">
+        </label>
+        <button class="btn" id="mc-import-cancel" style="margin-left:8px">Cancel</button>
+      `:`
+        <p style="font-size:12px;color:#8b949e;margin-bottom:4px">${mcImportData.length} rows found. Map your columns to the cue sheet fields:</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+          ${['trackTitle','composer','publisher','cmo','label','artist','albumNumber','albumTitle','trackNumber','usage','musicType','duration'].map(field=>`
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;min-width:100px">${field==='trackTitle'?'Track Title':field==='albumNumber'?'Album #':field==='albumTitle'?'Album Title':field==='trackNumber'?'Track #':field==='musicType'?'Music Type':field.replace(/([A-Z])/g,' $1').trim()}</span>
+              <select class="mc-map-sel" data-field="${field}" style="flex:1;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:4px 6px;border-radius:4px;font-size:11px">
+                <option value="">— Skip —</option>
+                ${mcImportHeaders.map(h=>`<option value="${esc(h)}" ${mcImportMapping[field]===h?'selected':''}>${esc(h)}</option>`).join('')}
+              </select>
+            </div>`).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+          <div>
+            <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Commission Number *</label>
+            <input id="mc-import-comm" placeholder="e.g. 6855 or Studio-S39E07" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 10px;border-radius:5px;font-size:13px;font-family:monospace">
+          </div>
+          <div>
+            <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">AFM Operator</label>
+            <input id="mc-import-afm" value="${esc(currentUser?.displayName||currentUser?.email||'')}" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 10px;border-radius:5px;font-size:13px">
+          </div>
+        </div>
+        <div style="background:#1a2035;border-radius:6px;padding:10px 12px;margin-bottom:14px;max-height:150px;overflow-y:auto">
+          <div style="font-size:10px;font-weight:700;color:#7a8ba0;margin-bottom:6px">Preview (first 3 rows):</div>
+          ${mcImportData.slice(0,3).map((row,i)=>`<div style="font-size:10px;color:#6e7681;padding:3px 0;border-bottom:1px solid #21262d">${Object.entries(mcImportMapping).filter(([,v])=>v).map(([f,h])=>`<span style="color:#eaf0ff">${f}:</span> ${esc(String(row[h]||''))}`).join(' · ')}</div>`).join('')}
+        </div>
+        <div class="modal-actions">
+          <button class="btn" id="mc-import-cancel">Cancel</button>
+          <button class="btn" id="mc-import-reset" style="color:#e3b341;border-color:#e3b341">← Re-upload</button>
+          <button class="btn primary" id="mc-import-confirm">Import ${mcImportData.length} Cues</button>
+        </div>
+      `}
+    </div>
+  </div>`:'';
+
   return`<div class="ep-wrap">
 ${currentRole==='editorial'?`<div class="info-box"><strong>Editorial view</strong> — Contracted: <strong>${settings.contractedMinutes||438}</strong> · Paid: <strong>${paid.toFixed(1)}</strong> · Remaining: <strong>${remaining.toFixed(1)}</strong></div>`:''}
 <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap" class="no-print">
@@ -2414,10 +2464,12 @@ function renderMusicCues(epNums){
         </select>
         ${mcEpFilter!=='all'?`<button class="btn" id="mc-export-xl" style="font-size:11px;border-color:#3fb950;color:#3fb950">⬇ Export Episode Excel</button>`:''}
         `:''}
-        <button class="btn primary" id="mc-new-btn">+ New Music Cue Sheet</button>
+        <button class="btn primary" id="mc-new-story-btn">+ New Music Cue Sheet</button>
+        <button class="btn" id="mc-import-xl-btn" style="border-color:#7a3fbf;color:#c084fc;font-size:11px">⬆ Import from Excel</button>
       </div>
     </div>
     ${sheetRows||`<div style="text-align:center;padding:40px;color:#484f58;font-size:13px">No cue sheets yet. Click "+ New Music Cue Sheet" to get started.</div>`}
+    ${importModal}
   </div>`;
 }
 
@@ -3487,6 +3539,11 @@ function bindApp(){
 
   // Music Cue Sheet bindings
   // Story cue sheet button
+  // Import from Excel button
+  document.getElementById('mc-import-xl-btn')?.addEventListener('click',()=>{
+    mcImportModal=true;mcImportData=[];mcImportHeaders=[];mcImportMapping={};render();
+  });
+
   document.getElementById('mc-new-story-btn')?.addEventListener('click',()=>{
     mcTab='new';mcEditId=null;
     mcDraft={afmName:currentUser?.displayName||'',commNum:'',storyName:'',producer:'',rows:[blankMCRow()]};
@@ -3546,6 +3603,102 @@ function bindApp(){
       }
     });
   });
+  // Import modal bindings
+  document.getElementById('mc-import-cancel')?.addEventListener('click',()=>{mcImportModal=false;render();});
+  document.getElementById('mc-import-overlay')?.addEventListener('click',e=>{if(e.target.id==='mc-import-overlay'){mcImportModal=false;render();}});
+  document.getElementById('mc-import-reset')?.addEventListener('click',()=>{mcImportData=[];mcImportHeaders=[];mcImportMapping={};render();});
+
+  document.getElementById('mc-import-file')?.addEventListener('change',async e=>{
+    const file=e.target.files[0];if(!file)return;
+    const ext=file.name.split('.').pop().toLowerCase();
+    try{
+      if(!window.XLSX){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
+      let rows=[];
+      if(ext==='csv'){
+        const text=await file.text();
+        const csvLines=text.split(/\r?\n/).filter(Boolean);
+;
+        const headers=csvLines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,''));
+        rows=csvLines.slice(1).map(l=>{
+          const vals=l.split(',').map(v=>v.trim().replace(/^"|"$/g,''));
+          const obj={};headers.forEach((h,i)=>{obj[h]=vals[i]||'';});
+          return obj;
+        });
+        mcImportHeaders=headers;
+      } else {
+        const buf=await file.arrayBuffer();
+        const wb=XLSX.read(buf,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const data=XLSX.utils.sheet_to_json(ws,{defval:''});
+        if(data.length){mcImportHeaders=Object.keys(data[0]);}
+        rows=data;
+      }
+      mcImportData=rows.filter(r=>Object.values(r).some(v=>String(v).trim()));
+      // Auto-map headers that match field names
+      const fieldMap={
+        trackTitle:['track title','track','title','tracktitle'],
+        composer:['composer','composer name','writer'],
+        publisher:['publisher','pub'],
+        cmo:['cmo','society','pro'],
+        label:['label','record label'],
+        artist:['artist','performer','artist/performer'],
+        albumNumber:['album number','album no','albumno','album#'],
+        albumTitle:['album title','album','albumtitle'],
+        trackNumber:['track number','track no','track#','tracknumber'],
+        usage:['usage','type of use'],
+        musicType:['music type','musictype','category'],
+        duration:['duration','time','length'],
+      };
+      mcImportMapping={};
+      mcImportHeaders.forEach(h=>{
+        const hl=h.toLowerCase().trim();
+        Object.entries(fieldMap).forEach(([field,aliases])=>{
+          if(!mcImportMapping[field]&&aliases.some(a=>hl.includes(a)))mcImportMapping[field]=h;
+        });
+      });
+      render();
+    }catch(err){showToast('Import failed: '+err.message,true);}
+    e.target.value='';
+  });
+
+  document.querySelectorAll('.mc-map-sel').forEach(sel=>{
+    sel.addEventListener('change',e=>{mcImportMapping[sel.dataset.field]=e.target.value;render();});
+  });
+
+  document.getElementById('mc-import-confirm')?.addEventListener('click',async()=>{
+    const commNum=document.getElementById('mc-import-comm')?.value.trim();
+    const afmName=document.getElementById('mc-import-afm')?.value.trim()||currentUser?.displayName||'';
+    if(!commNum){showToast('Commission number required',true);return;}
+    if(!mcImportData.length){showToast('No data to import',true);return;}
+    // Build rows from mapping
+    const rows=mcImportData.map((row,i)=>{
+      const r=blankMCRow();
+      r.cue=String(i+1);
+      Object.entries(mcImportMapping).forEach(([field,header])=>{
+        if(header&&row[header]!==undefined)r[field]=String(row[header]).trim();
+      });
+      // Fill defaults
+      if(!r.label)r.label='Unknown';
+      if(!r.albumTitle)r.albumTitle='N/A';
+      if(!r.trackNumber)r.trackNumber='0';
+      if(!r.artist&&r.composer)r.artist=r.composer;
+      return r;
+    }).filter(r=>r.trackTitle||r.composer);
+    if(!rows.length){showToast('No valid cue rows found',true);return;}
+    // Find story name and producer from commission list
+    const comm=comms.find(c=>c.commNum===commNum);
+    const id=commNum+'_'+Date.now();
+    await saveMusicCue(id,{
+      afmName,afmUid:currentUser?.uid||'',
+      commNum,storyName:comm?.storyName||'',
+      producer:comm?.producer||'',
+      rows,submittedAt:{seconds:Math.floor(Date.now()/1000)}
+    });
+    showToast(rows.length+' cues imported ✓');
+    mcImportModal=false;mcImportData=[];mcImportHeaders=[];mcImportMapping={};
+    render();
+  });
+
   document.getElementById('mc-submit-btn')?.addEventListener('click',async()=>{
     const afmName=document.getElementById('mc-afm-name')?.value.trim()||mcDraft.afmName;
     const commNum=document.getElementById('mc-comm-num')?.value.trim()||mcDraft.commNum;
