@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.1.6';
+const BUILD_VERSION='2.1.7';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3763,7 +3763,7 @@ function attachAutocomplete(inp, field) {
     matches.forEach((val, i) => {
       const item = document.createElement('div');
       item.className = 'ac-item';
-      item.dataset.value = v;
+      item.dataset.value = val;
       // Highlight the matching part
       const q = inp.value.trim();
       const idx = val.toLowerCase().indexOf(q.toLowerCase());
@@ -3806,15 +3806,27 @@ function attachAutocomplete(inp, field) {
       e.preventDefault();
       selectedIdx = Math.max(selectedIdx - 1, 0);
       items.forEach((el,i) => el.classList.toggle('selected', i === selectedIdx));
-    } else if (e.key === 'Enter' && selectedIdx >= 0) {
+    } else if (e.key === 'Enter' && dropEl) {
       e.preventDefault();
-      e.stopPropagation(); // prevent the row-level Enter handler from firing
-      inp.value = items[selectedIdx].textContent;
-      inp.dispatchEvent(new Event('input',{bubbles:true}));
-      closeDrop();
-      // Save the value then refocus — stays in the same field
-      updateComm(Number(inp.closest('tr[data-id]')?.dataset?.id), inp.dataset.field, inp.value);
-      setTimeout(()=>{ inp.focus(); inp.select(); }, 10);
+      e.stopPropagation();
+      // Use highlighted item, or first item if none highlighted
+      const targetIdx = selectedIdx >= 0 ? selectedIdx : 0;
+      const targetItem = items[targetIdx];
+      if (targetItem) {
+        inp.value = targetItem.dataset.value || targetItem.textContent.trim();
+        inp.dispatchEvent(new Event('input',{bubbles:true}));
+        closeDrop();
+        updateComm(Number(inp.closest('tr[data-id]')?.dataset?.id), inp.dataset.field, inp.value);
+        // Tab to next field
+        setTimeout(()=>{
+          const allInputs=Array.from(document.querySelectorAll('tr[data-id="'+inp.closest('tr[data-id]')?.dataset?.id+'"] input.ci:not([disabled])'));
+          const ci=allInputs.indexOf(inp);
+          const next=allInputs[ci+1];
+          if(next){next.focus();next.select();}else{inp.blur();}
+        }, 10);
+      } else {
+        closeDrop();
+      }
     } else if (e.key === 'Escape') {
       closeDrop();
     }
