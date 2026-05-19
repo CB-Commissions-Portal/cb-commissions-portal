@@ -1611,6 +1611,690 @@ function renderEndCredits(epNums){
 }
 
 
+
+// ── SA PUBLIC HOLIDAYS 2026 ───────────────────────────────────────
+const SA_PUBLIC_HOLIDAYS_2026 = [
+  '2026-01-01','2026-03-21','2026-04-03','2026-04-06',
+  '2026-04-27','2026-05-01','2026-06-16','2026-06-17',
+  '2026-08-10','2026-09-24','2026-12-16','2026-12-25','2026-12-26'
+];
+
+function isWeekendOrHoliday(dateStr){
+  const d=new Date(dateStr);
+  const dow=d.getDay();
+  if(dow===0||dow===6)return true;
+  return SA_PUBLIC_HOLIDAYS_2026.includes(dateStr);
+}
+
+function countWorkingDays(startStr,endStr){
+  if(!startStr||!endStr)return 0;
+  const start=new Date(startStr);
+  const end=new Date(endStr);
+  if(end<start)return 0;
+  let count=0;
+  const cur=new Date(start);
+  while(cur<=end){
+    const ds=cur.toISOString().slice(0,10);
+    if(!isWeekendOrHoliday(ds))count++;
+    cur.setDate(cur.getDate()+1);
+  }
+  return count;
+}
+
+const LEAVE_TYPES=[
+  {key:'annual',    label:'Annual Leave',              color:'#388bfd', deductsBalance:true},
+  {key:'sick',      label:'Sick Leave',                color:'#f85149', deductsBalance:true},
+  {key:'family',    label:'Family Responsibility Leave',color:'#e3b341', deductsBalance:true},
+  {key:'editorial', label:'Editorial Leave',           color:'#3fb950', deductsBalance:false},
+  {key:'other',     label:'Other',                     color:'#8b949e', deductsBalance:false},
+];
+
+function hasLeaveAccess(role,extraRoles){
+  if(!role)return false;
+  if(role==='admin'||role==='capstaff')return true;
+  return (extraRoles||[]).includes('capstaff');
+}
+
+function userHasLeaveAccess(){
+  return hasLeaveAccess(currentRole, currentUserExtraRoles);
+}
+
+function renderLeave(){
+  const role=currentRole;
+  const isAdmin=role==='admin';
+  const uid=currentUser?.uid||'';
+  const userName=currentUser?.displayName||currentUser?.email||'';
+
+  // ── ADMIN VIEW ──────────────────────────────────────────────────
+  if(isAdmin){
+    const pending=Object.entries(leaveRequests).filter(([,r])=>r.status==='pending').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
+    const approved=Object.entries(leaveRequests).filter(([,r])=>r.status==='approved').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
+    const declined=Object.entries(leaveRequests).filter(([,r])=>r.status==='declined').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
+
+    function reqCard([id,r],showActions){
+      const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[4];
+      const days=countWorkingDays(r.startDate,r.endDate);
+      const statusCol=r.status==='approved'?'#3fb950':r.status==='declined'?'#f85149':'#e3b341';
+      return`<div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:14px 16px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="background:${lt.color}22;color:${lt.color};padding:3px 10px;border-radius:4px;font-size:10px;font-weight:800;text-transform:uppercase">${lt.label}</div>
+            <div>
+              <div style="font-size:13px;font-weight:700;color:#eaf0ff">${esc(r.userName||'Unknown')}</div>
+              <div style="font-size:11px;color:#6e7681;margin-top:1px">${r.startDate} → ${r.endDate} &nbsp;·&nbsp; <strong style="color:#eaf0ff">${days} working day${days!==1?'s':''}</strong></div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:10px;font-weight:700;color:${statusCol};text-transform:uppercase;background:${statusCol}22;padding:2px 8px;border-radius:3px">${r.status}</span>
+            ${showActions?`<button class="btn primary" data-leave-approve="${id}" style="font-size:11px">✓ Approve</button>
+            <button class="btn danger" data-leave-decline="${id}" style="font-size:11px">✗ Decline</button>`:''}
+            ${r.adminNote?`<span style="font-size:11px;color:#6e7681;font-style:italic">"${esc(r.adminNote)}"</span>`:''}
+          </div>
+        </div>
+        ${r.reason?`<div style="margin-top:8px;font-size:11px;color:#8b949e">Reason: ${esc(r.reason)}</div>`:''}
+        ${r.hasSickNote?`<div style="margin-top:4px;font-size:11px;color:#3fb950">📎 Sick note attached</div>`:''}
+      </div>`;
+    }
+
+    // Balance editor
+    const leaveUsers=users.filter(u=>u.role==='capstaff'||(u.extraRoles||[]).includes('capstaff')||u.role==='admin');
+    const balEditor=leaveUsers.map(u=>{
+      const bal=leaveBalances[u.uid]||{};
+      return`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #21262d;flex-wrap:wrap">
+        <div style="min-width:160px;font-size:13px;font-weight:600;color:#eaf0ff">${esc(u.displayName||u.email)}</div>
+        ${LEAVE_TYPES.filter(t=>t.deductsBalance).map(t=>`
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:10px;color:#7a8ba0;text-transform:uppercase;width:80px">${t.label.replace(' Leave','')}</span>
+            <input type="number" class="ci leave-bal-inp" data-uid="${u.uid}" data-type="${t.key}" value="${esc(String(bal[t.key]??21))}" min="0" max="365" style="width:56px;font-size:12px;text-align:center">
+          </div>`).join('')}
+        <button class="btn" data-save-balance="${u.uid}" style="font-size:11px">Save</button>
+      </div>`;
+    }).join('');
+
+    return`<div class="ep-wrap">
+      <div style="margin-bottom:20px">
+        <div style="font-size:15px;font-weight:800;color:#eaf0ff;margin-bottom:12px">⏳ Pending Requests (${pending.length})</div>
+        ${pending.length?pending.map(r=>reqCard(r,true)).join(''):'<div style="color:#484f58;font-size:12px;padding:12px 0">No pending requests.</div>'}
+      </div>
+      <div style="margin-bottom:20px">
+        <div style="font-size:14px;font-weight:700;color:#3fb950;margin-bottom:10px">✓ Approved</div>
+        ${approved.length?approved.map(r=>reqCard(r,false)).join(''):'<div style="color:#484f58;font-size:12px;padding:8px 0">None yet.</div>'}
+      </div>
+      <div style="margin-bottom:28px">
+        <div style="font-size:14px;font-weight:700;color:#f85149;margin-bottom:10px">✗ Declined</div>
+        ${declined.length?declined.map(r=>reqCard(r,false)).join(''):'<div style="color:#484f58;font-size:12px;padding:8px 0">None yet.</div>'}
+      </div>
+      <div class="ep-card" style="margin-bottom:16px">
+        <div class="ep-head"><span style="font-size:14px;font-weight:800;color:#eaf0ff">Leave Balances</span><span style="font-size:11px;color:#6e7681">Set starting balances per staff member</span></div>
+        <div style="padding:12px 16px">${balEditor||'<div style="color:#484f58;font-size:12px">No CAP Staff users found. Create users and assign CAP Staff role or extra role.</div>'}</div>
+      </div>
+      ${leaveDeclineModal?renderLeaveDeclineModal():''}
+    </div>`;
+  }
+
+  // ── STAFF VIEW ──────────────────────────────────────────────────
+  const myRequests=Object.entries(leaveRequests).filter(([,r])=>r.uid===uid).sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
+  const myBal=leaveBalances[uid]||{};
+
+  // Balance cards
+  const balCards=LEAVE_TYPES.filter(t=>t.deductsBalance).map(t=>{
+    const total=myBal[t.key]??21;
+    const used=myRequests.filter(([,r])=>r.leaveType===t.key&&r.status==='approved').reduce((s,[,r])=>s+countWorkingDays(r.startDate,r.endDate),0);
+    const remaining=Math.max(0,total-used);
+    const pct=total>0?Math.round((remaining/total)*100):0;
+    return`<div style="background:#161b22;border:1px solid #21262d;border-radius:10px;padding:16px 20px;flex:1;min-width:150px">
+      <div style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:8px">${t.label}</div>
+      <div style="font-size:26px;font-weight:900;color:${remaining<=3?'#f85149':remaining<=7?'#e3b341':'#3fb950'}">${remaining}</div>
+      <div style="font-size:10px;color:#484f58;margin-top:2px">of ${total} days remaining</div>
+      <div style="margin-top:8px;height:4px;background:#21262d;border-radius:2px">
+        <div style="height:4px;border-radius:2px;background:${remaining<=3?'#f85149':remaining<=7?'#e3b341':'#3fb950'};width:${pct}%"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // New leave form
+  const showForm=leaveFormOpen;
+  const fd=leaveDraft;
+  const days=fd.startDate&&fd.endDate?countWorkingDays(fd.startDate,fd.endDate):0;
+
+  const form=showForm?`<div class="ep-card" style="margin-bottom:16px">
+    <div class="ep-head" style="display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:14px;font-weight:800;color:#eaf0ff">New Leave Application</span>
+      <button class="btn" id="leave-form-close" style="font-size:11px">Cancel</button>
+    </div>
+    <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div>
+        <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Leave Type *</label>
+        <select id="leave-type-sel" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px">
+          ${LEAVE_TYPES.map(t=>`<option value="${t.key}" ${fd.leaveType===t.key?'selected':''}>${t.label}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:8px">
+        <div style="flex:1">
+          <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Start Date *</label>
+          <input type="date" id="leave-start" value="${fd.startDate||''}" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">End Date *</label>
+          <input type="date" id="leave-end" value="${fd.endDate||''}" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px">
+        </div>
+        ${days>0?`<div style="padding-bottom:8px;white-space:nowrap;font-size:12px;color:#58a6ff;font-weight:700">${days} day${days!==1?'s':''}</div>`:''}
+      </div>
+      <div style="grid-column:1/-1">
+        <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Reason</label>
+        <textarea id="leave-reason" rows="2" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px;resize:vertical">${esc(fd.reason||'')}</textarea>
+      </div>
+      ${fd.leaveType==='sick'?`<div style="grid-column:1/-1">
+        <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Sick Note <span style="color:#484f58;font-weight:400;text-transform:none">(optional — attach file)</span></label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <label class="btn" style="cursor:pointer;font-size:11px">
+            📎 Attach Sick Note
+            <input type="file" id="leave-sick-note" accept=".pdf,.jpg,.jpeg,.png" style="display:none">
+          </label>
+          <span id="sick-note-name" style="font-size:11px;color:#6e7681">${fd.sickNoteFile?fd.sickNoteFile.name:'No file selected'}</span>
+        </div>
+      </div>`:''}
+    </div>
+    <div style="padding:0 16px 16px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn primary" id="leave-submit-btn">Submit Application</button>
+    </div>
+  </div>`:'';
+
+  // Request history
+  const history=myRequests.map(([id,r])=>{
+    const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[4];
+    const days=countWorkingDays(r.startDate,r.endDate);
+    const statusCol=r.status==='approved'?'#3fb950':r.status==='declined'?'#f85149':'#e3b341';
+    return`<div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="background:${lt.color}22;color:${lt.color};padding:2px 9px;border-radius:4px;font-size:10px;font-weight:800;text-transform:uppercase">${lt.label}</span>
+        <div>
+          <div style="font-size:12px;color:#eaf0ff">${r.startDate} → ${r.endDate} &nbsp;<span style="color:#6e7681">(${days} day${days!==1?'s':''})</span></div>
+          ${r.reason?`<div style="font-size:11px;color:#6e7681;margin-top:1px">${esc(r.reason)}</div>`:''}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        ${r.hasSickNote?`<span style="font-size:10px;color:#3fb950">📎 Note</span>`:''}
+        <span style="font-size:10px;font-weight:700;color:${statusCol};text-transform:uppercase;background:${statusCol}22;padding:2px 8px;border-radius:3px">${r.status}</span>
+        ${r.adminNote?`<span style="font-size:11px;color:#6e7681;font-style:italic">"${esc(r.adminNote)}"</span>`:''}
+        ${r.status==='pending'?`<button class="btn danger" data-leave-cancel="${id}" style="font-size:10px;padding:2px 8px">Cancel</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  return`<div class="ep-wrap">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <span style="font-size:15px;font-weight:800;color:#eaf0ff">My Leave</span>
+      <button class="btn primary" id="leave-new-btn">+ Apply for Leave</button>
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">${balCards}</div>
+    ${form}
+    <div>
+      <div style="font-size:13px;font-weight:700;color:#eaf0ff;margin-bottom:10px">My Applications</div>
+      ${history||'<div style="color:#484f58;font-size:12px;padding:12px 0">No applications yet.</div>'}
+    </div>
+    ${leaveDeclineModal?renderLeaveDeclineModal():''}
+  </div>`;
+}
+
+function renderLeaveDeclineModal(){
+  return`<div class="modal-overlay" id="leave-decline-overlay"><div class="modal" style="max-width:400px">
+    <h3 style="margin-bottom:12px">Decline Leave Request</h3>
+    <p style="font-size:13px;color:#8b949e;margin-bottom:12px">Add an optional note for the staff member:</p>
+    <textarea id="decline-note-inp" rows="3" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px;border-radius:5px;font-size:13px" placeholder="Reason for declining..."></textarea>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn" id="decline-cancel-btn">Cancel</button>
+      <button class="btn danger" id="decline-confirm-btn">Decline Request</button>
+    </div>
+  </div></div>`;
+}
+
+
+const DELIVERABLE_TASKS = [
+  {key:'comm_list_update',      label:'Commission List – Episode Update'},
+  {key:'fcc_sheet',             label:'Recue – FCC Sheet'},
+  {key:'ep_music_cue',          label:'Recue – Episode Music Cue Sheet'},
+  {key:'live_transcript',       label:'Recue – Live Show Transcript'},
+  {key:'promo_scheduling',      label:'Promo Scheduling'},
+  {key:'footage_declaration',   label:'Recue – Footage Declaration'},
+  {key:'ep_synopsis',           label:'Recue – Episode Synopsis'},
+  {key:'participants_release',  label:'Recue – Participants Release Forms'},
+  {key:'minor_release',         label:'Recue – Minor Release Forms'},
+  {key:'location_agreements',   label:'Recue – Location Agreements'},
+  {key:'producer_contracts',    label:'Recue – Producer Contracts'},
+  {key:'crew_list',             label:'Recue – Crew List'},
+  {key:'credit_list',           label:'Recue – Credit List'},
+  {key:'script_ros',            label:'Build – Script & ROS'},
+  {key:'promo_music_cue',       label:'Recue – Promo Music Cue Sheets'},
+  {key:'epg_info',              label:'Recue – EPG Information'},
+  {key:'content_frames_studio', label:'Content Frames – Studio'},
+  {key:'supplier_agreements',   label:'Recue – Supplier Agreements'},
+  {key:'barter_agreements',     label:'Recue – Barter Agreements'},
+];
+
+function renderDeliverables(epNums){
+  if(!epNums.length) return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet.</div></div>`;
+
+  const thBase='position:sticky;top:0;z-index:2;background:#1a2035;padding:8px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#7a8ba0;white-space:nowrap;text-align:center;border-bottom:2px solid #2e3a50;min-width:80px';
+  const tdBase='padding:6px 8px;text-align:center;border-bottom:1px solid #1a2035;vertical-align:middle';
+
+  // Episode headers
+  const epHeaders=epNums.map(n=>{
+    const date=new Date(resolveDate(n)).toLocaleDateString('en-ZA',{day:'2-digit',month:'short'});
+    const finalised=isEpFinalised(n);
+    return`<th style="${thBase}">
+      <div style="font-size:11px;font-weight:900;color:${finalised?'#4ade80':'#eaf0ff'}">EP ${String(n).padStart(2,'0')}</div>
+      <div style="font-size:9px;color:#6e7681;font-weight:600;margin-top:2px">${date}</div>
+      ${finalised?`<div style="font-size:8px;color:#4ade80;margin-top:2px">✓ DONE</div>`:''}
+    </th>`;
+  }).join('');
+
+  // Task rows
+  const taskRows=DELIVERABLE_TASKS.map((task,ti)=>{
+    const rowBg=ti%2===0?'':'background:#1a2035';
+    const cells=epNums.map(n=>{
+      const d=deliverables[String(n)]||{};
+      const checked=!!d[task.key];
+      const finalised=isEpFinalised(n);
+      return`<td style="${tdBase};${rowBg}">
+        <input type="checkbox" class="deliv-cb"
+          data-ep="${n}" data-key="${task.key}"
+          ${checked?'checked':''}
+          style="width:16px;height:16px;cursor:pointer;accent-color:${finalised?'#4ade80':'#58a6ff'}">
+      </td>`;
+    }).join('');
+
+    // Count how many episodes have this task done
+    const doneCount=epNums.filter(n=>deliverables[String(n)]?.[task.key]).length;
+    const pct=epNums.length?Math.round(doneCount/epNums.length*100):0;
+
+    return`<tr style="${rowBg}">
+      <td style="padding:7px 12px;font-size:12px;font-weight:600;color:#eaf0ff;white-space:nowrap;position:sticky;left:0;background:${ti%2===0?'#161b22':'#1a2035'};z-index:1;border-bottom:1px solid #1a2035;min-width:260px">
+        ${task.label}
+        <span style="margin-left:8px;font-size:10px;color:#484f58">${doneCount}/${epNums.length}</span>
+      </td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  // Completion row
+  const completionCells=epNums.map(n=>{
+    const d=deliverables[String(n)]||{};
+    const done=DELIVERABLE_TASKS.filter(t=>d[t.key]).length;
+    const total=DELIVERABLE_TASKS.length;
+    const pct=Math.round(done/total*100);
+    const col=pct===100?'#4ade80':pct>=50?'#e3b341':'#f85149';
+    return`<td style="${tdBase};border-top:2px solid #2e3a50">
+      <div style="font-size:11px;font-weight:900;color:${col}">${pct}%</div>
+      <div style="font-size:9px;color:#6e7681">${done}/${total}</div>
+    </td>`;
+  }).join('');
+
+  return`<div class="ep-wrap" style="padding-bottom:40px">
+    <div style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:15px;font-weight:800;color:#eaf0ff">Deliverables</div>
+        <div style="font-size:11px;color:#6e7681;margin-top:2px">Track completion of all episode deliverables · Admin only</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="deliv-reset-btn" style="font-size:11px;border-color:#f85149;color:#f85149">Reset Episode…</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 180px)">
+      <table style="border-collapse:collapse;min-width:max-content">
+        <thead>
+          <tr>
+            <th style="${thBase};text-align:left;position:sticky;left:0;z-index:3;min-width:260px;background:#1a2035">Deliverable</th>
+            ${epHeaders}
+          </tr>
+        </thead>
+        <tbody>
+          ${taskRows}
+          <tr>
+            <td style="padding:7px 12px;font-size:11px;font-weight:800;color:#7a8ba0;text-transform:uppercase;letter-spacing:.5px;position:sticky;left:0;background:#161b22;z-index:1;border-top:2px solid #2e3a50">Completion</td>
+            ${completionCells}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+
+function renderPromoScheduling(epNums){
+  if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet.</div></div>`;
+  const canEd=getEffectiveRole()==='admin'||getEffectiveRole()==='operations';
+  const assigned=getAllAssignedUIDs();
+  const avail=getAvailablePoolUIDs();
+
+  const poolRows=uidPool.map((u,i)=>{
+    const isAss=!!assigned[u.uid];
+    const bg=i%2===0?'':'background:#1a2035';
+    const status=u.pulled
+      ?`<span style="background:#3d1c1c;color:#f85149;padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700">PULLED</span>`
+      :isAss?`<span style="background:#1f4023;color:#3fb950;padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700">ASSIGNED</span>`
+      :`<span style="background:#1c2d4a;color:#58a6ff;padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700">AVAILABLE</span>`;
+    const info=isAss?`EP ${String(assigned[u.uid].ep).padStart(2,'0')} · ${PROMO_TYPES.find(p=>p.key===assigned[u.uid].key)?.label||''}`:'—';
+    return`<tr style="${bg}"><td style="padding:6px 12px;font-size:11px;color:#484f58">${i+1}</td>
+      <td style="padding:6px 12px;font-family:monospace;font-size:12px;font-weight:700;color:${u.pulled?'#484f58':isAss?'#3fb950':'#9aaabe'};letter-spacing:1px;text-decoration:${u.pulled?'line-through':'none'}">${esc(u.uid)}</td>
+      <td style="padding:6px 12px">${status}</td>
+      <td style="padding:6px 12px;font-size:11px;color:#6e7681">${info}</td></tr>`;
+  }).join('');
+
+  const assignCards=avail.map(u=>{
+    const sel=selectedPoolUIDs.includes(u.uid);
+    const idx=selectedPoolUIDs.indexOf(u.uid);
+    return`<div data-pool-uid="${esc(u.uid)}" style="padding:8px 10px;border-radius:6px;cursor:pointer;border:2px solid ${sel?'#58a6ff':'#2e3a50'};background:${sel?'#1a2d4a':'#1c2433'};display:flex;align-items:center;gap:6px">
+      ${sel?`<span style="font-size:9px;font-weight:900;color:#58a6ff;width:16px">${idx+1}.</span>`:'<span style="width:16px"></span>'}
+      <span style="font-family:monospace;font-size:12px;font-weight:700;color:${sel?'#58a6ff':'#9aaabe'};letter-spacing:1px">${esc(u.uid)}</span>
+    </div>`;
+  }).join('');
+
+  const poolPanel=`<div class="ep-card" style="margin-bottom:16px">
+    <div class="ep-head" style="display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="ep-num" style="background:#7a3fbf">UID</span>
+        <div><div style="font-size:14px;font-weight:800;color:#eaf0ff">Master UID Pool</div>
+        <div style="font-size:11px;color:#6e7681">${uidPool.length} total · ${avail.length} available · ${uidPool.filter(u=>u.pulled).length} pulled</div></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        ${canEd?`<button class="btn" id="pool-view-btn" style="font-size:11px;border-color:#7a3fbf;color:#c084fc">${uidPoolView==='pool'?'▶ Assign UIDs':'◀ Back to Pool'}</button>
+        <label class="btn" style="font-size:11px;cursor:pointer;border-color:#3fb950;color:#3fb950">⬆ Import UIDs<input type="file" accept=".xlsx,.xls,.csv" id="pool-uid-import" style="display:none"></label>
+        ${uidPool.length?`<button class="btn danger" id="clear-pool-btn" style="font-size:11px">Clear Pool</button>`:''}`:''}
+      </div>
+    </div>
+    ${uidPoolView==='assign'?`
+    <div style="padding:16px">
+      <div style="margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:700;color:#eaf0ff">${selectedPoolUIDs.length}/12 selected</span>
+        ${selectedPoolUIDs.length===12?`
+          <select id="assign-ep-sel" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:5px 10px;border-radius:5px;font-size:12px">
+            <option value="">— Pick Episode —</option>
+            ${epNums.map(n=>`<option value="${n}" ${assignTargetEp===String(n)?'selected':''}>Episode ${String(n).padStart(2,'0')}</option>`).join('')}
+          </select>
+          ${assignTargetEp?`<button class="btn primary" id="do-assign-btn">✓ Assign to EP ${String(assignTargetEp).padStart(2,'0')}</button>`:''}
+        `:'<span style="font-size:11px;color:#6e7681">Select exactly 12 UIDs in order (Teaser 1 → Catchup 2)</span>'}
+        ${selectedPoolUIDs.length?`<button class="btn" id="clear-sel-btn" style="font-size:11px">Clear</button>`:''}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;max-height:300px;overflow-y:auto">${assignCards}${!avail.length?`<div style="color:#484f58;font-size:12px;padding:16px">No available UIDs.</div>`:''}</div>
+    </div>`:`
+    <div style="overflow-x:auto;max-height:260px;overflow-y:auto">
+      <table style="width:100%;border-collapse:collapse">
+        <thead style="position:sticky;top:0;background:#1a2035"><tr>
+          <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50">#</th>
+          <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">UID</th>
+          <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Status</th>
+          <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Assigned To</th>
+        </tr></thead>
+        <tbody>${poolRows}${!uidPool.length?`<tr><td colspan="4" style="padding:24px;text-align:center;color:#484f58;font-size:12px">No UIDs yet. Import to get started.</td></tr>`:''}</tbody>
+      </table>
+    </div>`}
+  </div>`;
+
+  const epCards=epNums.map(n=>{
+    const isExp=promoExpandedEp===String(n);
+    const epDate=resolveDate(n);
+    const pd=promoData[String(n)]||{};
+    const uids=pd.uids||{};
+    const pulled=pd.pulled||{};
+    const liveUID=pd.liveUID||'';
+    const liveType=pd.liveType||'LIVE SHOW';
+    const epStr=String(n).padStart(2,'0');
+    const sunDate=new Date(epDate).toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+    const filled=PROMO_TYPES.filter(pt=>uids[pt.key]).length;
+    const thS='padding:8px 12px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap';
+    const tdB='padding:8px 12px;font-size:12px;border-bottom:1px solid #21262d;vertical-align:middle';
+
+    const rows=PROMO_TYPES.map((pt,i)=>{
+      const txD=getPromoTXDates(epDate,pt.txType);
+      const uid=uids[pt.key]||'';
+      const isPulled=pulled[pt.key]||false;
+      const slug=buildSlug(currentSeason,n,pt.slug);
+      const combined=uid&&!isPulled?`${uid} ${slug}`:'';
+      const bg=i%2===0?'':'background:#1a2035';
+      return`<tr style="${bg}${isPulled?';opacity:.55':''}">
+        <td style="${tdB};font-weight:700;color:${isPulled?'#484f58':'#eaf0ff'};width:120px;${isPulled?'text-decoration:line-through':''}">${pt.label}</td>
+        <td style="${tdB};width:100px"><input class="ci promo-date-inp" value="${esc(pd['txFrom_'+pt.key]||txD.from)}" data-ep="${n}" data-field="txFrom_${pt.key}" style="font-size:11px;width:100%" ${!canEd||isPulled?'disabled':''}></td>
+        <td style="${tdB};width:100px"><input class="ci promo-date-inp" value="${esc(pd['txTo_'+pt.key]||txD.to)}" data-ep="${n}" data-field="txTo_${pt.key}" style="font-size:11px;width:100%" ${!canEd||isPulled?'disabled':''}></td>
+        <td style="${tdB};width:110px"><span style="font-family:monospace;font-size:12px;font-weight:700;color:${isPulled?'#484f58':'#58a6ff'};letter-spacing:1px;text-decoration:${isPulled?'line-through':'none'}">${uid||'<span style="color:#484f58">—</span>'}</span></td>
+        <td style="${tdB};width:90px;text-align:center">${canEd?`<label style="display:flex;align-items:center;gap:5px;cursor:pointer;justify-content:center">
+          <input type="checkbox" class="promo-pulled-cb" data-ep="${n}" data-key="${pt.key}" ${isPulled?'checked':''} tabindex="-1">
+          <span style="font-size:9px;font-weight:700;color:${isPulled?'#f85149':'#6e7681'};text-transform:uppercase">Pulled</span>
+        </label>`:''}</td>
+        <td style="${tdB};font-family:monospace;font-size:11px;font-weight:700;color:#3fb950;letter-spacing:.5px">
+          ${isPulled?'<span style="color:#f85149;font-size:10px">PULLED</span>':combined?esc(combined):'<span style="color:#484f58">—</span>'}
+        </td>
+      </tr>`;
+    }).join('');
+
+    return`<div class="ep-card" style="margin-bottom:8px">
+      <div class="ep-head" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between" data-promo-toggle="${n}">
+        <div style="display:flex;align-items:center;gap:12px;flex:1">
+          <span class="ep-num">EP ${n}</span>
+          <div><div style="font-size:13px;font-weight:800;color:#eaf0ff;text-transform:uppercase">Carte Blanche Season ${currentSeason} · Episode ${epStr}</div>
+          <div style="font-size:11px;color:#6e7681;margin-top:2px">TX: ${sunDate} · ${filled}/12 UIDs</div></div>
+          <span style="font-size:11px;color:#484f58">${isExp?'▲':'▼'}</span>
+        </div>
+        <div style="display:flex;gap:8px" onclick="event.stopPropagation()">
+          ${isExp?`<button class="btn" style="font-size:11px;border-color:#388bfd;color:#58a6ff" data-promo-pdf="${n}">⬇ PDF</button>
+          <button class="btn" style="font-size:11px;border-color:#3fb950;color:#3fb950" data-promo-xlsx="${n}">⬇ Excel</button>`:''}
+        </div>
+      </div>
+      ${isExp?`
+      <div style="padding:10px 16px;background:#1a2a1a;border-bottom:2px solid #2e3a50;display:flex;align-items:center;gap:16px">
+        <input class="ci promo-live-type" value="${esc(liveType)}" data-ep="${n}" placeholder="LIVE SHOW" style="font-size:13px;font-weight:800;color:#3fb950;width:130px;background:transparent;border:none;border-bottom:1px solid #2d6a2d" ${!canEd?'disabled':''}>
+        <span style="font-size:11px;color:#6e7681"><span style="font-weight:700;color:#7a8ba0">TX:</span> ${sunDate}</span>
+        <span style="font-size:10px;color:#7a8ba0;margin-right:4px">UID:</span>
+        <input class="ci promo-live-uid" value="${esc(liveUID)}" data-ep="${n}" placeholder="Enter UID" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#58a6ff;width:130px;letter-spacing:1px" ${!canEd?'disabled':''}>
+      </div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="${thS}">Type</th><th style="${thS}">TX From</th><th style="${thS}">TX To</th>
+          <th style="${thS}">UID</th><th style="${thS}">Pulled?</th><th style="${thS}">Promo Scheduling Code</th>
+        </tr></thead><tbody>${rows}</tbody>
+      </table></div>`:''}
+    </div>`;
+  }).join('');
+
+  const modal=pullReplaceModal?`<div class="modal-overlay" id="pull-modal-overlay"><div class="modal" style="max-width:420px">
+    <h3 style="margin-bottom:12px">Promo Pulled</h3>
+    <p style="margin-bottom:6px;color:#8b949e;font-size:13px"><strong style="color:#eaf0ff">${PROMO_TYPES.find(p=>p.key===pullReplaceModal.key)?.label}</strong> · EP ${String(pullReplaceModal.ep).padStart(2,'0')}</p>
+    <p style="margin-bottom:16px;color:#8b949e;font-size:13px">UID: <span style="font-family:monospace;color:#f85149">${pullReplaceModal.uid}</span></p>
+    <p style="margin-bottom:20px;font-size:14px;color:#eaf0ff">Replace this pulled promo with an available UID?</p>
+    ${getAvailablePoolUIDs().length?`
+    <div style="background:#1a2035;border-radius:6px;padding:12px;margin-bottom:16px">
+      <div style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:6px">Suggested replacement:</div>
+      <div style="font-family:monospace;font-size:18px;font-weight:900;color:#58a6ff;letter-spacing:2px">${getAvailablePoolUIDs()[0]?.uid}</div>
+    </div>
+    <div class="modal-actions"><button class="btn" id="pull-no-btn">Keep Pulled</button><button class="btn primary" id="pull-yes-btn">Use This UID</button></div>`
+    :`<div style="color:#f85149;font-size:12px;margin-bottom:16px">No available UIDs in pool to suggest.</div>
+    <div class="modal-actions"><button class="btn" id="pull-no-btn">Close</button></div>`}
+  </div></div>`:'';
+
+  return`<div class="ep-wrap">${poolPanel}${epCards}${modal}</div>`;
+}
+
+
+function renderMusicCues(epNums){
+  const role=getEffectiveRole();
+  const isAFM=role==='afm';
+  const canExport=role==='admin'||role==='operations';
+  const uid=currentUser?.uid||'';
+  const userName=currentUser?.displayName||currentUser?.email||'';
+
+  const allSheets=Object.entries(musicCues).map(([id,s])=>({id,...s}))
+    .filter(s=>role==='admin'||role==='operations'||s.afmUid===uid)
+    .sort((a,b)=>(b.submittedAt?.seconds||0)-(a.submittedAt?.seconds||0));
+
+  // ── NEW / EDIT FORM ──
+  if(mcTab==='new'||mcTab==='edit'){
+    const draft=mcDraft;
+    const matchedComm=draft.commNum?comms.find(c=>c.commNum===draft.commNum.trim()):null;
+    const inpS='background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:5px 7px;border-radius:4px;font-size:12px;width:100%';
+    const thS='padding:8px 6px;font-size:8px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left';
+
+    const rowsHTML=draft.rows.map((r,i)=>`<tr>
+      <td style="padding:4px;vertical-align:middle;text-align:center;font-weight:700;color:#7a8ba0;font-size:12px;width:36px">${i+1}</td>
+      <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="trackTitle" value="${esc(r.trackTitle)}" placeholder="Track Title" style="${inpS}"></td>
+      <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="composer" value="${esc(r.composer)}" placeholder="Composer" style="${inpS}"></td>
+      <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="publisher" value="${esc(r.publisher)}" placeholder="Publisher" style="${inpS}"></td>
+      <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="cmo" value="${esc(r.cmo)}" placeholder="CMO" style="${inpS}"></td>
+      <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="label" value="${esc(r.label||'Unknown')}" placeholder="Unknown" style="${inpS}"></td>
+      <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="artist" value="${esc(r.artist||r.composer)}" placeholder="Artist/Performer" style="${inpS}"></td>
+      <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="albumTitle" value="${esc(r.albumTitle||'N/A')}" placeholder="N/A" style="${inpS}"></td>
+      <td style="padding:4px;width:55px"><input class="mc-row-inp" data-row="${i}" data-field="trackNumber" value="${esc(r.trackNumber||'0')}" placeholder="0" style="${inpS}"></td>
+      <td style="padding:4px;width:130px"><select class="mc-row-inp" data-row="${i}" data-field="usage" style="${inpS}">
+        <option value="">— Select —</option>
+        <option value="Background Instrumental (BI)" ${r.usage==='Background Instrumental (BI)'?'selected':''}>Background Instrumental (BI)</option>
+        <option value="Background Vocal (BV)" ${r.usage==='Background Vocal (BV)'?'selected':''}>Background Vocal (BV)</option>
+      </select></td>
+      <td style="padding:4px;width:90px"><input value="PRODUCTION" disabled style="${inpS};color:#7a8ba0;cursor:not-allowed"></td>
+      <td style="padding:4px;width:110px"><input class="mc-row-inp" data-row="${i}" data-field="duration" value="${esc(r.duration)}" placeholder="00:00:00:00" style="${inpS};font-family:monospace"></td>
+      <td style="padding:4px;width:36px;text-align:center"><button class="btn danger mc-del-row" data-row="${i}" style="padding:3px 7px;font-size:11px">✕</button></td>
+    </tr>`).join('');
+
+    return`<div class="ep-wrap">
+      <div class="ep-card" style="margin-bottom:16px">
+        <div class="ep-head" style="display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:12px">
+            <button class="btn" id="mc-back-btn" style="font-size:12px">← Back</button>
+            <span style="font-size:15px;font-weight:800;color:#eaf0ff">${mcTab==='edit'?'Edit Music Cue Sheet':'New Music Cue Sheet'}</span>
+          </div>
+          <button class="btn primary" id="mc-submit-btn">✓ Submit Cue Sheet</button>
+        </div>
+        <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+          <div>
+            <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">AFM Operator *</label>
+            <input id="mc-afm-name" value="${esc(draft.afmName||userName)}" placeholder="Your name" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 10px;border-radius:5px;font-size:13px">
+          </div>
+          <div>
+            <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Commission Number *</label>
+            <input id="mc-comm-num" value="${esc(draft.commNum)}" placeholder="e.g. 6855" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 10px;border-radius:5px;font-size:13px;font-family:monospace">
+          </div>
+          <div>
+            <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Story Name</label>
+            <input id="mc-story-name" value="${esc(draft.storyName)}" placeholder="${matchedComm?matchedComm.storyName:'Auto-fills from Commission List'}" style="width:100%;background:#1c2433;border:1px solid ${matchedComm?'#2d6a2d':'#2e3a50'};color:${matchedComm?'#3fb950':'#eaf0ff'};padding:7px 10px;border-radius:5px;font-size:13px" ${matchedComm?'readonly':''}>
+          </div>
+          <div>
+            <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Producer</label>
+            <input id="mc-producer" value="${esc(draft.producer)}" placeholder="${matchedComm?matchedComm.producer:'Auto-fills from Commission List'}" style="width:100%;background:#1c2433;border:1px solid ${matchedComm?'#2d6a2d':'#2e3a50'};color:${matchedComm?'#3fb950':'#eaf0ff'};padding:7px 10px;border-radius:5px;font-size:13px" ${matchedComm?'readonly':''}>
+          </div>
+        </div>
+        ${matchedComm&&matchedComm.broadcastEpisode?`<div style="padding:0 16px 12px;font-size:11px;color:#3fb950">→ Linked to Episode ${matchedComm.broadcastEpisode} · ${fmtDate(resolveDate(Number(matchedComm.broadcastEpisode)))}</div>`:''}
+        ${draft.commNum&&!matchedComm?`<div style="padding:0 16px 12px;font-size:11px;color:#d29922">⚠ Commission not found — you can still enter details manually.</div>`:''}
+        <div style="padding:0 16px 16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span style="font-size:13px;font-weight:700;color:#eaf0ff">${draft.rows.length} cue${draft.rows.length!==1?'s':''}</span>
+            <button class="btn primary" id="mc-add-row-btn" style="font-size:12px">+ Add Cue</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;min-width:1100px">
+              <thead><tr>
+                <th style="${thS}">#</th>
+                <th style="${thS}">Track Title *</th>
+                <th style="${thS}">Composer *</th>
+                <th style="${thS}">Publisher</th>
+                <th style="${thS}">CMO</th>
+                <th style="${thS}">Label</th>
+                <th style="${thS}">Artist/Performer</th>
+                <th style="${thS}">Album Title</th>
+                <th style="${thS}">Track #</th>
+                <th style="${thS}">Usage *</th>
+                <th style="${thS}">Music Type</th>
+                <th style="${thS}">Duration</th>
+                <th style="${thS}"></th>
+              </tr></thead>
+              <tbody id="mc-rows-body">${rowsHTML}</tbody>
+            </table>
+          </div>
+          ${!draft.rows.length?`<div style="text-align:center;padding:24px;color:#484f58;font-size:12px">No cues yet. Click "+ Add Cue" to start.</div>`:''}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── DASHBOARD ──
+  const epOptions=epNums.map(n=>`<option value="${n}" ${mcEpFilter===String(n)?'selected':''}>Episode ${String(n).padStart(2,'0')}</option>`).join('');
+  const filtered=allSheets.filter(s=>{
+    if(mcEpFilter==='all')return true;
+    const c=comms.find(c=>c.commNum===s.commNum);
+    return c&&String(c.broadcastEpisode)===mcEpFilter;
+  });
+
+  const sheetRows=filtered.map(s=>{
+    const c=comms.find(c=>c.commNum===s.commNum);
+    const epNum=c?.broadcastEpisode||'—';
+    const date=c?.broadcastEpisode?fmtDate(resolveDate(Number(c.broadcastEpisode))):'—';
+    const canEdit2=role==='admin'||role==='operations'||s.afmUid===uid;
+    return`<div class="ep-card" style="margin-bottom:10px;padding:0">
+      <div style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:16px;flex:1">
+          <div style="background:#1c2d4a;border-radius:6px;padding:6px 12px;text-align:center;min-width:60px">
+            <div style="font-family:monospace;font-size:13px;font-weight:900;color:#58a6ff">${esc(s.commNum||'—')}</div>
+            <div style="font-size:9px;color:#6e7681;margin-top:1px">Comm #</div>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:700;color:#eaf0ff">${esc(s.storyName||'Untitled')}</div>
+            <div style="font-size:11px;color:#6e7681;margin-top:2px">${esc(s.producer||'—')} · ${s.rows?.length||0} cues · AFM: ${esc(s.afmName||'—')}</div>
+          </div>
+          ${epNum!=='—'?`<div style="text-align:right">
+            <div style="font-size:11px;font-weight:700;color:#3fb950">EP ${String(epNum).padStart(2,'0')}</div>
+            <div style="font-size:10px;color:#6e7681">${date}</div>
+          </div>`:'<div style="font-size:10px;color:#484f58">Not yet assigned to episode</div>'}
+        </div>
+        <div style="display:flex;gap:8px;margin-left:16px">
+          ${canEdit2?`<button class="btn" data-mc-edit="${s.id}" style="font-size:11px">Edit</button>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  return`<div class="ep-wrap">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:15px;font-weight:800;color:#eaf0ff">Music Cue Sheets</span>
+        <span style="font-size:12px;color:#6e7681">${allSheets.length} total</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${canExport?`<select id="mc-ep-filter" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:5px 10px;border-radius:5px;font-size:12px">
+          <option value="all">All Episodes</option>
+          ${epOptions}
+        </select>
+        ${mcEpFilter!=='all'?`<button class="btn" id="mc-export-xl" style="font-size:11px;border-color:#3fb950;color:#3fb950">⬇ Export Episode Excel</button>`:''}
+        `:''}
+        <button class="btn primary" id="mc-new-btn">+ New Music Cue Sheet</button>
+      </div>
+    </div>
+    ${sheetRows||`<div style="text-align:center;padding:40px;color:#484f58;font-size:13px">No cue sheets yet. Click "+ New Music Cue Sheet" to get started.</div>`}
+  </div>`;
+}
+
+
+function renderStudioCrew(epNums){
+  const canEd=['admin','operations','production'].includes(getEffectiveRole());
+  if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet.</div></div>`;
+  const cards=epNums.map(n=>{
+    const sc=studioCrew[String(n)]||{};
+    function labelRow(label,val){return`<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #21262d">
+      <div style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;letter-spacing:.5px;min-width:160px">${label}</div>
+      <div style="flex:1">${val}</div>
+    </div>`;}
+    function sci(field){return canEd
+      ?`<input class="ci studio-ci" value="${esc(sc[field]||'')}" data-ep="${n}" data-field="${field}" style="width:100%;font-size:13px">`
+      :esc(sc[field]||'—');}
+    return`<div class="ep-card" style="margin-bottom:14px">
+      <div class="ep-head">
+        <span class="ep-num">EP ${n}</span>
+        <span style="font-size:13px;font-weight:600;color:#9aaabe">${fmtDate(resolveDate(n))}</span>
+      </div>
+      <div style="padding:12px 16px;display:grid;grid-template-columns:1fr 1fr;gap:0 24px">
+        ${STUDIO_FIELDS.map(([field,label])=>labelRow(label,sci(field))).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  return`<div class="ep-wrap">${cards}</div>`;
+}
+
 function renderAdmin(){
   const allRoles=Object.entries(ROLE_META);
   return`<div class="admin-wrap">
