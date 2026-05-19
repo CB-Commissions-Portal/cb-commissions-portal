@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.1.5';
+const BUILD_VERSION='2.1.6';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -425,8 +425,8 @@ async function saveComm(c){setSyncDot('saving');try{await setDoc(doc(db,'commiss
 const PROMO_TYPES=[
   {key:'TSR1', label:'Teaser 1',       slug:'TSR1',  txType:'teaser'},
   {key:'TSR2', label:'Teaser 2',       slug:'TSR2',  txType:'teaser'},
-  {key:'AFR1', label:'Afrikaans 1',    slug:'AFR1',  txType:'after'},
-  {key:'AFR2', label:'Afrikaans 2',    slug:'AFR2',  txType:'after'},
+  {key:'AFR1', label:'Afrikaans 1',    slug:'AFR1',  txType:'afrikaans'},
+  {key:'AFR2', label:'Afrikaans 2',    slug:'AFR2',  txType:'afrikaans'},
   {key:'WKLY1',label:'Weekly 1',       slug:'WKLY1', txType:'weekly'},
   {key:'WKLY2',label:'Weekly 2',       slug:'WKLY2', txType:'weekly'},
   {key:'TON1', label:'Tonight 1',      slug:'TON1',  txType:'tonight'},
@@ -445,12 +445,17 @@ function getPromoTXDates(epDateStr,txType){
   const sun=new Date(epDateStr);
   const fmt=d=>d.toLocaleDateString('en-ZA',{day:'2-digit',month:'2-digit',year:'numeric'});
   const addDays=(d,n)=>{const r=new Date(d);r.setDate(r.getDate()+n);return r;};
+  // Broadcast = Sunday
+  // Teaser/Afrikaans: Wednesday to Saturday BEFORE broadcast (sun-4 to sun-1)
+  // Weekly: Thursday to Saturday BEFORE broadcast (sun-3 to sun-1)
+  // Tonight: Sunday only (broadcast day)
+  // Catchup: Monday to Wednesday AFTER broadcast (sun+1 to sun+3)
   switch(txType){
-    case'teaser':  return{from:fmt(addDays(sun,-12)),to:fmt(addDays(sun,-1))};
-    case'after':   return{from:fmt(addDays(sun,1)), to:fmt(addDays(sun,6))};
-    case'weekly':  return{from:fmt(addDays(sun,-6)),to:fmt(addDays(sun,-1))};
-    case'tonight': return{from:fmt(sun),            to:fmt(sun)};
-    case'catchup': return{from:fmt(addDays(sun,1)), to:fmt(addDays(sun,13))};
+    case'teaser':  return{from:fmt(addDays(sun,-4)),to:fmt(addDays(sun,-1))};
+    case'afrikaans':return{from:fmt(addDays(sun,-4)),to:fmt(addDays(sun,-1))};
+    case'weekly':  return{from:fmt(addDays(sun,-3)),to:fmt(addDays(sun,-1))};
+    case'tonight': return{from:fmt(sun),             to:fmt(sun)};
+    case'catchup': return{from:fmt(addDays(sun,1)),  to:fmt(addDays(sun,3))};
     default:       return{from:'',to:''};
   }
 }
@@ -3081,9 +3086,6 @@ function bindApp(){
       if(changed)await savePromoData(String(n),promoData[String(n)]);
     }
   }
-  // Run on tab switch to promos
-  if(tab==='promos')lockAllTXDates();
-
   document.getElementById('pool-view-btn')?.addEventListener('click',()=>{uidPoolView=uidPoolView==='pool'?'assign':'pool';selectedPoolUIDs=[];render();});
   document.getElementById('clear-pool-btn')?.addEventListener('click',()=>{if(confirm('Clear all UIDs from the pool?')){uidPool=[];saveUIDPool();render();}});
   document.getElementById('clear-sel-btn')?.addEventListener('click',()=>{selectedPoolUIDs=[];render();});
@@ -3245,6 +3247,25 @@ function bindApp(){
         render();
       }catch(err){showToast('Import failed: '+err.message,true);}
       fileInp.value='';
+    });
+  });
+
+  // Recalculate TX dates for an episode
+  document.querySelectorAll('[data-promo-recalc]').forEach(btn=>{
+    btn.addEventListener('click',async e=>{
+      e.stopPropagation();
+      const n=btn.dataset.promoRecalc;
+      if(!confirm('Reset TX dates for Episode '+n+'?\nThis will recalculate all TX dates from the broadcast date.\nAny manual edits to dates will be lost.'))return;
+      const epDate=resolveDate(Number(n));
+      if(!promoData[String(n)])promoData[String(n)]={};
+      PROMO_TYPES.forEach(pt=>{
+        const txD=getPromoTXDates(epDate,pt.txType);
+        promoData[String(n)]['txFrom_'+pt.key]=txD.from;
+        promoData[String(n)]['txTo_'+pt.key]=txD.to;
+      });
+      await savePromoData(String(n),promoData[String(n)]);
+      showToast('TX dates reset for EP '+n+' ✓');
+      render();
     });
   });
 
