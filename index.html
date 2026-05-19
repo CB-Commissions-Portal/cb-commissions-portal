@@ -357,7 +357,7 @@ function toDecimalMins(v){
   const n=parseFloat(str);
   return isNaN(n)?0:n;
 }
-function addDays(iso,d){const dt=new Date(iso+'T00:00:00');dt.setDate(dt.getDate()+d);return dt.toISOString().split('T')[0];}
+function addDays(iso,d){const p=iso.split('-');const dt=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]));dt.setUTCDate(dt.getUTCDate()+d);return dt.toISOString().split('T')[0];}
 
 function insertMinsDisplay(insertMins){
   // 34 minutes = 2040 seconds
@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.2.2';
+const BUILD_VERSION='2.2.4';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -949,11 +949,12 @@ async function addRow(){
 
 function getEpNums(){const s=new Set();comms.forEach(c=>{if(c.broadcastEpisode)s.add(Number(c.broadcastEpisode));});Object.keys(settings.epDates||{}).forEach(k=>s.add(Number(k)));return Array.from(s).sort((a,b)=>a-b);}
 function nextSunday(iso){
-  // Given an ISO date, return the next Sunday on or after it
-  const d=new Date(iso+'T00:00:00');
-  const day=d.getDay(); // 0=Sun
+  // Given an ISO date, return the next Sunday on or after it (UTC-safe)
+  const p=iso.split('-');
+  const d=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]));
+  const day=d.getUTCDay(); // 0=Sun
   if(day===0)return iso;
-  d.setDate(d.getDate()+(7-day));
+  d.setUTCDate(d.getUTCDate()+(7-day));
   return d.toISOString().split('T')[0];
 }
 function resolveDate(n){
@@ -1432,6 +1433,7 @@ ${currentRole==='editorial'?`<div class="info-box"><strong>Editorial view</stron
   </select>`:''}
   ${currentRole==='admin'?`<button class="btn" id="add-ep-btn2">+ Add Episode</button>`:''}
   <button class="btn" id="ep-expand-all-btn" style="font-size:11px">${expandedEps.size===epNums.length?'Collapse All':'Expand All'}</button>
+  ${currentRole==='admin'?`<button class="btn" id="fix-dates-btn" style="font-size:11px;border-color:#e3b341;color:#e3b341" title="Snap all episode dates to Sunday">🗓 Fix All Dates to Sunday</button>`:''}
   <span class="count-lbl" style="margin-left:0">${episodes.length} episodes</span>
 </div>
 ${episodes.map(({ep,date,stories})=>{
@@ -2893,6 +2895,29 @@ function bindApp(){
       inp.addEventListener('keydown',e=>{if(e.key==='Enter')inp.blur();if(e.key==='Escape'){editingDate=null;render();}});
     },50);
   }));
+  document.getElementById('fix-dates-btn')?.addEventListener('click',async()=>{
+    if(!confirm('This will snap ALL episode dates to their nearest Sunday. Continue?'))return;
+    const epNums=getEpNums();
+    let fixed=0;
+    epNums.forEach(n=>{
+      const current=settings.epDates?.[n];
+      if(current){
+        const snapped=nextSunday(current);
+        if(snapped!==current){
+          settings.epDates[n]=snapped;
+          fixed++;
+        }
+      }
+    });
+    if(fixed>0){
+      await saveSettings();
+      showToast(fixed+' date(s) fixed to Sunday ✓');
+      render();
+    } else {
+      showToast('All dates are already Sundays ✓');
+    }
+  });
+
   document.querySelectorAll('[data-eptype]').forEach(btn=>btn.addEventListener('click',()=>{const k=btn.dataset.eptype;settings.epTypes={...(settings.epTypes||{}),[k]:btn.dataset.val};saveSettings();render();}));
 
   // ep toggle handled globally below
