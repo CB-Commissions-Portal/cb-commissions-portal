@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.3.1';
+const BUILD_VERSION='2.3.2';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2519,11 +2519,17 @@ const PRESENTERS = [
 const PRES_CAL_START = '2026-05-25';
 const PRES_CAL_END   = '2027-03-31';
 
-const SA_HOLIDAYS = [
-  '2026-06-16','2026-06-17','2026-08-10','2026-09-24',
-  '2026-12-16','2026-12-25','2026-12-26',
-  '2027-01-01','2027-03-21'
-];
+const SA_HOLIDAYS = {
+  '2026-06-16':'Youth Day',
+  '2026-06-17':'Youth Day (observed)',
+  '2026-08-10':"National Women's Day",
+  '2026-09-24':'Heritage Day',
+  '2026-12-16':'Day of Reconciliation',
+  '2026-12-25':'Christmas Day',
+  '2026-12-26':'Day of Goodwill',
+  '2027-01-01':"New Year's Day",
+  '2027-03-21':'Human Rights Day',
+};
 
 function presCalDates(){
   const dates=[];
@@ -2543,7 +2549,10 @@ function presCalIsWeekend(dateStr){
 }
 
 function presCalIsHoliday(dateStr){
-  return SA_HOLIDAYS.includes(dateStr);
+  return dateStr in SA_HOLIDAYS;
+}
+function presCalHolidayName(dateStr){
+  return SA_HOLIDAYS[dateStr]||'';
 }
 
 function presCalDayName(dateStr){
@@ -2595,13 +2604,13 @@ function renderPresenterCalendar(){
         const storyName=comm?.storyName||cell.storyName||'';
         const producer=comm?.producer||cell.producer||'';
 
-        if(isSpecial&&!isNA&&!commNum){
-          return`<td style="padding:4px 6px;border-bottom:1px solid #21262d;border-left:1px solid #21262d;${rowBg};min-width:110px"></td>`;
-        }
+        // All days are assignable (weekends and holidays too)
 
         return`<td style="padding:3px 4px;border-bottom:1px solid #21262d;border-left:1px solid #21262d;vertical-align:top;${rowBg};min-width:110px">
           ${isNA
             ?`<div style="background:#2d0a0a;border-radius:3px;padding:2px 5px;font-size:9px;font-weight:700;color:#f85149;text-align:center">NOT AVAILABLE</div>`
+            :cell.studio
+            ?`<div style="background:#1a2d4a;border-radius:3px;padding:2px 5px;font-size:9px;font-weight:700;color:#7a3fbf;text-align:center">STUDIO</div>`
             :commNum
               ?`<div style="background:#1a2d4a;border-radius:3px;padding:2px 5px">
                   <div style="font-size:9px;font-weight:900;color:#58a6ff;font-family:monospace">${esc(commNum)}</div>
@@ -2609,13 +2618,11 @@ function renderPresenterCalendar(){
                   ${producer?`<div style="font-size:8px;color:#6e7681;margin-top:1px">${esc(producer)}</div>`:''}
                 </div>`
               :''}
-          ${canEd&&!isSpecial?`<select class="pres-cal-sel" data-date="${dateStr}" data-pres="${p.key}" style="width:100%;background:transparent;border:none;font-size:8px;color:#484f58;cursor:pointer;margin-top:${commNum||isNA?'2':'0'}px;padding:0">
+          ${canEd?`<select class="pres-cal-sel" data-date="${dateStr}" data-pres="${p.key}" style="width:100%;background:transparent;border:none;font-size:8px;color:#484f58;cursor:pointer;margin-top:${commNum||isNA||cell.studio?'2':'0'}px;padding:0">
             <option value="">— assign —</option>
             <option value="na" ${isNA?'selected':''}>Not Available</option>
+            <option value="studio" ${cell.studio?'selected':''}>Studio</option>
             ${comms.filter(c=>!c.decommissioned&&c.commNum).map(c=>`<option value="${esc(c.commNum)}" ${commNum===c.commNum?'selected':''}>${esc(c.commNum)} ${esc(c.storyName||'')} </option>`).join('')}
-          </select>`:canEd&&isSpecial?`<select class="pres-cal-sel" data-date="${dateStr}" data-pres="${p.key}" style="width:100%;background:transparent;border:none;font-size:8px;color:#484f58;cursor:pointer;padding:0">
-            <option value="">—</option>
-            <option value="na" ${isNA?'selected':''}>Not Available</option>
           </select>`:''}
         </td>`;
       }).join('');
@@ -2624,7 +2631,7 @@ function renderPresenterCalendar(){
         <td style="${dateThBase};${rowBg}">
           <span style="font-size:9px;font-weight:700;color:${dayCol}">${dayName}</span>
           <span style="font-size:10px;font-weight:800;color:${isHol?'#e3b341':isWE?'#484f58':'#eaf0ff'};margin-left:4px">${dateFmt}</span>
-          ${isHol?`<span style="font-size:7px;color:#e3b341;display:block">Public Holiday</span>`:''}
+          ${isHol?`<span style="font-size:7px;color:#e3b341;display:block">${presCalHolidayName(dateStr)}</span>`:''}
         </td>
         ${cells}
       </tr>`;
@@ -2652,6 +2659,7 @@ function renderPresenterCalendar(){
         <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#1a1a2d;display:inline-block;border-radius:2px"></span>Weekend</span>
         <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#2d1a00;display:inline-block;border-radius:2px"></span>Public Holiday</span>
         <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#2d0a0a;display:inline-block;border-radius:2px"></span>Not Available</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#1a2d4a;display:inline-block;border-radius:2px;border:1px solid #7a3fbf"></span>Studio</span>
       </div>
     </div>
     <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 140px)">
@@ -4372,6 +4380,8 @@ document.addEventListener('change',function presCalHandler(e){
     delete presCalData[dateStr][presKey];
   } else if(val==='na'){
     presCalData[dateStr][presKey]={notAvailable:true};
+  } else if(val==='studio'){
+    presCalData[dateStr][presKey]={studio:true};
   } else {
     const comm=comms.find(c=>c.commNum===val);
     presCalData[dateStr][presKey]={commNum:val,storyName:comm?.storyName||'',producer:comm?.producer||''};
