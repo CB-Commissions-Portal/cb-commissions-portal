@@ -239,7 +239,7 @@ td.needs-attention-cb{background:rgba(245,166,35,.08)!important}
 .toast{position:fixed;bottom:20px;right:20px;background:#1f4023;border:1px solid #2d6a2d;color:#3fb950;padding:10px 16px;border-radius:8px;font-size:12px;font-weight:600;z-index:200;animation:fup .25s ease}
 .toast.err{background:#3d1c1c;border-color:#6e3535;color:#f85149}
 @keyframes fup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@media print{
+@media print{.page-guide-label{display:none!important}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body{background:#fff!important;color:#111!important;font-size:11px;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif}
   .no-print{display:none!important}
@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.0.4';
+const BUILD_VERSION='2.0.6';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1583,9 +1583,15 @@ function renderEndCredits(epNums){
         <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('justifyCenter')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px" title="Centre">≡C</button>
         <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('justifyRight')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px" title="Align Right">≡R</button>
         <div style="width:1px;background:#2e3a50;margin:0 2px"></div>
-        <label style="font-size:11px;color:#7a8ba0;display:flex;align-items:center;gap:4px">Colour:
-          <input type="color" value="#000000" onmousedown="event.preventDefault();event.stopPropagation()" oninput="refocusEditor(${n});document.execCommand('foreColor',false,this.value)" onchange="refocusEditor(${n});document.execCommand('foreColor',false,this.value)" style="width:28px;height:24px;border:none;cursor:pointer;background:none;padding:0">
-        </label>
+        <span style="font-size:11px;color:#7a8ba0;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+          <span style="font-size:10px;color:#7a8ba0">Colour:</span>
+          ${['#000000','#1a3a6a','#cc0000','#006600','#cc6600','#666666','#ffffff'].map(c=>
+            `<button onmousedown="event.preventDefault();_savedCredSels['ep${n}']=saveCredSel()" onclick="applyCredColour('${c}','${n}')" style="width:20px;height:20px;background:${c};border:2px solid #555;border-radius:3px;cursor:pointer;padding:0" title="${c}"></button>`
+          ).join('')}
+          <label style="cursor:pointer;font-size:10px;color:#7a8ba0;display:flex;align-items:center;gap:2px" title="Custom colour">
+            Custom:<input type="color" value="#000000" onmousedown="event.preventDefault();_savedCredSels['ep${n}']=saveCredSel()" onchange="applyCredColour(this.value,'${n}')" style="width:22px;height:20px;border:none;cursor:pointer;padding:0;background:none">
+          </label>
+        </span>
         <label style="font-size:11px;color:#7a8ba0;display:flex;align-items:center;gap:4px">Size:
           <select onmousedown="event.preventDefault();event.stopPropagation()" onchange="refocusEditor(${n});document.execCommand('fontSize',false,this.value)" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:2px 4px;border-radius:4px;font-size:11px">
             <option value="2">Small</option>
@@ -1853,6 +1859,28 @@ function renderLeaveDeclineModal(){
 
 
 // Refocus credits editor before formatting — preserves selection
+// Save and restore selection for credits editor colour commands
+const _savedCredSels={};
+function saveCredSel(){
+  const sel=window.getSelection();
+  if(sel&&sel.rangeCount>0){
+    try{return sel.getRangeAt(0).cloneRange();}catch(e){}
+  }
+  return null;
+}
+function applyCredColour(colour,ep){
+  const ed=document.getElementById('credits-editor-'+ep);
+  if(!ed)return;
+  ed.focus();
+  // Restore saved selection
+  const saved=_savedCredSels['ep'+ep];
+  if(saved){
+    const sel=window.getSelection();
+    try{sel.removeAllRanges();sel.addRange(saved);}catch(e){}
+  }
+  document.execCommand('foreColor',false,colour);
+}
+
 let _lastCreditorSel=null;
 function refocusEditor(ep){
   const ed=document.getElementById('credits-editor-'+ep);
@@ -3396,20 +3424,25 @@ function bindApp(){
   // Add page guide labels to credits editors
   function addPageGuides(){
     document.querySelectorAll('[id^="credits-editor-"]').forEach(ed=>{
-      // Remove old guides
       ed.querySelectorAll('.page-guide-label').forEach(g=>g.remove());
-      // Add guide every 1042px
       const height=ed.scrollHeight;
-      const pageH=1042;
-      for(let p=1;p*pageH<height+pageH;p++){
+      // A4 page height at screen resolution (96dpi, 14mm margins)
+      // First page is shorter because the print header takes ~80px
+      const firstPageH=920;
+      const pageH=1010;
+      let positions=[];
+      positions.push(firstPageH);
+      let pos=firstPageH+pageH;
+      while(pos<height+pageH){positions.push(pos);pos+=pageH;}
+      positions.forEach((yPos,i)=>{
         const label=document.createElement('div');
         label.className='page-guide-label';
-        label.contentEditable='false';
-        label.style.cssText='position:absolute;left:0;right:0;top:'+(p*pageH)+'px;height:2px;background:#bed8f0;pointer-events:none;display:flex;align-items:center;padding:0 8px';
-        label.innerHTML='<span style="font-size:9px;color:#88aacc;background:#fff;padding:0 6px;font-family:Arial;font-weight:600;letter-spacing:.5px;user-select:none">— Page '+(p+1)+' —</span>';
+        label.setAttribute('contenteditable','false');
+        label.style.cssText='position:absolute;left:0;right:0;top:'+yPos+'px;height:2px;background:#bed8f0;pointer-events:none;display:flex;align-items:center;padding:0 8px;z-index:5';
+        label.innerHTML='<span style="font-size:9px;color:#6699bb;background:#fff;padding:0 6px;font-family:Arial;font-weight:600;letter-spacing:.5px;user-select:none;border:1px solid #bed8f0;border-radius:3px">— Page '+(i+2)+' —</span>';
         ed.style.position='relative';
         ed.appendChild(label);
-      }
+      });
     });
   }
   // Run after render and on scroll/input
@@ -3459,33 +3492,47 @@ function bindApp(){
       const date=fmtDate(resolveDate(Number(n)));
       const epStr=String(n).padStart(2,'0');
       const bodyContent=editor.innerHTML;
+      // Clean up bodyContent — convert legacy <font size> tags to pt sizes
+      const sizeMap={'1':'7pt','2':'9pt','3':'11pt','4':'13pt','5':'16pt','6':'20pt','7':'26pt'};
+      let printBody=bodyContent
+        .replace(/<font size="([1-7])">/gi,(_,s)=>'<span style="font-size:'+( sizeMap[s]||'11pt')+';">')
+        .replace(/<\/font>/gi,'</span>')
+        .replace(/class="page-guide-label"[^>]*>.*?<\/div>/gi,''); // strip page guides
+
       const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
         <title>Carte Blanche End Credits EP ${epStr}</title>
         <style>
-          @page{size:A4 portrait;margin:14mm 16mm}
-          *{box-sizing:border-box;margin:0;padding:0}
-          body{font-family:Arial,Helvetica,sans-serif;font-size:10pt;line-height:1.8;color:#000;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-          .header{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;margin-bottom:16px;border-bottom:2px solid #1a3a6a}
-          .header-logo{height:36px;width:auto}
+          @page{size:A4 portrait;margin:15mm 18mm}
+          *{box-sizing:border-box}
+          body{font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.8;color:#000;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+          .header{display:flex;align-items:center;justify-content:space-between;padding-bottom:8pt;margin-bottom:12pt;border-bottom:1.5pt solid #1a3a6a}
+          .header-logo{height:30pt;width:auto}
           .header-centre{text-align:center}
-          .header-title{font-size:13pt;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#1a3a6a}
-          .header-sub{font-size:8pt;color:#666;margin-top:3px;font-weight:600;text-transform:uppercase;letter-spacing:.6px}
-          .content{font-size:10pt;line-height:1.8}
-          .footer{margin-top:16px;padding-top:8px;border-top:1px solid #ccc;text-align:center;font-size:7pt;color:#999}
-          @media print{body{font-size:10pt}}
+          .header-title{font-size:14pt;font-weight:900;text-transform:uppercase;letter-spacing:1pt;color:#1a3a6a}
+          .header-sub{font-size:8pt;color:#555;margin-top:2pt;font-weight:600;text-transform:uppercase;letter-spacing:.5pt}
+          .content{font-size:11pt;line-height:1.8;word-wrap:break-word}
+          .content p{margin:0;padding:0}
+          .content br{line-height:1.8}
+          .footer{margin-top:12pt;padding-top:6pt;border-top:.5pt solid #ccc;text-align:center;font-size:7pt;color:#999}
+          /* Prevent page breaks inside paragraphs */
+          p,div{orphans:2;widows:2}
+          @media print{
+            body{font-size:11pt}
+            .header-logo{max-height:28pt}
+          }
         </style>
       </head><body>
       <div class="header">
         <img class="header-logo" src="https://cb-commissions-portal.github.io/cb-commissions-portal/cb_logo.png" onerror="this.style.display='none'">
         <div class="header-centre">
           <div class="header-title">Carte Blanche End Credits</div>
-          <div class="header-sub">Season ${currentSeason} &nbsp;·&nbsp; Episode ${epStr} &nbsp;·&nbsp; ${date}</div>
+          <div class="header-sub">Season ${currentSeason} &nbsp;&middot;&nbsp; Episode ${epStr} &nbsp;&middot;&nbsp; ${date}</div>
         </div>
-        <img class="header-logo" src="https://cb-commissions-portal.github.io/cb-commissions-portal/cap_logo.jpg" onerror="this.style.display='none'" style="height:30px">
+        <img class="header-logo" src="https://cb-commissions-portal.github.io/cb-commissions-portal/cap_logo.jpg" onerror="this.style.display='none'" style="height:24pt">
       </div>
-      <div class="content">${bodyContent}</div>
-      <div class="footer">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
-      <script>window.addEventListener('load',function(){window.print();});<\/script>
+      <div class="content">${printBody}</div>
+      <div class="footer">Electronic Media Network Proprietary Limited &copy;. All rights reserved.</div>
+      <scr'+'ipt>window.addEventListener('load',function(){setTimeout(function(){window.print();},500);})<\/scr'+'ipt>
       </body></html>`;
       const printWin=window.open('','_blank','width=900,height=700');
       if(!printWin){showToast('Allow pop-ups for this site then try again.',true);return;}
