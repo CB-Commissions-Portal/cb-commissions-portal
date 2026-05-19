@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.0.0';
+const BUILD_VERSION='2.0.1';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1601,7 +1601,7 @@ function renderEndCredits(epNums){
       <div id="credits-editor-${n}"
         contenteditable="${canEd?'true':'false'}"
         data-ep="${n}"
-        style="min-height:600px;padding:20px 24px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.8;color:#eaf0ff;background:#0d1117;outline:none;white-space:pre-wrap;overflow-y:auto"
+        style="min-height:600px;padding:20px 24px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.8;color:#ffffff;background:#0d1117;outline:none;white-space:pre-wrap;overflow-y:auto;caret-color:#ffffff"
         spellcheck="false">${html||""}</div>
       `:''}
     </div>`;
@@ -3369,28 +3369,49 @@ function bindApp(){
     });
   });
 
-  // Credits Print button
+  // Credits Print button — proper PDF via browser print
   document.querySelectorAll('[data-credits-print]').forEach(btn=>{
-    btn.addEventListener('click',e=>{
+    btn.addEventListener('click',async e=>{
       e.stopPropagation();
       const n=btn.dataset.creditsPrint;
       const editor=document.getElementById('credits-editor-'+n);
       if(!editor){showToast('Open the episode first',true);return;}
+      const date=fmtDate(resolveDate(Number(n)));
+      const epStr=String(n).padStart(2,'0');
+      const bodyContent=editor.innerHTML;
       const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
-        <title>Carte Blanche End Credits EP ${n}</title>
+        <title>Carte Blanche End Credits EP ${epStr}</title>
         <style>
-          @page{size:A4 portrait;margin:14mm}
-          body{font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.8;color:#000;background:#fff}
-          *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+          @page{size:A4 portrait;margin:14mm 16mm}
+          *{box-sizing:border-box;margin:0;padding:0}
+          body{font-family:Arial,Helvetica,sans-serif;font-size:10pt;line-height:1.8;color:#000;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+          .header{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;margin-bottom:16px;border-bottom:2px solid #1a3a6a}
+          .header-logo{height:36px;width:auto}
+          .header-centre{text-align:center}
+          .header-title{font-size:13pt;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#1a3a6a}
+          .header-sub{font-size:8pt;color:#666;margin-top:3px;font-weight:600;text-transform:uppercase;letter-spacing:.6px}
+          .content{font-size:10pt;line-height:1.8}
+          .footer{margin-top:16px;padding-top:8px;border-top:1px solid #ccc;text-align:center;font-size:7pt;color:#999}
+          @media print{body{font-size:10pt}}
         </style>
-      </head><body>${editor.innerHTML}</body></html>`;
-      const blob=new Blob([html],{type:'text/html'});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');
-      a.href=url;a.download='CB-End-Credits-S${currentSeason}-EP'+n+'.html';
-      document.body.appendChild(a);a.click();
-      setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},2000);
-      showToast('Downloaded — open the file then Cmd+P to print/PDF');
+      </head><body>
+      <div class="header">
+        <img class="header-logo" src="https://cb-commissions-portal.github.io/cb-commissions-portal/cb_logo.png" onerror="this.style.display='none'">
+        <div class="header-centre">
+          <div class="header-title">Carte Blanche End Credits</div>
+          <div class="header-sub">Season ${currentSeason} &nbsp;·&nbsp; Episode ${epStr} &nbsp;·&nbsp; ${date}</div>
+        </div>
+        <img class="header-logo" src="https://cb-commissions-portal.github.io/cb-commissions-portal/cap_logo.jpg" onerror="this.style.display='none'" style="height:30px">
+      </div>
+      <div class="content">${bodyContent}</div>
+      <div class="footer">Electronic Media Network Proprietary Limited ©. All rights reserved.</div>
+      <script>window.addEventListener('load',function(){window.print();});<\/script>
+      </body></html>`;
+      const printWin=window.open('','_blank','width=900,height=700');
+      if(!printWin){showToast('Allow pop-ups for this site then try again.',true);return;}
+      printWin.document.write(html);
+      printWin.document.close();
+      showToast('Print dialog opening — choose Save as PDF');
     });
   });
 
