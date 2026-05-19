@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.1.8';
+const BUILD_VERSION='2.1.9';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2890,6 +2890,24 @@ function bindApp(){
     },50);
   }));
   document.querySelectorAll('[data-eptype]').forEach(btn=>btn.addEventListener('click',()=>{const k=btn.dataset.eptype;settings.epTypes={...(settings.epTypes||{}),[k]:btn.dataset.val};saveSettings();render();}));
+
+  // Episode Register — collapse/expand (delegated listener)
+  document.addEventListener('click',function epToggleHandler(e){
+    if(e.target.id==='ep-expand-all-btn'||e.target.closest('#ep-expand-all-btn')){
+      const epNums=getEpNums();
+      if(expandedEps.size===epNums.length){expandedEps.clear();}
+      else{epNums.forEach(n=>expandedEps.add(String(n)));}
+      render();return;
+    }
+    const header=e.target.closest('[data-ep-toggle]');
+    if(!header)return;
+    if(e.target.closest('.type-toggle,.ep-date-btn,.ep-date-inp,.add-row-btn,button,select,input'))return;
+    const ep=String(header.dataset.epToggle);
+    if(expandedEps.has(ep))expandedEps.delete(ep);
+    else expandedEps.add(ep);
+    render();
+  },true); // useCapture=true to fire before stopPropagation
+
   document.getElementById('decom-cancel')?.addEventListener('click',()=>{decomModal=null;render();});
   document.getElementById('decom-overlay')?.addEventListener('click',e=>{if(e.target.id==='decom-overlay'){decomModal=null;render();}});
   document.getElementById('decom-confirm')?.addEventListener('click',()=>{const txt=document.getElementById('decom-text').value.trim();if(!txt){showToast('A motivation is required.',true);return;}updateComm(decomModal,'decommissioned',true);updateComm(decomModal,'decommissionMotivation',txt);decomModal=null;render();});
