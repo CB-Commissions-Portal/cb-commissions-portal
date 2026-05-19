@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.2.9';
+const BUILD_VERSION='2.3.0';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2454,7 +2454,7 @@ function renderMusicCues(epNums){
           </div>
         </div>
         <div style="display:flex;gap:8px;margin-left:16px">
-          ${canEdit2?`<button class="btn" data-mc-edit="${s.id}" style="font-size:11px">Edit</button>`:''}
+          ${canEdit2?`<button class="btn" data-mc-edit="${s.id}" style="font-size:11px">Edit</button><button class="btn danger" data-mc-delete="${s.id}" style="font-size:11px">Delete</button>`:''}
         </div>
       </div>
     </div>`;
