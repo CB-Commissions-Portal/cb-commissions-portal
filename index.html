@@ -239,7 +239,7 @@ td.needs-attention-cb{background:rgba(245,166,35,.08)!important}
 .toast{position:fixed;bottom:20px;right:20px;background:#1f4023;border:1px solid #2d6a2d;color:#3fb950;padding:10px 16px;border-radius:8px;font-size:12px;font-weight:600;z-index:200;animation:fup .25s ease}
 .toast.err{background:#3d1c1c;border-color:#6e3535;color:#f85149}
 @keyframes fup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@media print{.page-guide-label{display:none!important}
+@media print{
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body{background:#fff!important;color:#111!important;font-size:11px;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif}
   .no-print{display:none!important}
@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.0.8';
+const BUILD_VERSION='2.0.9';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3437,37 +3437,10 @@ function bindApp(){
   });
 
   // Add page guide labels to credits editors
-  function addPageGuides(){
-    document.querySelectorAll('[id^="credits-editor-"]').forEach(ed=>{
-      ed.querySelectorAll('.page-guide-label').forEach(g=>g.remove());
-      const height=ed.scrollHeight;
-      // A4 page height at screen resolution (96dpi, 14mm margins)
-      // First page is shorter because the print header takes ~80px
-      const firstPageH=920;
-      const pageH=1010;
-      let positions=[];
-      positions.push(firstPageH);
-      let pos=firstPageH+pageH;
-      while(pos<height+pageH){positions.push(pos);pos+=pageH;}
-      positions.forEach((yPos,i)=>{
-        const label=document.createElement('div');
-        label.className='page-guide-label';
-        label.setAttribute('contenteditable','false');
-        label.style.cssText='position:absolute;left:0;right:0;top:'+yPos+'px;height:2px;background:#bed8f0;pointer-events:none;display:flex;align-items:center;padding:0 8px;z-index:5';
-        label.innerHTML='<span style="font-size:9px;color:#6699bb;background:#fff;padding:0 6px;font-family:Arial;font-weight:600;letter-spacing:.5px;user-select:none;border:1px solid #bed8f0;border-radius:3px">— Page '+(i+2)+' —</span>';
-        ed.style.position='relative';
-        ed.appendChild(label);
-      });
-    });
-  }
-  // Run after render and on scroll/input
-  setTimeout(addPageGuides,300);
+
 
   // Credits Save button
-  // Rerun page guides when typing
-  document.querySelectorAll('[id^="credits-editor-"]').forEach(ed=>{
-    ed.addEventListener('input',()=>setTimeout(addPageGuides,100));
-  });
+
   document.querySelectorAll('[data-credits-save]').forEach(btn=>{
     btn.addEventListener('click',e=>{
       e.stopPropagation();
