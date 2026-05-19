@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.1.9';
+const BUILD_VERSION='2.2.0';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2891,22 +2891,7 @@ function bindApp(){
   }));
   document.querySelectorAll('[data-eptype]').forEach(btn=>btn.addEventListener('click',()=>{const k=btn.dataset.eptype;settings.epTypes={...(settings.epTypes||{}),[k]:btn.dataset.val};saveSettings();render();}));
 
-  // Episode Register — collapse/expand (delegated listener)
-  document.addEventListener('click',function epToggleHandler(e){
-    if(e.target.id==='ep-expand-all-btn'||e.target.closest('#ep-expand-all-btn')){
-      const epNums=getEpNums();
-      if(expandedEps.size===epNums.length){expandedEps.clear();}
-      else{epNums.forEach(n=>expandedEps.add(String(n)));}
-      render();return;
-    }
-    const header=e.target.closest('[data-ep-toggle]');
-    if(!header)return;
-    if(e.target.closest('.type-toggle,.ep-date-btn,.ep-date-inp,.add-row-btn,button,select,input'))return;
-    const ep=String(header.dataset.epToggle);
-    if(expandedEps.has(ep))expandedEps.delete(ep);
-    else expandedEps.add(ep);
-    render();
-  },true); // useCapture=true to fire before stopPropagation
+  // ep toggle handled globally below
 
   document.getElementById('decom-cancel')?.addEventListener('click',()=>{decomModal=null;render();});
   document.getElementById('decom-overlay')?.addEventListener('click',e=>{if(e.target.id==='decom-overlay'){decomModal=null;render();}});
@@ -3980,6 +3965,26 @@ const BAKED_CONFIG = {
   messagingSenderId: "679597020811",
   appId: "1:679597020811:web:f18e392a2482fd8c8ce68e"
 };
+
+// ── One-time global handlers (set up once, survive renders) ─────
+document.addEventListener('click',function epToggleHandler(e){
+  // Expand All button
+  if(e.target.closest('#ep-expand-all-btn')){
+    const epNums=getEpNums();
+    if(expandedEps.size===epNums.length){expandedEps.clear();}
+    else{epNums.forEach(n=>expandedEps.add(String(n)));}
+    render();return;
+  }
+  // Episode card header toggle
+  const header=e.target.closest('[data-ep-toggle]');
+  if(!header)return;
+  if(e.target.closest('.type-toggle,.ep-date-btn,.ep-date-inp,.add-row-btn,button,select,input,a'))return;
+  e.stopPropagation();
+  const ep=String(header.dataset.epToggle);
+  if(expandedEps.has(ep))expandedEps.delete(ep);
+  else expandedEps.add(ep);
+  render();
+});
 
 async function boot(){
   // Try stored config first, fall back to baked-in config
