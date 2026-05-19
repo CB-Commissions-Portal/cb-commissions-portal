@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.1.3';
+const BUILD_VERSION='2.1.4';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -413,6 +413,7 @@ let mcEditId=null;
 let mcDraft={afmName:'',commNum:'',storyName:'',producer:'',rows:[]};
 let mcEpFilter='all';
 let creditsExpandedEp=null;
+let expandedEps=new Set(); // Episode Register expanded episodes
 let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,tempDate='';
 let addUserModal=false,newUserData={email:'',password:'',displayName:'',role:'editorial'},editUserModal=null,deleteUserModal=null;
 let toast=null,toastTimer=null,pendingFocusId=null;
@@ -1415,13 +1416,14 @@ function renderEpisodes(epNums,paid,remaining){
   const episodes=epNums.map(n=>({ep:n,date:resolveDate(n),stories:comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned)}));
   return`<div class="ep-wrap">
 ${currentRole==='editorial'?`<div class="info-box"><strong>Editorial view</strong> — Contracted: <strong>${settings.contractedMinutes||438}</strong> · Paid: <strong>${paid.toFixed(1)}</strong> · Remaining: <strong>${remaining.toFixed(1)}</strong></div>`:''}
-<div style="display:flex;gap:8px;margin-bottom:12px" class="no-print">
+<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap" class="no-print">
   <button class="btn primary" id="export-pdf-btn">⬇ Export PDF</button>
   ${currentRole==='admin'?`<select id="ep-export-sel" class="f-sel" tabindex="-1" style="font-size:12px">
     <option value="all">All Episodes</option>
     ${epNums.map(n=>`<option value="${n}">Episode ${n} only</option>`).join('')}
   </select>`:''}
   ${currentRole==='admin'?`<button class="btn" id="add-ep-btn2">+ Add Episode</button>`:''}
+  <button class="btn" id="ep-expand-all-btn" style="font-size:11px">${expandedEps.size===epNums.length?'Collapse All':'Expand All'}</button>
   <span class="count-lbl" style="margin-left:0">${episodes.length} episodes</span>
 </div>
 ${episodes.map(({ep,date,stories})=>{
@@ -1433,8 +1435,9 @@ ${episodes.map(({ep,date,stories})=>{
   // Non-Insert = sum of deliveredDuration for inhouse stories
   const nonMins=stories.filter(s=>s.isInHouse).reduce((s,c)=>s+toDecimalMins(c.deliveredDuration||c.commDuration),0);
   const isEd=editingDate===ep;
-  return`<div class="ep-card">
-<div class="ep-head">
+  const isExpEp=expandedEps.has(String(ep));
+  return`<div class="ep-card" style="margin-bottom:8px">
+<div class="ep-head" style="cursor:pointer" data-ep-toggle="${ep}">
   <span class="ep-num">EP ${ep}</span>
   ${ep===1?`<span style="color:#8b949e;font-size:12px">${fmtDate('2026-04-05')} <span style="color:#6e7681;font-size:10px">(fixed)</span></span>`:isEd?`<input type="date" class="ep-date-inp" id="ep-date-inp" value="${tempDate}">`:
   `<span class="ep-date-btn" data-ep-date="${ep}">${fmtDate(date)}${currentRole==='admin'?' ✎':''}</span>`}
@@ -1445,13 +1448,14 @@ ${episodes.map(({ep,date,stories})=>{
     <span style="color:#7a8ba0">Insert Mins: ${insertMinsDisplay(insertMins)}</span>
     <span style="color:#7a8ba0">Non-Insert: <strong style="color:#d29922;font-family:'JetBrains Mono',monospace;font-size:13px">${fmtHMS(nonMins)}</strong></span>
   </span>
-  <div class="type-toggle no-print" style="margin-left:auto">
+  <div class="type-toggle no-print" style="margin-left:auto" onclick="event.stopPropagation()">
     <button class="type-btn normal${epType==='normal'?' on':''}" data-eptype="${k}" data-val="normal">Normal</button>
     <button class="type-btn extended${epType==='extended'?' on':''}" data-eptype="${k}" data-val="extended">Extended</button>
   </div>
   <span style="font-size:11px;font-weight:600;margin-left:4px;color:${epType==='extended'?'#d29922':'#3fb950'}">${epType==='extended'?'★ Extended':'Normal'}</span>
+  <span style="font-size:11px;color:#484f58;margin-left:8px" class="no-print">${isExpEp?'▲':'▼'}</span>
 </div>
-${stories.length>0?`<div class="ep-body"><table class="ep-tbl"><thead><tr>
+${isExpEp?`<div style="overflow:hidden">`+'':(``)}${isExpEp&&stories.length>0?`<div class="ep-body"><table class="ep-tbl"><thead><tr>
 <th style="width:44px;text-align:center">#</th>
 <th>Story Name</th>
 <th style="text-align:right">Comm #</th>
@@ -2768,17 +2772,17 @@ function bindApp(){
       *{box-sizing:border-box;margin:0;padding:0}
       body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;padding:16px;font-size:11px}
     </style></head><body>
-    <div style="border-bottom:3px solid #111;padding-bottom:14px;margin-bottom:20px">
-      <div style="font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">CB Production Portal — Broadcast Schedule</div>
-      <div style="display:flex;gap:24px;align-items:center">
-        <div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#666;margin-bottom:2px">Contracted Minutes</div><div style="font-size:26px;font-weight:900;font-family:monospace;color:#b8860b">${contracted}</div></div>
-        <div style="font-size:20px;color:#ccc">−</div>
-        <div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#666;margin-bottom:2px">Paid Minutes</div><div style="font-size:26px;font-weight:900;font-family:monospace;color:#111">${paid.toFixed(1)}</div></div>
-        <div style="font-size:20px;color:#ccc">=</div>
-        <div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#666;margin-bottom:2px">Remaining Minutes</div><div style="font-size:26px;font-weight:900;font-family:monospace;color:#0047ab">${remaining.toFixed(1)}</div></div>
-        <div style="margin-left:auto;text-align:right;font-size:10px;color:#666">Season ${currentSeason}<br>${printDate}${filterEp!=='all'?`<br><strong>Episode ${filterEp} only</strong>`:''}</div>
-      </div>
-    </div>
+    <table style="width:100%;margin-bottom:14px;padding-bottom:10px;border-bottom:3px solid #1a3a6a">
+      <tr valign="middle">
+        <td style="width:80px"><img src="${BAKED_CB_LOGO}" style="height:44px;width:auto"></td>
+        <td style="text-align:center;padding:0 16px">
+          <div style="font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#111">CARTE BLANCHE SEASON ${currentSeason} — BROADCAST SCHEDULE</div>
+          <div style="font-size:9px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase">Generated: ${printDate}${filterEp!=='all'?' · Episode '+filterEp+' only':''}</div>
+          <div style="font-size:9px;color:#555;margin-top:4px">Contracted: <strong>${contracted} min</strong> &nbsp;·&nbsp; Paid: <strong>${paid.toFixed(1)} min</strong> &nbsp;·&nbsp; Remaining: <strong>${remaining.toFixed(1)} min</strong></div>
+        </td>
+        <td style="width:80px;text-align:right"><img src="${BAKED_CAP_LOGO}" style="height:36px;width:auto;max-width:76px"></td>
+      </tr>
+    </table>
     ${epCards}
     </body></html>`;
 
