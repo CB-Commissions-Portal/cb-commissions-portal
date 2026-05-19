@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.2.6';
+const BUILD_VERSION='2.2.7';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2444,10 +2444,13 @@ function renderMusicCues(epNums){
             <div style="font-size:14px;font-weight:700;color:#eaf0ff">${esc(s.storyName||'Untitled')}</div>
             <div style="font-size:11px;color:#6e7681;margin-top:2px">${esc(s.producer||'—')} · ${s.rows?.length||0} cues · AFM: ${esc(s.afmName||'—')}</div>
           </div>
-          ${epNum!=='—'?`<div style="text-align:right">
-            <div style="font-size:11px;font-weight:700;color:#3fb950">EP ${String(epNum).padStart(2,'0')}</div>
-            <div style="font-size:10px;color:#6e7681">${date}</div>
-          </div>`:'<div style="font-size:10px;color:#484f58">Not yet assigned to episode</div>'}
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            ${epNum!=='—'?`<div style="text-align:right">
+              <div style="font-size:11px;font-weight:700;color:#3fb950">EP ${String(epNum).padStart(2,'0')}</div>
+              <div style="font-size:10px;color:#6e7681">${date}</div>
+            </div>`:'<div style="font-size:10px;color:#484f58">Not yet assigned to episode</div>'}
+            <span style="background:#1f4023;color:#3fb950;font-size:8px;font-weight:800;padding:2px 8px;border-radius:3px;letter-spacing:.5px;text-transform:uppercase;border:1px solid #2d6a2d">✓ Submitted${s.submittedAt?.seconds?` · ${new Date(s.submittedAt.seconds*1000).toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'})}`:''}</span>
+          </div>
         </div>
         <div style="display:flex;gap:8px;margin-left:16px">
           ${canEdit2?`<button class="btn" data-mc-edit="${s.id}" style="font-size:11px">Edit</button>`:''}
