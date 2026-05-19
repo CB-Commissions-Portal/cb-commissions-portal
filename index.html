@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.0.3';
+const BUILD_VERSION='2.0.4';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1584,10 +1584,10 @@ function renderEndCredits(epNums){
         <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('justifyRight')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px" title="Align Right">≡R</button>
         <div style="width:1px;background:#2e3a50;margin:0 2px"></div>
         <label style="font-size:11px;color:#7a8ba0;display:flex;align-items:center;gap:4px">Colour:
-          <input type="color" value="#000000" onmousedown="event.stopPropagation()" onchange="refocusEditor(${n});document.execCommand('foreColor',false,this.value)" style="width:28px;height:24px;border:none;cursor:pointer;background:none;padding:0">
+          <input type="color" value="#000000" onmousedown="event.preventDefault();event.stopPropagation()" oninput="refocusEditor(${n});document.execCommand('foreColor',false,this.value)" onchange="refocusEditor(${n});document.execCommand('foreColor',false,this.value)" style="width:28px;height:24px;border:none;cursor:pointer;background:none;padding:0">
         </label>
         <label style="font-size:11px;color:#7a8ba0;display:flex;align-items:center;gap:4px">Size:
-          <select onmousedown="event.stopPropagation()" onchange="refocusEditor(${n});document.execCommand('fontSize',false,this.value)" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:2px 4px;border-radius:4px;font-size:11px">
+          <select onmousedown="event.preventDefault();event.stopPropagation()" onchange="refocusEditor(${n});document.execCommand('fontSize',false,this.value)" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:2px 4px;border-radius:4px;font-size:11px">
             <option value="2">Small</option>
             <option value="3" selected>Normal</option>
             <option value="4">Large</option>
@@ -1602,7 +1602,7 @@ function renderEndCredits(epNums){
       <div id="credits-editor-${n}"
         contenteditable="${canEd?'true':'false'}"
         data-ep="${n}"
-        style="min-height:900px;padding:20px 24px;font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.8;color:#111111;background:repeating-linear-gradient(to bottom,#ffffff 0px,#ffffff 1041px,#d0e4ff 1041px,#d0e4ff 1043px,#ffffff 1043px);outline:none;overflow-y:auto;caret-color:#111111;flex:1"
+        style="min-height:900px;padding:20px 24px;font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.8;color:#111111;background:#ffffff;outline:none;overflow-y:auto;caret-color:#111111;flex:1;background-image:repeating-linear-gradient(transparent 0px,transparent 1040px,#bed8f0 1040px,#bed8f0 1042px,transparent 1042px);background-attachment:local"
         spellcheck="false">${html||""}</div>
       </div>
       `:''}
@@ -3393,7 +3393,33 @@ function bindApp(){
     });
   });
 
+  // Add page guide labels to credits editors
+  function addPageGuides(){
+    document.querySelectorAll('[id^="credits-editor-"]').forEach(ed=>{
+      // Remove old guides
+      ed.querySelectorAll('.page-guide-label').forEach(g=>g.remove());
+      // Add guide every 1042px
+      const height=ed.scrollHeight;
+      const pageH=1042;
+      for(let p=1;p*pageH<height+pageH;p++){
+        const label=document.createElement('div');
+        label.className='page-guide-label';
+        label.contentEditable='false';
+        label.style.cssText='position:absolute;left:0;right:0;top:'+(p*pageH)+'px;height:2px;background:#bed8f0;pointer-events:none;display:flex;align-items:center;padding:0 8px';
+        label.innerHTML='<span style="font-size:9px;color:#88aacc;background:#fff;padding:0 6px;font-family:Arial;font-weight:600;letter-spacing:.5px;user-select:none">— Page '+(p+1)+' —</span>';
+        ed.style.position='relative';
+        ed.appendChild(label);
+      }
+    });
+  }
+  // Run after render and on scroll/input
+  setTimeout(addPageGuides,300);
+
   // Credits Save button
+  // Rerun page guides when typing
+  document.querySelectorAll('[id^="credits-editor-"]').forEach(ed=>{
+    ed.addEventListener('input',()=>setTimeout(addPageGuides,100));
+  });
   document.querySelectorAll('[data-credits-save]').forEach(btn=>{
     btn.addEventListener('click',e=>{
       e.stopPropagation();
