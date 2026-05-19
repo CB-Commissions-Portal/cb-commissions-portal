@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.1.2';
+const BUILD_VERSION='2.1.3';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1390,9 +1390,9 @@ ${filtered.map(c=>{
 <td style="text-align:center"><input type="checkbox" class="cb${c.isLicensed?' g':''}" data-field="isLicensed" tabindex="-1" ${c.isLicensed?'checked':''} ${getEffectiveRole()!=='admin'?'disabled':''}></td>
 <td>${ci('producer')}</td>
 <td>${ci('presenterVO')}</td>
-<td style="${(c.isInHouse||c.isLicensed)?'opacity:.3;pointer-events:none':''}" title="${(c.isInHouse||c.isLicensed)?'Not applicable':''}">  ${ci('dop')}</td>
-<td style="${(c.isInHouse||c.isLicensed)?'opacity:.3;pointer-events:none':''}" title="${(c.isInHouse||c.isLicensed)?'Not applicable':''}">  ${ci('ca')}</td>
-<td style="${(c.isInHouse||c.isLicensed)?'opacity:.3;pointer-events:none':''}" title="${(c.isInHouse||c.isLicensed)?'Not applicable':''}">  ${ci('editor')}</td>
+<td style="${c.isInHouse?'background:#1a1a1a;pointer-events:none':c.isLicensed?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'N/A — In-House':c.isLicensed?'Not applicable':''}">${c.isInHouse?'<span style="color:#484f58;font-size:11px;font-style:italic">In-House</span>':ci('dop')}</td>
+<td style="${c.isInHouse?'background:#1a1a1a;pointer-events:none':c.isLicensed?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'N/A — In-House':c.isLicensed?'Not applicable':''}">${c.isInHouse?'<span style="color:#484f58;font-size:11px;font-style:italic">In-House</span>':ci('ca')}</td>
+<td style="${c.isInHouse?'background:#1a1a1a;pointer-events:none':c.isLicensed?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'N/A — In-House':c.isLicensed?'Not applicable':''}">${c.isInHouse?'<span style="color:#484f58;font-size:11px;font-style:italic">In-House</span>':ci('editor')}</td>
 <td style="${c.isLicensed?'opacity:.3;pointer-events:none':''}">${ci('afm')}</td>
 ${DEL_KEYS.map((k,ki)=>{
   const isIHGrey = (c.isInHouse || c.isLicensed) && k === 'callSheets';
