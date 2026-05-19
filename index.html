@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.0.9';
+const BUILD_VERSION='2.1.0';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -420,6 +420,40 @@ let toast=null,toastTimer=null,pendingFocusId=null;
 function initFB(cfg){try{fbApp=initializeApp(cfg);auth=getAuth(fbApp);db=getFirestore(fbApp);return true;}catch(e){console.error(e);return false;}}
 
 async function saveComm(c){setSyncDot('saving');try{await setDoc(doc(db,'commissions',String(c.id)),{...c,updatedAt:serverTimestamp()});setSyncDot('live');}catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}}
+
+const PROMO_TYPES=[
+  {key:'TSR1', label:'Teaser 1',       slug:'TSR1',  txType:'teaser'},
+  {key:'TSR2', label:'Teaser 2',       slug:'TSR2',  txType:'teaser'},
+  {key:'AFR1', label:'Aftershow 1',    slug:'AFR1',  txType:'after'},
+  {key:'AFR2', label:'Aftershow 2',    slug:'AFR2',  txType:'after'},
+  {key:'WKLY1',label:'Weekly 1',       slug:'WKLY1', txType:'weekly'},
+  {key:'WKLY2',label:'Weekly 2',       slug:'WKLY2', txType:'weekly'},
+  {key:'TON1', label:'Tonight 1',      slug:'TON1',  txType:'tonight'},
+  {key:'TON2', label:'Tonight 2',      slug:'TON2',  txType:'tonight'},
+  {key:'TON3', label:'Tonight 3',      slug:'TON3',  txType:'tonight'},
+  {key:'TON4', label:'Tonight 4',      slug:'TON4',  txType:'tonight'},
+  {key:'CATCH1',label:'Catchup 1',     slug:'CATCH1',txType:'catchup'},
+  {key:'CATCH2',label:'Catchup 2',     slug:'CATCH2',txType:'catchup'},
+];
+
+function buildSlug(season,epNum,slugSuffix){
+  return`PR_CB_YR${season}E${String(epNum).padStart(2,'0')}_${slugSuffix}_HD`;
+}
+
+function getPromoTXDates(epDateStr,txType){
+  const sun=new Date(epDateStr);
+  const fmt=d=>d.toLocaleDateString('en-ZA',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const addDays=(d,n)=>{const r=new Date(d);r.setDate(r.getDate()+n);return r;};
+  switch(txType){
+    case'teaser':  return{from:fmt(addDays(sun,-12)),to:fmt(addDays(sun,-1))};
+    case'after':   return{from:fmt(addDays(sun,1)), to:fmt(addDays(sun,6))};
+    case'weekly':  return{from:fmt(addDays(sun,-6)),to:fmt(addDays(sun,-1))};
+    case'tonight': return{from:fmt(sun),            to:fmt(sun)};
+    case'catchup': return{from:fmt(addDays(sun,1)), to:fmt(addDays(sun,13))};
+    default:       return{from:'',to:''};
+  }
+}
+
 const STUDIO_FIELDS=[['studioDirector','Studio Director'],['assistantDirector','Assistant Director'],['floorManager','Floor Manager'],['autocueOperator','Autocue Operator'],['vtOperator','VT Operator'],['visionController','Vision Controller'],['lightingDirector','Lighting Director'],['graphicsOperator','Graphics Operator'],['visionMixer','Vision Mixer'],['jibOperator','Jib Operator'],['cameraOp1','Camera Operator 1'],['cameraOp2','Camera Operator 2'],['soundEngineer','Sound Engineer'],['soundAssistant','Sound Assistant'],['makeupArtist','Make-Up Artist'],['studioStylist','Studio Stylist']];
 
 async function savePromoData(ep,data){
@@ -432,10 +466,7 @@ async function savePromoData(ep,data){
 }
 
 
-async function exportPromoPDF(epNum){
-  if(!window.html2pdf){
-    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
-  }
+function exportPromoPDF(epNum){
   const n=epNum;
   const epDate=resolveDate(Number(n));
   const epStr=String(n).padStart(2,'0');
@@ -467,7 +498,7 @@ async function exportPromoPDF(epNum){
   }).join('');
 
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;font-size:10px}@page{margin:10mm;size:A4 landscape}table{table-layout:fixed;width:100%;border-collapse:collapse}</style>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:10pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm;size:A4 landscape}table{table-layout:fixed;width:100%;border-collapse:collapse}</style>
   </head><body>
   <!-- HEADER -->
   <table style="margin-bottom:14px;border-bottom:3px solid #1a3a6a;padding-bottom:10px">
@@ -505,13 +536,17 @@ async function exportPromoPDF(epNum){
   <div style="margin-top:10px;text-align:center;font-size:7px;color:#aaa;border-top:1px solid #ddd;padding-top:6px">CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason} · Episode ${epStr}</div>
   </body></html>`;
 
-  html2pdf().set({
-    margin:[6,6,6,6],
-    filename:`CB-Promo-Schedule-S${currentSeason}-EP${epStr}.pdf`,
-    image:{type:'jpeg',quality:0.98},
-    html2canvas:{scale:2,useCORS:true,allowTaint:true},
-    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
-  }).from(html).save();
+  // Download as HTML — open in browser, Cmd+P → Save as PDF
+  // Text is fully selectable/copyable in the HTML file
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`CB-Promo-Schedule-S${currentSeason}-EP${epStr}.html`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},3000);
+  showToast('Downloaded — open file in browser, Cmd+P to save as PDF. Text is fully copyable.');
 }
 
 async function exportPromoXLSX(epNum){
@@ -3175,7 +3210,7 @@ function bindApp(){
     btn.addEventListener('click',async()=>{
       const n=btn.dataset.promoPdf;
       btn.innerHTML='⏳ Preparing…';btn.disabled=true;
-      await exportPromoPDF(n);
+      exportPromoPDF(n);
       btn.innerHTML='⬇ Export PDF';btn.disabled=false;
     });
   });
