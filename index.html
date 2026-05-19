@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.2.0';
+const BUILD_VERSION='2.2.1';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1702,8 +1702,9 @@ const LEAVE_TYPES=[
   {key:'annual',    label:'Annual Leave',              color:'#388bfd', deductsBalance:true},
   {key:'sick',      label:'Sick Leave',                color:'#f85149', deductsBalance:true},
   {key:'family',    label:'Family Responsibility Leave',color:'#e3b341', deductsBalance:true},
-  {key:'editorial', label:'Editorial Leave',           color:'#3fb950', deductsBalance:false},
-  {key:'other',     label:'Other',                     color:'#8b949e', deductsBalance:false},
+  {key:'editorial', label:'Editorial Leave',            color:'#3fb950', deductsBalance:true},
+  {key:'study',     label:'Study Leave',                color:'#c084fc', deductsBalance:true},
+  {key:'other',     label:'Other',                      color:'#8b949e', deductsBalance:false},
 ];
 
 function hasLeaveAccess(role,extraRoles){
