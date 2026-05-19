@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.2.7';
+const BUILD_VERSION='2.2.9';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2398,23 +2398,24 @@ function renderMusicCues(epNums){
             <table style="width:100%;border-collapse:collapse;min-width:1100px">
               <thead><tr>
                 <th style="${thS}">#</th>
-                <th style="${thS}">Track Title *</th>
-                <th style="${thS}">Composer *</th>
-                <th style="${thS}">Publisher</th>
-                <th style="${thS}">CMO</th>
-                <th style="${thS}">Label</th>
-                <th style="${thS}">Artist/Performer</th>
-                <th style="${thS}">Album Title</th>
-                <th style="${thS}">Track #</th>
+                <th style="${thS}"><span style="color:#f85149">*</span> Track Title</th>
+                <th style="${thS}"><span style="color:#f85149">*</span> Composer</th>
+                <th style="${thS}"><span style="color:#f85149">*</span> Publisher</th>
+                <th style="${thS}"><span style="color:#f85149">*</span> CMO</th>
+                <th style="${thS}"><span style="color:#f85149">*</span> Label</th>
+                <th style="${thS}"><span style="color:#f85149">*</span> Artist/Performer</th>
+                <th style="${thS}"><span style="color:#f85149">*</span> Album Title</th>
+                <th style="${thS}"><span style="color:#f85149">*</span> Track #</th>
                 <th style="${thS}">Usage *</th>
-                <th style="${thS}">Music Type</th>
-                <th style="${thS}">Duration</th>
+                <th style="${thS}"><span style="color:#f85149">*</span> Music Type</th>
+                <th style="${thS}"><span style="color:#f85149">*</span> Duration</th>
                 <th style="${thS}"></th>
               </tr></thead>
               <tbody id="mc-rows-body">${rowsHTML}</tbody>
             </table>
           </div>
           ${!draft.rows.length?`<div style="text-align:center;padding:24px;color:#484f58;font-size:12px">No cues yet. Click "+ Add Cue" to start.</div>`:''}
+          <div style="padding:8px 0;font-size:10px;color:#6e7681"><span style="color:#f85149">*</span> All fields are required before submitting.</div>
         </div>
       </div>
     </div>`;
@@ -3712,8 +3713,34 @@ function bindApp(){
     const commNum=document.getElementById('mc-comm-num')?.value.trim()||mcDraft.commNum;
     const storyName=document.getElementById('mc-story-name')?.value.trim()||mcDraft.storyName;
     const producer=document.getElementById('mc-producer')?.value.trim()||mcDraft.producer;
-    if(!afmName||!commNum){showToast('AFM Operator and Commission Number required.',true);return;}
+    if(!afmName){showToast('AFM Operator name is required.',true);return;}
+    if(!commNum){showToast('Commission Number is required.',true);return;}
     if(!mcDraft.rows.length){showToast('Add at least one cue before submitting.',true);return;}
+    // Validate each row — all fields required
+    const errors=[];
+    mcDraft.rows.forEach((r,i)=>{
+      const missing=[];
+      if(!r.trackTitle?.trim())missing.push('Track Title');
+      if(!r.composer?.trim())missing.push('Composer');
+      if(!r.publisher?.trim())missing.push('Publisher');
+      if(!r.cmo?.trim())missing.push('CMO');
+      if(!r.label?.trim())missing.push('Label');
+      if(!r.artist?.trim())missing.push('Artist/Performer');
+      if(!r.albumTitle?.trim())missing.push('Album Title');
+      if(!r.trackNumber?.trim())missing.push('Track Number');
+      if(!r.usage?.trim())missing.push('Usage');
+      if(!r.musicType?.trim())missing.push('Music Type');
+      if(!r.duration?.trim())missing.push('Duration');
+      if(missing.length)errors.push(`Cue ${i+1}: ${missing.join(', ')} required`);
+    });
+    if(errors.length){
+      showToast(errors[0]+(errors.length>1?` (+ ${errors.length-1} more)`:''),true);
+      // Highlight the first invalid row
+      const firstErr=mcDraft.rows.findIndex((r,i)=>errors.some(e=>e.startsWith('Cue '+(i+1))));
+      const rowEl=document.querySelectorAll('#mc-rows-body tr')[firstErr];
+      if(rowEl)rowEl.scrollIntoView({behavior:'smooth',block:'center'});
+      return;
+    }
     const id=mcEditId||(commNum+'_'+Date.now());
     await saveMusicCue(id,{afmName,afmUid:currentUser?.uid||'',commNum,storyName,producer,rows:mcDraft.rows,submittedAt:{seconds:Math.floor(Date.now()/1000)}});
     showToast('Cue sheet saved!');mcTab='dashboard';mcEditId=null;render();
