@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.1.4';
+const BUILD_VERSION='2.1.5';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3033,8 +3033,57 @@ function bindApp(){
 
   // Promo collapse toggle
   document.querySelectorAll('[data-promo-toggle]').forEach(el=>{
-    el.addEventListener('click',()=>{const n=el.dataset.promoToggle;promoExpandedEp=promoExpandedEp===n?null:n;render();});
+    el.addEventListener('click',async()=>{
+      const n=el.dataset.promoToggle;
+      promoExpandedEp=promoExpandedEp===n?null:n;
+      // Auto-save TX dates the first time an episode is opened
+      // so they're locked in and don't recalculate
+      if(promoExpandedEp===n){
+        const epDate=resolveDate(Number(n));
+        const pd=promoData[String(n)]||{};
+        let changed=false;
+        if(!promoData[String(n)])promoData[String(n)]={};
+        PROMO_TYPES.forEach(pt=>{
+          const txD=getPromoTXDates(epDate,pt.txType);
+          if(!pd['txFrom_'+pt.key]){
+            promoData[String(n)]['txFrom_'+pt.key]=txD.from;
+            changed=true;
+          }
+          if(!pd['txTo_'+pt.key]){
+            promoData[String(n)]['txTo_'+pt.key]=txD.to;
+            changed=true;
+          }
+        });
+        if(changed)await savePromoData(String(n),promoData[String(n)]);
+      }
+      render();
+    });
   });
+  // Auto-lock TX dates for all episodes on load
+  async function lockAllTXDates(){
+    const epNums=getEpNums();
+    for(const n of epNums){
+      const epDate=resolveDate(Number(n));
+      const pd=promoData[String(n)]||{};
+      let changed=false;
+      if(!promoData[String(n)])promoData[String(n)]={};
+      PROMO_TYPES.forEach(pt=>{
+        const txD=getPromoTXDates(epDate,pt.txType);
+        if(!pd['txFrom_'+pt.key]){
+          promoData[String(n)]['txFrom_'+pt.key]=txD.from;
+          changed=true;
+        }
+        if(!pd['txTo_'+pt.key]){
+          promoData[String(n)]['txTo_'+pt.key]=txD.to;
+          changed=true;
+        }
+      });
+      if(changed)await savePromoData(String(n),promoData[String(n)]);
+    }
+  }
+  // Run on tab switch to promos
+  if(tab==='promos')lockAllTXDates();
+
   document.getElementById('pool-view-btn')?.addEventListener('click',()=>{uidPoolView=uidPoolView==='pool'?'assign':'pool';selectedPoolUIDs=[];render();});
   document.getElementById('clear-pool-btn')?.addEventListener('click',()=>{if(confirm('Clear all UIDs from the pool?')){uidPool=[];saveUIDPool();render();}});
   document.getElementById('clear-sel-btn')?.addEventListener('click',()=>{selectedPoolUIDs=[];render();});
