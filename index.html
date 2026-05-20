@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.3.5';
+const BUILD_VERSION='2.3.6';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2584,7 +2584,7 @@ function renderPresenterCalendar(){
     months[m].push(d);
   });
 
-  const thBase='padding:8px 6px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#eaf0ff;background:#1a2035;text-align:center;white-space:nowrap;position:sticky;top:0;z-index:5;border-bottom:2px solid #2e3a50;min-width:110px';
+  const thBase='padding:8px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#eaf0ff;background:#1a2035;text-align:center;white-space:nowrap;position:sticky;top:0;z-index:5;border-bottom:2px solid #2e3a50;min-width:150px';
   const dateThBase='padding:6px 4px;font-size:10px;font-weight:700;text-align:left;white-space:nowrap;position:sticky;left:0;z-index:4;border-bottom:1px solid #21262d;min-width:90px;background:#161b22';
 
   const monthEntries=Object.entries(months);
@@ -2614,7 +2614,7 @@ function renderPresenterCalendar(){
 
         // All days are assignable (weekends and holidays too)
 
-        return`<td style="padding:3px 4px;border-bottom:1px solid #21262d;border-left:1px solid #21262d;vertical-align:top;${rowBg};min-width:110px">
+        return`<td style="padding:5px 6px;border-bottom:1px solid #21262d;border-left:1px solid #21262d;vertical-align:top;${rowBg};min-width:150px;min-height:42px">
           ${isNA
             ?`<div style="background:#2d0a0a;border-radius:3px;padding:2px 5px;font-size:9px;font-weight:700;color:#f85149;text-align:center">NOT AVAILABLE</div>`
             :cell.studio
@@ -2628,13 +2628,14 @@ function renderPresenterCalendar(){
                   ${producer?`<div style="font-size:8px;color:#6e7681;margin-top:1px">${esc(producer)}</div>`:''}
                 </div>`
               :''}
-          ${canEd?`<select class="pres-cal-sel" data-date="${dateStr}" data-pres="${p.key}" style="width:100%;background:transparent;border:none;font-size:8px;color:#484f58;cursor:pointer;margin-top:${commNum||isNA||cell.studio?'2':'0'}px;padding:0">
+          ${canEd?`<select class="pres-cal-sel" data-date="${dateStr}" data-pres="${p.key}" style="width:100%;background:transparent;border:none;font-size:8px;color:#484f58;cursor:pointer;padding:0;display:${isNA||cell.studio||cell.custom||commNum?'none':'block'}">
             <option value="">— assign —</option>
-            <option value="na" ${isNA?'selected':''}>Not Available</option>
-            <option value="studio" ${cell.studio?'selected':''}>Studio</option>
-            <option value="custom" ${cell.custom?'selected':''}>Custom note…</option>
-            ${comms.filter(c=>!c.decommissioned&&c.commNum).map(c=>`<option value="${esc(c.commNum)}" ${commNum===c.commNum?'selected':''}>${esc(c.commNum)} ${esc(c.storyName||'')} </option>`).join('')}
-          </select>`:''}
+            <option value="na">Not Available</option>
+            <option value="studio">Studio</option>
+            <option value="custom">Custom note…</option>
+            ${comms.filter(c=>!c.decommissioned&&c.commNum).map(c=>`<option value="${esc(c.commNum)}">${esc(c.commNum)} ${esc(c.storyName||'')} </option>`).join('')}
+          </select>
+          ${isNA||cell.studio||cell.custom||commNum?`<button class="pres-cal-clear" data-date="${dateStr}" data-pres="${p.key}" style="width:100%;background:transparent;border:none;font-size:7px;color:#484f58;cursor:pointer;padding:1px 0;text-align:left;display:block" title="Clear">✕ clear</button>`:''}`:''}
         </td>`;
       }).join('');
 
@@ -4391,6 +4392,24 @@ document.addEventListener('click',function presCalNavHandler(e){
   if(e.target.id==='prescal-next'){const months=Object.keys(presCalDates().reduce((a,d)=>{a[presCalMonth(d)]=1;return a},{}));presCalViewMonth=Math.min(months.length-1,presCalViewMonth+1);render();}
 });
 
+// Presenter calendar clear button (delegated)
+document.addEventListener('click',function presCalClearHandler(e){
+  const btn=e.target.closest('.pres-cal-clear');
+  if(!btn)return;
+  e.stopPropagation();
+  const dateStr=btn.dataset.date;
+  const presKey=btn.dataset.pres;
+  if(!presCalData[dateStr])presCalData[dateStr]={};
+  delete presCalData[dateStr][presKey];
+  savePresCalDay(dateStr,presCalData[dateStr]);
+  // Show the select again, remove badge and clear button
+  const td=btn.parentElement;
+  td.querySelectorAll('[data-pres-badge]').forEach(el=>el.remove());
+  btn.remove();
+  const sel=td.querySelector('.pres-cal-sel');
+  if(sel){sel.style.display='block';sel.value='';}
+});
+
 // Presenter calendar dropdown (delegated)
 document.addEventListener('change',function presCalHandler(e){
   const sel=e.target.closest('.pres-cal-sel');
@@ -4454,6 +4473,19 @@ function updatePresCalCell(dateStr,presKey,cell){
       (cell.storyName?`<div style="font-size:8px;color:#9aaabe;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:95px">${cell.storyName}</div>`:'')+
       (cell.producer?`<div style="font-size:8px;color:#6e7681;margin-top:1px">${cell.producer}</div>`:'');
     td.insertBefore(badge,sel);
+  }
+  // If something assigned — hide select, show clear button
+  const hasContent=cell.notAvailable||cell.studio||cell.custom||cell.commNum;
+  sel.style.display=hasContent?'none':'block';
+  if(hasContent){
+    const clrBtn=document.createElement('button');
+    clrBtn.className='pres-cal-clear';
+    clrBtn.dataset.date=dateStr;
+    clrBtn.dataset.pres=presKey;
+    clrBtn.style.cssText='width:100%;background:transparent;border:none;font-size:7px;color:#484f58;cursor:pointer;padding:1px 0;text-align:left;display:block';
+    clrBtn.title='Clear';
+    clrBtn.textContent='✕ clear';
+    td.appendChild(clrBtn);
   }
 }
 
