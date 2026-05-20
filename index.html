@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.8.6';
+const BUILD_VERSION='2.8.7';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2179,11 +2179,11 @@ function renderPostProd(){
   // Row 1: fixed col headers + day name headers (colspan 2 each)
   let h1='<tr>';
   h1+=`<th style="${thFix};min-width:46px;position:sticky;left:0;z-index:12;background:#161b22">Comm #</th>`;
-  h1+=`<th style="${thFix};min-width:150ch;position:sticky;left:52px;z-index:12;background:#161b22">Story</th>`;
-  h1+=`<th style="${thFix};min-width:100ch">Producer</th>`;
-  h1+=`<th style="${thFix};min-width:50ch">Editor</th>`;
-  h1+=`<th style="${thFix};min-width:150ch">DOP</th>`;
-  h1+=`<th style="${thFix};min-width:50ch">AFM</th>`;
+  h1+=`<th style="${thFix};min-width:60ch;position:sticky;left:52px;z-index:12;background:#161b22">Story</th>`;
+  h1+=`<th style="${thFix};min-width:45ch">Producer</th>`;
+  h1+=`<th style="${thFix};min-width:25ch">Editor</th>`;
+  h1+=`<th style="${thFix};min-width:60ch">DOP</th>`;
+  h1+=`<th style="${thFix};min-width:25ch">AFM</th>`;
   h1+=`<th style="${thFix};min-width:150px">Del. Date</th>`;
   h1+=`<th style="${thFix};min-width:100px">TX Date</th>`;
   days.forEach((d,i)=>{
@@ -2198,8 +2198,8 @@ function renderPostProd(){
   // Fixed col spacers — must match sticky positions
   const fixedSpacers=[
     'min-width:46px;position:sticky;left:0;z-index:12;background:#0d1117',
-    'min-width:150ch;position:sticky;left:52px;z-index:12;background:#0d1117',
-    'min-width:100ch','min-width:50ch','min-width:150ch','min-width:50ch','min-width:150ch','min-width:100px'
+    'min-width:60ch;position:sticky;left:52px;z-index:12;background:#0d1117',
+    'min-width:45ch','min-width:25ch','min-width:60ch','min-width:25ch','min-width:180px','min-width:100px'
   ];
   fixedSpacers.forEach(s=>h2+=`<th style="${thSlot};background:#0d1117;${s}"></th>`);
   days.forEach((d,i)=>{
@@ -2225,11 +2225,11 @@ function renderPostProd(){
     rowsHtml+=`<tr style="background:${rowBg}">`;
     // Fixed cols
     rowsHtml+=`<td style="${tdFix};position:sticky;left:0;z-index:2;background:${rowBg};font-weight:900;color:#58a6ff;font-family:monospace;font-size:11px">${esc(String(c.commNum))}${badge}</td>`;
-    rowsHtml+=`<td style="${tdFix};position:sticky;left:52px;z-index:2;background:${rowBg};color:#eaf0ff;font-weight:600;min-width:150ch;max-width:150ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.storyName)}">${esc(c.storyName)}</td>`;
-    rowsHtml+=`<td style="${tdFix};color:#8b949e;min-width:100ch;max-width:100ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.producer||'')}">${esc(c.producer||'')}</td>`;
-    rowsHtml+=`<td style="${tdFix};color:#c084fc;min-width:50ch;max-width:50ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.editor||'')}">${esc(c.editor||'')}</td>`;
-    rowsHtml+=`<td style="${tdFix};color:#79c0ff;min-width:150ch;max-width:150ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.dop||'')}">${esc(c.dop||'')}</td>`;
-    rowsHtml+=`<td style="${tdFix};color:#f7768e;min-width:50ch;max-width:50ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.afm||'')}">${esc(c.afm||'')}</td>`;
+    rowsHtml+=`<td style="${tdFix};position:sticky;left:52px;z-index:2;background:${rowBg};color:#eaf0ff;font-weight:600;min-width:60ch;max-width:60ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.storyName)}">${esc(c.storyName)}</td>`;
+    rowsHtml+=`<td style="${tdFix};color:#8b949e;min-width:45ch;max-width:45ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.producer||'')}">${esc(c.producer||'')}</td>`;
+    rowsHtml+=`<td style="${tdFix};color:#c084fc;min-width:25ch;max-width:25ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.editor||'')}">${esc(c.editor||'')}</td>`;
+    rowsHtml+=`<td style="${tdFix};color:#79c0ff;min-width:60ch;max-width:60ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.dop||'')}">${esc(c.dop||'')}</td>`;
+    rowsHtml+=`<td style="${tdFix};color:#f7768e;min-width:25ch;max-width:25ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.afm||'')}">${esc(c.afm||'')}</td>`;
     // Delivery date
     rowsHtml+=`<td style="${tdFix}">`;
     if(canEdit){
