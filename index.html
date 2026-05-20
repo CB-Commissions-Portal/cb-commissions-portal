@@ -2315,7 +2315,7 @@ function renderPostProd(){
       const wknd=isWeekend[i];
       slots(i).forEach(sk=>{
         const val=cellVal(c.commNum,sk);
-        const slotStyle=val?cellBg(val):(slotBg(sk)||'');
+        const slotStyle=val?cellBg(val):'';
         const parts=slotStyle.split(';');
         const bg=parts[0]?.replace('background:','').trim()||'';
         const fg=parts[1]?.replace('color:','').trim()||'#ffffff';
