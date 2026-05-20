@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.9.4';
+const BUILD_VERSION='2.9.6';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -427,6 +427,7 @@ let ppSortField='commNum';
 let ppSortDir='asc';
 let ppAddModal=false; // show the add commission modal // {commNum: {deliveryDate:'', cells:{dateStr_slot: text}}}
 let ppWeekOffset=0; // weeks offset from season start (2026-01-19 = first Mon)
+let _ppWeekAutoSet=false;
 const PP_SEASON_START='2026-01-19'; // first Monday of season // episode numbers that are collapsed in the lineup view
 let presCalLoaded=false;
 let presCalViewMonth=0; // index into months array — auto-set to current month on first open
@@ -2149,6 +2150,17 @@ const DELIVERABLE_TASKS = [
 function renderPostProd(){
   const canEdit=['admin','operations'].includes(getEffectiveRole());
 
+  // Auto-jump to current week on first open
+  if(!_ppWeekAutoSet){
+    _ppWeekAutoSet=true;
+    const today=new Date().toISOString().split('T')[0];
+    const p=PP_SEASON_START.split('-');
+    const start=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]));
+    const todayD=new Date(today+'T00:00:00Z');
+    const diffDays=Math.floor((todayD-start)/(1000*60*60*24));
+    ppWeekOffset=Math.max(0,Math.floor(diffDays/7));
+  }
+
   function weekStart(offset){
     const p=PP_SEASON_START.split('-');
     const d=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]));
@@ -2257,7 +2269,7 @@ function renderPostProd(){
     'min-width:46px;position:sticky;left:0;z-index:12;background:#0d1117',
     'min-width:40ch;position:sticky;left:52px;z-index:12;background:#0d1117',
     'min-width:45ch','min-width:25ch','min-width:60ch','min-width:25ch','min-width:180px','min-width:100px','min-width:110px',
-    'min-width:20ch;background:#002933','min-width:20ch;background:#3a1d00'
+    'min-width:20ch','min-width:20ch'
   ];
   fixedSpacers.forEach(s=>h2+=`<th style="${thSlot};background:#0d1117;${s}"></th>`);
   days.forEach((d,i)=>{
@@ -3362,6 +3374,7 @@ function bindApp(){
   function switchTab(newTab){
     if(tab===newTab)return;
     if(tab==='prescal')_presCalMonthAutoSet=false; // re-auto-jump next time calendar opens
+    if(tab==='postprod')_ppWeekAutoSet=false; // re-auto-jump next time postprod opens
     // Save scroll position of current tab
     const curWrap=document.querySelector('.ep-wrap');
     if(curWrap)_tabScroll[tab]=curWrap.scrollTop;
@@ -5484,6 +5497,20 @@ function getCommGlobal(cn){return comms.find(c=>String(c.commNum)===String(cn))|
 function durForCommGlobal(c){if(!c)return'';return c.deliveredDuration||c.commDuration||'';}
 
 
+// Post prod cell colour helper (global for live updates)
+function ppCellStyle(val){
+  if(!val)return'';
+  const v=val.toLowerCase();
+  if(v.includes('view 1')||v==='view 1')return'background:#003d82;color:#ffffff';
+  if(v.includes('view 2')||v==='view 2')return'background:#005c1a;color:#ffffff';
+  if(v.includes('view'))return'background:#0057b8;color:#ffffff';
+  if(v.includes('shoot'))return'background:#006622;color:#ffffff';
+  if(v.includes('edit'))return'background:#4a0080;color:#ffffff';
+  if(v.includes('mix'))return'background:#804000;color:#ffffff';
+  if(v.includes('vo'))return'background:#005566;color:#ffffff';
+  if(v.includes('amf')||v.includes('afm'))return'background:#8b0000;color:#ffffff';
+  return'background:#1c2433;color:#cdd9e5';
+}
 // ── POST PRODUCTION SCHEDULE handlers ──────────────────────────────
 // ── Add commission modal ──
 document.addEventListener('click',function ppAddHandler(e){
