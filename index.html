@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.6.7';
+const BUILD_VERSION='2.6.8';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2842,9 +2842,9 @@ function renderLineups(epNums){
   function getLineup(ep){
     const saved=lineups[String(ep)];
     if(saved)return saved;
-    // Auto-populate from Commission List for episodes with no saved lineup
-    const epComms=activeComms
-      .filter(c=>String(c.broadcastEpisode)===String(ep)&&c.commNum&&c.storyName)
+    // Auto-populate from ALL comms (including paid/past) assigned to this episode
+    const epComms=comms
+      .filter(c=>!c.decommissioned&&String(c.broadcastEpisode)===String(ep)&&c.commNum&&c.storyName)
       .sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
     const items=epComms.map(c=>({commNum:String(c.commNum),liveStudio:false}));
     return {director:'',presenter1:'',presenter2:'',items};
@@ -2862,10 +2862,10 @@ function renderLineups(epNums){
     return t;
   }
 
-  // Auto-collapse past episodes that the user hasn't manually expanded
+  // Collapse ALL episodes by default on first open
   if(!window._luAutoCollapsedOnce){
     window._luAutoCollapsedOnce=true;
-    eps.forEach(ep=>{if(epIsPast(ep)&&!luCollapsed.has(String(ep)))luCollapsed.add(String(ep));});
+    eps.forEach(ep=>{luCollapsed.add(String(ep));});
   }
   const sidebarInserts=insertsInProd.filter(c=>c.storyName).sort((a,b)=>Number(a.commNum||0)-Number(b.commNum||0));
 
@@ -2913,17 +2913,17 @@ function renderLineups(epNums){
     const usedComms=items.filter(i=>!i.liveStudio).map(i=>String(i.commNum));
     const availableComms=activeComms.filter(c=>c.commNum&&c.storyName&&!usedComms.includes(String(c.commNum))).sort((a,b)=>Number(a.commNum)-Number(b.commNum));
 
-    epsHtml+=`<div data-lu-ep-block="${ep}" style="${past?'background:#1a0a0a;border-color:#3d1f1f':'background:#0d1117;border-color:#21262d'};border:1px solid;border-radius:8px;margin-bottom:16px;overflow:hidden">
+    epsHtml+=`<div data-lu-ep-block="${ep}" data-lu-past="${past?1:0}" style="${past?'background:#1a0a0a;border-color:#3d1f1f':'background:#0d1117;border-color:#21262d'};border:1px solid;border-radius:8px;margin-bottom:16px;overflow:hidden">
       <div class="lu-ep-header" data-lu-ep="${ep}" style="${past?'background:#2d0f0f':'background:#161b22'};padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;cursor:pointer;user-select:none" title="${collapsed?'Click to expand':'Click to collapse'}">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <span style="font-size:13px;color:${epAccent};margin-right:2px">${collapsed?'▶':'▼'}</span>
+          <span class="lu-chevron" style="font-size:13px;color:${epAccent};margin-right:2px">${collapsed?'▶':'▼'}</span>
           <span style="font-size:14px;font-weight:900;color:${epAccent};font-family:monospace">2026 | ${epLabel}</span>
           ${past?`<span style="background:#3d0000;color:#f85149;font-size:9px;font-weight:800;padding:2px 7px;border-radius:3px;border:1px solid #6b1111;letter-spacing:.5px">BROADCAST</span>`:''}
           ${epDate?`<span style="font-size:11px;color:#6e7681">${fmtDate(epDate)}</span>`:''}
         </div>
         <span style="font-size:12px;font-weight:800;color:${tot>0?(past?'#f85149':'#3fb950'):'#484f58'};font-family:monospace">Total: ${decToMmSs(tot)}</span>
       </div>
-      ${collapsed?'':`<div style="padding:10px 16px;border-bottom:1px solid ${past?'#3d1f1f':'#21262d'};display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      ${collapsed?'':`<div class="lu-ep-body"><div style="padding:10px 16px;border-bottom:1px solid ${past?'#3d1f1f':'#21262d'};display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
         ${['director','presenter1','presenter2'].map(field=>`<div>
           <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:4px">${field==='director'?'Director':field==='presenter1'?'Presenter 1':'Presenter 2'}</div>
           ${canEdit
@@ -2940,7 +2940,7 @@ function renderLineups(epNums){
           </select>
           <button class="lu-add-live" data-ep="${ep}" style="background:#1c2433;border:1px solid #e3b341;color:#e3b341;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;font-weight:700;white-space:nowrap">+ Live Studio</button>
         </div>`:''}
-      </div>`}
+      </div></div>`}
     </div>`;
   });
 
@@ -5061,6 +5061,16 @@ document.addEventListener('input',function luInputHandler(e){
     return;
   }
 });
+function luFlushFields(){
+  // Capture all currently visible director/presenter input values into lineups state
+  document.querySelectorAll('.lu-director,.lu-pres1,.lu-pres2').forEach(inp=>{
+    const ep=inp.dataset.ep;
+    if(!ep)return;
+    if(!lineups[ep])lineups[ep]={director:'',presenter1:'',presenter2:'',items:[]};
+    const field=inp.classList.contains('lu-director')?'director':inp.classList.contains('lu-pres1')?'presenter1':'presenter2';
+    lineups[ep][field]=inp.value;
+  });
+}
 document.addEventListener('change',function luChangeHandler(e){
   if(e.target.classList.contains('lu-add-comm')){
     const ep=e.target.dataset.ep;
@@ -5070,18 +5080,59 @@ document.addEventListener('change',function luChangeHandler(e){
     if(!lineups[ep].items)lineups[ep].items=[];
     lineups[ep].items.push({commNum:String(cn),liveStudio:false});
     saveLineup(ep,lineups[ep]);
-    render();
+    luFlushFields();render();
   }
 });
 document.addEventListener('click',function luHeaderToggle(e){
   const hdr=e.target.closest('.lu-ep-header');
   if(!hdr)return;
-  // Don't toggle if clicking a button/input inside the header
   if(e.target.closest('button,input,select'))return;
   const ep=String(hdr.dataset.luEp);
-  if(luCollapsed.has(ep))luCollapsed.delete(ep);
-  else luCollapsed.add(ep);
-  render();
+
+  // Flush any pending saves for director/presenter before toggling
+  ['director','presenter1','presenter2'].forEach(f=>{
+    clearTimeout(window['_luSave_'+ep]);
+  });
+  if(lineups[ep])saveLineup(ep,lineups[ep]);
+
+  if(luCollapsed.has(ep)){
+    luCollapsed.delete(ep);
+  } else {
+    // Before collapsing, capture current input values into lineups state
+    const block=document.querySelector(`[data-lu-ep-block="${ep}"]`);
+    if(block){
+      ['director','presenter1','presenter2'].forEach(f=>{
+        const inp=block.querySelector(`.lu-${f}`);
+        if(inp&&lineups[ep])lineups[ep][f]=inp.value;
+      });
+      if(lineups[ep])saveLineup(ep,lineups[ep]);
+    }
+    luCollapsed.add(ep);
+  }
+
+  // ── Targeted DOM swap — no scroll jump ──
+  const block=document.querySelector(`[data-lu-ep-block="${ep}"]`);
+  if(!block){render();return;}
+
+  const isNowCollapsed=luCollapsed.has(ep);
+  const role=getEffectiveRole();
+  const canEdit=['admin','operations','production','prodmgmt','editorial'].includes(role);
+  const past=block.querySelector('.lu-ep-header')?.style.background?.includes('2d0f0f')||
+              block.dataset.luPast==='1';
+
+  // Update chevron
+  const chevron=block.querySelector('.lu-chevron');
+  if(chevron)chevron.textContent=isNowCollapsed?'▶':'▼';
+
+  // Update title attribute
+  const hdrEl=block.querySelector('.lu-ep-header');
+  if(hdrEl)hdrEl.title=isNowCollapsed?'Click to expand':'Click to collapse';
+
+  // Toggle body visibility
+  const body=block.querySelector('.lu-ep-body');
+  if(body){
+    body.style.display=isNowCollapsed?'none':'block';
+  }
 });
 document.addEventListener('click',function luClickHandler(e){
   if(e.target.classList.contains('lu-add-live')||e.target.closest('.lu-add-live')){
@@ -5090,14 +5141,14 @@ document.addEventListener('click',function luClickHandler(e){
     if(!lineups[ep])lineups[ep]={director:'',presenter1:'',presenter2:'',items:[]};
     if(!lineups[ep].items)lineups[ep].items=[];
     lineups[ep].items.push({liveStudio:true,liveDuration:''});
-    saveLineup(ep,lineups[ep]);render();return;
+    saveLineup(ep,lineups[ep]);luFlushFields();render();return;
   }
   if(e.target.classList.contains('lu-remove-item')||e.target.closest('.lu-remove-item')){
     const btn=e.target.classList.contains('lu-remove-item')?e.target:e.target.closest('.lu-remove-item');
     const ep=btn.dataset.ep;const idx=Number(btn.dataset.idx);
     if(!ep||!lineups[ep]||!lineups[ep].items)return;
     lineups[ep].items.splice(idx,1);
-    saveLineup(ep,lineups[ep]);render();return;
+    saveLineup(ep,lineups[ep]);luFlushFields();render();return;
   }
 });
 // Helper for global handler (can't call inner renderLineups functions from outside)
