@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.4.4';
+const BUILD_VERSION='2.5.1';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1323,22 +1323,28 @@ function renderApp(){
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
     `:''}
   </div>
-  <div class="content">
-    ${tab==='home'?renderHome():''}
-    ${tab==='commissions'&&getEffectiveRole()!=='editorial'?renderCommList(epNums,nextEp):''}
-    ${tab==='episodes'&&getEffectiveRole()!=='afm'?renderEpisodes(epNums,paid,remaining):''}
-    ${tab==='studio'?renderStudioCrew(epNums):''}
-    ${tab==='credits'?renderEndCredits(epNums):''}
-    ${tab==='promos'&&['admin','operations','prodmgmt'].includes(getEffectiveRole())?renderPromoScheduling(epNums):''}
-    ${tab==='musiccues'?renderMusicCues(epNums):''}
-    ${tab==='prescal'&&['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?renderPresenterCalendar():''}
-    ${tab==='leave'&&userHasLeaveAccess()?renderLeave():''}
-    ${tab==='deliverables'&&currentRole==='admin'&&!previewRole?renderDeliverables(epNums):''}
-    ${tab==='admin'&&currentRole==='admin'&&!previewRole?renderAdmin():''}
+  <div class="content" id="tab-content">
+    ${renderContent(epNums,nextEp,paid,remaining)}
   </div>
 </div>
 ${renderModals(epNums,nextEp)}
 <div id="toast-el" class="toast" style="display:none"></div>`;}
+
+function renderContent(epNums,nextEp,paid,remaining){
+  const role=getEffectiveRole();
+  if(tab==='home')return renderHome();
+  if(tab==='commissions'&&role!=='editorial')return renderCommList(epNums,nextEp);
+  if(tab==='episodes'&&role!=='afm')return renderEpisodes(epNums,paid,remaining);
+  if(tab==='studio')return renderStudioCrew(epNums);
+  if(tab==='credits')return renderEndCredits(epNums);
+  if(tab==='promos'&&['admin','operations','prodmgmt'].includes(role))return renderPromoScheduling(epNums);
+  if(tab==='musiccues')return renderMusicCues(epNums);
+  if(tab==='prescal'&&['admin','operations','production','prodmgmt','editorial'].includes(role))return renderPresenterCalendar();
+  if(tab==='leave'&&userHasLeaveAccess())return renderLeave();
+  if(tab==='deliverables'&&currentRole==='admin'&&!previewRole)return renderDeliverables(epNums);
+  if(tab==='admin'&&currentRole==='admin'&&!previewRole)return renderAdmin();
+  return '';
+}
 
 function renderCommList(epNums,nextEp){
   const filtered=getFiltered();
@@ -2335,7 +2341,7 @@ function renderMusicImportModal(){
             <input id="mc-import-afm" value="${esc(currentUser?.displayName||currentUser?.email||'')}" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 10px;border-radius:5px;font-size:13px">
           </div>
         </div>
-        ${(()=>{
+        <div id="mc-import-comm-preview">${(()=>{
           const pc=mcImportCommNum?comms.find(c=>c.commNum===mcImportCommNum.trim()):null;
           if(!mcImportCommNum)return'<div style="font-size:11px;color:#484f58;font-style:italic;margin-bottom:14px">Enter a commission number above to preview story details.</div>';
           if(pc){return`<div style="background:#1a2d1a;border:1px solid #2d6a2d;border-radius:7px;padding:14px;margin-bottom:14px">
@@ -2351,7 +2357,7 @@ function renderMusicImportModal(){
             <div style="font-size:11px;color:#8b949e">Story name and producer can be entered manually after import.</div>
             ${mcImportCommConfirmed?'<div style="margin-top:8px;font-size:11px;color:#d29922;font-weight:700">✓ Confirmed — will proceed without auto-fill</div>':`<button class="btn" id="mc-import-comm-confirm-btn" style="font-size:12px;margin-top:8px;border-color:#d29922;color:#d29922">Proceed Without Auto-fill</button>`}
           </div>`;
-        })()}
+        })()}</div>
         <div style="background:#1a2035;border-radius:6px;padding:10px 12px;margin-bottom:14px;max-height:150px;overflow-y:auto">
           <div style="font-size:10px;font-weight:700;color:#7a8ba0;margin-bottom:6px">Preview (first 3 rows):</div>
           ${mcImportData.slice(0,3).map((row,i)=>`<div style="font-size:10px;color:#6e7681;padding:3px 0;border-bottom:1px solid #21262d">${Object.entries(mcImportMapping).filter(([,v])=>v).map(([f,h])=>`<span style="color:#eaf0ff">${f}:</span> ${esc(String(row[h]||''))}`).join(' · ')}</div>`).join('')}
@@ -2428,28 +2434,28 @@ function renderMusicCues(epNums){
         </div>
       </div>`;
     }
-    const inpS='background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:5px 7px;border-radius:4px;font-size:12px;width:100%;word-break:break-word;white-space:normal;min-width:80px';
-    const thS='padding:8px 6px;font-size:8px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left;min-width:100px';
+    const inpS='background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:5px 7px;border-radius:4px;font-size:12px;white-space:nowrap;box-sizing:border-box';
+    const thS='padding:8px 8px;font-size:8px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left';
     const tdS='padding:4px;vertical-align:top';
 
     const rowsHTML=draft.rows.map((r,i)=>`<tr>
-      <td style="padding:4px;vertical-align:middle;text-align:center;font-weight:700;color:#7a8ba0;font-size:12px;width:36px">${i+1}</td>
-      <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="trackTitle" value="${esc(r.trackTitle)}" placeholder="Track Title" style="${inpS}"></td>
-      <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="composer" value="${esc(r.composer)}" placeholder="Composer" style="${inpS}"></td>
-      <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="publisher" value="${esc(r.publisher)}" placeholder="Publisher" style="${inpS}"></td>
-      <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="cmo" value="${esc(r.cmo)}" placeholder="CMO" style="${inpS}"></td>
-      <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="label" value="${esc(r.label||'Unknown')}" placeholder="Unknown" style="${inpS}"></td>
-      <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="artist" value="${esc(r.artist||r.composer)}" placeholder="Artist/Performer" style="${inpS}"></td>
-      <td style="padding:4px"><input class="mc-row-inp" data-row="${i}" data-field="albumTitle" value="${esc(r.albumTitle||'N/A')}" placeholder="N/A" style="${inpS}"></td>
-      <td style="padding:4px;width:55px"><input class="mc-row-inp" data-row="${i}" data-field="trackNumber" value="${esc(r.trackNumber||'0')}" placeholder="0" style="${inpS}"></td>
-      <td style="padding:4px;width:130px"><select class="mc-row-inp" data-row="${i}" data-field="usage" style="${inpS}">
+      <td style="padding:4px 6px;vertical-align:middle;text-align:center;font-weight:700;color:#7a8ba0;font-size:12px;white-space:nowrap;width:1%">${i+1}</td>
+      <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="trackTitle" value="${esc(r.trackTitle)}" placeholder="Track title" style="${inpS};min-width:160px"></td>
+      <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="composer" value="${esc(r.composer)}" placeholder="Composer" style="${inpS};min-width:130px"></td>
+      <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="publisher" value="${esc(r.publisher)}" placeholder="Publisher" style="${inpS};min-width:130px"></td>
+      <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="cmo" value="${esc(r.cmo)}" placeholder="CMO" style="${inpS};min-width:80px"></td>
+      <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="label" value="${esc(r.label||'Unknown')}" placeholder="Unknown" style="${inpS};min-width:100px"></td>
+      <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="artist" value="${esc(r.artist||r.composer)}" placeholder="Artist/Performer" style="${inpS};min-width:140px"></td>
+      <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="albumTitle" value="${esc(r.albumTitle||'N/A')}" placeholder="N/A" style="${inpS};min-width:120px"></td>
+      <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="trackNumber" value="${esc(r.trackNumber||'0')}" placeholder="0" style="${inpS};min-width:55px;text-align:center"></td>
+      <td style="padding:4px;white-space:nowrap"><select class="mc-row-inp" data-row="${i}" data-field="usage" style="${inpS};min-width:210px">
         <option value="">— Select —</option>
         <option value="Background Instrumental (BI)" ${r.usage==='Background Instrumental (BI)'?'selected':''}>Background Instrumental (BI)</option>
         <option value="Background Vocal (BV)" ${r.usage==='Background Vocal (BV)'?'selected':''}>Background Vocal (BV)</option>
       </select></td>
-      <td style="padding:4px;width:90px"><input value="PRODUCTION" disabled style="${inpS};color:#7a8ba0;cursor:not-allowed"></td>
-      <td style="padding:4px;width:110px"><input class="mc-row-inp" data-row="${i}" data-field="duration" value="${esc(r.duration)}" placeholder="00:00:00:00" style="${inpS};font-family:monospace"></td>
-      <td style="padding:4px;width:36px;text-align:center"><button class="btn danger mc-del-row" data-row="${i}" style="padding:3px 7px;font-size:11px">✕</button></td>
+      <td style="padding:4px;white-space:nowrap"><input value="PRODUCTION" disabled style="${inpS};min-width:90px;color:#7a8ba0;cursor:not-allowed"></td>
+      <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="duration" value="${esc(r.duration)}" placeholder="00:00:00:00" style="${inpS};min-width:110px;font-family:monospace"></td>
+      <td style="padding:4px;white-space:nowrap;width:1%"><button class="btn danger mc-del-row" data-row="${i}" style="padding:3px 7px;font-size:11px">✕</button></td>
     </tr>`).join('');
 
     return`<div class="ep-wrap" style="overflow-x:auto">
@@ -2492,7 +2498,7 @@ function renderMusicCues(epNums){
             <button class="btn primary" id="mc-add-row-btn" style="font-size:12px">+ Add Cue</button>
           </div>
           <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;min-width:1100px">
+            <table style="border-collapse:collapse;table-layout:auto;white-space:nowrap">
               <thead><tr>
                 <th style="${thS}">#</th>
                 <th style="${thS}"><span style="color:#f85149">*</span> Track Title</th>
@@ -2860,6 +2866,30 @@ function renderModals(epNums,nextEp){
 }
 
 function bindApp(){
+  // ── Fast tab switching: only swap content, not the whole app ──
+  const _tabScroll={};
+  function switchTab(newTab){
+    if(tab===newTab)return;
+    // Save scroll position of current tab
+    const curWrap=document.querySelector('.ep-wrap');
+    if(curWrap)_tabScroll[tab]=curWrap.scrollTop;
+    tab=newTab;
+    // Update active class on tab buttons instantly
+    document.querySelectorAll('[data-tab]').forEach(el=>{
+      el.classList.toggle('active', el.dataset.tab===tab);
+    });
+    // Only re-render the content area
+    const contentEl=document.getElementById('tab-content');
+    if(contentEl){
+      const paid=getPaidMins(),contracted=settings.contractedMinutes||438,remaining=contracted-paid;
+      const epNums=getEpNums(),maxEp=epNums.length?Math.max(...epNums):0,nextEp=maxEp+1;
+      contentEl.innerHTML=renderContent(epNums,nextEp,paid,remaining);
+    }
+    bindApp();
+    // Restore scroll position for this tab
+    const newWrap=document.querySelector('.ep-wrap');
+    if(newWrap&&_tabScroll[tab])newWrap.scrollTop=_tabScroll[tab];
+  }
   document.getElementById('logout-btn')?.addEventListener('click',()=>signOut(auth));
   document.getElementById('preview-role-sel')?.addEventListener('change',e=>{
     previewRole=e.target.value||null;
@@ -2892,9 +2922,9 @@ function bindApp(){
     if(!el)return;
     // Ignore if it's inside an ep-order button
     if(e.target.closest('.ep-order-up,.ep-order-dn'))return;
-    tab=el.dataset.tab;render();
+    switchTab(el.dataset.tab);
   });
-  document.querySelectorAll('[data-home-tab]').forEach(el=>el.addEventListener('click',()=>{tab=el.dataset.homeTab;render();}));
+  document.querySelectorAll('[data-home-tab]').forEach(el=>el.addEventListener('click',()=>{switchTab(el.dataset.homeTab);}));
   document.getElementById('contracted-input')?.addEventListener('change',e=>{settings.contractedMinutes=Number(e.target.value);saveSettings();render();});
   document.querySelectorAll('[data-sort]').forEach(th=>th.addEventListener('click',()=>{const f=th.dataset.sort;if(sortField===f)sortDir=sortDir==='asc'?'desc':'asc';else{sortField=f;sortDir='asc';}render();}));
   document.getElementById('search-inp')?.addEventListener('input',e=>{
@@ -3857,11 +3887,25 @@ function bindApp(){
   });
   document.getElementById('mc-back-btn')?.addEventListener('click',()=>{mcTab='dashboard';mcCommConfirmed=false;render();});
   document.getElementById('mc-comm-num-confirm')?.addEventListener('input',e=>{
-    mcDraft.commNum=e.target.value.trim();
-    const c=comms.find(c=>c.commNum===mcDraft.commNum);
-    if(c){mcDraft.storyName=c.storyName||'';mcDraft.producer=c.producer||'';}
-    else{mcDraft.storyName='';mcDraft.producer='';}
-    render();
+    mcDraft.commNum=e.target.value;
+    clearTimeout(window._mcCommDebounce);
+    window._mcCommDebounce=setTimeout(()=>{
+      const val=mcDraft.commNum.trim();
+      const c=comms.find(c=>c.commNum===val);
+      if(c){mcDraft.storyName=c.storyName||'';mcDraft.producer=c.producer||'';}
+      else{mcDraft.storyName='';mcDraft.producer='';}
+      // Only re-render the content area, preserving focus
+      const contentEl=document.getElementById('tab-content');
+      if(contentEl){
+        const paid=getPaidMins(),contracted=settings.contractedMinutes||438,remaining=contracted-paid;
+        const epNums=getEpNums(),maxEp=epNums.length?Math.max(...epNums):0,nextEp=maxEp+1;
+        contentEl.innerHTML=renderContent(epNums,nextEp,paid,remaining);
+        bindApp();
+        // Re-focus and restore cursor
+        const inp=document.getElementById('mc-comm-num-confirm');
+        if(inp){const l=inp.value.length;inp.focus();inp.setSelectionRange(l,l);}
+      }
+    },350);
   });
   document.getElementById('mc-comm-confirm-btn')?.addEventListener('click',()=>{
     const c=comms.find(c=>c.commNum===mcDraft.commNum.trim());
@@ -3912,9 +3956,45 @@ function bindApp(){
   document.getElementById('mc-import-overlay')?.addEventListener('click',e=>{if(e.target.id==='mc-import-overlay'){mcImportModal=false;render();}});
   document.getElementById('mc-import-reset')?.addEventListener('click',()=>{mcImportData=[];mcImportHeaders=[];mcImportMapping={};mcImportCommNum='';mcImportCommConfirmed=false;render();});
   document.getElementById('mc-import-comm')?.addEventListener('input',e=>{
-    mcImportCommNum=e.target.value.trim();
+    mcImportCommNum=e.target.value;
     mcImportCommConfirmed=false;
-    render();
+    clearTimeout(window._mcImportCommDebounce);
+    window._mcImportCommDebounce=setTimeout(()=>{
+      // Re-render just the import modal preview section without losing focus
+      const overlay=document.getElementById('mc-import-overlay');
+      if(overlay){
+        const val=mcImportCommNum.trim();
+        const pc=val?comms.find(c=>c.commNum===val):null;
+        const previewEl=document.getElementById('mc-import-comm-preview');
+        if(previewEl){
+          if(!val){
+            previewEl.innerHTML='<div style="font-size:11px;color:#484f58;font-style:italic;margin-bottom:14px">Enter a commission number above to preview story details.</div>';
+          } else if(pc){
+            previewEl.innerHTML=`<div style="background:#1a2d1a;border:1px solid #2d6a2d;border-radius:7px;padding:14px;margin-bottom:14px">
+              <div style="font-size:9px;font-weight:700;color:#3fb950;text-transform:uppercase;margin-bottom:8px">✓ Commission found</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                <div><div style="font-size:9px;color:#7a8ba0;text-transform:uppercase;margin-bottom:2px">Story Name</div><div style="font-size:13px;font-weight:700;color:#eaf0ff">${esc(pc.storyName||'—')}</div></div>
+                <div><div style="font-size:9px;color:#7a8ba0;text-transform:uppercase;margin-bottom:2px">Producer</div><div style="font-size:13px;font-weight:700;color:#eaf0ff">${esc(pc.producer||'—')}</div></div>
+              </div>
+              <button class="btn primary" id="mc-import-comm-confirm-btn" style="font-size:12px">✓ Confirm Details</button>
+            </div>`;
+          } else {
+            previewEl.innerHTML=`<div style="background:#2d1a00;border:1px solid #5a3e00;border-radius:7px;padding:12px;margin-bottom:14px">
+              <div style="font-size:11px;font-weight:700;color:#d29922;margin-bottom:3px">⚠ Commission not found in Commission List</div>
+              <div style="font-size:11px;color:#8b949e">Story name and producer can be entered manually after import.</div>
+              <button class="btn" id="mc-import-comm-confirm-btn" style="font-size:12px;margin-top:8px;border-color:#d29922;color:#d29922">Proceed Without Auto-fill</button>
+            </div>`;
+          }
+          // Re-bind the confirm button
+          document.getElementById('mc-import-comm-confirm-btn')?.addEventListener('click',()=>{
+            mcImportCommConfirmed=true;
+            const confirmBtn=document.getElementById('mc-import-confirm');
+            if(confirmBtn){confirmBtn.disabled=false;confirmBtn.style.opacity='1';confirmBtn.style.cursor='pointer';}
+            if(previewEl){const lastEl=previewEl.querySelector('button');if(lastEl)lastEl.outerHTML='<div style="font-size:11px;color:#3fb950;font-weight:700;margin-top:8px">✓ Confirmed</div>';}
+          });
+        }
+      }
+    },350);
   });
   document.getElementById('mc-import-comm-confirm-btn')?.addEventListener('click',()=>{
     mcImportCommConfirmed=true;
