@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.6.4';
+const BUILD_VERSION='2.6.7';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -419,10 +419,11 @@ let mcDraft={afmName:'',commNum:'',storyName:'',producer:'',rows:[]};
 let mcEpFilter='all';
 let mcImportModal=false;
 let presCalData={}; // {dateStr: {presenterKey: {commNum,storyName,producer,notAvailable}}}
-let lineups={}; // {epNum: {director:'', presenter1:'', presenter2:'', items:[{commNum,liveStudio,liveDuration}], savedAt}}
+let lineups={}; // {epNum: {director:'', presenter1:'', presenter2:'', items:[{commNum,liveStudio,liveDuration,liveNote}], savedAt}}
 let luCollapsed=new Set(); // episode numbers that are collapsed in the lineup view
 let presCalLoaded=false;
-let presCalViewMonth=0; // 0=May2026, index into months array
+let presCalViewMonth=0; // index into months array — auto-set to current month on first open
+let _presCalMonthAutoSet=false;
 let mcImportData=[];
 let mcImportMapping={};
 let mcImportHeaders=[];
@@ -1109,6 +1110,16 @@ function renderHome(){
       bg:'rgba(56,139,253,.1)',
       show: !['editorial','afm'].includes(role),
       desc:'Manage commissions, durations and deliverables'
+    },
+    {
+      tab:'lineups',
+      title:'Line-Ups',
+      sub:`Season ${season}`,
+      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.5"/><circle cx="3" cy="12" r="1.5"/><circle cx="3" cy="18" r="1.5"/></svg>`,
+      color:'#e3b341',
+      bg:'rgba(227,179,65,.1)',
+      show: ['admin','operations','production','prodmgmt','editorial'].includes(role),
+      desc:'Episode line-ups, directors and presenter assignments'
     },
     {
       tab:'episodes',
@@ -2670,6 +2681,17 @@ function presCalMonth(dateStr){
 
 function renderPresenterCalendar(){
   const canEd=['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole());
+  // Auto-jump to current month on first open
+  if(!_presCalMonthAutoSet){
+    _presCalMonthAutoSet=true;
+    const todayYM=new Date().toISOString().substring(0,7); // 'YYYY-MM'
+    const allMonths=Object.keys(presCalDates().reduce((a,d)=>{a[presCalMonth(d)]=1;return a},{}));
+    const idx=allMonths.findIndex(m=>{
+      const sample=presCalDates().find(dd=>presCalMonth(dd)===m);
+      return sample&&sample.substring(0,7)===todayYM;
+    });
+    if(idx>=0)presCalViewMonth=idx;
+  }
   const dates=presCalDates();
 
   // Group dates by month
@@ -2862,13 +2884,16 @@ function renderLineups(epNums){
     items.forEach((item,idx)=>{
       const rowBg=past?'background:rgba(248,81,73,0.15);border-left:3px solid #f85149':'background:rgba(88,166,255,0.06);border-left:3px solid #1e3a5f';
       if(item.liveStudio){
-        itemsHtml+=`<div style="${rowBg};padding:8px 12px;border-radius:4px;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        itemsHtml+=`<div style="${rowBg};padding:8px 12px;border-radius:4px;margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-size:11px;font-weight:900;color:${past?'#f85149':'#e3b341'};width:90px;font-family:monospace;flex-shrink:0">LIVE STUDIO</span>
           ${canEdit&&!past
-            ?`<input class="lu-live-dur" data-ep="${ep}" data-idx="${idx}" value="${esc(item.liveDuration||'')}" placeholder="mm:ss" style="background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 7px;border-radius:3px;font-size:11px;width:80px;font-family:monospace">`
-            :`<span style="font-size:11px;font-weight:700;color:#eaf0ff;font-family:monospace">${esc(item.liveDuration||'—')}</span>`}
-          <span style="font-size:11px;font-family:monospace;color:${past?'#f85149':'#3fb950'};margin-left:auto">${decToMmSs(toDecimalMins(item.liveDuration||''))}</span>
-          ${canEdit&&!past?`<button class="lu-remove-item" data-ep="${ep}" data-idx="${idx}" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:14px;line-height:1">✕</button>`:''}
+            ?`<input class="lu-live-note" data-ep="${ep}" data-idx="${idx}" value="${esc(item.liveNote||'')}" placeholder="Content note…" style="background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 8px;border-radius:3px;font-size:11px;flex:1;min-width:120px">`
+            :`<span style="font-size:11px;color:${past?'#f87171':'#e3b341'};flex:1;font-style:${item.liveNote?'normal':'italic'}">${esc(item.liveNote||'No note')}</span>`}
+          ${canEdit&&!past
+            ?`<input class="lu-live-dur" data-ep="${ep}" data-idx="${idx}" value="${esc(item.liveDuration||'')}" placeholder="mm:ss" style="background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 7px;border-radius:3px;font-size:11px;width:75px;font-family:monospace;flex-shrink:0">`
+            :`<span style="font-size:11px;font-weight:700;color:#eaf0ff;font-family:monospace;flex-shrink:0">${esc(item.liveDuration||'—')}</span>`}
+          <span style="font-size:11px;font-family:monospace;color:${past?'#f85149':'#3fb950'};flex-shrink:0">${decToMmSs(toDecimalMins(item.liveDuration||''))}</span>
+          ${canEdit&&!past?`<button class="lu-remove-item" data-ep="${ep}" data-idx="${idx}" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:14px;line-height:1;flex-shrink:0">✕</button>`:''}
         </div>`;
       } else {
         const c=getCommData(item.commNum);
@@ -2888,7 +2913,7 @@ function renderLineups(epNums){
     const usedComms=items.filter(i=>!i.liveStudio).map(i=>String(i.commNum));
     const availableComms=activeComms.filter(c=>c.commNum&&c.storyName&&!usedComms.includes(String(c.commNum))).sort((a,b)=>Number(a.commNum)-Number(b.commNum));
 
-    epsHtml+=`<div style="${past?'background:#1a0a0a;border-color:#3d1f1f':'background:#0d1117;border-color:#21262d'};border:1px solid;border-radius:8px;margin-bottom:16px;overflow:hidden">
+    epsHtml+=`<div data-lu-ep-block="${ep}" style="${past?'background:#1a0a0a;border-color:#3d1f1f':'background:#0d1117;border-color:#21262d'};border:1px solid;border-radius:8px;margin-bottom:16px;overflow:hidden">
       <div class="lu-ep-header" data-lu-ep="${ep}" style="${past?'background:#2d0f0f':'background:#161b22'};padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;cursor:pointer;user-select:none" title="${collapsed?'Click to expand':'Click to collapse'}">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <span style="font-size:13px;color:${epAccent};margin-right:2px">${collapsed?'▶':'▼'}</span>
@@ -3027,6 +3052,7 @@ function bindApp(){
   const _tabScroll={};
   function switchTab(newTab){
     if(tab===newTab)return;
+    if(tab==='prescal')_presCalMonthAutoSet=false; // re-auto-jump next time calendar opens
     // Save scroll position of current tab
     const curWrap=document.querySelector('.ep-wrap');
     if(curWrap)_tabScroll[tab]=curWrap.scrollTop;
@@ -4608,6 +4634,128 @@ function attachAutocomplete(inp, field) {
   });
 }
 
+function attachLineupAutocomplete(inp, fieldName, epNum) {
+  if(!inp||inp.dataset.acAttached)return;
+  inp.dataset.acAttached='1';
+
+  // Collect names from all relevant sources
+  function getNames(){
+    const vals=new Set();
+    // From existing lineups (director/presenter1/presenter2 already saved)
+    Object.values(lineups).forEach(lu=>{
+      ['director','presenter1','presenter2'].forEach(f=>{if(lu[f]&&lu[f].trim())vals.add(lu[f].trim());});
+    });
+    // From commission list presenterVO
+    comms.forEach(c=>{if(c.presenterVO&&c.presenterVO.trim())vals.add(c.presenterVO.trim());});
+    // From studio crew (if available)
+    Object.values(studioCrew||{}).forEach(ep=>{
+      ['host1','host2','director','anchor'].forEach(f=>{if(ep[f]&&ep[f].trim)vals.add(ep[f].trim());});
+    });
+    return Array.from(vals).sort();
+  }
+
+  // Field order for Enter-to-advance
+  const fieldOrder=['director','presenter1','presenter2'];
+
+  let dropEl=null,selectedIdx=-1;
+  function closeDrop(){if(dropEl){dropEl.remove();dropEl=null;}selectedIdx=-1;}
+
+  function openDrop(matches){
+    closeDrop();
+    if(!matches.length)return;
+    const wrap=inp.parentElement;
+    wrap.style.position='relative';
+    dropEl=document.createElement('div');
+    dropEl.className='ac-drop';
+    matches.forEach((val,i)=>{
+      const item=document.createElement('div');
+      item.className='ac-item';
+      item.dataset.value=val;
+      const q=inp.value.trim();
+      const idx=val.toLowerCase().indexOf(q.toLowerCase());
+      if(idx>=0){
+        item.innerHTML=esc(val.substring(0,idx))+'<em>'+esc(val.substring(idx,idx+q.length))+'</em>'+esc(val.substring(idx+q.length));
+      } else {
+        item.textContent=val;
+      }
+      item.addEventListener('mousedown',e=>{
+        e.preventDefault();
+        inp.value=val;
+        inp.dispatchEvent(new Event('input',{bubbles:true}));
+        closeDrop();
+        advanceToNext();
+      });
+      dropEl.appendChild(item);
+    });
+    wrap.appendChild(dropEl);
+  }
+
+  function advanceToNext(){
+    // Move focus to next field in director→pres1→pres2 order within the same episode block
+    const currentOrder=fieldOrder.indexOf(fieldName);
+    const nextField=fieldOrder[currentOrder+1];
+    if(nextField){
+      const epBlock=inp.closest('[data-lu-ep-block]');
+      const nextInp=epBlock?.querySelector(`.lu-${nextField}`);
+      if(nextInp){setTimeout(()=>{nextInp.focus();nextInp.select();},30);}
+    }
+  }
+
+  inp.addEventListener('input',()=>{
+    const q=inp.value.trim();
+    if(!q){closeDrop();return;}
+    const matches=getNames().filter(v=>v.toLowerCase().includes(q.toLowerCase())&&v!==q);
+    openDrop(matches.slice(0,8));
+    selectedIdx=-1;
+  });
+
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='ArrowDown'){
+      e.preventDefault();
+      if(!dropEl)return;
+      const items=dropEl.querySelectorAll('.ac-item');
+      selectedIdx=Math.min(selectedIdx+1,items.length-1);
+      items.forEach((el,i)=>el.classList.toggle('selected',i===selectedIdx));
+      return;
+    }
+    if(e.key==='ArrowUp'){
+      e.preventDefault();
+      if(!dropEl)return;
+      const items=dropEl.querySelectorAll('.ac-item');
+      selectedIdx=Math.max(selectedIdx-1,0);
+      items.forEach((el,i)=>el.classList.toggle('selected',i===selectedIdx));
+      return;
+    }
+    if(e.key==='Enter'){
+      e.preventDefault();
+      if(dropEl){
+        const items=dropEl.querySelectorAll('.ac-item');
+        const targetIdx=selectedIdx>=0?selectedIdx:0;
+        const target=items[targetIdx];
+        if(target){
+          inp.value=target.dataset.value||target.textContent.trim();
+          inp.dispatchEvent(new Event('input',{bubbles:true}));
+          closeDrop();
+        } else {
+          closeDrop();
+        }
+      }
+      advanceToNext();
+      return;
+    }
+    if(e.key==='Escape'){closeDrop();}
+  });
+
+  inp.addEventListener('blur',()=>setTimeout(closeDrop,150));
+  inp.addEventListener('focus',()=>{
+    const q=inp.value.trim();
+    if(q){
+      const matches=getNames().filter(v=>v.toLowerCase().includes(q.toLowerCase())&&v!==q);
+      openDrop(matches.slice(0,8));
+    }
+  });
+}
+
 function attachStudioAutocomplete(inp, field) {
   if(inp.dataset.acAttached)return;
   inp.dataset.acAttached='1';
@@ -4866,6 +5014,16 @@ function updatePresCalCell(dateStr,presKey,cell){
 }
 
 // ── LINE-UP fully delegated global handlers (set up once, survive all renders) ──
+// Attach autocomplete to lineup inputs on focus (lazy attach)
+document.addEventListener('focusin',function luAcAttach(e){
+  const inp=e.target;
+  if(inp.classList.contains('lu-director')||inp.classList.contains('lu-pres1')||inp.classList.contains('lu-pres2')){
+    const field=inp.classList.contains('lu-director')?'director':inp.classList.contains('lu-pres1')?'presenter1':'presenter2';
+    const ep=inp.dataset.ep;
+    attachLineupAutocomplete(inp,field,ep);
+  }
+},true);
+
 document.addEventListener('input',function luInputHandler(e){
   // Director/Presenter fields
   const dirField=e.target.classList.contains('lu-director')?'director':e.target.classList.contains('lu-pres1')?'presenter1':e.target.classList.contains('lu-pres2')?'presenter2':null;
@@ -4879,6 +5037,15 @@ document.addEventListener('input',function luInputHandler(e){
     return;
   }
   // Live studio duration
+  if(e.target.classList.contains('lu-live-note')){
+    const ep=e.target.dataset.ep;
+    const idx=Number(e.target.dataset.idx);
+    if(!ep||!lineups[ep]||!lineups[ep].items[idx])return;
+    lineups[ep].items[idx].liveNote=e.target.value;
+    clearTimeout(window['_luNoteSave_'+ep+'_'+idx]);
+    window['_luNoteSave_'+ep+'_'+idx]=setTimeout(()=>saveLineup(ep,lineups[ep]),800);
+    return;
+  }
   if(e.target.classList.contains('lu-live-dur')){
     const ep=e.target.dataset.ep;
     const idx=Number(e.target.dataset.idx);
