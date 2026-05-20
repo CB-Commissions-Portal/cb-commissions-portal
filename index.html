@@ -391,11 +391,11 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.6.9';
+const BUILD_VERSION='2.7.1';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
-let tab='home',sortField='commNum',sortDir='asc',search='',filter='all',currentSeason='39',previewRole=null;
+let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
 let studioCrew={}; // {epNum: {studioDirector:'', ad:'', ...}}
 let endCredits={}; // {epNum: {presenters:[], storyCrew:[], studioCrew2:[], viewerPanel:[], etc}}
 let promoData={};
@@ -890,12 +890,16 @@ function subscribeData(){
     const active=document.activeElement;
     const editRow=active?.closest('tr[data-id]');
     const editId=editRow?Number(editRow.dataset.id):null;
+    const editingLineup=active?.classList.contains('lu-director')||active?.classList.contains('lu-pres1')||active?.classList.contains('lu-pres2')||active?.classList.contains('lu-live-note')||active?.classList.contains('lu-live-dur');
     if(editId){comms=incoming.map(c=>c.id===editId?(comms.find(x=>x.id===editId)||c):c);updateTicker();}
+    else if(editingLineup){comms=incoming;updateTicker();}
     else{comms=incoming;render();}
   },()=>setSyncDot('offline'));
   unsubSettings=onSnapshot(doc(db,'settings','main'),snap=>{
     if(snap.exists())settings={...settings,...snap.data()};
-    if(!document.activeElement?.closest('tr[data-id]'))render();
+    const active=document.activeElement;
+    const editingLineup=active?.classList.contains('lu-director')||active?.classList.contains('lu-pres1')||active?.classList.contains('lu-pres2')||active?.classList.contains('lu-live-note')||active?.classList.contains('lu-live-dur');
+    if(!active?.closest('tr[data-id]')&&!editingLineup)render();
   });
 }
 
@@ -2841,13 +2845,19 @@ function renderLineups(epNums){
 
   function getLineup(ep){
     const saved=lineups[String(ep)];
-    if(saved)return saved;
-    // Auto-populate from ALL comms (including paid/past) assigned to this episode
+    // Auto-populate commission items from Commission List
     const epComms=comms
-      .filter(c=>!c.decommissioned&&String(c.broadcastEpisode)===String(ep)&&c.commNum&&c.storyName)
+      .filter(c=>!c.decommissioned&&Number(c.broadcastEpisode)===Number(ep)&&c.commNum&&c.storyName)
       .sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
-    const items=epComms.map(c=>({commNum:String(c.commNum),liveStudio:false}));
-    return {director:'',presenter1:'',presenter2:'',items};
+    const autoItems=epComms.map(c=>({commNum:String(c.commNum),liveStudio:false}));
+    if(!saved){
+      // No saved lineup — return auto-populated from Commission List
+      return {director:'',presenter1:'',presenter2:'',items:autoItems};
+    }
+    // Saved lineup exists — use saved data but merge in any commissions not yet in items
+    const savedCommNums=new Set((saved.items||[]).filter(i=>!i.liveStudio).map(i=>String(i.commNum)));
+    const missingItems=autoItems.filter(i=>!savedCommNums.has(i.commNum));
+    return {...saved, items:[...(saved.items||[]),...missingItems]};
   }
   function epIsPast(ep){const d=resolveDate(Number(ep));return d&&d<today;}
   function getCommData(cn){return activeComms.find(c=>String(c.commNum)===String(cn))||null;}
@@ -4645,12 +4655,16 @@ function attachLineupAutocomplete(inp, fieldName, epNum) {
     Object.values(lineups).forEach(lu=>{
       ['director','presenter1','presenter2'].forEach(f=>{if(lu[f]&&lu[f].trim())vals.add(lu[f].trim());});
     });
-    // From commission list presenterVO
-    comms.forEach(c=>{if(c.presenterVO&&c.presenterVO.trim())vals.add(c.presenterVO.trim());});
+    // From commission list presenterVO, DOP, CA, editor
+    comms.forEach(c=>{
+      ['presenterVO','dop','ca','editor'].forEach(f=>{if(c[f]&&c[f].trim())vals.add(c[f].trim());});
+    });
     // From studio crew (if available)
     Object.values(studioCrew||{}).forEach(ep=>{
-      ['host1','host2','director','anchor'].forEach(f=>{if(ep[f]&&ep[f].trim)vals.add(ep[f].trim());});
+      ['host1','host2','director','anchor'].forEach(f=>{if(ep[f]&&typeof ep[f]==='string'&&ep[f].trim())vals.add(ep[f].trim());});
     });
+    // From users list
+    (users||[]).forEach(u=>{if(u.displayName&&u.displayName.trim())vals.add(u.displayName.trim());});
     return Array.from(vals).sort();
   }
 
@@ -4746,7 +4760,7 @@ function attachLineupAutocomplete(inp, fieldName, epNum) {
     if(e.key==='Escape'){closeDrop();}
   });
 
-  inp.addEventListener('blur',()=>setTimeout(closeDrop,150));
+  inp.addEventListener('blur',()=>setTimeout(closeDrop,250));
   inp.addEventListener('focus',()=>{
     const q=inp.value.trim();
     if(q){
@@ -5020,6 +5034,8 @@ document.addEventListener('focusin',function luAcAttach(e){
   if(inp.classList.contains('lu-director')||inp.classList.contains('lu-pres1')||inp.classList.contains('lu-pres2')){
     const field=inp.classList.contains('lu-director')?'director':inp.classList.contains('lu-pres1')?'presenter1':'presenter2';
     const ep=inp.dataset.ep;
+    // Always re-attach (clears old acAttached flag so fresh instances get autocomplete)
+    delete inp.dataset.acAttached;
     attachLineupAutocomplete(inp,field,ep);
   }
 },true);
