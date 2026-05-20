@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.8.9';
+const BUILD_VERSION='2.9.0';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -421,9 +421,11 @@ let mcImportModal=false;
 let presCalData={}; // {dateStr: {presenterKey: {commNum,storyName,producer,notAvailable}}}
 let lineups={}; // {epNum: {director:'', presenter1:'', presenter2:'', items:[{commNum,liveStudio,liveDuration,liveNote}], savedAt}}
 let luCollapsed=new Set();
-let ppData={};
+let ppData={}; // {commNum: {deliveryDate:'', cells:{}, editComplete:false}}
+let ppActiveComms=[]; // ordered list of commNums added to the post prod schedule
 let ppSortField='commNum';
-let ppSortDir='asc'; // {commNum: {deliveryDate:'', cells:{dateStr_slot: text}}}
+let ppSortDir='asc';
+let ppAddModal=false; // show the add commission modal // {commNum: {deliveryDate:'', cells:{dateStr_slot: text}}}
 let ppWeekOffset=0; // weeks offset from season start (2026-01-19 = first Mon)
 const PP_SEASON_START='2026-01-19'; // first Monday of season // episode numbers that are collapsed in the lineup view
 let presCalLoaded=false;
@@ -690,8 +692,25 @@ async function savePPEntry(commNum,data){
   catch(e){setSyncDot('offline');showToast('Post prod save failed: '+e.message,true);}
 }
 async function loadPostProd(){
-  try{const snap=await getDocs(collection(db,'postprod'));snap.docs.forEach(d=>{ppData[d.id]={...d.data()};});}
-  catch(e){console.error('Post prod load:',e);}
+  try{
+    const [snap,listSnap]=await Promise.all([
+      getDocs(collection(db,'postprod')),
+      getDoc(doc(db,'postprod_meta','activeComms'))
+    ]);
+    snap.docs.forEach(d=>{ppData[d.id]={...d.data()};});
+    // Migration: if meta doc exists use it, else seed from existing ppData keys
+    if(listSnap.exists()&&listSnap.data().list){
+      ppActiveComms=listSnap.data().list;
+    } else {
+      // First load — add all existing ppData commNums as active
+      ppActiveComms=Object.keys(ppData).sort((a,b)=>Number(a)-Number(b));
+      if(ppActiveComms.length)await savePPActiveComms();
+    }
+  }catch(e){console.error('Post prod load:',e);}
+}
+async function savePPActiveComms(){
+  try{await setDoc(doc(db,'postprod_meta','activeComms'),{list:ppActiveComms,updatedAt:serverTimestamp()});}
+  catch(e){console.warn('ppActiveComms save:',e);}
 }
 async function saveLineup(epNum,data){
   setSyncDot('saving');
@@ -2125,7 +2144,6 @@ const DELIVERABLE_TASKS = [
 function renderPostProd(){
   const canEdit=['admin','operations'].includes(getEffectiveRole());
 
-  // Week start from season start + offset
   function weekStart(offset){
     const p=PP_SEASON_START.split('-');
     const d=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]));
@@ -2139,7 +2157,6 @@ function renderPostProd(){
   const DAY_NAMES=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const isWeekend=[false,false,false,false,false,true,true];
 
-  // Slots: weekday = view1/view2, weekend = morning/afternoon
   function slots(i){
     return isWeekend[i]
       ?[days[i]+'_morning',days[i]+'_afternoon']
@@ -2152,29 +2169,12 @@ function renderPostProd(){
     return'Aftn';
   }
 
-  // Active commissions sorted by commNum
-  const schedComms=[...comms]
-    .filter(c=>!c.decommissioned&&c.commNum&&c.storyName)
-    .sort((a,b)=>{
-      let av=a[ppSortField],bv=b[ppSortField];
-      // Special cases
-      if(ppSortField==='commNum'){av=Number(av);bv=Number(bv);}
-      else if(ppSortField==='txDate'){av=getTxDate(a)||'';bv=getTxDate(b)||'';}
-      else if(ppSortField==='deliveryDate'){av=ppData[String(a.commNum)]?.deliveryDate||'';bv=ppData[String(b.commNum)]?.deliveryDate||'';}
-      else{av=String(av||'').toLowerCase();bv=String(bv||'').toLowerCase();}
-      if(av<bv)return ppSortDir==='asc'?-1:1;
-      if(av>bv)return ppSortDir==='asc'?1:-1;
-      return 0;
-    });
-
-  function getPP(cn){return ppData[String(cn)]||{deliveryDate:'',cells:{}};}
+  function getPP(cn){return ppData[String(cn)]||{deliveryDate:'',cells:{},editComplete:false};}
   function cellVal(cn,slot){const pp=getPP(cn);return(pp.cells&&pp.cells[slot])||'';}
   function getTxDate(c){
     if(!c.broadcastEpisode)return'';
-    return resolveDate(Number(c.broadcastEpisode));
+    return resolveDate(Number(c.broadcastEpisode))||'';
   }
-
-  // Cell background by content type
   function cellBg(val){
     if(!val)return'';
     const v=val.toLowerCase();
@@ -2188,7 +2188,32 @@ function renderPostProd(){
     return'background:#1c2433;color:#cdd9e5';
   }
 
-  // ── CSS for the table ──
+  // Build active commission rows — from ppActiveComms list (ordered, persistent)
+  const allComms=comms.filter(c=>!c.decommissioned&&c.commNum&&c.storyName);
+  const commMap=new Map(allComms.map(c=>[String(c.commNum),c]));
+
+  // Sort active comms based on sort field
+  let schedComms=ppActiveComms
+    .map(cn=>commMap.get(String(cn)))
+    .filter(Boolean);
+
+  schedComms.sort((a,b)=>{
+    let av,bv;
+    if(ppSortField==='commNum'){av=Number(a.commNum);bv=Number(b.commNum);}
+    else if(ppSortField==='txDate'){av=getTxDate(a)||'';bv=getTxDate(b)||'';}
+    else if(ppSortField==='deliveryDate'){av=getPP(a.commNum).deliveryDate||'';bv=getPP(b.commNum).deliveryDate||'';}
+    else if(ppSortField==='editComplete'){av=getPP(a.commNum).editComplete?1:0;bv=getPP(b.commNum).editComplete?1:0;}
+    else{av=String(a[ppSortField]||'').toLowerCase();bv=String(b[ppSortField]||'').toLowerCase();}
+    if(av<bv)return ppSortDir==='asc'?-1:1;
+    if(av>bv)return ppSortDir==='asc'?1:-1;
+    return 0;
+  });
+
+  // Commissions not yet added (for the add modal)
+  const addedSet=new Set(ppActiveComms.map(String));
+  const availToAdd=allComms.filter(c=>!addedSet.has(String(c.commNum)))
+    .sort((a,b)=>Number(b.commNum)-Number(a.commNum)); // newest first
+
   const thFix='padding:4px 6px;font-size:8px;font-weight:800;text-transform:uppercase;color:#7a8ba0;background:#161b22;border:1px solid #21262d;white-space:nowrap;text-align:left;vertical-align:bottom';
   const thDay='padding:4px 6px;font-size:8px;font-weight:800;text-transform:uppercase;color:#eaf0ff;background:#1e2535;border:1px solid #21262d;text-align:center;white-space:nowrap';
   const thWknd='padding:4px 6px;font-size:8px;font-weight:800;text-transform:uppercase;color:#484f58;background:#13131a;border:1px solid #21262d;text-align:center;white-space:nowrap';
@@ -2197,18 +2222,18 @@ function renderPostProd(){
   const tdFix='padding:4px 6px;border:1px solid #21262d;font-size:10px;white-space:nowrap;vertical-align:middle';
   const tdCell='padding:2px 3px;border:1px solid #21262d;vertical-align:top;min-width:88px;max-width:140px';
 
-  // ── Header rows ──
-  // Row 1: fixed col headers + day name headers (colspan 2 each)
-  let h1='<tr>';
   const ppSortArrow=f=>ppSortField===f?' '+(ppSortDir==='asc'?'↑':'↓'):'';
+
+  let h1='<tr>';
   h1+=`<th data-pp-sort="commNum" style="${thFix};min-width:46px;position:sticky;left:0;z-index:12;background:#161b22;cursor:pointer">Comm #${ppSortArrow('commNum')}</th>`;
   h1+=`<th data-pp-sort="storyName" style="${thFix};min-width:40ch;position:sticky;left:52px;z-index:12;background:#161b22;cursor:pointer">Story${ppSortArrow('storyName')}</th>`;
   h1+=`<th data-pp-sort="producer" style="${thFix};min-width:45ch;cursor:pointer">Producer${ppSortArrow('producer')}</th>`;
   h1+=`<th data-pp-sort="editor" style="${thFix};min-width:25ch;cursor:pointer">Editor${ppSortArrow('editor')}</th>`;
   h1+=`<th data-pp-sort="dop" style="${thFix};min-width:60ch;cursor:pointer">DOP${ppSortArrow('dop')}</th>`;
   h1+=`<th data-pp-sort="afm" style="${thFix};min-width:25ch;cursor:pointer">AFM${ppSortArrow('afm')}</th>`;
-  h1+=`<th data-pp-sort="deliveryDate" style="${thFix};min-width:150px;cursor:pointer">Del. Date${ppSortArrow('deliveryDate')}</th>`;
+  h1+=`<th data-pp-sort="deliveryDate" style="${thFix};min-width:180px;cursor:pointer">Del. Date${ppSortArrow('deliveryDate')}</th>`;
   h1+=`<th data-pp-sort="txDate" style="${thFix};min-width:100px;cursor:pointer">TX Date${ppSortArrow('txDate')}</th>`;
+  h1+=`<th data-pp-sort="editComplete" style="${thFix};min-width:110px;cursor:pointer">Status${ppSortArrow('editComplete')}</th>`;
   days.forEach((d,i)=>{
     const wknd=isWeekend[i];
     const dayFmt=new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short'});
@@ -2216,13 +2241,11 @@ function renderPostProd(){
   });
   h1+='</tr>';
 
-  // Row 2: slot sub-headers
   let h2='<tr>';
-  // Fixed col spacers — must match sticky positions
   const fixedSpacers=[
     'min-width:46px;position:sticky;left:0;z-index:12;background:#0d1117',
     'min-width:40ch;position:sticky;left:52px;z-index:12;background:#0d1117',
-    'min-width:45ch','min-width:25ch','min-width:60ch','min-width:25ch','min-width:180px','min-width:100px'
+    'min-width:45ch','min-width:25ch','min-width:60ch','min-width:25ch','min-width:180px','min-width:100px','min-width:110px'
   ];
   fixedSpacers.forEach(s=>h2+=`<th style="${thSlot};background:#0d1117;${s}"></th>`);
   days.forEach((d,i)=>{
@@ -2234,48 +2257,62 @@ function renderPostProd(){
   });
   h2+='</tr>';
 
-  // ── Commission rows ──
   let rowsHtml='';
+  if(schedComms.length===0){
+    rowsHtml=`<tr><td colspan="100" style="padding:50px;text-align:center;color:#484f58">
+      <div style="font-size:15px;margin-bottom:8px">No commissions in the Post Production Schedule yet.</div>
+      <div style="font-size:12px">Click <strong style="color:#3fb950">+ New Edit</strong> to add a commission.</div>
+    </td></tr>`;
+  }
+
   schedComms.forEach((c,ri)=>{
     const pp=getPP(c.commNum);
     const txIso=getTxDate(c);
     const txFmt=txIso?new Date(txIso+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'2-digit'}):'';
-    const delFmt=pp.deliveryDate?new Date(pp.deliveryDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'';
-    const rowBg=ri%2===0?'#0d1117':'#111620';
+    const rowBg=pp.editComplete?'#0d1a0d':ri%2===0?'#0d1117':'#111620';
     const badge=c.isLicensed?'<span style="font-size:6px;background:#1c2d1c;color:#3fb950;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">LIC</span>':
                 c.isInHouse?'<span style="font-size:6px;background:#1a1a2e;color:#7a8ba0;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">IH</span>':'';
 
-    rowsHtml+=`<tr style="background:${rowBg}">`;
-    // Fixed cols
-    rowsHtml+=`<td style="${tdFix};position:sticky;left:0;z-index:2;background:${rowBg};font-weight:900;color:#58a6ff;font-family:monospace;font-size:11px">${esc(String(c.commNum))}${badge}</td>`;
+    rowsHtml+=`<tr style="background:${rowBg}${pp.editComplete?';opacity:0.75':''}">`;
+    rowsHtml+=`<td style="${tdFix};position:sticky;left:0;z-index:2;background:${rowBg};font-weight:900;color:${pp.editComplete?'#3fb950':'#58a6ff'};font-family:monospace;font-size:11px">${esc(String(c.commNum))}${badge}</td>`;
     rowsHtml+=`<td style="${tdFix};position:sticky;left:52px;z-index:2;background:${rowBg};color:#eaf0ff;font-weight:600;min-width:40ch;max-width:40ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.storyName)}">${esc(c.storyName)}</td>`;
     rowsHtml+=`<td style="${tdFix};color:#8b949e;min-width:45ch;max-width:45ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.producer||'')}">${esc(c.producer||'')}</td>`;
     rowsHtml+=`<td style="${tdFix};color:#c084fc;min-width:25ch;max-width:25ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.editor||'')}">${esc(c.editor||'')}</td>`;
     rowsHtml+=`<td style="${tdFix};color:#79c0ff;min-width:60ch;max-width:60ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.dop||'')}">${esc(c.dop||'')}</td>`;
     rowsHtml+=`<td style="${tdFix};color:#f7768e;min-width:25ch;max-width:25ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.afm||'')}">${esc(c.afm||'')}</td>`;
     // Delivery date
-    rowsHtml+=`<td style="${tdFix}">`;
+    rowsHtml+=`<td style="${tdFix};min-width:180px">`;
     if(canEdit){
-      rowsHtml+=`<div class="pp-del-wrap" style="position:relative;min-width:150px">
-        <span class="pp-del-label" style="color:#e3b341;font-size:10px;cursor:pointer;white-space:normal;line-height:1.3" title="Click to change date">${delFmt||'— click to set —'}</span>
-        <input class="pp-del-date" data-commnum="${esc(String(c.commNum))}" value="${esc(pp.deliveryDate||'')}" type="date" style="position:absolute;top:0;left:0;opacity:0;width:100%;height:100%;cursor:pointer;border:none;background:transparent">
-      </div>`;
+      const delFmt=pp.deliveryDate?new Date(pp.deliveryDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'— click to set —';
+      rowsHtml+=`<div class="pp-del-wrap" style="position:relative;min-width:170px"><span class="pp-del-label" style="color:#e3b341;font-size:10px;cursor:pointer;white-space:normal;line-height:1.3">${delFmt}</span><input class="pp-del-date" data-commnum="${esc(String(c.commNum))}" value="${esc(pp.deliveryDate||'')}" type="date" style="position:absolute;top:0;left:0;opacity:0;width:100%;height:100%;cursor:pointer;border:none;background:transparent"></div>`;
     }else{
-      rowsHtml+=`<span style="color:#e3b341;font-size:10px;white-space:normal;line-height:1.3">${delFmt||'—'}</span>`;
+      const delFmt=pp.deliveryDate?new Date(pp.deliveryDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'—';
+      rowsHtml+=`<span style="color:#e3b341;font-size:10px;white-space:normal;line-height:1.3">${delFmt}</span>`;
     }
     rowsHtml+=`</td>`;
     // TX date
     rowsHtml+=`<td style="${tdFix};color:${txFmt?'#3fb950':'#484f58'}">${txFmt||'—'}</td>`;
+    // Edit complete checkbox + badge
+    rowsHtml+=`<td style="${tdFix};text-align:center">`;
+    if(pp.editComplete){
+      rowsHtml+=`<span style="background:#1f4023;color:#3fb950;font-size:9px;font-weight:800;padding:3px 8px;border-radius:3px;border:1px solid #2d6a2d;letter-spacing:.5px;display:inline-flex;align-items:center;gap:4px">✓ EDIT COMPLETE</span>`;
+      if(canEdit)rowsHtml+=`<br><button class="pp-complete-toggle" data-commnum="${esc(String(c.commNum))}" style="background:none;border:none;color:#484f58;font-size:9px;cursor:pointer;margin-top:3px">Undo</button>`;
+    }else{
+      if(canEdit)rowsHtml+=`<label style="display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;font-size:10px;color:#6e7681"><input type="checkbox" class="pp-complete-cb" data-commnum="${esc(String(c.commNum))}" style="cursor:pointer;accent-color:#3fb950"> Edit Complete</label>`;
+      else rowsHtml+=`<span style="color:#484f58;font-size:9px">In Progress</span>`;
+    }
+    rowsHtml+=`</td>`;
     // Day cells
     days.forEach((d,i)=>{
       const wknd=isWeekend[i];
-      const wkndBase=wknd?'background:#0a0a10':'';
       slots(i).forEach(sk=>{
         const val=cellVal(c.commNum,sk);
-        const style=val?cellBg(val):wkndBase;
-        const [bg,fg]=style.includes('background:')?[style.split(';')[0].replace('background:','').trim(),style.split(';')[1]?.replace('color:','').trim()||'#cdd9e5']:['','#484f58'];
-        rowsHtml+=`<td style="${tdCell};${val?'background:'+bg+';':'background:'+(wknd?'#0a0a10':rowBg)+';'}">`;
-        if(canEdit){
+        const style=val?cellBg(val):'';
+        const parts=style.split(';');
+        const bg=parts[0]?.replace('background:','').trim()||'';
+        const fg=parts[1]?.replace('color:','').trim()||'#484f58';
+        rowsHtml+=`<td style="${tdCell};background:${bg||(wknd?'#0a0a10':rowBg)}">`;
+        if(canEdit&&!pp.editComplete){
           rowsHtml+=`<input class="pp-cell" data-commnum="${esc(String(c.commNum))}" data-slot="${sk}" value="${esc(val)}" placeholder="" style="width:100%;background:transparent;border:none;color:${val?fg:'#484f58'};font-size:10px;padding:2px 3px;outline:none;font-family:inherit">`;
         }else{
           rowsHtml+=val?`<span style="font-size:10px;color:${fg};padding:2px 3px;display:block">${esc(val)}</span>`:'';
@@ -2286,26 +2323,50 @@ function renderPostProd(){
     rowsHtml+='</tr>';
   });
 
-  if(!schedComms.length){
-    rowsHtml=`<tr><td colspan="100" style="padding:40px;text-align:center;color:#484f58;font-size:13px">No commissions for this season.</td></tr>`;
-  }
+  // ── Add Commission Modal ──
+  const addModalHtml=ppAddModal&&canEdit?`
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:center;justify-content:center" id="pp-add-overlay">
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:24px;width:480px;max-width:95vw;max-height:80vh;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:15px;font-weight:800;color:#eaf0ff">Add Commission to Post Production</span>
+        <button class="btn" id="pp-add-cancel" style="font-size:12px;padding:4px 10px">✕ Cancel</button>
+      </div>
+      <input id="pp-add-search" placeholder="Search by comm # or story name…" autocomplete="off"
+        style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 12px;border-radius:5px;font-size:13px;box-sizing:border-box">
+      <div id="pp-add-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px">
+        ${availToAdd.map(c=>`
+        <div class="pp-add-item" data-commnum="${esc(String(c.commNum))}"
+          style="background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:border-color .15s"
+          onmouseover="this.style.borderColor='#58a6ff'" onmouseout="this.style.borderColor='#2e3a50'">
+          <span style="font-size:12px;font-weight:900;color:#58a6ff;font-family:monospace;min-width:45px">${esc(String(c.commNum))}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700;color:#eaf0ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName)}</div>
+            <div style="font-size:10px;color:#6e7681;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
+              ${c.producer?`<span>${esc(c.producer)}</span>`:''}
+              ${c.editor?`<span style="color:#c084fc">${esc(c.editor)}</span>`:''}
+              ${c.dop?`<span style="color:#79c0ff">${esc(c.dop)}</span>`:''}
+            </div>
+          </div>
+          <button class="btn primary pp-add-confirm" data-commnum="${esc(String(c.commNum))}" style="font-size:11px;padding:4px 12px;flex-shrink:0">+ Add</button>
+        </div>`).join('')||'<div style="text-align:center;color:#484f58;padding:20px;font-size:12px">All commissions already added.</div>'}
+      </div>
+    </div>
+  </div>`:'';
 
   const weekLabel=`Week of ${new Date(monStr+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'})}`;
-
-  // Legend
   const legend=[
-    ['#1a3a5c','#79c0ff','View 1'],
-    ['#1a3a2c','#56d364','View 2'],
-    ['#1f3a1f','#56d364','Shoot'],
-    ['#2d1f4a','#c084fc','Edit'],
-    ['#3a2d00','#e3b341','VO / Mix'],
-    ['#3a1f1f','#f7768e','AFM'],
-  ].map(([bg,fg,lbl])=>`<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px"><span style="display:inline-block;width:14px;height:10px;background:${bg};border-radius:2px;border:1px solid ${fg}33"></span><span style="font-size:9px;color:#6e7681">${lbl}</span></span>`).join('');
+    ['#1a3a5c','#79c0ff','View 1'],['#1a3a2c','#56d364','View 2'],
+    ['#1f3a1f','#56d364','Shoot'],['#2d1f4a','#c084fc','Edit'],
+    ['#3a2d00','#e3b341','VO / Mix'],['#3a1f1f','#f7768e','AFM'],
+  ].map(([bg,fg,lbl])=>`<span style="display:inline-flex;align-items:center;gap:4px;margin-right:8px"><span style="display:inline-block;width:12px;height:8px;background:${bg};border-radius:2px;border:1px solid ${fg}44"></span><span style="font-size:9px;color:#6e7681">${lbl}</span></span>`).join('');
 
   return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
-    <div style="padding:8px 14px;background:#161b22;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:10px;flex-shrink:0">
+    ${addModalHtml}
+    <div style="padding:8px 14px;background:#161b22;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap">
+      ${canEdit?`<button class="btn primary" id="pp-new-edit-btn" style="font-size:12px;padding:5px 14px;font-weight:800">+ New Edit</button>`:''}
+      <div style="width:1px;height:20px;background:#21262d;margin:0 4px"></div>
       <button class="btn" id="pp-prev-week" style="font-size:11px;padding:4px 10px">◀ Prev</button>
-      <span style="font-size:13px;font-weight:800;color:#eaf0ff;min-width:230px;text-align:center">${weekLabel}</span>
+      <span style="font-size:13px;font-weight:800;color:#eaf0ff;min-width:220px;text-align:center">${weekLabel}</span>
       <button class="btn" id="pp-next-week" style="font-size:11px;padding:4px 10px">Next ▶</button>
       <button class="btn" id="pp-today-week" style="font-size:11px;padding:4px 10px">Today</button>
       <span style="margin-left:auto;display:flex;align-items:center;flex-wrap:wrap">${legend}</span>
@@ -5411,6 +5472,57 @@ function durForCommGlobal(c){if(!c)return'';return c.deliveredDuration||c.commDu
 
 
 // ── POST PRODUCTION SCHEDULE handlers ──────────────────────────────
+// ── Add commission modal ──
+document.addEventListener('click',function ppAddHandler(e){
+  if(e.target.id==='pp-new-edit-btn'){ppAddModal=true;render();return;}
+  if(e.target.id==='pp-add-cancel'||e.target.id==='pp-add-overlay'&&e.target===e.currentTarget){ppAddModal=false;render();return;}
+  // Add confirm button
+  const addBtn=e.target.closest('.pp-add-confirm');
+  if(addBtn){
+    const cn=String(addBtn.dataset.commnum);
+    if(!ppActiveComms.includes(cn)){
+      ppActiveComms.push(cn);
+      savePPActiveComms();
+      if(!ppData[cn])ppData[cn]={deliveryDate:'',cells:{},editComplete:false};
+      savePPEntry(cn,ppData[cn]);
+    }
+    ppAddModal=false;
+    render();
+    return;
+  }
+  // Edit complete toggle (undo button)
+  const undoBtn=e.target.closest('.pp-complete-toggle');
+  if(undoBtn){
+    const cn=String(undoBtn.dataset.commnum);
+    if(!ppData[cn])ppData[cn]={deliveryDate:'',cells:{},editComplete:false};
+    ppData[cn].editComplete=false;
+    savePPEntry(cn,ppData[cn]);
+    render();return;
+  }
+});
+// Edit complete checkbox
+document.addEventListener('change',function ppCompleteHandler(e){
+  if(e.target.classList.contains('pp-complete-cb')){
+    const cn=String(e.target.dataset.commnum);
+    if(!ppData[cn])ppData[cn]={deliveryDate:'',cells:{},editComplete:false};
+    ppData[cn].editComplete=e.target.checked;
+    savePPEntry(cn,ppData[cn]);
+    render();return;
+  }
+});
+// Add modal search filter
+document.addEventListener('input',function ppAddSearchHandler(e){
+  if(e.target.id!=='pp-add-search')return;
+  const q=e.target.value.toLowerCase();
+  document.querySelectorAll('.pp-add-item').forEach(item=>{
+    const text=item.textContent.toLowerCase();
+    item.style.display=text.includes(q)?'':'none';
+  });
+});
+// Close modal on overlay click
+document.addEventListener('click',function ppOverlayClose(e){
+  if(e.target.id==='pp-add-overlay'){ppAddModal=false;render();}
+});
 // Sort columns
 document.addEventListener('click',function ppSortHandler(e){
   const th=e.target.closest('[data-pp-sort]');
