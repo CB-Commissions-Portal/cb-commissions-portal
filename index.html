@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.8.0';
+const BUILD_VERSION='2.8.1';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -5099,18 +5099,18 @@ document.addEventListener('click',function presCalBadgeHandler(e){
   const confirmBtn=e.target.closest('.pres-cal-confirm-clear');
   if(confirmBtn){
     e.stopPropagation();
-    const td=confirmBtn.closest('td');
-    if(!td)return;
-    const sel=td.querySelector('.pres-cal-sel');
-    if(!sel)return;
-    const dateStr=sel.dataset.date;
-    const presKey=sel.dataset.pres;
+    const dateStr=confirmBtn.dataset.date;
+    const presKey=confirmBtn.dataset.pres;
+    if(!dateStr||!presKey)return;
     if(!presCalData[dateStr])presCalData[dateStr]={};
     delete presCalData[dateStr][presKey];
     savePresCalDay(dateStr,presCalData[dateStr]);
-    td.querySelectorAll('[data-pres-badge],[data-pres-confirm]').forEach(el=>el.remove());
-    sel.style.display='block';
-    sel.value='';
+    const td=confirmBtn.closest('td');
+    if(td){
+      td.querySelectorAll('[data-pres-badge],[data-pres-confirm]').forEach(el=>el.remove());
+      const sel=td.querySelector('.pres-cal-sel');
+      if(sel){sel.style.display='block';sel.value='';}
+    }
     return;
   }
   // Cancel button clicked — dismiss confirm prompt, restore badge
@@ -5130,6 +5130,11 @@ document.addEventListener('click',function presCalBadgeHandler(e){
   if(!td)return;
   // Don't open a second confirm if one is already showing
   if(td.querySelector('[data-pres-confirm]'))return;
+  // Get dateStr and presKey from the select inside this td
+  const sel=td.querySelector('.pres-cal-sel');
+  if(!sel)return;
+  const dateStr=sel.dataset.date;
+  const presKey=sel.dataset.pres;
   // Hide the badge, show confirm strip
   badge.style.display='none';
   const confirm=document.createElement('div');
@@ -5137,7 +5142,7 @@ document.addEventListener('click',function presCalBadgeHandler(e){
   confirm.style.cssText='background:#2d0a0a;border:1px solid #f85149;border-radius:4px;padding:5px 7px;display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px';
   confirm.innerHTML=`<span style="font-size:10px;font-weight:700;color:#f85149">Remove?</span>`+
     `<div style="display:flex;gap:4px">`+
-    `<button class="pres-cal-confirm-clear" style="background:#f85149;border:none;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;cursor:pointer">✕ Yes</button>`+
+    `<button class="pres-cal-confirm-clear" data-date="${dateStr}" data-pres="${presKey}" style="background:#f85149;border:none;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;cursor:pointer">✕ Yes</button>`+
     `<button class="pres-cal-cancel-clear" style="background:#2e3a50;border:none;color:#8b949e;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;cursor:pointer">Keep</button>`+
     `</div>`;
   td.insertBefore(confirm, badge);
