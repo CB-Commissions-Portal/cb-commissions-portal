@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.3.8';
+const BUILD_VERSION='2.4.1';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -662,8 +662,11 @@ async function savePresCalDay(dateStr,data){
   catch(e){showToast('Save failed: '+e.message,true);}
 }
 async function loadPresCal(){
-  try{const snap=await getDocs(collection(db,'presenter_calendar'));snap.docs.forEach(d=>{presCalData[d.id]={...d.data()};});presCalLoaded=true;}
-  catch(e){console.error('Presenter calendar error:',e);}
+  try{
+    const [calSnap,endSnap]=await Promise.all([getDocs(collection(db,'presenter_calendar')),getDoc(doc(db,'settings','presCalEnd'))]);
+    calSnap.docs.forEach(d=>{presCalData[d.id]={...d.data()};});presCalLoaded=true;
+    if(endSnap.exists()&&endSnap.data().endDate)PRES_CAL_END=endSnap.data().endDate;
+  }catch(e){console.error('Presenter calendar error:',e);}
 }
 async function saveLeaveRequest(id,data){
   setSyncDot('saving');
@@ -2518,8 +2521,8 @@ const PRESENTERS = [
   {key:'xola',       label:'Xola (VO)'},
 ];
 
-const PRES_CAL_START = '2026-05-25';
-const PRES_CAL_END   = '2027-03-31';
+const PRES_CAL_START = '2026-01-18';
+let PRES_CAL_END = '2027-03-31'; // extended via 'Extend +3 months' button, saved to Firebase
 
 const SA_HOLIDAYS = {
   '2026-06-16':'Youth Day',
@@ -2665,12 +2668,13 @@ function renderPresenterCalendar(){
     <div style="padding:12px 16px;background:#161b22;position:sticky;left:0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #2e3a50;z-index:8">
       <div>
         <span style="font-size:15px;font-weight:800;color:#eaf0ff">Presenter Calendar</span>
-        <span style="font-size:11px;color:#6e7681;margin-left:10px">25 May 2026 — 31 Mar 2027</span>
+        <span style="font-size:11px;color:#6e7681;margin-left:10px">18 Jan 2026 — ${presCalFmt(PRES_CAL_END)}</span>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <button id="prescal-prev" class="btn" style="font-size:11px;padding:4px 10px" ${presCalViewMonth===0?'disabled':''}>◀ Prev</button>
         <span style="font-size:12px;font-weight:700;color:#eaf0ff;min-width:140px;text-align:center">${Object.keys(months)[presCalViewMonth]}</span>
         <button id="prescal-next" class="btn" style="font-size:11px;padding:4px 10px" ${presCalViewMonth>=Object.keys(months).length-1?'disabled':''}>Next ▶</button>
+        ${canEd?`<button id="prescal-extend" class="btn" style="font-size:11px;padding:4px 10px;margin-left:8px;border-color:#388bfd;color:#388bfd">+ 3 months</button>`:''}
       </div>
       <div style="display:flex;gap:12px;align-items:center;font-size:10px;color:#6e7681">
         <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#1a1a2d;display:inline-block;border-radius:2px"></span>Weekend</span>
@@ -4390,6 +4394,22 @@ const BAKED_CONFIG = {
 document.addEventListener('click',function presCalNavHandler(e){
   if(e.target.id==='prescal-prev'){presCalViewMonth=Math.max(0,presCalViewMonth-1);render();}
   if(e.target.id==='prescal-next'){const months=Object.keys(presCalDates().reduce((a,d)=>{a[presCalMonth(d)]=1;return a},{}));presCalViewMonth=Math.min(months.length-1,presCalViewMonth+1);render();}
+  if(e.target.id==='prescal-extend'){
+    // Add 3 months to PRES_CAL_END
+    const cur=new Date(PRES_CAL_END+'T00:00:00Z');
+    cur.setUTCMonth(cur.getUTCMonth()+3);
+    // Snap to end of that month
+    cur.setUTCMonth(cur.getUTCMonth()+1);
+    cur.setUTCDate(0);
+    PRES_CAL_END=cur.toISOString().split('T')[0];
+    // Persist to Firebase
+    try{setDoc(doc(db,'settings','presCalEnd'),{endDate:PRES_CAL_END});}catch(err){console.warn('presCalEnd save:',err);}
+    // Jump to the newly added months
+    const newMonths=Object.keys(presCalDates().reduce((a,d)=>{a[presCalMonth(d)]=1;return a},{}));
+    presCalViewMonth=newMonths.length-3;
+    render();
+    showToast('Calendar extended to '+presCalFmt(PRES_CAL_END));
+  }
 });
 
 // Presenter calendar badge click = reset cell (delegated)
