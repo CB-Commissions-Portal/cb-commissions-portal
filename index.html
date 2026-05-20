@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.6.8';
+const BUILD_VERSION='2.6.9';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2923,7 +2923,7 @@ function renderLineups(epNums){
         </div>
         <span style="font-size:12px;font-weight:800;color:${tot>0?(past?'#f85149':'#3fb950'):'#484f58'};font-family:monospace">Total: ${decToMmSs(tot)}</span>
       </div>
-      ${collapsed?'':`<div class="lu-ep-body"><div style="padding:10px 16px;border-bottom:1px solid ${past?'#3d1f1f':'#21262d'};display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div class="lu-ep-body" style="display:${collapsed?'none':'block'}"><div style="padding:10px 16px;border-bottom:1px solid ${past?'#3d1f1f':'#21262d'};display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
         ${['director','presenter1','presenter2'].map(field=>`<div>
           <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:4px">${field==='director'?'Director':field==='presenter1'?'Presenter 1':'Presenter 2'}</div>
           ${canEdit
@@ -2940,7 +2940,7 @@ function renderLineups(epNums){
           </select>
           <button class="lu-add-live" data-ep="${ep}" style="background:#1c2433;border:1px solid #e3b341;color:#e3b341;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;font-weight:700;white-space:nowrap">+ Live Studio</button>
         </div>`:''}
-      </div></div>`}
+      </div></div>
     </div>`;
   });
 
