@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.6.0';
+const BUILD_VERSION='2.6.1';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1334,7 +1334,7 @@ function renderApp(){
     ${['admin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}
     ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='prescal'?' active':''}" data-tab="prescal">Presenter Calendar</div>`:''}
     ${userHasLeaveAccess()?`<div class="tab-btn${tab==='leave'?' active':''}" data-tab="leave">CAP Leave</div>`:''}
-    ${['admin','operations','production','prodmgmt'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='lineups'?' active':''}" data-tab="lineups">Line-Ups</div>`:''}
+    ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='lineups'?' active':''}" data-tab="lineups">Line-Ups</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
   </div>
   <div class="content" id="tab-content">
@@ -1356,7 +1356,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='prescal'&&['admin','operations','production','prodmgmt','editorial'].includes(role))return renderPresenterCalendar();
   if(tab==='leave'&&userHasLeaveAccess())return renderLeave();
   if(tab==='deliverables'&&currentRole==='admin'&&!previewRole)return renderDeliverables(epNums);
-  if(tab==='lineups'&&['admin','operations','production','prodmgmt'].includes(role))return renderLineups(epNums);
+  if(tab==='lineups'&&['admin','operations','production','prodmgmt','editorial'].includes(role))return renderLineups(epNums);
   if(tab==='admin'&&currentRole==='admin'&&!previewRole)return renderAdmin();
   return '';
 }
@@ -2810,7 +2810,7 @@ function renderStudioCrew(epNums){
 
 function renderLineups(epNums){
   const role=getEffectiveRole();
-  const canEdit=['admin','operations','production','prodmgmt'].includes(role);
+  const canEdit=['admin','operations','production','prodmgmt','editorial'].includes(role);
   const today=new Date().toISOString().split('T')[0];
   const activeComms=comms.filter(c=>!c.decommissioned);
   const insertsInProd=activeComms.filter(c=>!c.approvedForPayment&&!c.isInHouse&&c.storyName&&!c.isLicensed);
