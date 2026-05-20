@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.9.3';
+const BUILD_VERSION='2.9.4';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -692,21 +692,26 @@ async function savePPEntry(commNum,data){
   catch(e){setSyncDot('offline');showToast('Post prod save failed: '+e.message,true);}
 }
 async function loadPostProd(){
+  // Load postprod cell data
   try{
-    const [snap,listSnap]=await Promise.all([
-      getDocs(collection(db,'postprod')),
-      getDoc(doc(db,'postprod_meta','activeComms'))
-    ]);
+    const snap=await getDocs(collection(db,'postprod'));
     snap.docs.forEach(d=>{ppData[d.id]={...d.data()};});
-    // Migration: if meta doc exists use it, else seed from existing ppData keys
+  }catch(e){console.error('Post prod data load:',e);}
+  // Load active comms list separately
+  try{
+    const listSnap=await getDoc(doc(db,'postprod_meta','activeComms'));
     if(listSnap.exists()&&listSnap.data().list){
       ppActiveComms=listSnap.data().list;
     } else {
-      // First load — add all existing ppData commNums as active
+      // Migration: seed from existing ppData keys
       ppActiveComms=Object.keys(ppData).sort((a,b)=>Number(a)-Number(b));
-      if(ppActiveComms.length)await savePPActiveComms();
+      try{if(ppActiveComms.length)await savePPActiveComms();}catch(e2){console.warn('ppActiveComms migrate save:',e2);}
     }
-  }catch(e){console.error('Post prod load:',e);}
+  }catch(e){
+    console.warn('Post prod meta load:',e);
+    // Fallback: use existing ppData keys
+    ppActiveComms=Object.keys(ppData).sort((a,b)=>Number(a)-Number(b));
+  }
 }
 async function savePPActiveComms(){
   try{await setDoc(doc(db,'postprod_meta','activeComms'),{list:ppActiveComms,updatedAt:serverTimestamp()});}
