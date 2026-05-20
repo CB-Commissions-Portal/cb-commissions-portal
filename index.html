@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.9.0';
+const BUILD_VERSION='2.9.1';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2159,13 +2159,15 @@ function renderPostProd(){
 
   function slots(i){
     return isWeekend[i]
-      ?[days[i]+'_morning',days[i]+'_afternoon']
-      :[days[i]+'_view1',days[i]+'_view2'];
+      ?[days[i]+'_morning',days[i]+'_midday',days[i]+'_afternoon']
+      :[days[i]+'_view0',days[i]+'_view1',days[i]+'_view2'];
   }
   function slotShort(key){
+    if(key.endsWith('_view0'))return'09:00';
     if(key.endsWith('_view1'))return'11:30';
     if(key.endsWith('_view2'))return'15:00';
     if(key.endsWith('_morning'))return'Morn';
+    if(key.endsWith('_midday'))return'Midday';
     return'Aftn';
   }
 
@@ -2178,13 +2180,14 @@ function renderPostProd(){
   function cellBg(val){
     if(!val)return'';
     const v=val.toLowerCase();
-    if(v.includes('view 1')||v==='view 1')return'background:#1a3a5c;color:#79c0ff';
-    if(v.includes('view 2')||v==='view 2')return'background:#1a3a2c;color:#56d364';
-    if(v.includes('view'))return'background:#1a2d4a;color:#79c0ff';
-    if(v.includes('shoot'))return'background:#1f3a1f;color:#56d364';
-    if(v.includes('edit'))return'background:#2d1f4a;color:#c084fc';
-    if(v.includes('vo')||v.includes('mix'))return'background:#3a2d00;color:#e3b341';
-    if(v.includes('amf')||v.includes('afm'))return'background:#3a1f1f;color:#f7768e';
+    if(v.includes('view 1')||v==='view 1')return'background:#003d82;color:#ffffff';
+    if(v.includes('view 2')||v==='view 2')return'background:#005c1a;color:#ffffff';
+    if(v.includes('view'))return'background:#0057b8;color:#ffffff';
+    if(v.includes('shoot'))return'background:#006622;color:#ffffff';
+    if(v.includes('edit'))return'background:#4a0080;color:#ffffff';
+    if(v.includes('mix'))return'background:#804000;color:#ffffff';
+    if(v.includes('vo'))return'background:#005566;color:#ffffff';
+    if(v.includes('amf')||v.includes('afm'))return'background:#8b0000;color:#ffffff';
     return'background:#1c2433;color:#cdd9e5';
   }
 
@@ -2234,10 +2237,12 @@ function renderPostProd(){
   h1+=`<th data-pp-sort="deliveryDate" style="${thFix};min-width:180px;cursor:pointer">Del. Date${ppSortArrow('deliveryDate')}</th>`;
   h1+=`<th data-pp-sort="txDate" style="${thFix};min-width:100px;cursor:pointer">TX Date${ppSortArrow('txDate')}</th>`;
   h1+=`<th data-pp-sort="editComplete" style="${thFix};min-width:110px;cursor:pointer">Status${ppSortArrow('editComplete')}</th>`;
+  h1+=`<th style="${thFix};min-width:20ch;background:#005566">VO</th>`;
+  h1+=`<th style="${thFix};min-width:20ch;background:#804000">MIX</th>`;
   days.forEach((d,i)=>{
     const wknd=isWeekend[i];
     const dayFmt=new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short'});
-    h1+=`<th colspan="2" style="${wknd?thWknd:thDay};min-width:176px">${DAY_NAMES[i]}<br><span style="font-size:7px;font-weight:400;opacity:.7">${dayFmt}</span></th>`;
+    h1+=`<th colspan="3" style="${wknd?thWknd:thDay};min-width:264px">${DAY_NAMES[i]}<br><span style="font-size:7px;font-weight:400;opacity:.7">${dayFmt}</span></th>`;
   });
   h1+='</tr>';
 
@@ -2245,7 +2250,8 @@ function renderPostProd(){
   const fixedSpacers=[
     'min-width:46px;position:sticky;left:0;z-index:12;background:#0d1117',
     'min-width:40ch;position:sticky;left:52px;z-index:12;background:#0d1117',
-    'min-width:45ch','min-width:25ch','min-width:60ch','min-width:25ch','min-width:180px','min-width:100px','min-width:110px'
+    'min-width:45ch','min-width:25ch','min-width:60ch','min-width:25ch','min-width:180px','min-width:100px','min-width:110px',
+    'min-width:20ch;background:#002933','min-width:20ch;background:#3a1d00'
   ];
   fixedSpacers.forEach(s=>h2+=`<th style="${thSlot};background:#0d1117;${s}"></th>`);
   days.forEach((d,i)=>{
@@ -2302,6 +2308,24 @@ function renderPostProd(){
       else rowsHtml+=`<span style="color:#484f58;font-size:9px">In Progress</span>`;
     }
     rowsHtml+=`</td>`;
+    // VO column
+    rowsHtml+=`<td style="${tdFix};min-width:20ch;background:#002933">`;
+    if(canEdit&&!pp.editComplete){
+      rowsHtml+=`<input class="pp-cell" data-commnum="${esc(String(c.commNum))}" data-slot="vo" value="${esc(cellVal(c.commNum,'vo'))}" placeholder="" style="width:100%;background:transparent;border:none;color:#7ae8f5;font-size:10px;padding:2px 3px;outline:none;font-family:inherit">`;
+    }else{
+      const vv=cellVal(c.commNum,'vo');
+      rowsHtml+=vv?`<span style="font-size:10px;color:#7ae8f5;padding:2px 3px;display:block">${esc(vv)}</span>`:'';
+    }
+    rowsHtml+=`</td>`;
+    // MIX column
+    rowsHtml+=`<td style="${tdFix};min-width:20ch;background:#3a1d00">`;
+    if(canEdit&&!pp.editComplete){
+      rowsHtml+=`<input class="pp-cell" data-commnum="${esc(String(c.commNum))}" data-slot="mix" value="${esc(cellVal(c.commNum,'mix'))}" placeholder="" style="width:100%;background:transparent;border:none;color:#ffb347;font-size:10px;padding:2px 3px;outline:none;font-family:inherit">`;
+    }else{
+      const mv=cellVal(c.commNum,'mix');
+      rowsHtml+=mv?`<span style="font-size:10px;color:#ffb347;padding:2px 3px;display:block">${esc(mv)}</span>`:'';
+    }
+    rowsHtml+=`</td>`;
     // Day cells
     days.forEach((d,i)=>{
       const wknd=isWeekend[i];
@@ -2355,10 +2379,10 @@ function renderPostProd(){
 
   const weekLabel=`Week of ${new Date(monStr+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'})}`;
   const legend=[
-    ['#1a3a5c','#79c0ff','View 1'],['#1a3a2c','#56d364','View 2'],
-    ['#1f3a1f','#56d364','Shoot'],['#2d1f4a','#c084fc','Edit'],
-    ['#3a2d00','#e3b341','VO / Mix'],['#3a1f1f','#f7768e','AFM'],
-  ].map(([bg,fg,lbl])=>`<span style="display:inline-flex;align-items:center;gap:4px;margin-right:8px"><span style="display:inline-block;width:12px;height:8px;background:${bg};border-radius:2px;border:1px solid ${fg}44"></span><span style="font-size:9px;color:#6e7681">${lbl}</span></span>`).join('');
+    ['#003d82','View 1 (09:00 & 11:30)'],['#005c1a','View 2 (15:00)'],
+    ['#006622','Shoot'],['#4a0080','Edit'],
+    ['#005566','VO'],['#804000','Mix'],['#8b0000','AFM'],
+  ].map(([bg,lbl])=>`<span style="display:inline-flex;align-items:center;gap:4px;margin-right:8px"><span style="display:inline-block;width:12px;height:8px;background:${bg};border-radius:2px"></span><span style="font-size:9px;color:#cdd9e5">${lbl}</span></span>`).join('');
 
   return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
     ${addModalHtml}
