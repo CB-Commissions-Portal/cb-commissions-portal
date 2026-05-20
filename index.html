@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.8.1';
+const BUILD_VERSION='2.8.2';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2937,7 +2937,8 @@ function renderPresenterCalendar(){
             <option value="studio">Studio</option>
             <option value="custom">Custom note…</option>
             ${comms.filter(c=>!c.decommissioned&&c.commNum).map(c=>`<option value="${esc(c.commNum)}">${esc(c.commNum)} ${esc(c.storyName||'')} </option>`).join('')}
-          </select>`:''}
+          </select>
+          `:`<span class="pres-cal-sel" data-date="${dateStr}" data-pres="${p.key}" style="display:none"></span>`}
         </td>`;
       }).join('');
 
@@ -5108,8 +5109,8 @@ document.addEventListener('click',function presCalBadgeHandler(e){
     const td=confirmBtn.closest('td');
     if(td){
       td.querySelectorAll('[data-pres-badge],[data-pres-confirm]').forEach(el=>el.remove());
-      const sel=td.querySelector('.pres-cal-sel');
-      if(sel){sel.style.display='block';sel.value='';}
+      const sel=td.querySelector('select.pres-cal-sel');
+      if(sel){sel.style.display='block';sel.value='';}else{const sp=td.querySelector('span.pres-cal-sel');if(sp)sp.style.display='none';}
     }
     return;
   }
@@ -5131,10 +5132,11 @@ document.addEventListener('click',function presCalBadgeHandler(e){
   // Don't open a second confirm if one is already showing
   if(td.querySelector('[data-pres-confirm]'))return;
   // Get dateStr and presKey from the select inside this td
-  const sel=td.querySelector('.pres-cal-sel');
+  const sel=td.querySelector('.pres-cal-sel,[data-date][data-pres]');
   if(!sel)return;
   const dateStr=sel.dataset.date;
   const presKey=sel.dataset.pres;
+  if(!dateStr||!presKey)return;
   // Hide the badge, show confirm strip
   badge.style.display='none';
   const confirm=document.createElement('div');
