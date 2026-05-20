@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.8.7';
+const BUILD_VERSION='2.8.9';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -421,7 +421,9 @@ let mcImportModal=false;
 let presCalData={}; // {dateStr: {presenterKey: {commNum,storyName,producer,notAvailable}}}
 let lineups={}; // {epNum: {director:'', presenter1:'', presenter2:'', items:[{commNum,liveStudio,liveDuration,liveNote}], savedAt}}
 let luCollapsed=new Set();
-let ppData={}; // {commNum: {deliveryDate:'', cells:{dateStr_slot: text}}}
+let ppData={};
+let ppSortField='commNum';
+let ppSortDir='asc'; // {commNum: {deliveryDate:'', cells:{dateStr_slot: text}}}
 let ppWeekOffset=0; // weeks offset from season start (2026-01-19 = first Mon)
 const PP_SEASON_START='2026-01-19'; // first Monday of season // episode numbers that are collapsed in the lineup view
 let presCalLoaded=false;
@@ -1148,6 +1150,16 @@ function renderHome(){
       desc:'Track episodes, durations and broadcast dates'
     },
     {
+      tab:'postprod',
+      title:'Post Production',
+      sub:`Schedule`,
+      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>`,
+      color:'#f7768e',
+      bg:'rgba(247,118,142,.1)',
+      show: ['admin','operations'].includes(role),
+      desc:'Weekly post production schedule'
+    },
+    {
       tab:'studio',
       title:'Studio Crew',
       sub:'Per Episode',
@@ -1425,9 +1437,9 @@ function renderCommList(epNums,nextEp){
   <th data-sort="commNum" class="st st-2" style="width:155px;min-width:155px">Comm #</th>
   <th class="st st-3" style="width:160px;min-width:160px">Short Name</th>
   <th data-sort="storyName" class="st st-4" style="width:320px;min-width:320px">Story Name</th>
-  <th data-sort="commDuration" style="width:96px;min-width:96px">Comm Dur</th>
-  <th data-sort="deliveredDuration" style="width:96px;min-width:96px">Del Dur</th>
-  <th data-sort="paidDuration" style="width:96px;min-width:96px">Paid Dur</th>
+  <th data-sort="commDuration" style="width:18ch;min-width:18ch">Comm Dur</th>
+  <th data-sort="deliveredDuration" style="width:18ch;min-width:18ch">Del Dur</th>
+  <th data-sort="paidDuration" style="width:18ch;min-width:18ch">Paid Dur</th>
   <th data-sort="isInHouse" style="width:70px;min-width:70px">In-House</th>
   <th data-sort="isLicensed" style="width:70px;min-width:70px">Licensed</th>
   <th data-sort="producer" style="width:400px;min-width:400px">Producer</th>
@@ -2143,7 +2155,17 @@ function renderPostProd(){
   // Active commissions sorted by commNum
   const schedComms=[...comms]
     .filter(c=>!c.decommissioned&&c.commNum&&c.storyName)
-    .sort((a,b)=>Number(a.commNum)-Number(b.commNum));
+    .sort((a,b)=>{
+      let av=a[ppSortField],bv=b[ppSortField];
+      // Special cases
+      if(ppSortField==='commNum'){av=Number(av);bv=Number(bv);}
+      else if(ppSortField==='txDate'){av=getTxDate(a)||'';bv=getTxDate(b)||'';}
+      else if(ppSortField==='deliveryDate'){av=ppData[String(a.commNum)]?.deliveryDate||'';bv=ppData[String(b.commNum)]?.deliveryDate||'';}
+      else{av=String(av||'').toLowerCase();bv=String(bv||'').toLowerCase();}
+      if(av<bv)return ppSortDir==='asc'?-1:1;
+      if(av>bv)return ppSortDir==='asc'?1:-1;
+      return 0;
+    });
 
   function getPP(cn){return ppData[String(cn)]||{deliveryDate:'',cells:{}};}
   function cellVal(cn,slot){const pp=getPP(cn);return(pp.cells&&pp.cells[slot])||'';}
@@ -2178,14 +2200,15 @@ function renderPostProd(){
   // ── Header rows ──
   // Row 1: fixed col headers + day name headers (colspan 2 each)
   let h1='<tr>';
-  h1+=`<th style="${thFix};min-width:46px;position:sticky;left:0;z-index:12;background:#161b22">Comm #</th>`;
-  h1+=`<th style="${thFix};min-width:60ch;position:sticky;left:52px;z-index:12;background:#161b22">Story</th>`;
-  h1+=`<th style="${thFix};min-width:45ch">Producer</th>`;
-  h1+=`<th style="${thFix};min-width:25ch">Editor</th>`;
-  h1+=`<th style="${thFix};min-width:60ch">DOP</th>`;
-  h1+=`<th style="${thFix};min-width:25ch">AFM</th>`;
-  h1+=`<th style="${thFix};min-width:150px">Del. Date</th>`;
-  h1+=`<th style="${thFix};min-width:100px">TX Date</th>`;
+  const ppSortArrow=f=>ppSortField===f?' '+(ppSortDir==='asc'?'↑':'↓'):'';
+  h1+=`<th data-pp-sort="commNum" style="${thFix};min-width:46px;position:sticky;left:0;z-index:12;background:#161b22;cursor:pointer">Comm #${ppSortArrow('commNum')}</th>`;
+  h1+=`<th data-pp-sort="storyName" style="${thFix};min-width:40ch;position:sticky;left:52px;z-index:12;background:#161b22;cursor:pointer">Story${ppSortArrow('storyName')}</th>`;
+  h1+=`<th data-pp-sort="producer" style="${thFix};min-width:45ch;cursor:pointer">Producer${ppSortArrow('producer')}</th>`;
+  h1+=`<th data-pp-sort="editor" style="${thFix};min-width:25ch;cursor:pointer">Editor${ppSortArrow('editor')}</th>`;
+  h1+=`<th data-pp-sort="dop" style="${thFix};min-width:60ch;cursor:pointer">DOP${ppSortArrow('dop')}</th>`;
+  h1+=`<th data-pp-sort="afm" style="${thFix};min-width:25ch;cursor:pointer">AFM${ppSortArrow('afm')}</th>`;
+  h1+=`<th data-pp-sort="deliveryDate" style="${thFix};min-width:150px;cursor:pointer">Del. Date${ppSortArrow('deliveryDate')}</th>`;
+  h1+=`<th data-pp-sort="txDate" style="${thFix};min-width:100px;cursor:pointer">TX Date${ppSortArrow('txDate')}</th>`;
   days.forEach((d,i)=>{
     const wknd=isWeekend[i];
     const dayFmt=new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short'});
@@ -2198,7 +2221,7 @@ function renderPostProd(){
   // Fixed col spacers — must match sticky positions
   const fixedSpacers=[
     'min-width:46px;position:sticky;left:0;z-index:12;background:#0d1117',
-    'min-width:60ch;position:sticky;left:52px;z-index:12;background:#0d1117',
+    'min-width:40ch;position:sticky;left:52px;z-index:12;background:#0d1117',
     'min-width:45ch','min-width:25ch','min-width:60ch','min-width:25ch','min-width:180px','min-width:100px'
   ];
   fixedSpacers.forEach(s=>h2+=`<th style="${thSlot};background:#0d1117;${s}"></th>`);
@@ -2225,7 +2248,7 @@ function renderPostProd(){
     rowsHtml+=`<tr style="background:${rowBg}">`;
     // Fixed cols
     rowsHtml+=`<td style="${tdFix};position:sticky;left:0;z-index:2;background:${rowBg};font-weight:900;color:#58a6ff;font-family:monospace;font-size:11px">${esc(String(c.commNum))}${badge}</td>`;
-    rowsHtml+=`<td style="${tdFix};position:sticky;left:52px;z-index:2;background:${rowBg};color:#eaf0ff;font-weight:600;min-width:60ch;max-width:60ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.storyName)}">${esc(c.storyName)}</td>`;
+    rowsHtml+=`<td style="${tdFix};position:sticky;left:52px;z-index:2;background:${rowBg};color:#eaf0ff;font-weight:600;min-width:40ch;max-width:40ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.storyName)}">${esc(c.storyName)}</td>`;
     rowsHtml+=`<td style="${tdFix};color:#8b949e;min-width:45ch;max-width:45ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.producer||'')}">${esc(c.producer||'')}</td>`;
     rowsHtml+=`<td style="${tdFix};color:#c084fc;min-width:25ch;max-width:25ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.editor||'')}">${esc(c.editor||'')}</td>`;
     rowsHtml+=`<td style="${tdFix};color:#79c0ff;min-width:60ch;max-width:60ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.dop||'')}">${esc(c.dop||'')}</td>`;
@@ -5388,6 +5411,15 @@ function durForCommGlobal(c){if(!c)return'';return c.deliveredDuration||c.commDu
 
 
 // ── POST PRODUCTION SCHEDULE handlers ──────────────────────────────
+// Sort columns
+document.addEventListener('click',function ppSortHandler(e){
+  const th=e.target.closest('[data-pp-sort]');
+  if(!th)return;
+  const f=th.dataset.ppSort;
+  if(ppSortField===f){ppSortDir=ppSortDir==='asc'?'desc':'asc';}
+  else{ppSortField=f;ppSortDir='asc';}
+  render();
+});
 // Week navigation
 document.addEventListener('click',function ppNavHandler(e){
   if(e.target.id==='pp-prev-week'){ppWeekOffset--;render();return;}
