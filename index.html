@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.8.3';
+const BUILD_VERSION='2.8.4';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -5121,9 +5121,16 @@ document.addEventListener('click',function presCalBadgeHandler(e){
     savePresCalDay(dateStr,presCalData[dateStr]);
     const td=confirmBtn.closest('td');
     if(td){
-      td.querySelectorAll('[data-pres-badge],[data-pres-confirm]').forEach(el=>el.remove());
-      const sel=td.querySelector('select.pres-cal-sel');
-      if(sel){sel.style.display='block';sel.value='';}else{const sp=td.querySelector('span.pres-cal-sel');if(sp)sp.style.display='none';}
+      // Rebuild td contents with a fresh working select
+      const commOptions=comms.filter(c=>!c.decommissioned&&c.commNum)
+        .map(c=>`<option value="${esc(c.commNum)}">${esc(c.commNum)} ${esc(c.storyName||'')}</option>`).join('');
+      td.innerHTML=`<select class="pres-cal-sel" data-date="${dateStr}" data-pres="${presKey}" style="width:100%;background:transparent;border:none;font-size:11px;color:#484f58;cursor:pointer;padding:2px 0">
+        <option value="">— assign —</option>
+        <option value="na">Not Available</option>
+        <option value="studio">Studio</option>
+        <option value="custom">Custom note…</option>
+        ${commOptions}
+      </select>`;
     }
     return;
   }
