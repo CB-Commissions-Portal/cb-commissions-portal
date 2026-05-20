@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.8.4';
+const BUILD_VERSION='2.8.5';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2179,13 +2179,13 @@ function renderPostProd(){
   // Row 1: fixed col headers + day name headers (colspan 2 each)
   let h1='<tr>';
   h1+=`<th style="${thFix};min-width:46px;position:sticky;left:0;z-index:12;background:#161b22">Comm #</th>`;
-  h1+=`<th style="${thFix};min-width:130px">Story</th>`;
-  h1+=`<th style="${thFix};min-width:72px">Producer</th>`;
-  h1+=`<th style="${thFix};min-width:72px">Editor</th>`;
-  h1+=`<th style="${thFix};min-width:72px">DOP</th>`;
-  h1+=`<th style="${thFix};min-width:72px">AFM</th>`;
-  h1+=`<th style="${thFix};min-width:82px">Del. Date</th>`;
-  h1+=`<th style="${thFix};min-width:82px">TX Date</th>`;
+  h1+=`<th style="${thFix};min-width:150px;position:sticky;left:52px;z-index:12;background:#161b22">Story</th>`;
+  h1+=`<th style="${thFix};min-width:100px">Producer</th>`;
+  h1+=`<th style="${thFix};min-width:50px">Editor</th>`;
+  h1+=`<th style="${thFix};min-width:150px">DOP</th>`;
+  h1+=`<th style="${thFix};min-width:50px">AFM</th>`;
+  h1+=`<th style="${thFix};min-width:150px">Del. Date</th>`;
+  h1+=`<th style="${thFix};min-width:100px">TX Date</th>`;
   days.forEach((d,i)=>{
     const wknd=isWeekend[i];
     const dayFmt=new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short'});
@@ -2195,8 +2195,13 @@ function renderPostProd(){
 
   // Row 2: slot sub-headers
   let h2='<tr>';
-  // 8 fixed col spacers
-  for(let i=0;i<8;i++)h2+=`<th style="${thSlot};background:#0d1117"></th>`;
+  // Fixed col spacers — must match sticky positions
+  const fixedSpacers=[
+    'min-width:46px;position:sticky;left:0;z-index:12;background:#0d1117',
+    'min-width:150px;position:sticky;left:52px;z-index:12;background:#0d1117',
+    'min-width:100px','min-width:50px','min-width:150px','min-width:50px','min-width:150px','min-width:100px'
+  ];
+  fixedSpacers.forEach(s=>h2+=`<th style="${thSlot};background:#0d1117;${s}"></th>`);
   days.forEach((d,i)=>{
     const wknd=isWeekend[i];
     const bg=wknd?'background:#0d0d12':'background:#111620';
@@ -2212,7 +2217,7 @@ function renderPostProd(){
     const pp=getPP(c.commNum);
     const txIso=getTxDate(c);
     const txFmt=txIso?new Date(txIso+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'2-digit'}):'';
-    const delFmt=pp.deliveryDate?new Date(pp.deliveryDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'2-digit'}):'';
+    const delFmt=pp.deliveryDate?new Date(pp.deliveryDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'';
     const rowBg=ri%2===0?'#0d1117':'#111620';
     const badge=c.isLicensed?'<span style="font-size:6px;background:#1c2d1c;color:#3fb950;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">LIC</span>':
                 c.isInHouse?'<span style="font-size:6px;background:#1a1a2e;color:#7a8ba0;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">IH</span>':'';
@@ -2220,17 +2225,20 @@ function renderPostProd(){
     rowsHtml+=`<tr style="background:${rowBg}">`;
     // Fixed cols
     rowsHtml+=`<td style="${tdFix};position:sticky;left:0;z-index:2;background:${rowBg};font-weight:900;color:#58a6ff;font-family:monospace;font-size:11px">${esc(String(c.commNum))}${badge}</td>`;
-    rowsHtml+=`<td style="${tdFix};color:#eaf0ff;font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis" title="${esc(c.storyName)}">${esc(c.storyName)}</td>`;
-    rowsHtml+=`<td style="${tdFix};color:#8b949e">${esc(c.producer||'')}</td>`;
-    rowsHtml+=`<td style="${tdFix};color:#c084fc">${esc(c.editor||'')}</td>`;
-    rowsHtml+=`<td style="${tdFix};color:#79c0ff">${esc(c.dop||'')}</td>`;
-    rowsHtml+=`<td style="${tdFix};color:#f7768e">${esc(c.afm||'')}</td>`;
+    rowsHtml+=`<td style="${tdFix};position:sticky;left:52px;z-index:2;background:${rowBg};color:#eaf0ff;font-weight:600;min-width:150px;max-width:150px;overflow:hidden;text-overflow:ellipsis" title="${esc(c.storyName)}">${esc(c.storyName)}</td>`;
+    rowsHtml+=`<td style="${tdFix};color:#8b949e;min-width:100px;max-width:100px;overflow:hidden;text-overflow:ellipsis" title="${esc(c.producer||'')}">${esc(c.producer||'')}</td>`;
+    rowsHtml+=`<td style="${tdFix};color:#c084fc;min-width:50px;max-width:50px;overflow:hidden;text-overflow:ellipsis" title="${esc(c.editor||'')}">${esc(c.editor||'')}</td>`;
+    rowsHtml+=`<td style="${tdFix};color:#79c0ff;min-width:150px;max-width:150px;overflow:hidden;text-overflow:ellipsis" title="${esc(c.dop||'')}">${esc(c.dop||'')}</td>`;
+    rowsHtml+=`<td style="${tdFix};color:#f7768e;min-width:50px;max-width:50px;overflow:hidden;text-overflow:ellipsis" title="${esc(c.afm||'')}">${esc(c.afm||'')}</td>`;
     // Delivery date
     rowsHtml+=`<td style="${tdFix}">`;
     if(canEdit){
-      rowsHtml+=`<input class="pp-del-date" data-commnum="${esc(String(c.commNum))}" value="${esc(pp.deliveryDate||'')}" type="date" style="background:transparent;border:none;color:#e3b341;font-size:10px;width:100%;cursor:pointer;outline:none">`;
+      rowsHtml+=`<div class="pp-del-wrap" style="position:relative;min-width:150px">
+        <span class="pp-del-label" style="color:#e3b341;font-size:10px;cursor:pointer;white-space:normal;line-height:1.3" title="Click to change date">${delFmt||'— click to set —'}</span>
+        <input class="pp-del-date" data-commnum="${esc(String(c.commNum))}" value="${esc(pp.deliveryDate||'')}" type="date" style="position:absolute;top:0;left:0;opacity:0;width:100%;height:100%;cursor:pointer;border:none;background:transparent">
+      </div>`;
     }else{
-      rowsHtml+=`<span style="color:#e3b341">${delFmt||'—'}</span>`;
+      rowsHtml+=`<span style="color:#e3b341;font-size:10px;white-space:normal;line-height:1.3">${delFmt||'—'}</span>`;
     }
     rowsHtml+=`</td>`;
     // TX date
@@ -5420,6 +5428,12 @@ document.addEventListener('input',function ppCellHandler(e){
     if(!cn)return;
     if(!ppData[cn])ppData[cn]={deliveryDate:'',cells:{}};
     ppData[cn].deliveryDate=e.target.value;
+    // Update the visible label immediately
+    const label=e.target.closest('.pp-del-wrap')?.querySelector('.pp-del-label');
+    if(label){
+      const fmt=e.target.value?new Date(e.target.value+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'— click to set —';
+      label.textContent=fmt;
+    }
     clearTimeout(window['_ppDelSave_'+cn]);
     window['_ppDelSave_'+cn]=setTimeout(()=>savePPEntry(cn,ppData[cn]),600);
     return;
