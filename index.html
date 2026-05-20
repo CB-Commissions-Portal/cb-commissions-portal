@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.5.1';
+const BUILD_VERSION='2.5.4';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -697,7 +697,7 @@ async function loadMusicCues(){
   try{const snap=await getDocs(collection(db,'music_cues'));snap.docs.forEach(d=>{musicCues[d.id]={...d.data()};});}
   catch(e){console.error('Music cues error:',e);}
 }
-function blankMCRow(){return{cue:'',trackTitle:'',composer:'',publisher:'',cmo:'',label:'Unknown',artist:'',albumNumber:'',albumTitle:'N/A',trackNumber:'0',usage:'',musicType:'PRODUCTION',duration:''}}
+function blankMCRow(){return{cue:'',trackTitle:'',composer:'',publisher:'',cmo:'',label:'',artist:'',albumNumber:'',albumTitle:'',trackNumber:'',usage:'',musicType:'PRODUCTION',duration:''}}
 
 async function saveEndCreditsRich(ep,html){
   setSyncDot('saving');
@@ -930,7 +930,7 @@ function updateComm(id,field,val){
       if(td){td.style.opacity=greyForIHorLic?'0.3':'';td.style.pointerEvents=greyForIHorLic?'none':'';}
     });
     const afmTd=row.querySelector('input[data-field="afm"]')?.closest('td');
-    if(afmTd){afmTd.style.opacity=c.isLicensed?'0.3':'';afmTd.style.pointerEvents=c.isLicensed?'none':'';}
+    if(afmTd){const afmCanEdit=['admin','operations'].includes(getEffectiveRole());afmTd.style.opacity=c.isLicensed&&!afmCanEdit?'0.3':'';afmTd.style.pointerEvents=c.isLicensed&&!afmCanEdit?'none':'';}
     const csTd=row.querySelector('input[data-field="callSheets"]')?.closest('td');
     if(csTd){csTd.style.opacity=greyForIHorLic?'0.3':'';csTd.style.pointerEvents=greyForIHorLic?'none':'';}
     // Grey paid duration cell for in-house
@@ -1310,7 +1310,6 @@ function renderApp(){
   </div>`:''}  
   <div class="tabs no-print">
     <div class="tab-btn${tab==='home'?' active':''}" data-tab="home" style="font-size:16px;padding:4px 10px" title="Home">⌂</div>
-    ${tab!=='home'?`
     ${!['editorial','afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='commissions'?' active':''}" data-tab="commissions">Commission List ${currentSeason}</div>`:''}
     ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='episodes'?' active':''}" data-tab="episodes">Episode Register</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='deliverables'?' active':''}" data-tab="deliverables">Deliverables</div>`:''}
@@ -1321,7 +1320,6 @@ function renderApp(){
     ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='prescal'?' active':''}" data-tab="prescal">Presenter Calendar</div>`:''}
     ${userHasLeaveAccess()?`<div class="tab-btn${tab==='leave'?' active':''}" data-tab="leave">CAP Leave</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
-    `:''}
   </div>
   <div class="content" id="tab-content">
     ${renderContent(epNums,nextEp,paid,remaining)}
@@ -1442,7 +1440,7 @@ ${filtered.map(c=>{
 <td style="${c.isInHouse?'background:#1a1a1a;pointer-events:none':c.isLicensed?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'N/A — In-House':c.isLicensed?'Not applicable':''}">${c.isInHouse?'<span style="color:#484f58;font-size:11px;font-style:italic">In-House</span>':ci('dop')}</td>
 <td style="${c.isInHouse?'background:#1a1a1a;pointer-events:none':c.isLicensed?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'N/A — In-House':c.isLicensed?'Not applicable':''}">${c.isInHouse?'<span style="color:#484f58;font-size:11px;font-style:italic">In-House</span>':ci('ca')}</td>
 <td style="${c.isInHouse?'background:#1a1a1a;pointer-events:none':c.isLicensed?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'N/A — In-House':c.isLicensed?'Not applicable':''}">${c.isInHouse?'<span style="color:#484f58;font-size:11px;font-style:italic">In-House</span>':ci('editor')}</td>
-<td style="${c.isLicensed?'opacity:.3;pointer-events:none':''}">${ci('afm')}</td>
+<td style="${c.isLicensed&&!['admin','operations'].includes(getEffectiveRole())?'opacity:.3;pointer-events:none':''}">${ci('afm')}</td>
 ${DEL_KEYS.map((k,ki)=>{
   const isIHGrey = (c.isInHouse || c.isLicensed) && k === 'callSheets';
   const role=getEffectiveRole();
@@ -2444,10 +2442,10 @@ function renderMusicCues(epNums){
       <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="composer" value="${esc(r.composer)}" placeholder="Composer" style="${inpS};min-width:130px"></td>
       <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="publisher" value="${esc(r.publisher)}" placeholder="Publisher" style="${inpS};min-width:130px"></td>
       <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="cmo" value="${esc(r.cmo)}" placeholder="CMO" style="${inpS};min-width:80px"></td>
-      <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="label" value="${esc(r.label||'Unknown')}" placeholder="Unknown" style="${inpS};min-width:100px"></td>
+      <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="label" value="${esc(r.label)}" placeholder="e.g. Universal" style="${inpS};min-width:100px"></td>
       <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="artist" value="${esc(r.artist||r.composer)}" placeholder="Artist/Performer" style="${inpS};min-width:140px"></td>
-      <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="albumTitle" value="${esc(r.albumTitle||'N/A')}" placeholder="N/A" style="${inpS};min-width:120px"></td>
-      <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="trackNumber" value="${esc(r.trackNumber||'0')}" placeholder="0" style="${inpS};min-width:55px;text-align:center"></td>
+      <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="albumTitle" value="${esc(r.albumTitle)}" placeholder="Album title" style="${inpS};min-width:120px"></td>
+      <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="trackNumber" value="${esc(r.trackNumber)}" placeholder="#" style="${inpS};min-width:55px;text-align:center"></td>
       <td style="padding:4px;white-space:nowrap"><select class="mc-row-inp" data-row="${i}" data-field="usage" style="${inpS};min-width:210px">
         <option value="">— Select —</option>
         <option value="Background Instrumental (BI)" ${r.usage==='Background Instrumental (BI)'?'selected':''}>Background Instrumental (BI)</option>
@@ -2697,13 +2695,13 @@ function renderPresenterCalendar(){
         const hasContent=isNA||cell.studio||cell.custom||!!commNum;
         return`<td style="padding:8px 10px;border-bottom:1px solid #21262d;border-left:1px solid #21262d;vertical-align:top;${rowBg};min-width:160px;min-height:64px">
           ${isNA
-            ?`<div style="background:#2d0a0a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#f85149;text-align:center;cursor:pointer" data-pres-badge="1" title="Click to clear">NOT AVAILABLE</div>`
+            ?`<div style="background:#2d0a0a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#f85149;text-align:center;cursor:pointer" data-pres-badge="1" title="Click to edit or remove">NOT AVAILABLE</div>`
             :cell.studio
-            ?`<div style="background:#1a2d4a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#7a3fbf;text-align:center;cursor:pointer" data-pres-badge="1" title="Click to clear">STUDIO</div>`
+            ?`<div style="background:#1a2d4a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#7a3fbf;text-align:center;cursor:pointer" data-pres-badge="1" title="Click to edit or remove">STUDIO</div>`
             :cell.custom
-            ?`<div style="background:#2d2a1a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#e3b341;word-break:break-word;cursor:pointer" data-pres-badge="1" title="Click to clear">${esc(cell.customNote||'Note')}</div>`
+            ?`<div style="background:#2d2a1a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#e3b341;word-break:break-word;cursor:pointer" data-pres-badge="1" title="Click to edit or remove">${esc(cell.customNote||'Note')}</div>`
             :commNum
-              ?`<div style="background:#1a2d4a;border-radius:4px;padding:5px 8px;cursor:pointer" data-pres-badge="1" title="Click to clear">
+              ?`<div style="background:#1a2d4a;border-radius:4px;padding:5px 8px;cursor:pointer" data-pres-badge="1" title="Click to edit or remove">
                   <div style="font-size:11px;font-weight:900;color:#58a6ff;font-family:monospace">${esc(commNum)}</div>
                   ${storyName?`<div style="font-size:10px;color:#9aaabe;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px" title="${esc(storyName)}">${esc(storyName)}</div>`:''}
                   ${producer?`<div style="font-size:10px;color:#6e7681;margin-top:2px">${esc(producer)}</div>`:''}
@@ -4589,22 +4587,54 @@ document.addEventListener('click',function presCalNavHandler(e){
   }
 });
 
-// Presenter calendar badge click = reset cell (delegated)
+// Presenter calendar badge click — step 1: show inline confirm; step 2: clear
 document.addEventListener('click',function presCalBadgeHandler(e){
+  // Step 2: confirm button clicked — actually clear the cell
+  const confirmBtn=e.target.closest('.pres-cal-confirm-clear');
+  if(confirmBtn){
+    e.stopPropagation();
+    const td=confirmBtn.closest('td');
+    if(!td)return;
+    const sel=td.querySelector('.pres-cal-sel');
+    if(!sel)return;
+    const dateStr=sel.dataset.date;
+    const presKey=sel.dataset.pres;
+    if(!presCalData[dateStr])presCalData[dateStr]={};
+    delete presCalData[dateStr][presKey];
+    savePresCalDay(dateStr,presCalData[dateStr]);
+    td.querySelectorAll('[data-pres-badge],[data-pres-confirm]').forEach(el=>el.remove());
+    sel.style.display='block';
+    sel.value='';
+    return;
+  }
+  // Cancel button clicked — dismiss confirm prompt, restore badge
+  const cancelBtn=e.target.closest('.pres-cal-cancel-clear');
+  if(cancelBtn){
+    e.stopPropagation();
+    const td=cancelBtn.closest('td');
+    if(!td)return;
+    td.querySelectorAll('[data-pres-confirm]').forEach(el=>el.remove());
+    td.querySelectorAll('[data-pres-badge]').forEach(el=>el.style.display='');
+    return;
+  }
+  // Step 1: badge clicked — show inline confirm prompt
   const badge=e.target.closest('[data-pres-badge]');
   if(!badge)return;
   const td=badge.closest('td');
   if(!td)return;
-  const sel=td.querySelector('.pres-cal-sel');
-  if(!sel)return;
-  const dateStr=sel.dataset.date;
-  const presKey=sel.dataset.pres;
-  if(!presCalData[dateStr])presCalData[dateStr]={};
-  delete presCalData[dateStr][presKey];
-  savePresCalDay(dateStr,presCalData[dateStr]);
-  td.querySelectorAll('[data-pres-badge]').forEach(el=>el.remove());
-  sel.style.display='block';
-  sel.value='';
+  // Don't open a second confirm if one is already showing
+  if(td.querySelector('[data-pres-confirm]'))return;
+  // Hide the badge, show confirm strip
+  badge.style.display='none';
+  const confirm=document.createElement('div');
+  confirm.setAttribute('data-pres-confirm','1');
+  confirm.style.cssText='background:#2d0a0a;border:1px solid #f85149;border-radius:4px;padding:5px 7px;display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px';
+  confirm.innerHTML=`<span style="font-size:10px;font-weight:700;color:#f85149">Remove?</span>`+
+    `<div style="display:flex;gap:4px">`+
+    `<button class="pres-cal-confirm-clear" style="background:#f85149;border:none;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;cursor:pointer">✕ Yes</button>`+
+    `<button class="pres-cal-cancel-clear" style="background:#2e3a50;border:none;color:#8b949e;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;cursor:pointer">Keep</button>`+
+    `</div>`;
+  td.insertBefore(confirm, badge);
 });
 
 // Presenter calendar dropdown (delegated)
@@ -4646,7 +4676,7 @@ function updatePresCalCell(dateStr,presKey,cell){
   if(hasContent){
     const badge=document.createElement('div');
     badge.setAttribute('data-pres-badge','1');
-    badge.title='Click to clear';
+    badge.title='Click to edit or remove';
     badge.style.cursor='pointer';
     if(cell.notAvailable){
       badge.style.cssText='background:#2d0a0a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#f85149;text-align:center;margin-bottom:2px;cursor:pointer';
