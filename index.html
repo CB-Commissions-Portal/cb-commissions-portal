@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.9.6';
+const BUILD_VERSION='2.9.7';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2260,7 +2260,7 @@ function renderPostProd(){
   days.forEach((d,i)=>{
     const wknd=isWeekend[i];
     const dayFmt=new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short'});
-    h1+=`<th colspan="5" style="${wknd?thWknd:thDay};min-width:440px">${DAY_NAMES[i]}<br><span style="font-size:7px;font-weight:400;opacity:.7">${dayFmt}</span></th>`;
+    h1+=`<th colspan="5" style="${wknd?thWknd:thDay};min-width:440px;border-left:3px solid ${wknd?'#333340':'#388bfd'}">${DAY_NAMES[i]}<br><span style="font-size:7px;font-weight:400;opacity:.7">${dayFmt}</span></th>`;
   });
   h1+='</tr>';
 
@@ -2268,16 +2268,17 @@ function renderPostProd(){
   const fixedSpacers=[
     'min-width:46px;position:sticky;left:0;z-index:12;background:#0d1117',
     'min-width:40ch;position:sticky;left:52px;z-index:12;background:#0d1117',
-    'min-width:45ch','min-width:25ch','min-width:60ch','min-width:25ch','min-width:180px','min-width:100px','min-width:110px',
-    'min-width:20ch','min-width:20ch'
+    'min-width:45ch','min-width:25ch','min-width:60ch','min-width:25ch','min-width:180px','min-width:100px','min-width:110px'
   ];
   fixedSpacers.forEach(s=>h2+=`<th style="${thSlot};background:#0d1117;${s}"></th>`);
   days.forEach((d,i)=>{
     const wknd=isWeekend[i];
     const bg=wknd?'background:#0d0d12':'background:#111620';
-    slots(i).forEach(sk=>{
+    slots(i).forEach((sk,si)=>{
+      const isFirst=si===0;
       const sColor=sk.endsWith('_vo')?'color:#7ae8f5':sk.endsWith('_mix')?'color:#ffb347':'';
-      h2+=`<th style="${wknd?thSlotWknd:thSlot};${bg};${sColor}">${slotShort(sk)}</th>`;
+      const dayBorder=isFirst?'border-left:3px solid #388bfd':'';
+      h2+=`<th style="${wknd?thSlotWknd:thSlot};${bg};${sColor};${dayBorder}">${slotShort(sk)}</th>`;
     });
   });
   h2+='</tr>';
@@ -2330,14 +2331,16 @@ function renderPostProd(){
     // Day cells (09:00, 11:30, 15:00, VO, MIX per day)
     days.forEach((d,i)=>{
       const wknd=isWeekend[i];
-      slots(i).forEach(sk=>{
+      slots(i).forEach((sk,si)=>{
+        const isFirst=si===0;
         const val=cellVal(c.commNum,sk);
         const slotStyle=val?cellBg(val):'';
         const parts=slotStyle.split(';');
         const bg=parts[0]?.replace('background:','').trim()||'';
         const fg=parts[1]?.replace('color:','').trim()||'#ffffff';
         const emptyBg=wknd?'#0a0a10':rowBg;
-        rowsHtml+=`<td style="${tdCell};background:${val?bg:emptyBg}">`;
+        const dayBorderCell=isFirst?'border-left:3px solid '+(wknd?'#333340':'#388bfd')+';':'';
+        rowsHtml+=`<td style="${tdCell};background:${val?bg:emptyBg};${dayBorderCell}">`;
         if(canEdit&&!pp.editComplete){
           rowsHtml+=`<input class="pp-cell" data-commnum="${esc(String(c.commNum))}" data-slot="${sk}" value="${esc(val)}" placeholder="" style="width:100%;background:transparent;border:none;color:${val?fg:'#484f58'};font-size:10px;padding:2px 3px;outline:none;font-family:inherit">`;
         }else{
