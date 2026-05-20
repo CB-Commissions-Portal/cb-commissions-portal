@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.9.2';
+const BUILD_VERSION='2.9.3';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2172,11 +2172,7 @@ function renderPostProd(){
     if(key.endsWith('_vo'))return'VO';
     return'MIX';
   }
-  function slotBg(key){
-    if(key.endsWith('_vo'))return'background:#002933';
-    if(key.endsWith('_mix'))return'background:#3a1d00';
-    return'';
-  }
+
 
   function getPP(cn){return ppData[String(cn)]||{deliveryDate:'',cells:{},editComplete:false};}
   function cellVal(cn,slot){const pp=getPP(cn);return(pp.cells&&pp.cells[slot])||'';}
@@ -2263,9 +2259,8 @@ function renderPostProd(){
     const wknd=isWeekend[i];
     const bg=wknd?'background:#0d0d12':'background:#111620';
     slots(i).forEach(sk=>{
-      const sBg=slotBg(sk);
       const sColor=sk.endsWith('_vo')?'color:#7ae8f5':sk.endsWith('_mix')?'color:#ffb347':'';
-      h2+=`<th style="${wknd?thSlotWknd:thSlot};${sBg||bg};${sColor}">${slotShort(sk)}</th>`;
+      h2+=`<th style="${wknd?thSlotWknd:thSlot};${bg};${sColor}">${slotShort(sk)}</th>`;
     });
   });
   h2+='</tr>';
@@ -2324,14 +2319,12 @@ function renderPostProd(){
         const parts=slotStyle.split(';');
         const bg=parts[0]?.replace('background:','').trim()||'';
         const fg=parts[1]?.replace('color:','').trim()||'#ffffff';
-        // Default slot backgrounds when empty
-        const emptyBg=sk.endsWith('_vo')?'#002933':sk.endsWith('_mix')?'#3a1d00':wknd?'#0a0a10':rowBg;
-        const emptyFg=sk.endsWith('_vo')?'#7ae8f5':sk.endsWith('_mix')?'#ffb347':'#484f58';
+        const emptyBg=wknd?'#0a0a10':rowBg;
         rowsHtml+=`<td style="${tdCell};background:${val?bg:emptyBg}">`;
         if(canEdit&&!pp.editComplete){
-          rowsHtml+=`<input class="pp-cell" data-commnum="${esc(String(c.commNum))}" data-slot="${sk}" value="${esc(val)}" placeholder="" style="width:100%;background:transparent;border:none;color:${val?fg:emptyFg};font-size:10px;padding:2px 3px;outline:none;font-family:inherit">`;
+          rowsHtml+=`<input class="pp-cell" data-commnum="${esc(String(c.commNum))}" data-slot="${sk}" value="${esc(val)}" placeholder="" style="width:100%;background:transparent;border:none;color:${val?fg:'#484f58'};font-size:10px;padding:2px 3px;outline:none;font-family:inherit">`;
         }else{
-          rowsHtml+=val?`<span style="font-size:10px;color:${val?fg:emptyFg};padding:2px 3px;display:block">${esc(val)}</span>`:'';
+          rowsHtml+=val?`<span style="font-size:10px;color:${fg};padding:2px 3px;display:block">${esc(val)}</span>`:'';
         }
         rowsHtml+=`</td>`;
       });
