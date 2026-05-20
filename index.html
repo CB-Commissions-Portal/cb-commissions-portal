@@ -386,7 +386,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.3.7';
+const BUILD_VERSION='2.3.8';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2617,13 +2617,13 @@ function renderPresenterCalendar(){
         const hasContent=isNA||cell.studio||cell.custom||!!commNum;
         return`<td style="padding:8px 10px;border-bottom:1px solid #21262d;border-left:1px solid #21262d;vertical-align:top;${rowBg};min-width:160px;min-height:64px">
           ${isNA
-            ?`<div style="background:#2d0a0a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#f85149;text-align:center">NOT AVAILABLE</div>`
+            ?`<div style="background:#2d0a0a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#f85149;text-align:center;cursor:pointer" data-pres-badge="1" title="Click to clear">NOT AVAILABLE</div>`
             :cell.studio
-            ?`<div style="background:#1a2d4a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#7a3fbf;text-align:center">STUDIO</div>`
+            ?`<div style="background:#1a2d4a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#7a3fbf;text-align:center;cursor:pointer" data-pres-badge="1" title="Click to clear">STUDIO</div>`
             :cell.custom
-            ?`<div style="background:#2d2a1a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#e3b341;word-break:break-word">${esc(cell.customNote||'Note')}</div>`
+            ?`<div style="background:#2d2a1a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#e3b341;word-break:break-word;cursor:pointer" data-pres-badge="1" title="Click to clear">${esc(cell.customNote||'Note')}</div>`
             :commNum
-              ?`<div style="background:#1a2d4a;border-radius:4px;padding:5px 8px">
+              ?`<div style="background:#1a2d4a;border-radius:4px;padding:5px 8px;cursor:pointer" data-pres-badge="1" title="Click to clear">
                   <div style="font-size:11px;font-weight:900;color:#58a6ff;font-family:monospace">${esc(commNum)}</div>
                   ${storyName?`<div style="font-size:10px;color:#9aaabe;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px" title="${esc(storyName)}">${esc(storyName)}</div>`:''}
                   ${producer?`<div style="font-size:10px;color:#6e7681;margin-top:2px">${esc(producer)}</div>`:''}
@@ -2636,7 +2636,6 @@ function renderPresenterCalendar(){
             <option value="custom">Custom note…</option>
             ${comms.filter(c=>!c.decommissioned&&c.commNum).map(c=>`<option value="${esc(c.commNum)}">${esc(c.commNum)} ${esc(c.storyName||'')} </option>`).join('')}
           </select>`:''}
-          ${canEd&&hasContent?`<button class="pres-cal-clear" data-date="${dateStr}" data-pres="${p.key}" style="width:100%;background:transparent;border:none;font-size:9px;color:#484f58;cursor:pointer;padding:2px 0;text-align:left;display:block" title="Clear">✕ clear</button>`:''}
         </td>`;
       }).join('');
 
@@ -4393,22 +4392,22 @@ document.addEventListener('click',function presCalNavHandler(e){
   if(e.target.id==='prescal-next'){const months=Object.keys(presCalDates().reduce((a,d)=>{a[presCalMonth(d)]=1;return a},{}));presCalViewMonth=Math.min(months.length-1,presCalViewMonth+1);render();}
 });
 
-// Presenter calendar clear button (delegated)
-document.addEventListener('click',function presCalClearHandler(e){
-  const btn=e.target.closest('.pres-cal-clear');
-  if(!btn)return;
-  e.stopPropagation();
-  const dateStr=btn.dataset.date;
-  const presKey=btn.dataset.pres;
+// Presenter calendar badge click = reset cell (delegated)
+document.addEventListener('click',function presCalBadgeHandler(e){
+  const badge=e.target.closest('[data-pres-badge]');
+  if(!badge)return;
+  const td=badge.closest('td');
+  if(!td)return;
+  const sel=td.querySelector('.pres-cal-sel');
+  if(!sel)return;
+  const dateStr=sel.dataset.date;
+  const presKey=sel.dataset.pres;
   if(!presCalData[dateStr])presCalData[dateStr]={};
   delete presCalData[dateStr][presKey];
   savePresCalDay(dateStr,presCalData[dateStr]);
-  // Show the select again, remove badge and clear button
-  const td=btn.parentElement;
   td.querySelectorAll('[data-pres-badge]').forEach(el=>el.remove());
-  btn.remove();
-  const sel=td.querySelector('.pres-cal-sel');
-  if(sel){sel.style.display='block';sel.value='';}
+  sel.style.display='block';
+  sel.value='';
 });
 
 // Presenter calendar dropdown (delegated)
@@ -4440,53 +4439,38 @@ document.addEventListener('change',function presCalHandler(e){
 
 // Update a single presenter calendar cell without full re-render
 function updatePresCalCell(dateStr,presKey,cell){
-  // Find the cell's display div and update it
   const sel=document.querySelector(`.pres-cal-sel[data-date="${dateStr}"][data-pres="${presKey}"]`);
   if(!sel)return;
   const td=sel.parentElement;
   if(!td)return;
-  // Remove existing badge
-  td.querySelectorAll('div[data-pres-badge]').forEach(el=>el.remove());
-  // Add new badge
-  if(cell.notAvailable){
-    const badge=document.createElement('div');
-    badge.setAttribute('data-pres-badge','1');
-    badge.style.cssText='background:#2d0a0a;border-radius:3px;padding:2px 5px;font-size:9px;font-weight:700;color:#f85149;text-align:center;margin-bottom:2px';
-    badge.textContent='NOT AVAILABLE';
-    td.insertBefore(badge,sel);
-  } else if(cell.studio){
-    const badge=document.createElement('div');
-    badge.setAttribute('data-pres-badge','1');
-    badge.style.cssText='background:#1a2d4a;border-radius:3px;padding:2px 5px;font-size:9px;font-weight:700;color:#7a3fbf;text-align:center;margin-bottom:2px';
-    badge.textContent='STUDIO';
-    td.insertBefore(badge,sel);
-  } else if(cell.custom){
-    const badge=document.createElement('div');
-    badge.setAttribute('data-pres-badge','1');
-    badge.style.cssText='background:#2d2a1a;border-radius:3px;padding:2px 5px;font-size:9px;font-weight:700;color:#e3b341;word-break:break-word;margin-bottom:2px';
-    badge.textContent=cell.customNote||'Note';
-    td.insertBefore(badge,sel);
-  } else if(cell.commNum){
-    const badge=document.createElement('div');
-    badge.setAttribute('data-pres-badge','1');
-    badge.style.cssText='background:#1a2d4a;border-radius:3px;padding:2px 5px;margin-bottom:2px';
-    badge.innerHTML=`<div style="font-size:9px;font-weight:900;color:#58a6ff;font-family:monospace">${cell.commNum}</div>`+
-      (cell.storyName?`<div style="font-size:8px;color:#9aaabe;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:95px">${cell.storyName}</div>`:'')+
-      (cell.producer?`<div style="font-size:8px;color:#6e7681;margin-top:1px">${cell.producer}</div>`:'');
-    td.insertBefore(badge,sel);
-  }
-  // If something assigned — hide select, show clear button
+  // Remove existing badges and old clear buttons
+  td.querySelectorAll('[data-pres-badge],.pres-cal-clear').forEach(el=>el.remove());
   const hasContent=cell.notAvailable||cell.studio||cell.custom||cell.commNum;
-  sel.style.display=hasContent?'none':'block';
   if(hasContent){
-    const clrBtn=document.createElement('button');
-    clrBtn.className='pres-cal-clear';
-    clrBtn.dataset.date=dateStr;
-    clrBtn.dataset.pres=presKey;
-    clrBtn.style.cssText='width:100%;background:transparent;border:none;font-size:7px;color:#484f58;cursor:pointer;padding:1px 0;text-align:left;display:block';
-    clrBtn.title='Clear';
-    clrBtn.textContent='✕ clear';
-    td.appendChild(clrBtn);
+    const badge=document.createElement('div');
+    badge.setAttribute('data-pres-badge','1');
+    badge.title='Click to clear';
+    badge.style.cursor='pointer';
+    if(cell.notAvailable){
+      badge.style.cssText='background:#2d0a0a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#f85149;text-align:center;margin-bottom:2px;cursor:pointer';
+      badge.textContent='NOT AVAILABLE';
+    } else if(cell.studio){
+      badge.style.cssText='background:#1a2d4a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#7a3fbf;text-align:center;margin-bottom:2px;cursor:pointer';
+      badge.textContent='STUDIO';
+    } else if(cell.custom){
+      badge.style.cssText='background:#2d2a1a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#e3b341;word-break:break-word;margin-bottom:2px;cursor:pointer';
+      badge.textContent=cell.customNote||'Note';
+    } else if(cell.commNum){
+      badge.style.cssText='background:#1a2d4a;border-radius:4px;padding:5px 8px;margin-bottom:2px;cursor:pointer';
+      badge.innerHTML=`<div style="font-size:11px;font-weight:900;color:#58a6ff;font-family:monospace">${cell.commNum}</div>`+
+        (cell.storyName?`<div style="font-size:10px;color:#9aaabe;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px">${cell.storyName}</div>`:'')+
+        (cell.producer?`<div style="font-size:10px;color:#6e7681;margin-top:2px">${cell.producer}</div>`:'');
+    }
+    td.insertBefore(badge,sel);
+    sel.style.display='none';
+  } else {
+    sel.style.display='block';
+    sel.value='';
   }
 }
 
