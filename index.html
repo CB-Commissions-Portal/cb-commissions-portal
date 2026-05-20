@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.7.1';
+const BUILD_VERSION='2.8.0';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -420,7 +420,10 @@ let mcEpFilter='all';
 let mcImportModal=false;
 let presCalData={}; // {dateStr: {presenterKey: {commNum,storyName,producer,notAvailable}}}
 let lineups={}; // {epNum: {director:'', presenter1:'', presenter2:'', items:[{commNum,liveStudio,liveDuration,liveNote}], savedAt}}
-let luCollapsed=new Set(); // episode numbers that are collapsed in the lineup view
+let luCollapsed=new Set();
+let ppData={}; // {commNum: {deliveryDate:'', cells:{dateStr_slot: text}}}
+let ppWeekOffset=0; // weeks offset from season start (2026-01-19 = first Mon)
+const PP_SEASON_START='2026-01-19'; // first Monday of season // episode numbers that are collapsed in the lineup view
 let presCalLoaded=false;
 let presCalViewMonth=0; // index into months array — auto-set to current month on first open
 let _presCalMonthAutoSet=false;
@@ -679,6 +682,15 @@ async function loadPresCal(){
     if(endSnap.exists()&&endSnap.data().endDate)PRES_CAL_END=endSnap.data().endDate;
   }catch(e){console.error('Presenter calendar error:',e);}
 }
+async function savePPEntry(commNum,data){
+  setSyncDot('saving');
+  try{await setDoc(doc(db,'postprod',String(commNum)),{...data,updatedAt:serverTimestamp()});ppData[commNum]={...data};setSyncDot('live');}
+  catch(e){setSyncDot('offline');showToast('Post prod save failed: '+e.message,true);}
+}
+async function loadPostProd(){
+  try{const snap=await getDocs(collection(db,'postprod'));snap.docs.forEach(d=>{ppData[d.id]={...d.data()};});}
+  catch(e){console.error('Post prod load:',e);}
+}
 async function saveLineup(epNum,data){
   setSyncDot('saving');
   try{await setDoc(doc(db,'lineups',String(epNum)),{...data,updatedAt:serverTimestamp()});lineups[epNum]={...data};setSyncDot('live');}
@@ -890,7 +902,7 @@ function subscribeData(){
     const active=document.activeElement;
     const editRow=active?.closest('tr[data-id]');
     const editId=editRow?Number(editRow.dataset.id):null;
-    const editingLineup=active?.classList.contains('lu-director')||active?.classList.contains('lu-pres1')||active?.classList.contains('lu-pres2')||active?.classList.contains('lu-live-note')||active?.classList.contains('lu-live-dur');
+    const editingLineup=active?.classList.contains('lu-director')||active?.classList.contains('lu-pres1')||active?.classList.contains('lu-pres2')||active?.classList.contains('lu-live-note')||active?.classList.contains('lu-live-dur')||active?.classList.contains('pp-cell')||active?.classList.contains('pp-del-date');
     if(editId){comms=incoming.map(c=>c.id===editId?(comms.find(x=>x.id===editId)||c):c);updateTicker();}
     else if(editingLineup){comms=incoming;updateTicker();}
     else{comms=incoming;render();}
@@ -898,7 +910,7 @@ function subscribeData(){
   unsubSettings=onSnapshot(doc(db,'settings','main'),snap=>{
     if(snap.exists())settings={...settings,...snap.data()};
     const active=document.activeElement;
-    const editingLineup=active?.classList.contains('lu-director')||active?.classList.contains('lu-pres1')||active?.classList.contains('lu-pres2')||active?.classList.contains('lu-live-note')||active?.classList.contains('lu-live-dur');
+    const editingLineup=active?.classList.contains('lu-director')||active?.classList.contains('lu-pres1')||active?.classList.contains('lu-pres2')||active?.classList.contains('lu-live-note')||active?.classList.contains('lu-live-dur')||active?.classList.contains('pp-cell')||active?.classList.contains('pp-del-date');
     if(!active?.closest('tr[data-id]')&&!editingLineup)render();
   });
 }
@@ -1344,6 +1356,7 @@ function renderApp(){
     ${!['editorial','afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='commissions'?' active':''}" data-tab="commissions">Commission List ${currentSeason}</div>`:''}
     ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='lineups'?' active':''}" data-tab="lineups">Line-Ups</div>`:''}
     ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='episodes'?' active':''}" data-tab="episodes">Episode Register</div>`:''}
+    ${['admin','operations'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='postprod'?' active':''}" data-tab="postprod">Post Production</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='deliverables'?' active':''}" data-tab="deliverables">Deliverables</div>`:''}
     ${['admin','operations','prodmgmt'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='promos'?' active':''}" data-tab="promos">Promo Scheduling</div>`:''}
     ${['admin','operations','afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='musiccues'?' active':''}" data-tab="musiccues">Music Cue Sheets</div>`:''}
@@ -1371,6 +1384,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='musiccues')return renderMusicCues(epNums);
   if(tab==='prescal'&&['admin','operations','production','prodmgmt','editorial'].includes(role))return renderPresenterCalendar();
   if(tab==='leave'&&userHasLeaveAccess())return renderLeave();
+  if(tab==='postprod'&&['admin','operations'].includes(role))return renderPostProd();
   if(tab==='deliverables'&&currentRole==='admin'&&!previewRole)return renderDeliverables(epNums);
   if(tab==='lineups'&&['admin','operations','production','prodmgmt','editorial'].includes(role))return renderLineups(epNums);
   if(tab==='admin'&&currentRole==='admin'&&!previewRole)return renderAdmin();
@@ -2094,6 +2108,172 @@ const DELIVERABLE_TASKS = [
   {key:'supplier_agreements',   label:'Recue – Supplier Agreements'},
   {key:'barter_agreements',     label:'Recue – Barter Agreements'},
 ];
+
+
+function renderPostProd(){
+  const canEdit=['admin','operations'].includes(getEffectiveRole());
+
+  // Week start = PP_SEASON_START + ppWeekOffset weeks
+  function weekStart(offset){
+    const p=PP_SEASON_START.split('-');
+    const d=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]));
+    d.setUTCDate(d.getUTCDate()+offset*7);
+    return d.toISOString().split('T')[0];
+  }
+  const monStr=weekStart(ppWeekOffset);
+
+  // Build 7 day strings Mon-Sun
+  const days=[];
+  for(let i=0;i<7;i++)days.push(addDays(monStr,i));
+
+  // Day labels
+  const DAY_NAMES=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const isWeekend=[false,false,false,false,false,true,true];
+
+  // Slots per day: weekday = View 1 (11:30) + View 2 (15:00), weekend = Morning + Afternoon
+  function slotKeys(dayIdx){
+    return isWeekend[dayIdx]
+      ?[days[dayIdx]+'_morning',days[dayIdx]+'_afternoon']
+      :[days[dayIdx]+'_view1',days[dayIdx]+'_view2'];
+  }
+  function slotLabel(key){
+    if(key.endsWith('_view1'))return'View 1 · 11:30';
+    if(key.endsWith('_view2'))return'View 2 · 15:00';
+    if(key.endsWith('_morning'))return'Morning';
+    return'Afternoon';
+  }
+
+  // All active commissions for this season, sorted by commNum
+  const schedComms=[...comms]
+    .filter(c=>!c.decommissioned&&c.commNum&&c.storyName)
+    .sort((a,b)=>Number(a.commNum)-Number(b.commNum));
+
+  function getPP(commNum){return ppData[String(commNum)]||{deliveryDate:'',cells:{}};}
+  function getTxDate(c){
+    if(!c.broadcastEpisode)return'';
+    return fmtDate(resolveDate(Number(c.broadcastEpisode)));
+  }
+
+  // Check if any commission has any entry this week (for display purposes)
+  // Show ALL commissions always (as per requirement)
+
+  // ── Header row: day columns ──
+  let headHtml='<tr style="position:sticky;top:0;z-index:10;background:#161b22">';
+  // Fixed columns
+  headHtml+=`<th style="padding:6px 8px;font-size:9px;font-weight:800;color:#7a8ba0;text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;white-space:nowrap;position:sticky;left:0;z-index:11;background:#161b22;min-width:48px">Comm #</th>`;
+  headHtml+=`<th style="padding:6px 8px;font-size:9px;font-weight:800;color:#7a8ba0;text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;white-space:nowrap;min-width:140px">Story</th>`;
+  headHtml+=`<th style="padding:6px 8px;font-size:9px;font-weight:800;color:#7a8ba0;text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;white-space:nowrap;min-width:80px">Producer</th>`;
+  headHtml+=`<th style="padding:6px 8px;font-size:9px;font-weight:800;color:#7a8ba0;text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;white-space:nowrap;min-width:80px">Editor</th>`;
+  headHtml+=`<th style="padding:6px 8px;font-size:9px;font-weight:800;color:#7a8ba0;text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;white-space:nowrap;min-width:80px">DOP</th>`;
+  headHtml+=`<th style="padding:6px 8px;font-size:9px;font-weight:800;color:#7a8ba0;text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;white-space:nowrap;min-width:80px">AFM</th>`;
+  headHtml+=`<th style="padding:6px 8px;font-size:9px;font-weight:800;color:#7a8ba0;text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;white-space:nowrap;min-width:90px">Del. Date</th>`;
+  headHtml+=`<th style="padding:6px 8px;font-size:9px;font-weight:800;color:#7a8ba0;text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;white-space:nowrap;min-width:90px">TX Date</th>`;
+  // Day columns
+  days.forEach((d,i)=>{
+    const weekend=isWeekend[i];
+    const bg=weekend?'background:#1a1a1f':'background:#161b22';
+    const dayFmt=new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short'});
+    headHtml+=`<th colspan="2" style="padding:6px 10px;font-size:9px;font-weight:800;color:${weekend?'#484f58':'#7a8ba0'};text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;${bg};text-align:center;min-width:200px">${DAY_NAMES[i]}<br><span style="font-size:8px;font-weight:400;color:#484f58">${dayFmt}</span></th>`;
+  });
+  headHtml+='</tr>';
+
+  // Sub-header: slot labels
+  headHtml+='<tr style="position:sticky;top:37px;z-index:9;background:#0d1117">';
+  // Fixed cols spacers
+  ['','','','','','','',''].forEach(()=>{
+    headHtml+=`<th style="padding:3px 8px;border-bottom:1px solid #21262d;border-right:1px solid #21262d;background:#0d1117"></th>`;
+  });
+  days.forEach((d,i)=>{
+    const weekend=isWeekend[i];
+    const bg=weekend?'background:#111116':'background:#0d1117';
+    const slots=slotKeys(i);
+    slots.forEach(sk=>{
+      headHtml+=`<th style="padding:3px 6px;font-size:8px;font-weight:600;color:#484f58;text-transform:uppercase;border-bottom:1px solid #21262d;border-right:1px solid #21262d;${bg};white-space:nowrap;text-align:center">${slotLabel(sk)}</th>`;
+    });
+  });
+  headHtml+='</tr>';
+
+  // ── Commission rows ──
+  const fixedTd='padding:5px 8px;border-bottom:1px solid #21262d;border-right:1px solid #21262d;vertical-align:top;font-size:11px;white-space:nowrap';
+  const cellTd='padding:3px 4px;border-bottom:1px solid #21262d;border-right:1px solid #21262d;vertical-align:top;min-width:100px';
+
+  let rowsHtml='';
+  schedComms.forEach(c=>{
+    const pp=getPP(c.commNum);
+    const tx=getTxDate(c);
+    const badge=c.isLicensed?'<span style="font-size:7px;background:#1c2d1c;color:#3fb950;padding:1px 3px;border-radius:2px;margin-left:3px">LIC</span>':
+                c.isInHouse?'<span style="font-size:7px;background:#1a1a2e;color:#7a8ba0;padding:1px 3px;border-radius:2px;margin-left:3px">IH</span>':'';
+
+    rowsHtml+=`<tr class="pp-row" data-commnum="${esc(String(c.commNum))}">`;
+    // Fixed cols
+    rowsHtml+=`<td style="${fixedTd};position:sticky;left:0;background:#161b22;z-index:2;font-weight:900;color:#58a6ff;font-family:monospace">${esc(String(c.commNum))}${badge}</td>`;
+    rowsHtml+=`<td style="${fixedTd};max-width:160px;overflow:hidden;text-overflow:ellipsis;color:#eaf0ff;font-weight:600">${esc(c.storyName)}</td>`;
+    rowsHtml+=`<td style="${fixedTd};color:#8b949e">${esc(c.producer||'—')}</td>`;
+    rowsHtml+=`<td style="${fixedTd};color:#d2a8ff">${esc(c.editor||'—')}</td>`;
+    rowsHtml+=`<td style="${fixedTd};color:#79c0ff">${esc(c.dop||'—')}</td>`;
+    rowsHtml+=`<td style="${fixedTd};color:#f7768e">${esc(c.afm||'—')}</td>`;
+    // Delivery date — editable
+    rowsHtml+=`<td style="${fixedTd}">`;
+    if(canEdit){
+      rowsHtml+=`<input class="pp-del-date" data-commnum="${esc(String(c.commNum))}" value="${esc(pp.deliveryDate||'')}" type="date" style="background:#1c2433;border:1px solid #2e3a50;color:#e3b341;padding:2px 4px;border-radius:3px;font-size:10px;width:110px">`;
+    } else {
+      rowsHtml+=`<span style="color:#e3b341">${pp.deliveryDate?fmtDate(pp.deliveryDate):'—'}</span>`;
+    }
+    rowsHtml+=`</td>`;
+    // TX Date — read only
+    rowsHtml+=`<td style="${fixedTd};color:${tx?'#3fb950':'#484f58'}">${tx||'—'}</td>`;
+    // Day cells
+    days.forEach((d,i)=>{
+      const weekend=isWeekend[i];
+      const slots=slotKeys(i);
+      const bg=weekend?'background:#111116':'';
+      slots.forEach(sk=>{
+        const val=(pp.cells&&pp.cells[sk])||'';
+        const isView=sk.endsWith('_view1')||sk.endsWith('_view2');
+        const viewStyle=val.toLowerCase().includes('view')?'background:rgba(88,166,255,0.12)':
+                        val.toLowerCase().includes('shoot')?'background:rgba(63,185,80,0.08)':
+                        val.toLowerCase().includes('edit')?'background:rgba(210,168,255,0.08)':
+                        val.toLowerCase().includes('vo')||val.toLowerCase().includes('mix')||val.toLowerCase().includes('amf')||val.toLowerCase().includes('afm')?'background:rgba(247,118,142,0.08)':'';
+        rowsHtml+=`<td style="${cellTd};${bg};${viewStyle}">`;
+        if(canEdit){
+          rowsHtml+=`<input class="pp-cell" data-commnum="${esc(String(c.commNum))}" data-slot="${sk}" value="${esc(val)}" placeholder="" style="width:100%;background:transparent;border:none;color:#eaf0ff;font-size:10px;padding:2px 3px;outline:none;min-width:90px">`;
+        } else {
+          rowsHtml+=`<span style="font-size:10px;color:#eaf0ff">${esc(val)}</span>`;
+        }
+        rowsHtml+=`</td>`;
+      });
+    });
+    rowsHtml+='</tr>';
+  });
+
+  if(!schedComms.length)rowsHtml=`<tr><td colspan="100" style="padding:40px;text-align:center;color:#484f58;font-size:13px">No active commissions for this season.</td></tr>`;
+
+  const weekLabel=`Week of ${new Date(monStr+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'})}`;
+
+  return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
+    <div style="padding:10px 16px;background:#161b22;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:12px;flex-shrink:0;position:sticky;top:0;z-index:20">
+      <button class="btn" id="pp-prev-week" style="font-size:11px;padding:4px 10px">◀ Prev</button>
+      <span style="font-size:13px;font-weight:800;color:#eaf0ff;min-width:220px;text-align:center">${weekLabel}</span>
+      <button class="btn" id="pp-next-week" style="font-size:11px;padding:4px 10px">Next ▶</button>
+      <span style="font-size:10px;color:#484f58;margin-left:8px">Post Production Schedule · Season ${currentSeason}</span>
+      <button class="btn" id="pp-today-week" style="font-size:11px;padding:4px 10px;margin-left:auto">Today</button>
+    </div>
+    <div style="flex:1;overflow:auto">
+      <table style="border-collapse:collapse;white-space:nowrap;table-layout:auto">
+        <thead>${headHtml}</thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>
+    <div style="padding:6px 16px;background:#0d1117;border-top:1px solid #21262d;display:flex;gap:16px;font-size:9px;color:#484f58;flex-shrink:0">
+      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;background:rgba(88,166,255,0.2);border-radius:2px"></span>View</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;background:rgba(63,185,80,0.15);border-radius:2px"></span>Shoot</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;background:rgba(210,168,255,0.15);border-radius:2px"></span>Edit</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;background:rgba(247,118,142,0.15);border-radius:2px"></span>VO / Mix / AFM</span>
+      <span style="color:#e3b341;margin-left:8px">▪ Delivery date</span>
+      <span style="color:#3fb950">▪ TX date</span>
+    </div>
+  </div>`;
+}
 
 function renderDeliverables(epNums){
   if(!epNums.length) return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet.</div></div>`;
@@ -5171,6 +5351,65 @@ document.addEventListener('click',function luClickHandler(e){
 function getCommGlobal(cn){return comms.find(c=>String(c.commNum)===String(cn))||null;}
 function durForCommGlobal(c){if(!c)return'';return c.deliveredDuration||c.commDuration||'';}
 
+
+// ── POST PRODUCTION SCHEDULE handlers ──────────────────────────────
+// Week navigation
+document.addEventListener('click',function ppNavHandler(e){
+  if(e.target.id==='pp-prev-week'){ppWeekOffset--;render();return;}
+  if(e.target.id==='pp-next-week'){ppWeekOffset++;render();return;}
+  if(e.target.id==='pp-today-week'){
+    // Find which week offset contains today
+    const today=new Date().toISOString().split('T')[0];
+    const p=PP_SEASON_START.split('-');
+    const start=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]));
+    const todayD=new Date(today+'T00:00:00Z');
+    const diffDays=Math.floor((todayD-start)/(1000*60*60*24));
+    ppWeekOffset=Math.floor(diffDays/7);
+    if(ppWeekOffset<0)ppWeekOffset=0;
+    render();return;
+  }
+});
+// Cell input — debounced save
+document.addEventListener('input',function ppCellHandler(e){
+  if(e.target.classList.contains('pp-cell')){
+    const cn=e.target.dataset.commnum;
+    const slot=e.target.dataset.slot;
+    if(!cn||!slot)return;
+    if(!ppData[cn])ppData[cn]={deliveryDate:'',cells:{}};
+    if(!ppData[cn].cells)ppData[cn].cells={};
+    ppData[cn].cells[slot]=e.target.value;
+    clearTimeout(window['_ppSave_'+cn]);
+    window['_ppSave_'+cn]=setTimeout(()=>savePPEntry(cn,ppData[cn]),600);
+    // Colour the cell live
+    const td=e.target.closest('td');
+    if(td){
+      const v=e.target.value.toLowerCase();
+      td.style.background=v.includes('view')?'rgba(88,166,255,0.12)':v.includes('shoot')?'rgba(63,185,80,0.08)':v.includes('edit')?'rgba(210,168,255,0.08)':v.includes('vo')||v.includes('mix')||v.includes('amf')||v.includes('afm')?'rgba(247,118,142,0.08)':'';
+    }
+    return;
+  }
+  if(e.target.classList.contains('pp-del-date')){
+    const cn=e.target.dataset.commnum;
+    if(!cn)return;
+    if(!ppData[cn])ppData[cn]={deliveryDate:'',cells:{}};
+    ppData[cn].deliveryDate=e.target.value;
+    clearTimeout(window['_ppDelSave_'+cn]);
+    window['_ppDelSave_'+cn]=setTimeout(()=>savePPEntry(cn,ppData[cn]),600);
+    return;
+  }
+});
+// Tab key moves to next cell in same row
+document.addEventListener('keydown',function ppTabHandler(e){
+  if(!e.target.classList.contains('pp-cell'))return;
+  if(e.key==='Tab'){
+    e.preventDefault();
+    const allCells=Array.from(document.querySelectorAll('.pp-cell'));
+    const idx=allCells.indexOf(e.target);
+    const next=allCells[e.shiftKey?idx-1:idx+1];
+    if(next){next.focus();next.select();}
+  }
+});
+// Also protect pp-cell inputs from onSnapshot render wipe (add to existing check)
 // ── One-time global handlers (set up once, survive renders) ─────
 document.addEventListener('click',function epToggleHandler(e){
   // Expand All button
@@ -5231,6 +5470,7 @@ async function boot(){
       try{await loadLeaveRequests();}catch(e){console.error('Leave requests error:',e);}
       try{await loadPresCal();}catch(e){console.error('Presenter calendar error:',e);}
       try{await loadLineups();}catch(e){console.error('Lineup load error:',e);}
+      try{await loadPostProd();}catch(e){console.error('Post prod load error:',e);}
       try{await loadLeaveBalances();}catch(e){console.error('Leave balances error:',e);}
       render();
     } else {
