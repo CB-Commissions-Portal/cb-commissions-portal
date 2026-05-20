@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.8.2';
+const BUILD_VERSION='2.8.3';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2113,7 +2113,7 @@ const DELIVERABLE_TASKS = [
 function renderPostProd(){
   const canEdit=['admin','operations'].includes(getEffectiveRole());
 
-  // Week start = PP_SEASON_START + ppWeekOffset weeks
+  // Week start from season start + offset
   function weekStart(offset){
     const p=PP_SEASON_START.split('-');
     const d=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]));
@@ -2121,124 +2121,133 @@ function renderPostProd(){
     return d.toISOString().split('T')[0];
   }
   const monStr=weekStart(ppWeekOffset);
-
-  // Build 7 day strings Mon-Sun
   const days=[];
   for(let i=0;i<7;i++)days.push(addDays(monStr,i));
 
-  // Day labels
   const DAY_NAMES=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const isWeekend=[false,false,false,false,false,true,true];
 
-  // Slots per day: weekday = View 1 (11:30) + View 2 (15:00), weekend = Morning + Afternoon
-  function slotKeys(dayIdx){
-    return isWeekend[dayIdx]
-      ?[days[dayIdx]+'_morning',days[dayIdx]+'_afternoon']
-      :[days[dayIdx]+'_view1',days[dayIdx]+'_view2'];
+  // Slots: weekday = view1/view2, weekend = morning/afternoon
+  function slots(i){
+    return isWeekend[i]
+      ?[days[i]+'_morning',days[i]+'_afternoon']
+      :[days[i]+'_view1',days[i]+'_view2'];
   }
-  function slotLabel(key){
-    if(key.endsWith('_view1'))return'View 1 · 11:30';
-    if(key.endsWith('_view2'))return'View 2 · 15:00';
-    if(key.endsWith('_morning'))return'Morning';
-    return'Afternoon';
+  function slotShort(key){
+    if(key.endsWith('_view1'))return'11:30';
+    if(key.endsWith('_view2'))return'15:00';
+    if(key.endsWith('_morning'))return'Morn';
+    return'Aftn';
   }
 
-  // All active commissions for this season, sorted by commNum
+  // Active commissions sorted by commNum
   const schedComms=[...comms]
     .filter(c=>!c.decommissioned&&c.commNum&&c.storyName)
     .sort((a,b)=>Number(a.commNum)-Number(b.commNum));
 
-  function getPP(commNum){return ppData[String(commNum)]||{deliveryDate:'',cells:{}};}
+  function getPP(cn){return ppData[String(cn)]||{deliveryDate:'',cells:{}};}
+  function cellVal(cn,slot){const pp=getPP(cn);return(pp.cells&&pp.cells[slot])||'';}
   function getTxDate(c){
     if(!c.broadcastEpisode)return'';
-    return fmtDate(resolveDate(Number(c.broadcastEpisode)));
+    return resolveDate(Number(c.broadcastEpisode));
   }
 
-  // Check if any commission has any entry this week (for display purposes)
-  // Show ALL commissions always (as per requirement)
+  // Cell background by content type
+  function cellBg(val){
+    if(!val)return'';
+    const v=val.toLowerCase();
+    if(v.includes('view 1')||v==='view 1')return'background:#1a3a5c;color:#79c0ff';
+    if(v.includes('view 2')||v==='view 2')return'background:#1a3a2c;color:#56d364';
+    if(v.includes('view'))return'background:#1a2d4a;color:#79c0ff';
+    if(v.includes('shoot'))return'background:#1f3a1f;color:#56d364';
+    if(v.includes('edit'))return'background:#2d1f4a;color:#c084fc';
+    if(v.includes('vo')||v.includes('mix'))return'background:#3a2d00;color:#e3b341';
+    if(v.includes('amf')||v.includes('afm'))return'background:#3a1f1f;color:#f7768e';
+    return'background:#1c2433;color:#cdd9e5';
+  }
 
-  // ── Header row: day columns ──
-  let headHtml='<tr style="position:sticky;top:0;z-index:10;background:#161b22">';
-  // Fixed columns
-  headHtml+=`<th style="padding:6px 8px;font-size:9px;font-weight:800;color:#7a8ba0;text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;white-space:nowrap;position:sticky;left:0;z-index:11;background:#161b22;min-width:48px">Comm #</th>`;
-  headHtml+=`<th style="padding:6px 8px;font-size:9px;font-weight:800;color:#7a8ba0;text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;white-space:nowrap;min-width:140px">Story</th>`;
-  headHtml+=`<th style="padding:6px 8px;font-size:9px;font-weight:800;color:#7a8ba0;text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;white-space:nowrap;min-width:80px">Producer</th>`;
-  headHtml+=`<th style="padding:6px 8px;font-size:9px;font-weight:800;color:#7a8ba0;text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;white-space:nowrap;min-width:80px">Editor</th>`;
-  headHtml+=`<th style="padding:6px 8px;font-size:9px;font-weight:800;color:#7a8ba0;text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;white-space:nowrap;min-width:80px">DOP</th>`;
-  headHtml+=`<th style="padding:6px 8px;font-size:9px;font-weight:800;color:#7a8ba0;text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;white-space:nowrap;min-width:80px">AFM</th>`;
-  headHtml+=`<th style="padding:6px 8px;font-size:9px;font-weight:800;color:#7a8ba0;text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;white-space:nowrap;min-width:90px">Del. Date</th>`;
-  headHtml+=`<th style="padding:6px 8px;font-size:9px;font-weight:800;color:#7a8ba0;text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;white-space:nowrap;min-width:90px">TX Date</th>`;
-  // Day columns
-  days.forEach((d,i)=>{
-    const weekend=isWeekend[i];
-    const bg=weekend?'background:#1a1a1f':'background:#161b22';
-    const dayFmt=new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short'});
-    headHtml+=`<th colspan="2" style="padding:6px 10px;font-size:9px;font-weight:800;color:${weekend?'#484f58':'#7a8ba0'};text-transform:uppercase;border-bottom:2px solid #2e3a50;border-right:1px solid #21262d;${bg};text-align:center;min-width:200px">${DAY_NAMES[i]}<br><span style="font-size:8px;font-weight:400;color:#484f58">${dayFmt}</span></th>`;
-  });
-  headHtml+='</tr>';
+  // ── CSS for the table ──
+  const thFix='padding:4px 6px;font-size:8px;font-weight:800;text-transform:uppercase;color:#7a8ba0;background:#161b22;border:1px solid #21262d;white-space:nowrap;text-align:left;vertical-align:bottom';
+  const thDay='padding:4px 6px;font-size:8px;font-weight:800;text-transform:uppercase;color:#eaf0ff;background:#1e2535;border:1px solid #21262d;text-align:center;white-space:nowrap';
+  const thWknd='padding:4px 6px;font-size:8px;font-weight:800;text-transform:uppercase;color:#484f58;background:#13131a;border:1px solid #21262d;text-align:center;white-space:nowrap';
+  const thSlot='padding:3px 4px;font-size:7px;font-weight:700;color:#484f58;border:1px solid #21262d;text-align:center;white-space:nowrap';
+  const thSlotWknd='padding:3px 4px;font-size:7px;font-weight:700;color:#333340;border:1px solid #21262d;text-align:center;white-space:nowrap';
+  const tdFix='padding:4px 6px;border:1px solid #21262d;font-size:10px;white-space:nowrap;vertical-align:middle';
+  const tdCell='padding:2px 3px;border:1px solid #21262d;vertical-align:top;min-width:88px;max-width:140px';
 
-  // Sub-header: slot labels
-  headHtml+='<tr style="position:sticky;top:37px;z-index:9;background:#0d1117">';
-  // Fixed cols spacers
-  ['','','','','','','',''].forEach(()=>{
-    headHtml+=`<th style="padding:3px 8px;border-bottom:1px solid #21262d;border-right:1px solid #21262d;background:#0d1117"></th>`;
-  });
+  // ── Header rows ──
+  // Row 1: fixed col headers + day name headers (colspan 2 each)
+  let h1='<tr>';
+  h1+=`<th style="${thFix};min-width:46px;position:sticky;left:0;z-index:12;background:#161b22">Comm #</th>`;
+  h1+=`<th style="${thFix};min-width:130px">Story</th>`;
+  h1+=`<th style="${thFix};min-width:72px">Producer</th>`;
+  h1+=`<th style="${thFix};min-width:72px">Editor</th>`;
+  h1+=`<th style="${thFix};min-width:72px">DOP</th>`;
+  h1+=`<th style="${thFix};min-width:72px">AFM</th>`;
+  h1+=`<th style="${thFix};min-width:82px">Del. Date</th>`;
+  h1+=`<th style="${thFix};min-width:82px">TX Date</th>`;
   days.forEach((d,i)=>{
-    const weekend=isWeekend[i];
-    const bg=weekend?'background:#111116':'background:#0d1117';
-    const slots=slotKeys(i);
-    slots.forEach(sk=>{
-      headHtml+=`<th style="padding:3px 6px;font-size:8px;font-weight:600;color:#484f58;text-transform:uppercase;border-bottom:1px solid #21262d;border-right:1px solid #21262d;${bg};white-space:nowrap;text-align:center">${slotLabel(sk)}</th>`;
+    const wknd=isWeekend[i];
+    const dayFmt=new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short'});
+    h1+=`<th colspan="2" style="${wknd?thWknd:thDay};min-width:176px">${DAY_NAMES[i]}<br><span style="font-size:7px;font-weight:400;opacity:.7">${dayFmt}</span></th>`;
+  });
+  h1+='</tr>';
+
+  // Row 2: slot sub-headers
+  let h2='<tr>';
+  // 8 fixed col spacers
+  for(let i=0;i<8;i++)h2+=`<th style="${thSlot};background:#0d1117"></th>`;
+  days.forEach((d,i)=>{
+    const wknd=isWeekend[i];
+    const bg=wknd?'background:#0d0d12':'background:#111620';
+    slots(i).forEach(sk=>{
+      h2+=`<th style="${wknd?thSlotWknd:thSlot};${bg}">${slotShort(sk)}</th>`;
     });
   });
-  headHtml+='</tr>';
+  h2+='</tr>';
 
   // ── Commission rows ──
-  const fixedTd='padding:5px 8px;border-bottom:1px solid #21262d;border-right:1px solid #21262d;vertical-align:top;font-size:11px;white-space:nowrap';
-  const cellTd='padding:3px 4px;border-bottom:1px solid #21262d;border-right:1px solid #21262d;vertical-align:top;min-width:100px';
-
   let rowsHtml='';
-  schedComms.forEach(c=>{
+  schedComms.forEach((c,ri)=>{
     const pp=getPP(c.commNum);
-    const tx=getTxDate(c);
-    const badge=c.isLicensed?'<span style="font-size:7px;background:#1c2d1c;color:#3fb950;padding:1px 3px;border-radius:2px;margin-left:3px">LIC</span>':
-                c.isInHouse?'<span style="font-size:7px;background:#1a1a2e;color:#7a8ba0;padding:1px 3px;border-radius:2px;margin-left:3px">IH</span>':'';
+    const txIso=getTxDate(c);
+    const txFmt=txIso?new Date(txIso+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'2-digit'}):'';
+    const delFmt=pp.deliveryDate?new Date(pp.deliveryDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'2-digit'}):'';
+    const rowBg=ri%2===0?'#0d1117':'#111620';
+    const badge=c.isLicensed?'<span style="font-size:6px;background:#1c2d1c;color:#3fb950;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">LIC</span>':
+                c.isInHouse?'<span style="font-size:6px;background:#1a1a2e;color:#7a8ba0;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">IH</span>':'';
 
-    rowsHtml+=`<tr class="pp-row" data-commnum="${esc(String(c.commNum))}">`;
+    rowsHtml+=`<tr style="background:${rowBg}">`;
     // Fixed cols
-    rowsHtml+=`<td style="${fixedTd};position:sticky;left:0;background:#161b22;z-index:2;font-weight:900;color:#58a6ff;font-family:monospace">${esc(String(c.commNum))}${badge}</td>`;
-    rowsHtml+=`<td style="${fixedTd};max-width:160px;overflow:hidden;text-overflow:ellipsis;color:#eaf0ff;font-weight:600">${esc(c.storyName)}</td>`;
-    rowsHtml+=`<td style="${fixedTd};color:#8b949e">${esc(c.producer||'—')}</td>`;
-    rowsHtml+=`<td style="${fixedTd};color:#d2a8ff">${esc(c.editor||'—')}</td>`;
-    rowsHtml+=`<td style="${fixedTd};color:#79c0ff">${esc(c.dop||'—')}</td>`;
-    rowsHtml+=`<td style="${fixedTd};color:#f7768e">${esc(c.afm||'—')}</td>`;
-    // Delivery date — editable
-    rowsHtml+=`<td style="${fixedTd}">`;
+    rowsHtml+=`<td style="${tdFix};position:sticky;left:0;z-index:2;background:${rowBg};font-weight:900;color:#58a6ff;font-family:monospace;font-size:11px">${esc(String(c.commNum))}${badge}</td>`;
+    rowsHtml+=`<td style="${tdFix};color:#eaf0ff;font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis" title="${esc(c.storyName)}">${esc(c.storyName)}</td>`;
+    rowsHtml+=`<td style="${tdFix};color:#8b949e">${esc(c.producer||'')}</td>`;
+    rowsHtml+=`<td style="${tdFix};color:#c084fc">${esc(c.editor||'')}</td>`;
+    rowsHtml+=`<td style="${tdFix};color:#79c0ff">${esc(c.dop||'')}</td>`;
+    rowsHtml+=`<td style="${tdFix};color:#f7768e">${esc(c.afm||'')}</td>`;
+    // Delivery date
+    rowsHtml+=`<td style="${tdFix}">`;
     if(canEdit){
-      rowsHtml+=`<input class="pp-del-date" data-commnum="${esc(String(c.commNum))}" value="${esc(pp.deliveryDate||'')}" type="date" style="background:#1c2433;border:1px solid #2e3a50;color:#e3b341;padding:2px 4px;border-radius:3px;font-size:10px;width:110px">`;
-    } else {
-      rowsHtml+=`<span style="color:#e3b341">${pp.deliveryDate?fmtDate(pp.deliveryDate):'—'}</span>`;
+      rowsHtml+=`<input class="pp-del-date" data-commnum="${esc(String(c.commNum))}" value="${esc(pp.deliveryDate||'')}" type="date" style="background:transparent;border:none;color:#e3b341;font-size:10px;width:100%;cursor:pointer;outline:none">`;
+    }else{
+      rowsHtml+=`<span style="color:#e3b341">${delFmt||'—'}</span>`;
     }
     rowsHtml+=`</td>`;
-    // TX Date — read only
-    rowsHtml+=`<td style="${fixedTd};color:${tx?'#3fb950':'#484f58'}">${tx||'—'}</td>`;
+    // TX date
+    rowsHtml+=`<td style="${tdFix};color:${txFmt?'#3fb950':'#484f58'}">${txFmt||'—'}</td>`;
     // Day cells
     days.forEach((d,i)=>{
-      const weekend=isWeekend[i];
-      const slots=slotKeys(i);
-      const bg=weekend?'background:#111116':'';
-      slots.forEach(sk=>{
-        const val=(pp.cells&&pp.cells[sk])||'';
-        const isView=sk.endsWith('_view1')||sk.endsWith('_view2');
-        const viewStyle=val.toLowerCase().includes('view')?'background:rgba(88,166,255,0.12)':
-                        val.toLowerCase().includes('shoot')?'background:rgba(63,185,80,0.08)':
-                        val.toLowerCase().includes('edit')?'background:rgba(210,168,255,0.08)':
-                        val.toLowerCase().includes('vo')||val.toLowerCase().includes('mix')||val.toLowerCase().includes('amf')||val.toLowerCase().includes('afm')?'background:rgba(247,118,142,0.08)':'';
-        rowsHtml+=`<td style="${cellTd};${bg};${viewStyle}">`;
+      const wknd=isWeekend[i];
+      const wkndBase=wknd?'background:#0a0a10':'';
+      slots(i).forEach(sk=>{
+        const val=cellVal(c.commNum,sk);
+        const style=val?cellBg(val):wkndBase;
+        const [bg,fg]=style.includes('background:')?[style.split(';')[0].replace('background:','').trim(),style.split(';')[1]?.replace('color:','').trim()||'#cdd9e5']:['','#484f58'];
+        rowsHtml+=`<td style="${tdCell};${val?'background:'+bg+';':'background:'+(wknd?'#0a0a10':rowBg)+';'}">`;
         if(canEdit){
-          rowsHtml+=`<input class="pp-cell" data-commnum="${esc(String(c.commNum))}" data-slot="${sk}" value="${esc(val)}" placeholder="" style="width:100%;background:transparent;border:none;color:#eaf0ff;font-size:10px;padding:2px 3px;outline:none;min-width:90px">`;
-        } else {
-          rowsHtml+=`<span style="font-size:10px;color:#eaf0ff">${esc(val)}</span>`;
+          rowsHtml+=`<input class="pp-cell" data-commnum="${esc(String(c.commNum))}" data-slot="${sk}" value="${esc(val)}" placeholder="" style="width:100%;background:transparent;border:none;color:${val?fg:'#484f58'};font-size:10px;padding:2px 3px;outline:none;font-family:inherit">`;
+        }else{
+          rowsHtml+=val?`<span style="font-size:10px;color:${fg};padding:2px 3px;display:block">${esc(val)}</span>`:'';
         }
         rowsHtml+=`</td>`;
       });
@@ -2246,31 +2255,35 @@ function renderPostProd(){
     rowsHtml+='</tr>';
   });
 
-  if(!schedComms.length)rowsHtml=`<tr><td colspan="100" style="padding:40px;text-align:center;color:#484f58;font-size:13px">No active commissions for this season.</td></tr>`;
+  if(!schedComms.length){
+    rowsHtml=`<tr><td colspan="100" style="padding:40px;text-align:center;color:#484f58;font-size:13px">No commissions for this season.</td></tr>`;
+  }
 
   const weekLabel=`Week of ${new Date(monStr+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'})}`;
 
+  // Legend
+  const legend=[
+    ['#1a3a5c','#79c0ff','View 1'],
+    ['#1a3a2c','#56d364','View 2'],
+    ['#1f3a1f','#56d364','Shoot'],
+    ['#2d1f4a','#c084fc','Edit'],
+    ['#3a2d00','#e3b341','VO / Mix'],
+    ['#3a1f1f','#f7768e','AFM'],
+  ].map(([bg,fg,lbl])=>`<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px"><span style="display:inline-block;width:14px;height:10px;background:${bg};border-radius:2px;border:1px solid ${fg}33"></span><span style="font-size:9px;color:#6e7681">${lbl}</span></span>`).join('');
+
   return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
-    <div style="padding:10px 16px;background:#161b22;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:12px;flex-shrink:0;position:sticky;top:0;z-index:20">
+    <div style="padding:8px 14px;background:#161b22;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:10px;flex-shrink:0">
       <button class="btn" id="pp-prev-week" style="font-size:11px;padding:4px 10px">◀ Prev</button>
-      <span style="font-size:13px;font-weight:800;color:#eaf0ff;min-width:220px;text-align:center">${weekLabel}</span>
+      <span style="font-size:13px;font-weight:800;color:#eaf0ff;min-width:230px;text-align:center">${weekLabel}</span>
       <button class="btn" id="pp-next-week" style="font-size:11px;padding:4px 10px">Next ▶</button>
-      <span style="font-size:10px;color:#484f58;margin-left:8px">Post Production Schedule · Season ${currentSeason}</span>
-      <button class="btn" id="pp-today-week" style="font-size:11px;padding:4px 10px;margin-left:auto">Today</button>
+      <button class="btn" id="pp-today-week" style="font-size:11px;padding:4px 10px">Today</button>
+      <span style="margin-left:auto;display:flex;align-items:center;flex-wrap:wrap">${legend}</span>
     </div>
     <div style="flex:1;overflow:auto">
       <table style="border-collapse:collapse;white-space:nowrap;table-layout:auto">
-        <thead>${headHtml}</thead>
+        <thead style="position:sticky;top:0;z-index:10">${h1}${h2}</thead>
         <tbody>${rowsHtml}</tbody>
       </table>
-    </div>
-    <div style="padding:6px 16px;background:#0d1117;border-top:1px solid #21262d;display:flex;gap:16px;font-size:9px;color:#484f58;flex-shrink:0">
-      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;background:rgba(88,166,255,0.2);border-radius:2px"></span>View</span>
-      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;background:rgba(63,185,80,0.15);border-radius:2px"></span>Shoot</span>
-      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;background:rgba(210,168,255,0.15);border-radius:2px"></span>Edit</span>
-      <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;background:rgba(247,118,142,0.15);border-radius:2px"></span>VO / Mix / AFM</span>
-      <span style="color:#e3b341;margin-left:8px">▪ Delivery date</span>
-      <span style="color:#3fb950">▪ TX date</span>
     </div>
   </div>`;
 }
