@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.6.1';
+const BUILD_VERSION='2.6.2';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1326,6 +1326,7 @@ function renderApp(){
   <div class="tabs no-print">
     <div class="tab-btn${tab==='home'?' active':''}" data-tab="home" style="font-size:16px;padding:4px 10px" title="Home">⌂</div>
     ${!['editorial','afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='commissions'?' active':''}" data-tab="commissions">Commission List ${currentSeason}</div>`:''}
+    ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='lineups'?' active':''}" data-tab="lineups">Line-Ups</div>`:''}
     ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='episodes'?' active':''}" data-tab="episodes">Episode Register</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='deliverables'?' active':''}" data-tab="deliverables">Deliverables</div>`:''}
     ${['admin','operations','prodmgmt'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='promos'?' active':''}" data-tab="promos">Promo Scheduling</div>`:''}
@@ -1334,7 +1335,6 @@ function renderApp(){
     ${['admin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}
     ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='prescal'?' active':''}" data-tab="prescal">Presenter Calendar</div>`:''}
     ${userHasLeaveAccess()?`<div class="tab-btn${tab==='leave'?' active':''}" data-tab="leave">CAP Leave</div>`:''}
-    ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='lineups'?' active':''}" data-tab="lineups">Line-Ups</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
   </div>
   <div class="content" id="tab-content">
@@ -2816,7 +2816,16 @@ function renderLineups(epNums){
   const insertsInProd=activeComms.filter(c=>!c.approvedForPayment&&!c.isInHouse&&c.storyName&&!c.isLicensed);
   const eps=[...epNums].sort((a,b)=>a-b);
 
-  function getLineup(ep){return lineups[String(ep)]||{director:'',presenter1:'',presenter2:'',items:[]};}
+  function getLineup(ep){
+    const saved=lineups[String(ep)];
+    if(saved)return saved;
+    // Auto-populate from Commission List for episodes with no saved lineup
+    const epComms=activeComms
+      .filter(c=>String(c.broadcastEpisode)===String(ep)&&c.commNum&&c.storyName&&!c.isInHouse&&!c.isLicensed)
+      .sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
+    const items=epComms.map(c=>({commNum:String(c.commNum),liveStudio:false}));
+    return {director:'',presenter1:'',presenter2:'',items};
+  }
   function epIsPast(ep){const d=resolveDate(Number(ep));return d&&d<today;}
   function getCommData(cn){return activeComms.find(c=>String(c.commNum)===String(cn))||null;}
   function durForComm(c){if(!c)return'';return c.deliveredDuration||c.commDuration||'';}
@@ -2915,21 +2924,21 @@ function renderLineups(epNums){
   </div>`).join('');
   if(!sideHtml)sideHtml=`<div style="font-size:11px;color:#484f58;font-style:italic">No inserts in production.</div>`;
 
-  return`<div style="display:flex;gap:16px;padding:16px;align-items:flex-start">
-    <div style="flex:1;min-width:0">
+  return`<div class="ep-wrap" style="padding:0"><div style="display:flex;gap:0;align-items:flex-start;min-height:100%">
+    <div style="flex:1;min-width:0;padding:16px 8px 16px 16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
         <h2 style="font-size:16px;font-weight:900;color:#eaf0ff;margin:0">LINE-UPS · Season ${currentSeason}</h2>
         <span style="font-size:10px;color:#484f58">Broadcast episodes shown in red · ✓ = delivered duration</span>
       </div>
       ${epsHtml}
     </div>
-    <div style="width:260px;flex-shrink:0;position:sticky;top:16px;max-height:calc(100vh - 80px);overflow-y:auto">
-      <div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:14px">
+    <div style="width:260px;flex-shrink:0;padding:16px 16px 16px 0">
+      <div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:14px;position:sticky;top:16px">
         <div style="font-size:10px;font-weight:800;color:#e3b341;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;border-bottom:1px solid #2e3a50;padding-bottom:8px">Inserts in Production</div>
         ${sideHtml}
       </div>
     </div>
-  </div>`;
+  </div></div>`;
 }
 
 function renderAdmin(){
@@ -4730,65 +4739,9 @@ document.addEventListener('click',function presCalNavHandler(e){
 });
 
 // ── LINE-UP handlers (delegated, set up in bindApp) ──────────────────
-  // Director / Presenter fields — debounced save
-  ['lu-director','lu-pres1','lu-pres2'].forEach(cls=>{
-    document.querySelectorAll('.'+cls).forEach(inp=>{
-      inp.addEventListener('input',e=>{
-        const ep=e.target.dataset.ep;
-        const field=cls==='lu-director'?'director':cls==='lu-pres1'?'presenter1':'presenter2';
-        if(!lineups[ep])lineups[ep]={director:'',presenter1:'',presenter2:'',items:[]};
-        lineups[ep][field]=e.target.value;
-        clearTimeout(window['_luSave_'+ep]);
-        window['_luSave_'+ep]=setTimeout(()=>saveLineup(ep,lineups[ep]),800);
-      });
-    });
-  });
-  // Add commission dropdown
-  document.querySelectorAll('.lu-add-comm').forEach(sel=>{
-    sel.addEventListener('change',e=>{
-      const ep=e.target.dataset.ep;
-      const cn=e.target.value;
-      if(!cn)return;
-      if(!lineups[ep])lineups[ep]={director:'',presenter1:'',presenter2:'',items:[]};
-      if(!lineups[ep].items)lineups[ep].items=[];
-      lineups[ep].items.push({commNum:cn,liveStudio:false});
-      saveLineup(ep,lineups[ep]);
-      render();
-    });
-  });
-  // Add live studio
-  document.querySelectorAll('.lu-add-live').forEach(btn=>{
-    btn.addEventListener('click',e=>{
-      const ep=e.target.dataset.ep;
-      if(!lineups[ep])lineups[ep]={director:'',presenter1:'',presenter2:'',items:[]};
-      if(!lineups[ep].items)lineups[ep].items=[];
-      lineups[ep].items.push({liveStudio:true,liveDuration:''});
-      saveLineup(ep,lineups[ep]);
-      render();
-    });
-  });
-  // Remove item
-  document.querySelectorAll('.lu-remove-item').forEach(btn=>{
-    btn.addEventListener('click',e=>{
-      const ep=e.target.dataset.ep;
-      const idx=Number(e.target.dataset.idx);
-      if(!lineups[ep]||!lineups[ep].items)return;
-      lineups[ep].items.splice(idx,1);
-      saveLineup(ep,lineups[ep]);
-      render();
-    });
-  });
-  // Live studio duration — debounced save
-  document.querySelectorAll('.lu-live-dur').forEach(inp=>{
-    inp.addEventListener('input',e=>{
-      const ep=e.target.dataset.ep;
-      const idx=Number(e.target.dataset.idx);
-      if(!lineups[ep]||!lineups[ep].items[idx])return;
-      lineups[ep].items[idx].liveDuration=e.target.value;
-      clearTimeout(window['_luLiveSave_'+ep+'_'+idx]);
-      window['_luLiveSave_'+ep+'_'+idx]=setTimeout(()=>saveLineup(ep,lineups[ep]),800);
-    });
-  });
+  // Director / Presenter / Live duration fields — delegated via one-time global listener
+  // (added once at boot, not per-render, so inputs are never unbound)
+  // (lu-add-comm, lu-add-live, lu-remove-item, lu-live-dur handled by global delegated listeners below)
 
 // Presenter calendar badge click — step 1: show inline confirm; step 2: clear
 document.addEventListener('click',function presCalBadgeHandler(e){
@@ -4903,6 +4856,68 @@ function updatePresCalCell(dateStr,presKey,cell){
     sel.value='';
   }
 }
+
+// ── LINE-UP fully delegated global handlers (set up once, survive all renders) ──
+document.addEventListener('input',function luInputHandler(e){
+  // Director/Presenter fields
+  const dirField=e.target.classList.contains('lu-director')?'director':e.target.classList.contains('lu-pres1')?'presenter1':e.target.classList.contains('lu-pres2')?'presenter2':null;
+  if(dirField){
+    const ep=e.target.dataset.ep;
+    if(!ep)return;
+    if(!lineups[ep])lineups[ep]={director:'',presenter1:'',presenter2:'',items:[]};
+    lineups[ep][dirField]=e.target.value;
+    clearTimeout(window['_luSave_'+ep]);
+    window['_luSave_'+ep]=setTimeout(()=>saveLineup(ep,lineups[ep]),800);
+    return;
+  }
+  // Live studio duration
+  if(e.target.classList.contains('lu-live-dur')){
+    const ep=e.target.dataset.ep;
+    const idx=Number(e.target.dataset.idx);
+    if(!ep||!lineups[ep]||!lineups[ep].items[idx])return;
+    lineups[ep].items[idx].liveDuration=e.target.value;
+    clearTimeout(window['_luLiveSave_'+ep+'_'+idx]);
+    window['_luLiveSave_'+ep+'_'+idx]=setTimeout(()=>{
+      saveLineup(ep,lineups[ep]);
+      // Update total display without full render
+      const totEl=document.querySelector(`[data-lu-total="${ep}"]`);
+      if(totEl){let t=0;(lineups[ep].items||[]).forEach(item=>{t+=item.liveStudio?toDecimalMins(item.liveDuration||''):toDecimalMins(lineups[ep].items.find(i=>!i.liveStudio&&i.commNum)?durForCommGlobal(getCommGlobal(item.commNum)):'');});totEl.textContent='Total: '+decToMmSs(t);}
+    },800);
+    return;
+  }
+});
+document.addEventListener('change',function luChangeHandler(e){
+  if(e.target.classList.contains('lu-add-comm')){
+    const ep=e.target.dataset.ep;
+    const cn=e.target.value;
+    if(!cn||!ep)return;
+    if(!lineups[ep])lineups[ep]={director:'',presenter1:'',presenter2:'',items:[]};
+    if(!lineups[ep].items)lineups[ep].items=[];
+    lineups[ep].items.push({commNum:String(cn),liveStudio:false});
+    saveLineup(ep,lineups[ep]);
+    render();
+  }
+});
+document.addEventListener('click',function luClickHandler(e){
+  if(e.target.classList.contains('lu-add-live')||e.target.closest('.lu-add-live')){
+    const btn=e.target.classList.contains('lu-add-live')?e.target:e.target.closest('.lu-add-live');
+    const ep=btn.dataset.ep;if(!ep)return;
+    if(!lineups[ep])lineups[ep]={director:'',presenter1:'',presenter2:'',items:[]};
+    if(!lineups[ep].items)lineups[ep].items=[];
+    lineups[ep].items.push({liveStudio:true,liveDuration:''});
+    saveLineup(ep,lineups[ep]);render();return;
+  }
+  if(e.target.classList.contains('lu-remove-item')||e.target.closest('.lu-remove-item')){
+    const btn=e.target.classList.contains('lu-remove-item')?e.target:e.target.closest('.lu-remove-item');
+    const ep=btn.dataset.ep;const idx=Number(btn.dataset.idx);
+    if(!ep||!lineups[ep]||!lineups[ep].items)return;
+    lineups[ep].items.splice(idx,1);
+    saveLineup(ep,lineups[ep]);render();return;
+  }
+});
+// Helper for global handler (can't call inner renderLineups functions from outside)
+function getCommGlobal(cn){return comms.find(c=>String(c.commNum)===String(cn))||null;}
+function durForCommGlobal(c){if(!c)return'';return c.deliveredDuration||c.commDuration||'';}
 
 // ── One-time global handlers (set up once, survive renders) ─────
 document.addEventListener('click',function epToggleHandler(e){
