@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.2.6';
+const BUILD_VERSION='3.2.7';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -6540,24 +6540,30 @@ async function startTranscription(file){
   if(statusSub)statusSub.textContent=`${file.name} (${(file.size/1024/1024).toFixed(1)} MB)`;
 
   try{
-    // Read file via Object URL → fetch → ArrayBuffer → base64
+    // Read file to base64 using FileReader readAsDataURL (most compatible)
     if(statusText)statusText.textContent='Encoding audio…';
-    const objectUrl=URL.createObjectURL(file);
-    let base64;
-    try{
-      const fetchResp=await fetch(objectUrl);
-      const arrayBuffer=await fetchResp.arrayBuffer();
-      // Convert ArrayBuffer to base64 in chunks to avoid stack overflow
-      const uint8=new Uint8Array(arrayBuffer);
-      let binary='';
-      const chunkSize=8192;
-      for(let i=0;i<uint8.length;i+=chunkSize){
-        binary+=String.fromCharCode(...uint8.subarray(i,i+chunkSize));
+    if(statusSub)statusSub.textContent='Reading '+file.name+' ('+Math.round(file.size/1024/1024*10)/10+' MB)…';
+    const base64=await new Promise((resolve,reject)=>{
+      try{
+        const reader=new FileReader();
+        reader.onload=function(evt){
+          try{
+            const result=evt.target.result; // data:audio/...;base64,XXXX
+            const comma=result.indexOf(',');
+            if(comma===-1)reject(new Error('Invalid data URL format'));
+            else resolve(result.substring(comma+1));
+          }catch(ex){reject(new Error('Base64 extraction failed: '+ex.message));}
+        };
+        reader.onerror=function(evt){
+          reject(new Error('FileReader error: '+(evt.target.error?.message||evt.target.error?.name||'unknown')));
+        };
+        reader.onabort=function(){reject(new Error('FileReader was aborted'));};
+        reader.readAsDataURL(file);
+      }catch(ex){
+        reject(new Error('FileReader init failed: '+ex.message));
       }
-      base64=btoa(binary);
-    } finally {
-      URL.revokeObjectURL(objectUrl);
-    }
+    });
+    if(statusSub)statusSub.textContent='Audio encoded, sending to AI…';
 
     if(statusText)statusText.textContent='Sending to AI for transcription…';
     if(statusSub)statusSub.textContent='This may take 30–60 seconds for longer recordings…';
@@ -6632,9 +6638,19 @@ async function startTranscription(file){
   }catch(err){
     if(statusIcon)statusIcon.textContent='❌';
     if(statusText)statusText.textContent='Transcription failed';
-    if(statusSub)statusSub.textContent=err.message;
+    if(statusSub)statusSub.textContent=err.message||String(err);
     if(dropEl)dropEl.style.display='block';
     console.error('Transcription error:',err);
+    // Show retry button
+    const retryBtn=document.createElement('button');
+    retryBtn.className='btn';
+    retryBtn.style.cssText='margin-top:10px;font-size:12px';
+    retryBtn.textContent='Try Again';
+    retryBtn.onclick=()=>{
+      if(statusEl)statusEl.style.display='none';
+      if(dropEl)dropEl.style.display='block';
+    };
+    if(statusEl)statusEl.appendChild(retryBtn);
   }
 }
 
