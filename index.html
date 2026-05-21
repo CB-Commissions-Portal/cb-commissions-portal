@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.1.6';
+const BUILD_VERSION='3.1.7';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3280,20 +3280,58 @@ function rosSecsToStr(secs){
 
 // Available item types for the "Add Item" menu
 const ROS_ITEM_TYPES=[
-  {key:'fixed_logo',    label:'Carte Blanche Opening Logo', type:'fixed',     defaultDur:'0:00:30', locked:true},
-  {key:'fixed_bumperout',label:'Bumper OUT',                 type:'fixed',     defaultDur:'0:00:05', locked:true},
-  {key:'fixed_bumperin', label:'Bumper IN',                  type:'fixed',     defaultDur:'0:00:05', locked:true},
-  {key:'fixed_credits',  label:'Closing Credits',            type:'fixed',     defaultDur:'0:00:00', locked:true},
-  {key:'insert',         label:'INSERT',                     type:'insert',    defaultDur:'',        numbered:true},
-  {key:'live_opening',   label:'Opening Link (with show opener)', type:'live', defaultDur:''},
-  {key:'live_cs_dial',   label:'Cold Start 2 – Dialogue',   type:'live',      defaultDur:''},
-  {key:'live_link_ins',  label:'Link to Insert',             type:'live',      defaultDur:'',        numbered:true},
-  {key:'live_link_brk',  label:'Link to Break',              type:'live',      defaultDur:''},
-  {key:'live_closing',   label:'Closing Link',               type:'live',      defaultDur:''},
-  {key:'coldstart',      label:'Cold Start Clip',            type:'coldstart', defaultDur:'',        numbered:true},
-  {key:'upnext_vis',     label:'UP NEXT VISUAL',             type:'upnext',    defaultDur:'',        numbered:true},
-  {key:'upnext_ups',     label:'UP NEXT UPSOUND',            type:'upnext',    defaultDur:'',        numbered:true},
-  {key:'break',          label:'BREAK',                      type:'break',     defaultDur:'0:00:00', locked:true, numbered:true},
+  // Fixed (locked, grey)
+  {key:'fixed_logo',     label:'CARTE BLANCHE OPENING LOGO', type:'fixed',  defaultDur:'0:00:30', locked:true, group:'Fixed'},
+  {key:'fixed_bumperout',label:'BUMPER OUT',                  type:'fixed',  defaultDur:'0:00:05', locked:true, group:'Fixed'},
+  {key:'fixed_bumperin', label:'BUMPER IN',                   type:'fixed',  defaultDur:'0:00:05', locked:true, group:'Fixed'},
+  {key:'fixed_credits',  label:'CLOSING CREDITS',             type:'fixed',  defaultDur:'0:00:00', locked:true, group:'Fixed'},
+  // Live / Links (blue)
+  {key:'live_opening',   label:'OPENING LINK (WITH SHOW OPENER)', type:'live', defaultDur:'', group:'Live'},
+  {key:'live_cs_dial',   label:'COLD START DIALOGUE',         type:'live',   defaultDur:'', group:'Live'},
+  {key:'live_link_ins1', label:'LINK TO INSERT 1',            type:'live',   defaultDur:'', group:'Live'},
+  {key:'live_link_ins2', label:'LINK TO INSERT 2',            type:'live',   defaultDur:'', group:'Live'},
+  {key:'live_link_ins3', label:'LINK TO INSERT 3',            type:'live',   defaultDur:'', group:'Live'},
+  {key:'live_link_ins4', label:'LINK TO INSERT 4',            type:'live',   defaultDur:'', group:'Live'},
+  {key:'live_link_ins5', label:'LINK TO INSERT 5',            type:'live',   defaultDur:'', group:'Live'},
+  {key:'live_link_ins6', label:'LINK TO INSERT 6',            type:'live',   defaultDur:'', group:'Live'},
+  {key:'live_link_ins7', label:'LINK TO INSERT 7',            type:'live',   defaultDur:'', group:'Live'},
+  {key:'live_link_ins8', label:'LINK TO INSERT 8',            type:'live',   defaultDur:'', group:'Live'},
+  {key:'live_link_brk',  label:'LINK TO BREAK',               type:'live',   defaultDur:'', group:'Live'},
+  {key:'live_closing',   label:'CLOSING LINK',                type:'live',   defaultDur:'', group:'Live'},
+  // Inserts (orange)
+  {key:'insert1', label:'INSERT 1', type:'insert', defaultDur:'', group:'Insert'},
+  {key:'insert2', label:'INSERT 2', type:'insert', defaultDur:'', group:'Insert'},
+  {key:'insert3', label:'INSERT 3', type:'insert', defaultDur:'', group:'Insert'},
+  {key:'insert4', label:'INSERT 4', type:'insert', defaultDur:'', group:'Insert'},
+  {key:'insert5', label:'INSERT 5', type:'insert', defaultDur:'', group:'Insert'},
+  {key:'insert6', label:'INSERT 6', type:'insert', defaultDur:'', group:'Insert'},
+  {key:'insert7', label:'INSERT 7', type:'insert', defaultDur:'', group:'Insert'},
+  {key:'insert8', label:'INSERT 8', type:'insert', defaultDur:'', group:'Insert'},
+  // Cold Start Clips (purple)
+  {key:'cold1',  label:'COLD START CLIP 1', type:'coldstart', defaultDur:'', group:'Cold Start'},
+  {key:'cold2',  label:'COLD START CLIP 2', type:'coldstart', defaultDur:'', group:'Cold Start'},
+  {key:'cold3',  label:'COLD START CLIP 3', type:'coldstart', defaultDur:'', group:'Cold Start'},
+  {key:'cold4',  label:'COLD START CLIP 4', type:'coldstart', defaultDur:'', group:'Cold Start'},
+  {key:'cold5',  label:'COLD START CLIP 5', type:'coldstart', defaultDur:'', group:'Cold Start'},
+  {key:'cold6',  label:'COLD START CLIP 6', type:'coldstart', defaultDur:'', group:'Cold Start'},
+  {key:'cold7',  label:'COLD START CLIP 7', type:'coldstart', defaultDur:'', group:'Cold Start'},
+  {key:'cold8',  label:'COLD START CLIP 8', type:'coldstart', defaultDur:'', group:'Cold Start'},
+  // UP NEXT (green)
+  {key:'upvis1', label:'UP NEXT VISUAL 1',   type:'upnext', defaultDur:'', group:'UP NEXT'},
+  {key:'upvis2', label:'UP NEXT VISUAL 2',   type:'upnext', defaultDur:'', group:'UP NEXT'},
+  {key:'upvis3', label:'UP NEXT VISUAL 3',   type:'upnext', defaultDur:'', group:'UP NEXT'},
+  {key:'upvis4', label:'UP NEXT VISUAL 4',   type:'upnext', defaultDur:'', group:'UP NEXT'},
+  {key:'upups1', label:'UP NEXT UPSOUND 1',  type:'upnext', defaultDur:'', group:'UP NEXT'},
+  {key:'upups2', label:'UP NEXT UPSOUND 2',  type:'upnext', defaultDur:'', group:'UP NEXT'},
+  {key:'upups3', label:'UP NEXT UPSOUND 3',  type:'upnext', defaultDur:'', group:'UP NEXT'},
+  {key:'upups4', label:'UP NEXT UPSOUND 4',  type:'upnext', defaultDur:'', group:'UP NEXT'},
+  // Commercial Breaks (dark, no item number)
+  {key:'break1', label:'COMMERCIAL BREAK 1', type:'break', defaultDur:'0:00:00', locked:true, group:'Break'},
+  {key:'break2', label:'COMMERCIAL BREAK 2', type:'break', defaultDur:'0:00:00', locked:true, group:'Break'},
+  {key:'break3', label:'COMMERCIAL BREAK 3', type:'break', defaultDur:'0:00:00', locked:true, group:'Break'},
+  {key:'break4', label:'COMMERCIAL BREAK 4', type:'break', defaultDur:'0:00:00', locked:true, group:'Break'},
+  {key:'break5', label:'COMMERCIAL BREAK 5', type:'break', defaultDur:'0:00:00', locked:true, group:'Break'},
+  {key:'break6', label:'COMMERCIAL BREAK 6', type:'break', defaultDur:'0:00:00', locked:true, group:'Break'},
 ];
 
 function rosNewItem(key){
@@ -3394,52 +3432,61 @@ function renderRunOfShow(){
   }).join('');
 
   // Add Item dropdown options
-  const addOpts=ROS_ITEM_TYPES.map(t=>`<option value="${t.key}">${t.label}${t.numbered?' #':''}</option>`).join('');
+  const groups=[...new Set(ROS_ITEM_TYPES.map(t=>t.group))];
+  const addOpts=groups.map(g=>{
+    const groupItems=ROS_ITEM_TYPES.filter(t=>t.group===g);
+    return`<optgroup label="${g}">${groupItems.map(t=>`<option value="${t.key}">${t.label}</option>`).join('')}</optgroup>`;
+  }).join('');
 
   const emptyState=items.length===0?`<tr><td colspan="5" style="padding:60px;text-align:center;color:#484f58;font-size:16px">
     No items yet — use "Add Item" below to start building the run of show.
   </td></tr>`:'';
 
-  return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
-    <!-- Header bar -->
-    <div style="padding:12px 20px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:16px;flex-shrink:0;flex-wrap:wrap">
-      <button class="btn" id="ros-pick-ep-btn" style="font-size:12px;padding:6px 14px">◀ Episodes</button>
-      <div>
-        <span style="font-size:18px;font-weight:900;color:#c084fc;font-family:monospace">${epLabel}</span>
-        <span style="font-size:13px;color:#6e7681;margin-left:12px">${epDateFmt}</span>
+  return`<div style="display:flex;height:100%;overflow:hidden">
+    <!-- Main content area -->
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+      <!-- Header bar -->
+      <div style="padding:12px 20px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:16px;flex-shrink:0;flex-wrap:wrap">
+        <button class="btn" id="ros-pick-ep-btn" style="font-size:12px;padding:6px 14px">◀ Episodes</button>
+        <div>
+          <span style="font-size:18px;font-weight:900;color:#c084fc;font-family:monospace">${epLabel}</span>
+          <span style="font-size:13px;color:#6e7681;margin-left:12px">${epDateFmt}</span>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <span style="font-size:18px;font-weight:900;color:#c084fc;font-family:monospace" id="ros-total">Total: ${rosSecsToStr(totalSecs)}</span>
+          ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#e3b341;color:#e3b341"># Generate Item Numbers</button>`:''}
+          ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:13px;padding:7px 20px;font-weight:800">💾 Save</button>`:''}
+        </div>
       </div>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <span style="font-size:18px;font-weight:900;color:#c084fc;font-family:monospace" id="ros-total">Total: ${rosSecsToStr(totalSecs)}</span>
-        ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#e3b341;color:#e3b341" title="Number all items except Commercial Breaks"># Generate Item Numbers</button>`:''}
-        ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:13px;padding:7px 20px;font-weight:800">💾 Save</button>`:''}
+      <!-- Table scrolls here -->
+      <div style="flex:1;overflow-y:auto">
+        <table style="border-collapse:collapse;width:100%">
+          <thead style="position:sticky;top:0;z-index:5;background:#0d1117">
+            <tr>
+              <th style="width:48px;padding:10px;border-bottom:2px solid #2e3a50"></th>
+              <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Item</th>
+              <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Content</th>
+              <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:center;width:130px">Item Dur</th>
+              <th style="padding:10px 20px;font-size:11px;font-weight:800;text-transform:uppercase;color:#c084fc;border-bottom:2px solid #2e3a50;text-align:right;width:130px">Ep Duration ↑</th>
+            </tr>
+          </thead>
+          <tbody>${emptyState}${rows}</tbody>
+        </table>
       </div>
     </div>
-    <!-- Table -->
-    <div style="flex:1;overflow-y:auto">
-      <table style="border-collapse:collapse;width:100%">
-        <thead style="position:sticky;top:0;z-index:5;background:#0d1117">
-          <tr>
-            <th style="width:48px;padding:10px;border-bottom:2px solid #2e3a50"></th>
-            <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Item</th>
-            <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Content</th>
-            <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:center;width:130px">Item Dur</th>
-            <th style="padding:10px 20px;font-size:11px;font-weight:800;text-transform:uppercase;color:#c084fc;border-bottom:2px solid #2e3a50;text-align:right;width:130px">Ep Duration ↑</th>
-          </tr>
-        </thead>
-        <tbody>${emptyState}${rows}</tbody>
-      </table>
-    </div>
-    <!-- Add Item bar -->
-    ${canEdit?`<div style="padding:14px 20px;background:#161b22;border-top:2px solid #21262d;display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap">
-      <span style="font-size:13px;font-weight:700;color:#7a8ba0">Add Item:</span>
-      <select id="ros-type-sel" style="background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 14px;border-radius:6px;font-size:13px;min-width:240px">
-        <option value="">— choose type —</option>
-        ${addOpts}
-      </select>
-      <input id="ros-num-inp" placeholder="Number (if needed)" style="background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 12px;border-radius:6px;font-size:13px;width:160px" type="number" min="1" max="99">
-      <button class="btn primary" id="ros-add-btn" style="font-size:13px;padding:8px 20px;font-weight:800">+ Add Item</button>
-      <div style="margin-left:auto;display:flex;gap:8px;font-size:10px;flex-wrap:wrap">
-        ${[['#0d1e35','#79c0ff','Live/Link'],['#1a1200','#e3b341','Insert'],['#110d1f','#c084fc','Cold Start'],['#0d1f10','#56d364','UP NEXT'],['#16161f','#9ca3af','Fixed']].map(([bg,col,lbl])=>`<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:${bg};border-radius:2px;display:inline-block"></span><span style="color:#6e7681">${lbl}</span></span>`).join('')}
+    <!-- Right sidebar: Add Item panel -->
+    ${canEdit?`<div style="width:260px;flex-shrink:0;background:#161b22;border-left:2px solid #21262d;display:flex;flex-direction:column;overflow-y:auto">
+      <div style="padding:16px 16px 8px;font-size:13px;font-weight:800;color:#eaf0ff;border-bottom:1px solid #21262d;letter-spacing:.3px">+ Add Item</div>
+      <div style="padding:12px 16px;display:flex;flex-direction:column;gap:10px">
+        <select id="ros-type-sel" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:10px 12px;border-radius:6px;font-size:13px">
+          <option value="">— choose item —</option>
+          ${addOpts}
+        </select>
+        <button class="btn primary" id="ros-add-btn" style="width:100%;font-size:14px;padding:12px;font-weight:800">+ Add Item</button>
+      </div>
+      <div style="padding:12px 16px;border-top:1px solid #21262d;display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:10px;font-weight:700;color:#484f58;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Colour Key</div>
+        ${[['#0d1e35','#79c0ff','Live / Link'],['#1a1200','#e3b341','Insert'],['#110d1f','#c084fc','Cold Start'],['#0d1f10','#56d364','UP NEXT'],['#16161f','#9ca3af','Fixed'],['#080808','#484f58','Break']].map(([bg,col,lbl])=>`<span style="display:flex;align-items:center;gap:8px"><span style="width:14px;height:14px;background:${bg};border:1px solid ${col}44;border-radius:3px;flex-shrink:0;display:inline-block"></span><span style="font-size:12px;color:#6e7681">${lbl}</span></span>`).join('')}
       </div>
     </div>`:''}
   </div>`;
@@ -6051,14 +6098,9 @@ document.addEventListener('click',function rosHandler(e){
   if(e.target.id==='ros-add-btn'){
     const key=document.getElementById('ros-type-sel')?.value;
     if(!key){showToast('Please choose an item type',true);return;}
-    const numInp=document.getElementById('ros-num-inp');
-    const num=numInp?.value?Number(numInp.value):null;
     const def=ROS_ITEM_TYPES.find(t=>t.key===key);
     if(!def)return;
     const item=rosNewItem(key);
-    // Append number to label if provided
-    if(num&&def.numbered)item.label=def.label+' '+num;
-    else if(def.numbered)item.label=def.label;
     // Flush current DOM values before adding
     const items=rosGetCurrentItems();
     document.querySelectorAll('.ros-content').forEach(inp=>{const idx=Number(inp.dataset.idx);if(items[idx]!==undefined)items[idx].content=inp.value;});
@@ -6066,8 +6108,6 @@ document.addEventListener('click',function rosHandler(e){
     items.push(item);
     if(!rosData[String(rosCurrentEp)])rosData[String(rosCurrentEp)]={};
     rosData[String(rosCurrentEp)].items=items;
-    // Reset number input
-    if(numInp)numInp.value='';
     if(document.getElementById('ros-type-sel'))document.getElementById('ros-type-sel').value='';
     render();
     return;
