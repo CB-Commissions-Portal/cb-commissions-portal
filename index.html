@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.2.3';
+const BUILD_VERSION='3.2.4';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3793,15 +3793,12 @@ function renderTranscribe(){
     </div>
     <div style="flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:20px;max-width:900px;width:100%;margin:0 auto">
       <!-- Drop zone -->
-      <div id="transcribe-drop" style="border:2px dashed #2e3a50;border-radius:12px;padding:48px 24px;text-align:center;cursor:pointer;transition:all .2s;background:#0d1117"
-        ondragover="event.preventDefault();this.style.borderColor='#f78166';this.style.background='#1a1008'"
-        ondragleave="this.style.borderColor='#2e3a50';this.style.background='#0d1117'"
-        ondrop="handleTranscribeDrop(event)">
+      <div id="transcribe-drop" style="border:2px dashed #2e3a50;border-radius:12px;padding:48px 24px;text-align:center;cursor:pointer;transition:all .2s;background:#0d1117">
         <div style="font-size:40px;margin-bottom:12px">🎵</div>
         <div style="font-size:15px;font-weight:700;color:#eaf0ff;margin-bottom:6px">Drop audio file here</div>
         <div style="font-size:12px;color:#484f58;margin-bottom:16px">or click to browse</div>
-        <button class="btn" onclick="document.getElementById('transcribe-file-inp').click()" style="font-size:12px;padding:7px 20px">Choose File</button>
-        <input type="file" id="transcribe-file-inp" accept="audio/*" style="display:none" onchange="handleTranscribeFile(this.files[0])">
+        <button class="btn" id="transcribe-choose-btn" style="font-size:12px;padding:7px 20px">Choose File</button>
+        <input type="file" id="transcribe-file-inp" accept="audio/*" style="display:none">
       </div>
       <!-- Status / progress -->
       <div id="transcribe-status" style="display:none;background:#1c2433;border:1px solid #2e3a50;border-radius:8px;padding:16px;text-align:center">
@@ -6463,13 +6460,59 @@ document.addEventListener('keydown',function ppTabHandler(e){
 let transcribeCurrentFile=null;
 let transcribeAbort=false;
 
+// Prevent browser from opening files dropped anywhere on the page
+document.addEventListener('dragover',function(e){e.preventDefault();},false);
+document.addEventListener('drop',function(e){
+  // Only handle if dropped on our drop zone
+  const drop=document.getElementById('transcribe-drop');
+  if(drop&&(e.target===drop||drop.contains(e.target))){
+    e.preventDefault();
+    e.stopPropagation();
+    drop.style.borderColor='#2e3a50';
+    drop.style.background='#0d1117';
+    const file=e.dataTransfer?.files?.[0];
+    if(file&&(file.type.startsWith('audio/')||/\.(mp3|m4a|wav|ogg|aac|flac|opus|wma)$/i.test(file.name))){
+      handleTranscribeFile(file);
+    } else {
+      showToast('Please drop an audio file (MP3, M4A, WAV, OGG, AAC)',true);
+    }
+  } else {
+    // Prevent browser opening non-target drops
+    e.preventDefault();
+  }
+},false);
+
+// Drag over/leave styling
+document.addEventListener('dragover',function(e){
+  const drop=document.getElementById('transcribe-drop');
+  if(drop&&(e.target===drop||drop.contains(e.target))){
+    drop.style.borderColor='#f78166';
+    drop.style.background='#1a1008';
+  }
+},false);
+document.addEventListener('dragleave',function(e){
+  const drop=document.getElementById('transcribe-drop');
+  if(drop&&!drop.contains(e.relatedTarget)){
+    drop.style.borderColor='#2e3a50';
+    drop.style.background='#0d1117';
+  }
+},false);
+
+// Click to browse + file input change
+document.addEventListener('click',function(e){
+  if(e.target.id==='transcribe-choose-btn'){
+    document.getElementById('transcribe-file-inp')?.click();
+  }
+});
+document.addEventListener('change',function(e){
+  if(e.target.id==='transcribe-file-inp'){
+    const file=e.target.files?.[0];
+    if(file)handleTranscribeFile(file);
+  }
+});
+
 function handleTranscribeDrop(e){
   e.preventDefault();
-  const drop=document.getElementById('transcribe-drop');
-  if(drop){drop.style.borderColor='#2e3a50';drop.style.background='#0d1117';}
-  const file=e.dataTransfer?.files?.[0];
-  if(file&&file.type.startsWith('audio/'))handleTranscribeFile(file);
-  else showToast('Please drop an audio file (MP3, M4A, WAV, OGG)',true);
 }
 
 function handleTranscribeFile(file){
