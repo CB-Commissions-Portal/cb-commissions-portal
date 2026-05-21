@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.0.9';
+const BUILD_VERSION='3.1.0';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -692,6 +692,62 @@ async function savePPEntry(commNum,data){
   setSyncDot('saving');
   try{await setDoc(doc(db,'postprod',String(commNum)),{...data,updatedAt:serverTimestamp()});ppData[commNum]={...data};setSyncDot('live');}
   catch(e){setSyncDot('offline');showToast('Post prod save failed: '+e.message,true);}
+}
+async function exportAllDataToJSON(){
+  showToast('Collecting data — this may take a moment…');
+  try{
+    const collections=[
+      'commissions','lineups','postprod','presenter_calendar',
+      'music_cues','studio_crew','end_credits','promo_scheduling',
+      'deliverables','leave_requests','leave_balances','users',
+      'settings','postprod_meta'
+    ];
+    const backup={
+      exportedAt:new Date().toISOString(),
+      exportedBy:currentUser?.email||'admin',
+      appVersion:BUILD_VERSION,
+      season:currentSeason,
+      collections:{}
+    };
+    for(const col of collections){
+      try{
+        const snap=await getDocs(collection(db,col));
+        backup.collections[col]=snap.docs.map(d=>({id:d.id,...d.data()}));
+        // Convert Firestore Timestamps to ISO strings
+        backup.collections[col]=backup.collections[col].map(doc=>{
+          const cleaned={};
+          Object.entries(doc).forEach(([k,v])=>{
+            if(v&&typeof v==='object'&&v.seconds!==undefined){
+              cleaned[k]=new Date(v.seconds*1000).toISOString();
+            } else {
+              cleaned[k]=v;
+            }
+          });
+          return cleaned;
+        });
+        console.log(`✓ ${col}: ${backup.collections[col].length} docs`);
+      }catch(e){
+        backup.collections[col]={error:e.message};
+        console.warn(`✗ ${col}:`,e.message);
+      }
+    }
+    // Download as JSON file
+    const json=JSON.stringify(backup,null,2);
+    const blob=new Blob([json],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    const dateStr=new Date().toISOString().split('T')[0];
+    a.download=`CB_Portal_Backup_S${currentSeason}_${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('✓ Backup downloaded — '+Object.keys(backup.collections).length+' collections exported');
+  }catch(e){
+    showToast('Backup failed: '+e.message,true);
+    console.error('Backup error:',e);
+  }
 }
 async function loadPostProd(){
   // Load postprod cell data
@@ -3439,7 +3495,23 @@ function renderAdmin(){
   const allRoles=Object.entries(ROLE_META);
   return`<div class="admin-wrap">
   <div class="admin-grid">
+  <div class="admin-card" style="grid-column:1/-1;background:linear-gradient(135deg,#0d1117 0%,#161b22 100%);border:1px solid #388bfd44">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <h4 style="margin:0 0 4px 0;color:#388bfd">Data Backup</h4>
+        <div style="font-size:11px;color:#6e7681">Downloads a full JSON snapshot of all Firebase data — commissions, lineups, post production, music cues, presenter calendar, leave records and more.</div>
+      </div>
+      <button class="btn primary" id="backup-export-btn" style="border-color:#388bfd;color:#388bfd;background:rgba(56,139,253,0.1);white-space:nowrap;padding:8px 18px;font-size:12px;font-weight:800">⬇ Export Full Backup</button>
+    </div>
+    <div style="margin-top:12px;padding:10px 12px;background:#0d1117;border-radius:6px;border:1px solid #21262d;font-size:10px;color:#484f58">
+      💡 <strong style="color:#6e7681">Tip:</strong> Run a backup before major changes, and keep at least one copy offsite (Google Drive, email to yourself, etc.). The file can be used to restore data if needed.
+    </div>
+  </div>
   <div class="admin-card" style="grid-column:1/-1">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h4 style="margin:0">Users &amp; Access</h4>
+      <button class="btn primary" id="add-user-btn">+ Create User</button>
+    </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <h4 style="margin:0">Users &amp; Access</h4>
       <button class="btn primary" id="add-user-btn">+ Create User</button>
@@ -4956,6 +5028,9 @@ function bindApp(){
     });
   });
 
+  document.getElementById('backup-export-btn')?.addEventListener('click',()=>{
+    exportAllDataToJSON();
+  });
   document.getElementById('add-user-btn')?.addEventListener('click',()=>{addUserModal=true;render();});
 
   // Role change dropdowns
