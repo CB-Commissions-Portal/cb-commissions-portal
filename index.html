@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.9.8';
+const BUILD_VERSION='3.0.1';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1151,7 +1151,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>`,
       color:'#388bfd',
       bg:'rgba(56,139,253,.1)',
-      show: !['editorial','afm'].includes(role),
+      show: role!=='afm',
       desc:'Manage commissions, durations and deliverables'
     },
     {
@@ -1211,7 +1211,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,
       color:'#ffa657',
       bg:'rgba(255,166,87,.1)',
-      show: ['admin','operations'].includes(role),
+      show: ['admin','operations','prodmgmt','editorial'].includes(role),
       desc:'UID codes and promo scheduling per episode'
     },
     {
@@ -1390,12 +1390,12 @@ function renderApp(){
   </div>`:''}  
   <div class="tabs no-print">
     <div class="tab-btn${tab==='home'?' active':''}" data-tab="home" style="font-size:16px;padding:4px 10px" title="Home">⌂</div>
-    ${!['editorial','afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='commissions'?' active':''}" data-tab="commissions">Commission List ${currentSeason}</div>`:''}
+    ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='commissions'?' active':''}" data-tab="commissions">Commission List ${currentSeason}</div>`:''}
     ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='lineups'?' active':''}" data-tab="lineups">Line-Ups</div>`:''}
     ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='episodes'?' active':''}" data-tab="episodes">Episode Register</div>`:''}
     ${['admin','operations'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='postprod'?' active':''}" data-tab="postprod">Post Production</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='deliverables'?' active':''}" data-tab="deliverables">Deliverables</div>`:''}
-    ${['admin','operations','prodmgmt'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='promos'?' active':''}" data-tab="promos">Promo Scheduling</div>`:''}
+    ${['admin','operations','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='promos'?' active':''}" data-tab="promos">Promo Scheduling</div>`:''}
     ${['admin','operations','afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='musiccues'?' active':''}" data-tab="musiccues">Music Cue Sheets</div>`:''}
     ${['admin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='credits'?' active':''}" data-tab="credits">End Credits</div>`:''}
     ${['admin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}
@@ -1413,11 +1413,11 @@ ${renderModals(epNums,nextEp)}
 function renderContent(epNums,nextEp,paid,remaining){
   const role=getEffectiveRole();
   if(tab==='home')return renderHome();
-  if(tab==='commissions'&&role!=='editorial'&&role!=='afm')return renderCommList(epNums,nextEp);
+  if(tab==='commissions'&&role!=='afm')return renderCommList(epNums,nextEp);
   if(tab==='episodes'&&role!=='afm')return renderEpisodes(epNums,paid,remaining);
   if(tab==='studio'&&['admin','operations','production'].includes(role))return renderStudioCrew(epNums);
   if(tab==='credits'&&['admin','operations','production'].includes(role))return renderEndCredits(epNums);
-  if(tab==='promos'&&['admin','operations','prodmgmt'].includes(role))return renderPromoScheduling(epNums);
+  if(tab==='promos'&&['admin','operations','prodmgmt','editorial'].includes(role))return renderPromoScheduling(epNums);
   if(tab==='musiccues')return renderMusicCues(epNums);
   if(tab==='prescal'&&['admin','operations','production','prodmgmt','editorial'].includes(role))return renderPresenterCalendar();
   if(tab==='leave'&&userHasLeaveAccess())return renderLeave();
@@ -1462,6 +1462,7 @@ function renderCommList(epNums,nextEp){
   <th data-sort="commNum" class="st st-2" style="width:155px;min-width:155px">Comm #</th>
   <th class="st st-3" style="width:160px;min-width:160px">Short Name</th>
   <th data-sort="storyName" class="st st-4" style="width:320px;min-width:320px">Story Name</th>
+  <th data-sort="deliveryDate" style="width:14ch;min-width:14ch">Del. Date</th>
   <th data-sort="commDuration" style="width:18ch;min-width:18ch">Comm Dur</th>
   <th data-sort="deliveredDuration" style="width:18ch;min-width:18ch">Del Dur</th>
   <th data-sort="paidDuration" style="width:18ch;min-width:18ch">Paid Dur</th>
@@ -1514,6 +1515,14 @@ ${filtered.map(c=>{
   ${dup?'<span class="dup-warn">⚠ Duplicate</span>':''}
 </td>
 <td class="st st-4" style="min-width:180px">${ci('storyName',220)}</td>
+<td style="min-width:14ch;max-width:14ch">
+  ${['admin','operations'].includes(getEffectiveRole())
+    ?`<div style="position:relative">
+        <span class="comm-del-label" style="font-size:11px;color:#e3b341;cursor:pointer;display:block;padding:2px 4px;white-space:nowrap" title="Click to set delivery date">${c.deliveryDate?new Date(c.deliveryDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'2-digit'}):'—'}</span>
+        <input type="date" class="comm-del-date" data-id="${c.id}" value="${esc(c.deliveryDate||'')}" style="position:absolute;top:0;left:0;opacity:0;width:100%;height:100%;cursor:pointer;border:none;background:transparent">
+      </div>`
+    :`<span style="font-size:11px;color:#e3b341;padding:2px 4px;display:block;white-space:nowrap">${c.deliveryDate?new Date(c.deliveryDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'2-digit'}):'—'}</span>`}
+</td>
 <td>${ci('commDuration')}</td>
 <td>${ci('deliveredDuration')}</td>
 <td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}">${c.isInHouse?`<span class="badge ih" style="opacity:.5">N/A</span>`:ci('paidDuration',54)}</td>
@@ -3154,7 +3163,7 @@ function renderLineups(epNums){
   const canEdit=['admin','operations','production','prodmgmt','editorial'].includes(role);
   const today=new Date().toISOString().split('T')[0];
   const activeComms=comms.filter(c=>!c.decommissioned);
-  const insertsInProd=activeComms.filter(c=>!c.approvedForPayment&&!c.isInHouse&&c.storyName&&!c.isLicensed);
+  const insertsInProd=activeComms.filter(c=>!c.approvedForPayment&&c.storyName);
   const eps=[...epNums].sort((a,b)=>a-b);
 
   function getLineup(ep){
@@ -3270,15 +3279,29 @@ function renderLineups(epNums){
 
   if(!eps.length)epsHtml=`<div style="text-align:center;padding:40px;color:#484f58;font-size:13px">No episodes in the Commission List yet.</div>`;
 
-  let sideHtml=sidebarInserts.map(c=>`<div style="background:rgba(227,179,65,0.08);border-left:3px solid #e3b341;border-radius:3px;padding:7px 10px;margin-bottom:5px">
-    <div style="font-size:11px;font-weight:900;color:#e3b341;font-family:monospace">${esc(String(c.commNum))}</div>
-    <div style="font-size:11px;font-weight:700;color:#eaf0ff;margin-top:1px">${esc(c.storyName)}</div>
-    <div style="display:flex;gap:6px;margin-top:2px;align-items:center;flex-wrap:wrap">
-      ${c.presenterVO?`<span style="font-size:10px;color:#8b949e">${esc(c.presenterVO)}</span>`:''}
-      ${c.producer?`<span style="font-size:10px;color:#6e7681">${esc(c.producer)}</span>`:''}
-      <span style="font-size:10px;color:#7a8ba0;font-family:monospace;margin-left:auto">${decToMmSs(toDecimalMins(c.deliveredDuration||c.commDuration))}</span>
-    </div>
-  </div>`).join('');
+  let sideHtml=sidebarInserts.map(c=>{
+    const isLic=c.isLicensed;
+    const isIH=c.isInHouse;
+    const borderCol=isLic?'#3fb950':isIH?'#6e7681':'#e3b341';
+    const bgCol=isLic?'rgba(63,185,80,0.06)':isIH?'rgba(110,118,129,0.06)':'rgba(227,179,65,0.08)';
+    const commCol=isLic?'#3fb950':isIH?'#7a8ba0':'#e3b341';
+    const typeTag=isLic?'<span style="font-size:7px;font-weight:800;background:#1c2d1c;color:#3fb950;padding:1px 4px;border-radius:2px;margin-left:4px;vertical-align:middle">LIC</span>':
+                  isIH?'<span style="font-size:7px;font-weight:800;background:#1a1a2e;color:#7a8ba0;padding:1px 4px;border-radius:2px;margin-left:4px;vertical-align:middle">IH</span>':'';
+    const delDate=c.deliveryDate?new Date(c.deliveryDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'2-digit'}):'';
+    const dur=decToMmSs(toDecimalMins(c.deliveredDuration||c.commDuration));
+    return`<div style="background:${bgCol};border-left:3px solid ${borderCol};border-radius:3px;padding:7px 10px;margin-bottom:5px">
+      <div style="font-size:11px;font-weight:900;color:${commCol};font-family:monospace">${esc(String(c.commNum))}${typeTag}</div>
+      <div style="font-size:11px;font-weight:700;color:#eaf0ff;margin-top:1px">${esc(c.storyName)}</div>
+      <div style="display:flex;gap:6px;margin-top:3px;align-items:center;flex-wrap:wrap">
+        ${c.presenterVO?`<span style="font-size:10px;color:#8b949e">${esc(c.presenterVO)}</span>`:''}
+        ${c.producer?`<span style="font-size:10px;color:#6e7681">${esc(c.producer)}</span>`:''}
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px;flex-wrap:wrap;gap:4px">
+        ${delDate?`<span style="font-size:9px;color:#e3b341;font-weight:700">📅 ${delDate}</span>`:'<span style="font-size:9px;color:#484f58;font-style:italic">No delivery date</span>'}
+        <span style="font-size:10px;color:#7a8ba0;font-family:monospace">${dur}</span>
+      </div>
+    </div>`;
+  }).join('');
   if(!sideHtml)sideHtml=`<div style="font-size:11px;color:#484f58;font-style:italic">No inserts in production.</div>`;
 
   return`<div style="display:flex;gap:0;height:100%;overflow:hidden">
@@ -3434,6 +3457,21 @@ function bindApp(){
   });
   document.querySelectorAll('[data-home-tab]').forEach(el=>el.addEventListener('click',()=>{switchTab(el.dataset.homeTab);}));
   document.getElementById('contracted-input')?.addEventListener('change',e=>{settings.contractedMinutes=Number(e.target.value);saveSettings();render();});
+  // Commission List delivery date handler
+  document.querySelectorAll('.comm-del-date').forEach(inp=>{
+    inp.addEventListener('change',e=>{
+      const id=Number(e.target.dataset.id);
+      const val=e.target.value;
+      const c=comms.find(x=>x.id===id);
+      if(!c)return;
+      c.deliveryDate=val;
+      // Update visible label immediately
+      const label=e.target.closest('div')?.querySelector('.comm-del-label');
+      if(label)label.textContent=val?new Date(val+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'2-digit'}):'—';
+      // Save to Firebase
+      saveComm(id,{deliveryDate:val});
+    });
+  });
   document.querySelectorAll('[data-sort]').forEach(th=>th.addEventListener('click',()=>{const f=th.dataset.sort;if(sortField===f)sortDir=sortDir==='asc'?'desc':'asc';else{sortField=f;sortDir='asc';}render();}));
   document.getElementById('search-inp')?.addEventListener('input',e=>{
     search=e.target.value;
