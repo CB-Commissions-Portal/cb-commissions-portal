@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.0.7';
+const BUILD_VERSION='3.0.8';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1529,7 +1529,7 @@ ${filtered.map(c=>{
 </td>
 <td class="st st-4" style="min-width:180px">${ci('storyName',220)}</td>
 <td style="min-width:14ch;max-width:14ch">
-  ${['admin','operations'].includes(getEffectiveRole())
+  ${['admin','operations','editorial'].includes(getEffectiveRole())
     ?`<div style="position:relative">
         <span class="comm-del-label" style="font-size:11px;color:#e3b341;cursor:pointer;display:block;padding:2px 4px;white-space:nowrap" title="Click to set delivery date">${c.deliveryDate?new Date(c.deliveryDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'2-digit'}):'—'}</span>
         <input type="date" class="comm-del-date" data-id="${c.id}" value="${esc(c.deliveryDate||'')}" style="position:absolute;top:0;left:0;opacity:0;width:100%;height:100%;cursor:pointer;border:none;background:transparent">
