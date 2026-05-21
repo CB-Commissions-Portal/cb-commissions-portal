@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.2.7';
+const BUILD_VERSION='3.2.9';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3786,10 +3786,21 @@ function renderLineups(epNums){
 
 
 function renderTranscribe(){
+  const savedKey=localStorage.getItem('cb_anthropic_key')||'';
+  const hasKey=!!savedKey.trim();
   return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column;height:100%">
     <div style="padding:12px 20px;background:#161b22;border-bottom:2px solid #21262d;flex-shrink:0">
       <h2 style="font-size:16px;font-weight:900;color:#eaf0ff;margin:0">🎙 Audio Transcription</h2>
       <div style="font-size:11px;color:#6e7681;margin-top:3px">Drop an audio file to generate a timestamped transcript using AI. Supports MP3, M4A, WAV, OGG — up to 60 minutes.</div>
+    </div>
+    <!-- API Key panel -->
+    <div style="padding:14px 20px;background:${hasKey?'#0d1a0d':'#1a1000'};border-bottom:2px solid ${hasKey?'#2d6a2d':'#4a3300'};display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap">
+      <span style="font-size:12px;font-weight:700;color:${hasKey?'#3fb950':'#e3b341'};white-space:nowrap">${hasKey?'✓ API Key set':'⚠ Anthropic API Key required'}</span>
+      <input id="transcribe-api-key" type="password" placeholder="sk-ant-api03-…" value="${esc(savedKey)}"
+        style="flex:1;max-width:420px;background:#1c2433;border:1px solid ${hasKey?'#2d6a2d':'#4a3300'};color:#eaf0ff;padding:6px 12px;border-radius:5px;font-size:12px;font-family:monospace">
+      <button class="btn primary" id="transcribe-save-key-btn" style="font-size:12px;padding:5px 14px">Save Key</button>
+      ${hasKey?`<button class="btn" id="transcribe-clear-key-btn" style="font-size:12px;padding:5px 14px;border-color:#484f58;color:#484f58">Remove Key</button>`:''}
+      <a href="https://console.anthropic.com/settings/keys" target="_blank" style="font-size:11px;color:#484f58;margin-left:4px">Get API key ↗</a>
     </div>
     <div style="flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:20px;max-width:900px;width:100%;margin:0 auto">
       <!-- Drop zone -->
@@ -6457,6 +6468,25 @@ document.addEventListener('keydown',function ppTabHandler(e){
 // Also protect pp-cell inputs from onSnapshot render wipe (add to existing check)
 
 // ── TRANSCRIPTION FUNCTIONS ──────────────────────────────────────
+// API key management
+document.addEventListener('click',function transcribeKeyHandler(e){
+  if(e.target.id==='transcribe-save-key-btn'){
+    const inp=document.getElementById('transcribe-api-key');
+    const key=(inp?.value||'').trim();
+    if(!key){showToast('Please enter an API key',true);return;}
+    if(!key.startsWith('sk-ant-')){showToast('That does not look like an Anthropic API key (should start with sk-ant-)',true);return;}
+    localStorage.setItem('cb_anthropic_key',key);
+    showToast('API key saved ✓');
+    render();
+    return;
+  }
+  if(e.target.id==='transcribe-clear-key-btn'){
+    localStorage.removeItem('cb_anthropic_key');
+    showToast('API key removed');
+    render();
+    return;
+  }
+});
 let transcribeCurrentFile=null;
 let transcribeAbort=false;
 
@@ -6517,10 +6547,27 @@ function handleTranscribeDrop(e){
 
 function handleTranscribeFile(file){
   if(!file)return;
-  if(!file.type.startsWith('audio/')){showToast('Please select an audio file',true);return;}
-  if(file.size>200*1024*1024){showToast('File too large — max 200MB',true);return;}
+  // Accept audio/* AND video/mp4 (M4A) AND empty type with audio extension
+  const ext=(file.name||'').split('.').pop().toLowerCase();
+  const audioExts=['mp3','m4a','mp4','wav','ogg','aac','flac','opus','wma','aiff','aif'];
+  const isAudio=file.type.startsWith('audio/')||file.type==='video/mp4'||file.type===''||audioExts.includes(ext);
+  if(!isAudio){
+    showToast('Not recognised as audio: '+file.type+' ('+ext+'). Try MP3, M4A or WAV.',true);
+    return;
+  }
+  if(file.size>250*1024*1024){showToast('File too large — max 250MB',true);return;}
   transcribeCurrentFile=file;
   transcribeAbort=false;
+  // Reset status panel cleanly
+  const statusEl=document.getElementById('transcribe-status');
+  const statusIcon=document.getElementById('transcribe-status-icon');
+  const statusText=document.getElementById('transcribe-status-text');
+  const statusSub=document.getElementById('transcribe-status-sub');
+  // Remove any old retry buttons
+  if(statusEl)statusEl.querySelectorAll('button').forEach(b=>b.remove());
+  if(statusIcon)statusIcon.textContent='🔄';
+  if(statusText)statusText.textContent='Starting…';
+  if(statusSub)statusSub.textContent='File: '+file.name+' ('+file.type||ext+') '+Math.round(file.size/1024/1024*10)/10+'MB';
   startTranscription(file);
 }
 
@@ -6543,27 +6590,33 @@ async function startTranscription(file){
     // Read file to base64 using FileReader readAsDataURL (most compatible)
     if(statusText)statusText.textContent='Encoding audio…';
     if(statusSub)statusSub.textContent='Reading '+file.name+' ('+Math.round(file.size/1024/1024*10)/10+' MB)…';
+    if(statusText)statusText.textContent='Reading file…';
+    if(statusSub)statusSub.textContent='Type: '+(file.type||'unknown')+' Size: '+Math.round(file.size/1024)+'KB';
     const base64=await new Promise((resolve,reject)=>{
       try{
         const reader=new FileReader();
         reader.onload=function(evt){
           try{
-            const result=evt.target.result; // data:audio/...;base64,XXXX
+            const result=evt.target.result;
+            if(typeof result!=='string'){reject(new Error('Result is not string: '+typeof result));return;}
             const comma=result.indexOf(',');
-            if(comma===-1)reject(new Error('Invalid data URL format'));
-            else resolve(result.substring(comma+1));
-          }catch(ex){reject(new Error('Base64 extraction failed: '+ex.message));}
+            if(comma===-1){reject(new Error('No comma in dataURL. Starts with: '+result.substring(0,30)));return;}
+            resolve(result.substring(comma+1));
+          }catch(ex){reject(new Error('Extract failed: '+ex.message));}
         };
         reader.onerror=function(evt){
-          reject(new Error('FileReader error: '+(evt.target.error?.message||evt.target.error?.name||'unknown')));
+          const e=evt.target.error;
+          reject(new Error('FileReader.onerror: code='+(e?.code)+' name='+(e?.name)+' msg='+(e?.message)));
         };
-        reader.onabort=function(){reject(new Error('FileReader was aborted'));};
+        reader.onabort=function(){reject(new Error('FileReader aborted'));};
+        // Use readAsDataURL — most compatible
         reader.readAsDataURL(file);
       }catch(ex){
-        reject(new Error('FileReader init failed: '+ex.message));
+        reject(new Error('reader init: '+ex.message));
       }
     });
-    if(statusSub)statusSub.textContent='Audio encoded, sending to AI…';
+    if(statusText)statusText.textContent='Encoded OK — sending to AI…';
+    if(statusSub)statusSub.textContent='Base64 length: '+base64.length+' chars';
 
     if(statusText)statusText.textContent='Sending to AI for transcription…';
     if(statusSub)statusSub.textContent='This may take 30–60 seconds for longer recordings…';
@@ -6575,9 +6628,11 @@ async function startTranscription(file){
     const mediaType=file.type&&file.type!=='application/octet-stream'?file.type:(mimeMap[ext]||'audio/mpeg');
 
     // Call Anthropic API
+    const apiKey=localStorage.getItem('cb_anthropic_key')||'';
+    if(!apiKey.trim())throw new Error('No API key set. Please add your Anthropic API key at the top of the Transcribe tab.');
     const response=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json','x-api-key':apiKey.trim(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-iab':'true'},
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
         max_tokens:8000,
