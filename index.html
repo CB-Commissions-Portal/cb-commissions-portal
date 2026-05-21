@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.1.8';
+const BUILD_VERSION='3.2.1';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -429,6 +429,7 @@ let rosCurrentEp=null; // currently viewed episode // {commNum: {deliveryDate:''
 let ppActiveComms=[]; // ordered list of commNums added to the post prod schedule
 let ppSortField='commNum';
 let ppSortDir='asc';
+let ppShowCompleted=false; // toggle to show/hide Edit Complete rows
 let ppAddModal=false; // show the add commission modal // {commNum: {deliveryDate:'', cells:{dateStr_slot: text}}}
 let ppWeekOffset=0; // weeks offset from season start (2026-01-19 = first Mon)
 let _ppWeekAutoSet=false;
@@ -2318,15 +2319,17 @@ function renderPostProd(){
   const commMap=new Map(allComms.map(c=>[String(c.commNum),c]));
 
   // Sort active comms based on sort field
-  let schedComms=ppActiveComms
+  const allSchedComms=ppActiveComms
     .map(cn=>commMap.get(String(cn)))
     .filter(Boolean);
+  const completedCount=allSchedComms.filter(c=>getPP(c.commNum).editComplete).length;
+  let schedComms=ppShowCompleted?allSchedComms:allSchedComms.filter(c=>!getPP(c.commNum).editComplete);
 
   schedComms.sort((a,b)=>{
     let av,bv;
     if(ppSortField==='commNum'){av=Number(a.commNum);bv=Number(b.commNum);}
     else if(ppSortField==='txDate'){av=getTxDate(a)||'';bv=getTxDate(b)||'';}
-    else if(ppSortField==='deliveryDate'){av=getPP(a.commNum).deliveryDate||'';bv=getPP(b.commNum).deliveryDate||'';}
+    else if(ppSortField==='deliveryDate'){const ca=comms.find(x=>String(x.commNum)===String(a.commNum));const cb=comms.find(x=>String(x.commNum)===String(b.commNum));av=getPP(a.commNum).deliveryDate||ca?.deliveryDate||'';bv=getPP(b.commNum).deliveryDate||cb?.deliveryDate||'';}
     else if(ppSortField==='editComplete'){av=getPP(a.commNum).editComplete?1:0;bv=getPP(b.commNum).editComplete?1:0;}
     else{av=String(a[ppSortField]||'').toLowerCase();bv=String(b[ppSortField]||'').toLowerCase();}
     if(av<bv)return ppSortDir==='asc'?-1:1;
@@ -2352,13 +2355,14 @@ function renderPostProd(){
   let h1='<tr>';
   h1+=`<th data-pp-sort="commNum" style="${thFix};min-width:46px;position:sticky;left:0;z-index:12;background:#161b22;cursor:pointer">Comm #${ppSortArrow('commNum')}</th>`;
   h1+=`<th data-pp-sort="storyName" style="${thFix};min-width:40ch;position:sticky;left:52px;z-index:12;background:#161b22;cursor:pointer">Story${ppSortArrow('storyName')}</th>`;
+  h1+=`<th data-pp-sort="editComplete" style="${thFix};min-width:60px;text-align:center;cursor:pointer" title="Edit Complete">✓${ppSortArrow('editComplete')}</th>`;
   h1+=`<th data-pp-sort="producer" style="${thFix};min-width:45ch;cursor:pointer">Producer${ppSortArrow('producer')}</th>`;
   h1+=`<th data-pp-sort="editor" style="${thFix};min-width:25ch;cursor:pointer">Editor${ppSortArrow('editor')}</th>`;
   h1+=`<th data-pp-sort="dop" style="${thFix};min-width:60ch;cursor:pointer">DOP${ppSortArrow('dop')}</th>`;
   h1+=`<th data-pp-sort="afm" style="${thFix};min-width:25ch;cursor:pointer">AFM${ppSortArrow('afm')}</th>`;
   h1+=`<th data-pp-sort="deliveryDate" style="${thFix};min-width:180px;cursor:pointer">Del. Date${ppSortArrow('deliveryDate')}</th>`;
   h1+=`<th data-pp-sort="txDate" style="${thFix};min-width:100px;cursor:pointer">TX Date${ppSortArrow('txDate')}</th>`;
-  h1+=`<th data-pp-sort="editComplete" style="${thFix};min-width:110px;cursor:pointer">Status${ppSortArrow('editComplete')}</th>`;
+
   days.forEach((d,i)=>{
     const wknd=isWeekend[i];
     const dayFmt=new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short'});
@@ -2370,7 +2374,7 @@ function renderPostProd(){
   const fixedSpacers=[
     'min-width:46px;position:sticky;left:0;z-index:12;background:#0d1117',
     'min-width:40ch;position:sticky;left:52px;z-index:12;background:#0d1117',
-    'min-width:45ch','min-width:25ch','min-width:60ch','min-width:25ch','min-width:180px','min-width:100px','min-width:110px'
+    'min-width:45ch','min-width:60px;text-align:center','min-width:45ch','min-width:25ch','min-width:60ch','min-width:25ch','min-width:180px','min-width:100px'
   ];
   fixedSpacers.forEach(s=>h2+=`<th style="${thSlot};background:#0d1117;${s}"></th>`);
   days.forEach((d,i)=>{
@@ -2403,7 +2407,17 @@ function renderPostProd(){
 
     rowsHtml+=`<tr style="background:${rowBg}${pp.editComplete?';opacity:0.75':''}">`;
     rowsHtml+=`<td style="${tdFix};position:sticky;left:0;z-index:2;background:${rowBg};font-weight:900;color:${pp.editComplete?'#3fb950':'#58a6ff'};font-family:monospace;font-size:11px">${esc(String(c.commNum))}${badge}</td>`;
-    rowsHtml+=`<td style="${tdFix};position:sticky;left:52px;z-index:2;background:${rowBg};color:#eaf0ff;font-weight:600;min-width:40ch;max-width:40ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.storyName)}">${esc(c.storyName)}</td>`;
+    rowsHtml+=`<td style="${tdFix};position:sticky;left:52px;z-index:2;background:${rowBg};color:${pp.editComplete?'#3fb950':'#eaf0ff'};font-weight:600;min-width:40ch;max-width:40ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.storyName)}">${esc(c.storyName)}</td>`;
+    // Edit Complete checkbox — between Story and Producer
+    rowsHtml+=`<td style="${tdFix};text-align:center;min-width:60px">`;
+    if(pp.editComplete){
+      rowsHtml+=`<span title="Edit Complete — click Undo to revert" style="color:#3fb950;font-size:14px;cursor:default">✓</span>`;
+      if(canEdit)rowsHtml+=`<br><button class="pp-complete-toggle" data-commnum="${esc(String(c.commNum))}" style="background:none;border:none;color:#484f58;font-size:8px;cursor:pointer;padding:0;margin-top:2px">Undo</button>`;
+    }else{
+      if(canEdit)rowsHtml+=`<label style="display:flex;align-items:center;justify-content:center;cursor:pointer" title="Mark Edit Complete"><input type="checkbox" class="pp-complete-cb" data-commnum="${esc(String(c.commNum))}" style="cursor:pointer;accent-color:#3fb950;width:14px;height:14px"></label>`;
+      else rowsHtml+=`<span style="color:#333;font-size:11px">—</span>`;
+    }
+    rowsHtml+=`</td>`;
     rowsHtml+=`<td style="${tdFix};color:#8b949e;min-width:45ch;max-width:45ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.producer||'')}">${esc(c.producer||'')}</td>`;
     rowsHtml+=`<td style="${tdFix};color:#c084fc;min-width:25ch;max-width:25ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.editor||'')}">${esc(c.editor||'')}</td>`;
     rowsHtml+=`<td style="${tdFix};color:#79c0ff;min-width:60ch;max-width:60ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.dop||'')}">${esc(c.dop||'')}</td>`;
@@ -2411,25 +2425,18 @@ function renderPostProd(){
     // Delivery date
     rowsHtml+=`<td style="${tdFix};min-width:180px">`;
     if(canEdit){
-      const delFmt=pp.deliveryDate?new Date(pp.deliveryDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'— click to set —';
-      rowsHtml+=`<div class="pp-del-wrap" style="position:relative;min-width:170px"><span class="pp-del-label" style="color:#e3b341;font-size:10px;cursor:pointer;white-space:normal;line-height:1.3">${delFmt}</span><input class="pp-del-date" data-commnum="${esc(String(c.commNum))}" value="${esc(pp.deliveryDate||'')}" type="date" style="position:absolute;top:0;left:0;opacity:0;width:100%;height:100%;cursor:pointer;border:none;background:transparent"></div>`;
+      const resolvedDelDate=pp.deliveryDate||c.deliveryDate||'';
+      const delFmt=resolvedDelDate?new Date(resolvedDelDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'— click to set —';
+      rowsHtml+=`<div class="pp-del-wrap" style="position:relative;min-width:170px"><span class="pp-del-label" style="color:${resolvedDelDate?'#e3b341':'#484f58'};font-size:10px;cursor:pointer;white-space:normal;line-height:1.3" title="${resolvedDelDate&&!pp.deliveryDate?'Pulled from Commission List':''}">${delFmt}${resolvedDelDate&&!pp.deliveryDate?' <span style=\'font-size:8px;color:#484f58\'>(from comm list)</span>':''}</span><input class="pp-del-date" data-commnum="${esc(String(c.commNum))}" value="${esc(pp.deliveryDate||'')}" type="date" style="position:absolute;top:0;left:0;opacity:0;width:100%;height:100%;cursor:pointer;border:none;background:transparent"></div>`;
     }else{
-      const delFmt=pp.deliveryDate?new Date(pp.deliveryDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'—';
-      rowsHtml+=`<span style="color:#e3b341;font-size:10px;white-space:normal;line-height:1.3">${delFmt}</span>`;
+      const resolvedDelDateRO=pp.deliveryDate||c.deliveryDate||'';
+      const delFmt=resolvedDelDateRO?new Date(resolvedDelDateRO+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'—';
+      rowsHtml+=`<span style="color:${resolvedDelDateRO?'#e3b341':'#484f58'};font-size:10px;white-space:normal;line-height:1.3">${delFmt}</span>`;
     }
     rowsHtml+=`</td>`;
     // TX date
     rowsHtml+=`<td style="${tdFix};color:${txFmt?'#3fb950':'#484f58'}">${txFmt||'—'}</td>`;
-    // Edit complete checkbox + badge
-    rowsHtml+=`<td style="${tdFix};text-align:center">`;
-    if(pp.editComplete){
-      rowsHtml+=`<span style="background:#1f4023;color:#3fb950;font-size:9px;font-weight:800;padding:3px 8px;border-radius:3px;border:1px solid #2d6a2d;letter-spacing:.5px;display:inline-flex;align-items:center;gap:4px">✓ EDIT COMPLETE</span>`;
-      if(canEdit)rowsHtml+=`<br><button class="pp-complete-toggle" data-commnum="${esc(String(c.commNum))}" style="background:none;border:none;color:#484f58;font-size:9px;cursor:pointer;margin-top:3px">Undo</button>`;
-    }else{
-      if(canEdit)rowsHtml+=`<label style="display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;font-size:10px;color:#6e7681"><input type="checkbox" class="pp-complete-cb" data-commnum="${esc(String(c.commNum))}" style="cursor:pointer;accent-color:#3fb950"> Edit Complete</label>`;
-      else rowsHtml+=`<span style="color:#484f58;font-size:9px">In Progress</span>`;
-    }
-    rowsHtml+=`</td>`;
+
     // Day cells (09:00, 11:30, 15:00, VO, MIX per day)
     days.forEach((d,i)=>{
       const wknd=isWeekend[i];
@@ -2494,6 +2501,9 @@ function renderPostProd(){
     ${addModalHtml}
     <div style="padding:8px 14px;background:#161b22;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap">
       ${canEdit?`<button class="btn primary" id="pp-new-edit-btn" style="font-size:12px;padding:5px 14px;font-weight:800">+ New Edit</button>`:''}
+      <button class="btn" id="pp-toggle-completed" style="font-size:11px;padding:4px 10px;border-color:${ppShowCompleted?'#3fb950':'#2e3a50'};color:${ppShowCompleted?'#3fb950':'#484f58'}">
+        ${ppShowCompleted?'Hide':'Show'} Completed${completedCount?` (${completedCount})`:''}
+      </button>
       <div style="width:1px;height:20px;background:#21262d;margin:0 4px"></div>
       <button class="btn" id="pp-prev-week" style="font-size:11px;padding:4px 10px">◀ Prev</button>
       <span style="font-size:13px;font-weight:800;color:#eaf0ff;min-width:220px;text-align:center">${weekLabel}</span>
@@ -3460,6 +3470,7 @@ function renderRunOfShow(){
         </div>
         <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <span style="font-size:18px;font-weight:900;color:#c084fc;font-family:monospace" id="ros-total">Total: ${rosSecsToStr(totalSecs)}</span>
+          <button class="btn" id="ros-export-pdf-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#56d364;color:#56d364">⬇ Export PDF</button>
           ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#e3b341;color:#e3b341"># Generate Item Numbers</button>`:''}
           ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:13px;padding:7px 20px;font-weight:800">💾 Save</button>`:''}
         </div>
@@ -6051,6 +6062,89 @@ function rosFlushAndSave(items){
   rosData[String(rosCurrentEp)].items=items;
   saveROS(rosCurrentEp,{items,epNum:rosCurrentEp});
 }
+function rosExportPDF(){
+  if(!rosCurrentEp)return;
+  const epNum=rosCurrentEp;
+  const epDate=resolveDate(epNum);
+  const epLabel=`S${currentSeason} EP ${String(epNum).padStart(2,'0')}`;
+  const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'';
+  const items=(rosData[String(epNum)]?.items)||[];
+
+  // Flush any unsaved DOM values
+  document.querySelectorAll('.ros-content').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i])items[i].content=inp.value;});
+  document.querySelectorAll('.ros-dur').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i])items[i].duration=inp.value;});
+
+  const totalSecs=items.reduce((s,it)=>s+rosDurToSecs(it.duration),0);
+  const epDurs=items.map((_,i)=>items.slice(i).reduce((s,it)=>s+rosDurToSecs(it.duration),0));
+
+  const typeColors={
+    fixed:   {bg:'#e8e8e8',text:'#444444',weight:'600'},
+    live:    {bg:'#ddeeff',text:'#003366',weight:'700'},
+    insert:  {bg:'#fff3cc',text:'#7a4a00',weight:'800'},
+    coldstart:{bg:'#ede0ff',text:'#4a0080',weight:'700'},
+    upnext:  {bg:'#dfffdf',text:'#1a5c1a',weight:'700'},
+    break:   {bg:'#f0f0f0',text:'#888888',weight:'600'},
+  };
+
+  const rows=items.map((item,i)=>{
+    const tc=typeColors[item.type]||typeColors.live;
+    const epDurSecs=epDurs[i];
+    return`<tr style="background:${tc.bg};border-bottom:1px solid #cccccc">
+      <td style="padding:6px 8px;font-size:10pt;font-weight:${tc.weight};color:${tc.text};white-space:nowrap;border-right:1px solid #cccccc">
+        ${item.itemNum?`<span style="color:#999;font-weight:400;margin-right:6px">${item.itemNum}.</span>`:''}${item.label}
+      </td>
+      <td style="padding:6px 8px;font-size:10pt;color:#333;border-right:1px solid #cccccc">${item.content||''}</td>
+      <td style="padding:6px 8px;font-size:10pt;font-family:monospace;text-align:center;border-right:1px solid #cccccc;white-space:nowrap">${item.duration||'—'}</td>
+      <td style="padding:6px 8px;font-size:${i===0?'12pt':'10pt'};font-family:monospace;text-align:right;color:${i===0?'#6600cc':'#666'};font-weight:${i===0?'900':'400'};white-space:nowrap">${epDurSecs?rosSecsToStr(epDurSecs):'—'}</td>
+    </tr>`;
+  }).join('');
+
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>Carte Blanche Run of Show — ${epLabel}</title>
+  <style>
+    @page{size:A4 landscape;margin:15mm 15mm 15mm 15mm}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;color:#111;background:#fff;font-size:10pt}
+    .header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #111}
+    .header-left h1{font-size:18pt;font-weight:900;color:#111;margin-bottom:2px}
+    .header-left p{font-size:11pt;color:#555}
+    .header-right{text-align:right;font-size:10pt;color:#666}
+    .total{font-size:13pt;font-weight:900;color:#6600cc}
+    table{width:100%;border-collapse:collapse;border:1px solid #ccc}
+    thead th{background:#111;color:#fff;padding:6px 8px;font-size:9pt;font-weight:800;text-transform:uppercase;text-align:left;border-right:1px solid #444;white-space:nowrap}
+    thead th:last-child{text-align:right}
+    tbody tr:hover{filter:brightness(.97)}
+    .footer{margin-top:10px;font-size:8pt;color:#999;text-align:center;border-top:1px solid #ddd;padding-top:6px}
+  </style>
+  </head><body>
+  <div class="header">
+    <div class="header-left">
+      <h1>CARTE BLANCHE — RUN OF SHOW</h1>
+      <p>${epLabel} &nbsp;·&nbsp; ${epDateFmt}</p>
+    </div>
+    <div class="header-right">
+      <div class="total">Total: ${rosSecsToStr(totalSecs)}</div>
+      <div>Exported ${new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'})}</div>
+    </div>
+  </div>
+  <table>
+    <thead><tr>
+      <th style="min-width:200px">Item</th>
+      <th>Content</th>
+      <th style="width:90px;text-align:center">Item Dur</th>
+      <th style="width:100px;text-align:right;color:#cc99ff">Ep Duration ↑</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">Carte Blanche Production Portal &nbsp;·&nbsp; ${epLabel} &nbsp;·&nbsp; Season ${currentSeason}</div>
+  </body></html>`;
+
+  const win=window.open('','_blank','width=900,height=700');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>{win.print();},400);
+}
+
 function rosRecalc(){
   const rows=document.querySelectorAll('tbody tr[data-ros-idx]');
   const allSecs=Array.from(rows).map(tr=>{
@@ -6070,6 +6164,7 @@ function rosRecalc(){
   if(totalEl)totalEl.textContent='Total: '+rosSecsToStr(total);
 }
 document.addEventListener('click',function rosHandler(e){
+  if(e.target.id==='ros-export-pdf-btn'){rosExportPDF();return;}
   if(e.target.id==='ros-pick-ep-btn'){rosEpModal=true;rosCurrentEp=null;render();return;}
   const pick=e.target.closest('.ros-ep-pick');
   if(pick){rosCurrentEp=Number(pick.dataset.ep);rosEpModal=false;render();return;}
@@ -6228,6 +6323,12 @@ document.addEventListener('input',function ppAddSearchHandler(e){
 // Close modal on overlay click
 document.addEventListener('click',function ppOverlayClose(e){
   if(e.target.id==='pp-add-overlay'){ppAddModal=false;render();}
+});
+// Toggle show/hide completed
+document.addEventListener('click',function ppToggleCompleted(e){
+  if(e.target.id==='pp-toggle-completed'||e.target.closest('#pp-toggle-completed')){
+    ppShowCompleted=!ppShowCompleted;render();
+  }
 });
 // Sort columns
 document.addEventListener('click',function ppSortHandler(e){
