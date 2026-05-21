@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.0.8';
+const BUILD_VERSION='3.0.9';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1232,7 +1232,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
       color:'#f7768e',
       bg:'rgba(247,118,142,.1)',
-      show:['admin','operations','afm'].includes(role),
+      show:['admin','operations','afm','production'].includes(role),
       desc:'Upload and manage music cue sheets per commission'
     },
     {
@@ -1408,7 +1408,7 @@ function renderApp(){
     ${['admin','operations'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='postprod'?' active':''}" data-tab="postprod">Post Production</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='deliverables'?' active':''}" data-tab="deliverables">Deliverables</div>`:''}
     ${['admin','operations','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='promos'?' active':''}" data-tab="promos">Promo Scheduling</div>`:''}
-    ${['admin','operations','afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='musiccues'?' active':''}" data-tab="musiccues">Music Cue Sheets</div>`:''}
+    ${['admin','operations','afm','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='musiccues'?' active':''}" data-tab="musiccues">Music Cue Sheets</div>`:''}
     ${['admin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='credits'?' active':''}" data-tab="credits">End Credits</div>`:''}
     ${['admin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}
     ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='prescal'?' active':''}" data-tab="prescal">Presenter Calendar</div>`:''}
@@ -1430,7 +1430,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='studio'&&['admin','operations','production'].includes(role))return renderStudioCrew(epNums);
   if(tab==='credits'&&['admin','operations','production'].includes(role))return renderEndCredits(epNums);
   if(tab==='promos'&&['admin','operations','prodmgmt','editorial'].includes(role))return renderPromoScheduling(epNums);
-  if(tab==='musiccues')return renderMusicCues(epNums);
+  if(tab==='musiccues'&&['admin','operations','afm','production'].includes(role))return renderMusicCues(epNums);
   if(tab==='prescal'&&['admin','operations','production','prodmgmt','editorial'].includes(role))return renderPresenterCalendar();
   if(tab==='leave'&&userHasLeaveAccess())return renderLeave();
   if(tab==='postprod'&&['admin','operations'].includes(role))return renderPostProd();
