@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.0.1';
+const BUILD_VERSION='3.0.2';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -421,7 +421,8 @@ let mcImportModal=false;
 let presCalData={}; // {dateStr: {presenterKey: {commNum,storyName,producer,notAvailable}}}
 let lineups={}; // {epNum: {director:'', presenter1:'', presenter2:'', items:[{commNum,liveStudio,liveDuration,liveNote}], savedAt}}
 let luCollapsed=new Set();
-let ppData={}; // {commNum: {deliveryDate:'', cells:{}, editComplete:false}}
+let ppData={};
+let broadcastSearch=''; // {commNum: {deliveryDate:'', cells:{}, editComplete:false}}
 let ppActiveComms=[]; // ordered list of commNums added to the post prod schedule
 let ppSortField='commNum';
 let ppSortDir='asc';
@@ -1165,6 +1166,16 @@ function renderHome(){
       desc:'Episode line-ups, directors and presenter assignments'
     },
     {
+      tab:'broadcast',
+      title:'Broadcast List',
+      sub:`Season ${season}`,
+      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>`,
+      color:'#79c0ff',
+      bg:'rgba(121,192,255,.1)',
+      show: role!=='afm',
+      desc:'Search commissions by broadcast date, episode and duration'
+    },
+    {
       tab:'episodes',
       title:'Episode Register',
       sub:'Broadcast Schedule',
@@ -1392,6 +1403,7 @@ function renderApp(){
     <div class="tab-btn${tab==='home'?' active':''}" data-tab="home" style="font-size:16px;padding:4px 10px" title="Home">⌂</div>
     ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='commissions'?' active':''}" data-tab="commissions">Commission List ${currentSeason}</div>`:''}
     ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='lineups'?' active':''}" data-tab="lineups">Line-Ups</div>`:''}
+    ${role!=='afm'?`<div class="tab-btn${tab==='broadcast'?' active':''}" data-tab="broadcast">Broadcast List</div>`:''}
     ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='episodes'?' active':''}" data-tab="episodes">Episode Register</div>`:''}
     ${['admin','operations'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='postprod'?' active':''}" data-tab="postprod">Post Production</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='deliverables'?' active':''}" data-tab="deliverables">Deliverables</div>`:''}
@@ -1424,6 +1436,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='postprod'&&['admin','operations'].includes(role))return renderPostProd();
   if(tab==='deliverables'&&currentRole==='admin'&&!previewRole)return renderDeliverables(epNums);
   if(tab==='lineups'&&['admin','operations','production','prodmgmt','editorial'].includes(role))return renderLineups(epNums);
+  if(tab==='broadcast'&&role!=='afm')return renderBroadcastList();
   if(tab==='admin'&&currentRole==='admin'&&!previewRole)return renderAdmin();
   return '';
 }
@@ -3158,6 +3171,98 @@ function renderStudioCrew(epNums){
 }
 
 
+
+function renderBroadcastList(){
+  const q=broadcastSearch.toLowerCase().trim();
+
+  // All non-decommissioned commissions
+  const allComms=[...comms]
+    .filter(c=>!c.decommissioned&&c.commNum&&c.storyName)
+    .filter(c=>{
+      if(!q)return true;
+      return String(c.commNum).includes(q)||
+             (c.storyName||'').toLowerCase().includes(q)||
+             (c.producer||'').toLowerCase().includes(q)||
+             (c.presenterVO||'').toLowerCase().includes(q);
+    })
+    .sort((a,b)=>{
+      // Sort by broadcast episode (assigned first, unassigned at bottom), then commNum desc
+      const ae=Number(a.broadcastEpisode)||9999;
+      const be=Number(b.broadcastEpisode)||9999;
+      if(ae!==be)return ae-be;
+      return Number(b.commNum)-Number(a.commNum);
+    });
+
+  const today=new Date().toISOString().split('T')[0];
+
+  const rows=allComms.map(c=>{
+    const epNum=c.broadcastEpisode?Number(c.broadcastEpisode):null;
+    const txDate=epNum?resolveDate(epNum):'';
+    const isPast=txDate&&txDate<today;
+    const isFuture=txDate&&txDate>=today;
+    const epLabel=epNum?`S${currentSeason} EP ${String(epNum).padStart(2,'0')}`:'—';
+    const txLabel=txDate?new Date(txDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}):'—';
+    const delDur=c.deliveredDuration||'—';
+    const commDur=c.commDuration||'—';
+    const badge=c.isLicensed?'<span style="font-size:8px;font-weight:800;background:#1c2d1c;color:#3fb950;padding:1px 5px;border-radius:2px;margin-left:4px">LIC</span>':
+                c.isInHouse?'<span style="font-size:8px;font-weight:800;background:#1a1a2e;color:#7a8ba0;padding:1px 5px;border-radius:2px;margin-left:4px">IH</span>':'';
+    const rowBg=isPast?'background:rgba(248,81,73,0.06)':isFuture?'background:rgba(88,166,255,0.04)':'';
+    const txColor=isPast?'#f85149':isFuture?'#3fb950':'#484f58';
+
+    return`<tr style="${rowBg};border-bottom:1px solid #21262d">
+      <td style="padding:8px 10px;font-size:11px;font-weight:900;color:#58a6ff;font-family:monospace;white-space:nowrap">${esc(String(c.commNum))}${badge}</td>
+      <td style="padding:8px 10px;font-size:12px;font-weight:600;color:#eaf0ff;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.storyName)}">${esc(c.storyName)}</td>
+      <td style="padding:8px 10px;font-size:11px;color:#8b949e;white-space:nowrap">${esc(c.producer||'—')}</td>
+      <td style="padding:8px 10px;font-size:11px;color:#8b949e;white-space:nowrap">${esc(c.presenterVO||'—')}</td>
+      <td style="padding:8px 10px;font-size:11px;font-weight:700;color:${epNum?'#eaf0ff':'#484f58'};white-space:nowrap;font-family:monospace">${epLabel}</td>
+      <td style="padding:8px 10px;font-size:11px;font-weight:700;color:${txColor};white-space:nowrap">
+        ${txLabel}
+        ${isPast?'<span style="font-size:8px;font-weight:800;background:#3d0000;color:#f85149;padding:1px 5px;border-radius:2px;margin-left:4px;vertical-align:middle">BROADCAST</span>':''}
+      </td>
+      <td style="padding:8px 10px;font-size:11px;font-family:monospace;color:${c.deliveredDuration?'#3fb950':'#484f58'};white-space:nowrap">${esc(delDur)}</td>
+      <td style="padding:8px 10px;font-size:11px;font-family:monospace;color:#7a8ba0;white-space:nowrap">${esc(commDur)}</td>
+    </tr>`;
+  }).join('');
+
+  const total=allComms.length;
+  const assigned=allComms.filter(c=>c.broadcastEpisode).length;
+  const broadcast=allComms.filter(c=>{const d=c.broadcastEpisode?resolveDate(Number(c.broadcastEpisode)):'';return d&&d<today;}).length;
+
+  return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
+    <div style="padding:10px 16px;background:#161b22;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap">
+      <div style="position:relative;flex:1;max-width:420px">
+        <input id="broadcast-search" value="${esc(broadcastSearch)}" placeholder="Search by comm #, story name, producer or presenter…" autocomplete="off"
+          style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 36px 7px 12px;border-radius:6px;font-size:13px;box-sizing:border-box">
+        ${broadcastSearch?`<button id="broadcast-clear" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#484f58;cursor:pointer;font-size:14px;line-height:1">✕</button>`:''}
+      </div>
+      <div style="display:flex;gap:16px;font-size:11px;color:#6e7681">
+        <span><span style="color:#eaf0ff;font-weight:700">${total}</span> shown</span>
+        <span><span style="color:#58a6ff;font-weight:700">${assigned}</span> scheduled</span>
+        <span><span style="color:#f85149;font-weight:700">${broadcast}</span> broadcast</span>
+      </div>
+    </div>
+    <div style="flex:1;overflow:auto">
+      <table style="width:100%;border-collapse:collapse;table-layout:auto">
+        <thead style="position:sticky;top:0;z-index:5;background:#161b22">
+          <tr>
+            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left;min-width:70px">Comm #</th>
+            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left;min-width:200px">Story Name</th>
+            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left">Producer</th>
+            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left">Presenter</th>
+            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left">Episode</th>
+            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left">Broadcast Date</th>
+            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#3fb950;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left">Del. Duration</th>
+            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left">Comm. Duration</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows||`<tr><td colspan="8" style="padding:40px;text-align:center;color:#484f58;font-size:13px">No results for "${esc(broadcastSearch)}"</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
 function renderLineups(epNums){
   const role=getEffectiveRole();
   const canEdit=['admin','operations','production','prodmgmt','editorial'].includes(role);
@@ -3473,6 +3578,16 @@ function bindApp(){
     });
   });
   document.querySelectorAll('[data-sort]').forEach(th=>th.addEventListener('click',()=>{const f=th.dataset.sort;if(sortField===f)sortDir=sortDir==='asc'?'desc':'asc';else{sortField=f;sortDir='asc';}render();}));
+  // Broadcast List search
+  document.getElementById('broadcast-search')?.addEventListener('input',e=>{
+    broadcastSearch=e.target.value;
+    clearTimeout(window._broadcastDebounce);
+    window._broadcastDebounce=setTimeout(()=>render(),300);
+  });
+  document.getElementById('broadcast-clear')?.addEventListener('click',()=>{
+    broadcastSearch='';render();
+  });
+
   document.getElementById('search-inp')?.addEventListener('input',e=>{
     search=e.target.value;
     clearTimeout(window._searchDebounce);
