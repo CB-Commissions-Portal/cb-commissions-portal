@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.0.4';
+const BUILD_VERSION='3.0.5';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3270,7 +3270,12 @@ function renderLineups(epNums){
   const activeComms=comms.filter(c=>!c.decommissioned);
   const insertsInProd=activeComms.filter(c=>{
     if(!c.storyName)return false;
-    if(c.approvedForPayment)return false; // Approved for Payment = finalised, hide all types
+    if(c.decommissioned)return false;
+    // Hide if already on air (has episode with a past broadcast date)
+    if(c.broadcastEpisode){
+      const txDate=resolveDate(Number(c.broadcastEpisode));
+      if(txDate&&txDate<today)return false; // already broadcast
+    }
     return true;
   });
   const eps=[...epNums].sort((a,b)=>a-b);
