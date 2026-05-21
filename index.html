@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.1.0';
+const BUILD_VERSION='3.1.1';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2888,7 +2888,7 @@ function renderMusicCues(epNums){
             <span style="font-size:15px;font-weight:800;color:#eaf0ff">${mcTab==='edit'?'Edit Music Cue Sheet':'New Music Cue Sheet'}</span>
           </div>
           ${(()=>{
-            const allFilled=draft.rows.length>0&&draft.rows.every(r=>r.trackTitle?.trim()&&r.composer?.trim()&&r.publisher?.trim()&&r.cmo?.trim()&&r.label?.trim()&&r.artist?.trim()&&r.albumTitle?.trim()&&r.trackNumber?.trim()&&r.usage?.trim()&&r.duration?.trim());
+            const allFilled=draft.rows.length>0&&draft.rows.every(r=>[r.trackTitle,r.composer,r.publisher,r.cmo,r.label,r.artist,r.albumTitle,r.trackNumber,r.usage,r.duration].every(v=>(v||'').trim().length>0));
             const hasHeader=!!(draft.afmName||userName)&&!!draft.commNum;
             const ready=allFilled&&hasHeader;
             return`<button class="btn primary" id="mc-submit-btn" ${ready?'':'disabled title="Complete all required fields before submitting"'} style="${ready?'':'opacity:0.45;cursor:not-allowed'}">✓ Submit Cue Sheet</button>`;
