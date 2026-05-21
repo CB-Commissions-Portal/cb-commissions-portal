@@ -314,7 +314,7 @@ const OPS_ED=['dop','ca','editor','afm'];
 const PROD_ED=[...DEL_KEYS];
 
 function getEffectiveRole(){return previewRole||currentRole;}
-function canEdit(role,f){if(role==='admin')return true;if(role==='editorial')return false;if(f==='decommissionMotivation')return true;
+function canEdit(role,f){if(role==='admin')return true;if(role==='editorial')return f==='deliveryDate';if(f==='decommissionMotivation')return true;
 if(role==='operations')return OPS_ED.includes(f);if(role==='production')return PROD_ED.includes(f);return false;}
 function suggestCode(n){if(!n)return'';const stop=/^(the|and|for|from|with|into|a|an|of|in|at|to|or|by|down|up)$/i;const w=n.trim().split(/\s+/).filter(x=>x.length>1&&!stop.test(x));if(!w.length)return n.substring(0,5).toUpperCase();if(w.length===1)return w[0].substring(0,6).toUpperCase();if(w.length===2)return(w[0].substring(0,3)+w[1].substring(0,3)).toUpperCase();return w.slice(0,3).map(x=>x.substring(0,2)).join('').toUpperCase();}
 function fmtHMS(v){
@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.0.6';
+const BUILD_VERSION='3.0.7';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
