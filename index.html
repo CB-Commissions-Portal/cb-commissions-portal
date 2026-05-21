@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.1.7';
+const BUILD_VERSION='3.1.8';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3282,9 +3282,9 @@ function rosSecsToStr(secs){
 const ROS_ITEM_TYPES=[
   // Fixed (locked, grey)
   {key:'fixed_logo',     label:'CARTE BLANCHE OPENING LOGO', type:'fixed',  defaultDur:'0:00:30', locked:true, group:'Fixed'},
-  {key:'fixed_bumperout',label:'BUMPER OUT',                  type:'fixed',  defaultDur:'0:00:05', locked:true, group:'Fixed'},
-  {key:'fixed_bumperin', label:'BUMPER IN',                   type:'fixed',  defaultDur:'0:00:05', locked:true, group:'Fixed'},
-  {key:'fixed_credits',  label:'CLOSING CREDITS',             type:'fixed',  defaultDur:'0:00:00', locked:true, group:'Fixed'},
+  {key:'fixed_bumperout',label:'BUMPER OUT',                  type:'fixed',  defaultDur:'0:00:03', locked:true, group:'Fixed'},
+  {key:'fixed_bumperin', label:'BUMPER IN',                   type:'fixed',  defaultDur:'0:00:03', locked:true, group:'Fixed'},
+  {key:'fixed_credits',  label:'CLOSING CREDITS',             type:'fixed',  defaultDur:'0:00:30', locked:true, group:'Fixed'},
   // Live / Links (blue)
   {key:'live_opening',   label:'OPENING LINK (WITH SHOW OPENER)', type:'live', defaultDur:'', group:'Live'},
   {key:'live_cs_dial',   label:'COLD START DIALOGUE',         type:'live',   defaultDur:'', group:'Live'},
@@ -3405,8 +3405,14 @@ function renderRunOfShow(){
     const epDurSecs=epDurs[i];
 
     return`<tr data-ros-idx="${i}" style="background:${ts.bg};border-bottom:2px solid ${ts.border}">
-      <td style="padding:0;width:48px;text-align:center;vertical-align:middle">
-        ${canEdit?`<button class="ros-del" data-idx="${i}" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:20px;line-height:1;padding:12px 14px;width:100%;height:100%;display:block" title="Remove row" onmouseover="this.style.color='#f85149'" onmouseout="this.style.color='#484f58'">✕</button>`:''}
+      <td style="padding:0;width:80px;text-align:center;vertical-align:middle">
+        ${canEdit?`<div style="display:flex;align-items:center;justify-content:center;gap:2px;padding:6px">
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <button class="ros-up" data-idx="${i}" style="background:none;border:1px solid #2e3a50;border-radius:3px;color:#484f58;cursor:pointer;font-size:11px;line-height:1;padding:3px 6px" title="Move up" onmouseover="this.style.color='#eaf0ff';this.style.borderColor='#58a6ff'" onmouseout="this.style.color='#484f58';this.style.borderColor='#2e3a50'" ${i===0?'disabled style="opacity:0.2;cursor:default"':''}>▲</button>
+            <button class="ros-dn" data-idx="${i}" style="background:none;border:1px solid #2e3a50;border-radius:3px;color:#484f58;cursor:pointer;font-size:11px;line-height:1;padding:3px 6px" title="Move down" onmouseover="this.style.color='#eaf0ff';this.style.borderColor='#58a6ff'" onmouseout="this.style.color='#484f58';this.style.borderColor='#2e3a50'" ${i===items.length-1?'disabled style="opacity:0.2;cursor:default"':''}>▼</button>
+          </div>
+          <button class="ros-del" data-idx="${i}" style="background:none;border:1px solid #2e3a50;border-radius:3px;color:#484f58;cursor:pointer;font-size:13px;line-height:1;padding:4px 7px;margin-left:2px" title="Remove" onmouseover="this.style.color='#f85149';this.style.borderColor='#f85149'" onmouseout="this.style.color='#484f58';this.style.borderColor='#2e3a50'">✕</button>
+        </div>`:''}
       </td>
       <td style="padding:14px 16px;vertical-align:middle;white-space:nowrap">
         ${item.itemNum?`<span style="font-size:13px;font-weight:900;color:#484f58;font-family:monospace;margin-right:10px;min-width:28px;display:inline-block;text-align:right">${item.itemNum}.</span>`:''}
@@ -3463,7 +3469,7 @@ function renderRunOfShow(){
         <table style="border-collapse:collapse;width:100%">
           <thead style="position:sticky;top:0;z-index:5;background:#0d1117">
             <tr>
-              <th style="width:48px;padding:10px;border-bottom:2px solid #2e3a50"></th>
+              <th style="width:80px;padding:10px;border-bottom:2px solid #2e3a50"></th>
               <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Item</th>
               <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Content</th>
               <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:center;width:130px">Item Dur</th>
@@ -6111,6 +6117,32 @@ document.addEventListener('click',function rosHandler(e){
     if(document.getElementById('ros-type-sel'))document.getElementById('ros-type-sel').value='';
     render();
     return;
+  }
+  // Move up
+  const upBtn=e.target.closest('.ros-up');
+  if(upBtn){
+    const idx=Number(upBtn.dataset.idx);
+    if(idx===0)return;
+    const items=rosGetCurrentItems();
+    document.querySelectorAll('.ros-content').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i]!==undefined)items[i].content=inp.value;});
+    document.querySelectorAll('.ros-dur').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i]!==undefined)items[i].duration=inp.value;});
+    [items[idx-1],items[idx]]=[items[idx],items[idx-1]];
+    if(!rosData[String(rosCurrentEp)])rosData[String(rosCurrentEp)]={};
+    rosData[String(rosCurrentEp)].items=items;
+    render();return;
+  }
+  // Move down
+  const dnBtn=e.target.closest('.ros-dn');
+  if(dnBtn){
+    const idx=Number(dnBtn.dataset.idx);
+    const items=rosGetCurrentItems();
+    if(idx>=items.length-1)return;
+    document.querySelectorAll('.ros-content').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i]!==undefined)items[i].content=inp.value;});
+    document.querySelectorAll('.ros-dur').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i]!==undefined)items[i].duration=inp.value;});
+    [items[idx],items[idx+1]]=[items[idx+1],items[idx]];
+    if(!rosData[String(rosCurrentEp)])rosData[String(rosCurrentEp)]={};
+    rosData[String(rosCurrentEp)].items=items;
+    render();return;
   }
   // Delete row
   const del=e.target.closest('.ros-del');
