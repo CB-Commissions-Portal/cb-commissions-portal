@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.2.1';
+const BUILD_VERSION='3.2.2';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2342,13 +2342,13 @@ function renderPostProd(){
   const availToAdd=allComms.filter(c=>!addedSet.has(String(c.commNum)))
     .sort((a,b)=>Number(b.commNum)-Number(a.commNum)); // newest first
 
-  const thFix='padding:4px 6px;font-size:8px;font-weight:800;text-transform:uppercase;color:#7a8ba0;background:#161b22;border:1px solid #21262d;white-space:nowrap;text-align:left;vertical-align:bottom';
+  const thFix='padding:8px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#9aaabe;background:#1e2535;border:1px solid #2e3a50;white-space:nowrap;text-align:left;vertical-align:bottom';
   const thDay='padding:4px 6px;font-size:8px;font-weight:800;text-transform:uppercase;color:#eaf0ff;background:#1e2535;border:1px solid #21262d;text-align:center;white-space:nowrap';
   const thWknd='padding:4px 6px;font-size:8px;font-weight:800;text-transform:uppercase;color:#484f58;background:#13131a;border:1px solid #21262d;text-align:center;white-space:nowrap';
   const thSlot='padding:3px 4px;font-size:7px;font-weight:700;color:#484f58;border:1px solid #21262d;text-align:center;white-space:nowrap';
   const thSlotWknd='padding:3px 4px;font-size:7px;font-weight:700;color:#333340;border:1px solid #21262d;text-align:center;white-space:nowrap';
-  const tdFix='padding:4px 6px;border:1px solid #21262d;font-size:10px;white-space:nowrap;vertical-align:middle';
-  const tdCell='padding:2px 3px;border:1px solid #21262d;vertical-align:top;min-width:88px;max-width:140px';
+  const tdFix='padding:9px 10px;border:1px solid #2e3a50;font-size:12px;white-space:nowrap;vertical-align:middle';
+  const tdCell='padding:4px 5px;border:1px solid #2e3a50;vertical-align:middle;min-width:88px;max-width:140px';
 
   const ppSortArrow=f=>ppSortField===f?' '+(ppSortDir==='asc'?'↑':'↓'):'';
 
@@ -2401,7 +2401,7 @@ function renderPostProd(){
     const pp=getPP(c.commNum);
     const txIso=getTxDate(c);
     const txFmt=txIso?new Date(txIso+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'2-digit'}):'';
-    const rowBg=pp.editComplete?'#0d1a0d':ri%2===0?'#0d1117':'#111620';
+    const rowBg=pp.editComplete?'#0f1f10':ri%2===0?'#1a2133':'#1e2840';
     const badge=c.isLicensed?'<span style="font-size:6px;background:#1c2d1c;color:#3fb950;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">LIC</span>':
                 c.isInHouse?'<span style="font-size:6px;background:#1a1a2e;color:#7a8ba0;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">IH</span>':'';
 
@@ -2451,7 +2451,7 @@ function renderPostProd(){
         const dayBorderCell=isFirst?'border-left:3px solid '+(wknd?'#333340':'#388bfd')+';':'';
         rowsHtml+=`<td style="${tdCell};background:${val?bg:emptyBg};${dayBorderCell}">`;
         if(canEdit&&!pp.editComplete){
-          rowsHtml+=`<input class="pp-cell" data-commnum="${esc(String(c.commNum))}" data-slot="${sk}" value="${esc(val)}" placeholder="" style="width:100%;background:transparent;border:none;color:${val?fg:'#484f58'};font-size:10px;padding:2px 3px;outline:none;font-family:inherit">`;
+          rowsHtml+=`<input class="pp-cell" data-commnum="${esc(String(c.commNum))}" data-slot="${sk}" value="${esc(val)}" placeholder="" style="width:100%;background:transparent;border:none;color:${val?fg:'#8b949e'};font-size:12px;padding:3px 4px;outline:none;font-family:inherit">`;
         }else{
           rowsHtml+=val?`<span style="font-size:10px;color:${fg};padding:2px 3px;display:block">${esc(val)}</span>`:'';
         }
