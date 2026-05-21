@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='2.9.7';
+const BUILD_VERSION='2.9.8';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1171,7 +1171,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
       color:'#58a6ff',
       bg:'rgba(88,166,255,.1)',
-      show: true,
+      show: role!=='afm',
       desc:'Track episodes, durations and broadcast dates'
     },
     {
@@ -1191,7 +1191,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/><circle cx="18" cy="8" r="3"/><path d="M22 21a5 5 0 00-8-4"/></svg>`,
       color:'#3fb950',
       bg:'rgba(63,185,80,.1)',
-      show: role!=='editorial',
+      show: ['admin','operations','production'].includes(role),
       desc:'Studio crew allocation and export'
     },
     {
@@ -1201,7 +1201,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,
       color:'#d2a8ff',
       bg:'rgba(210,168,255,.1)',
-      show: role!=='editorial',
+      show: ['admin','operations','production'].includes(role),
       desc:'Edit and export end credits for each episode'
     },
     {
@@ -1413,10 +1413,10 @@ ${renderModals(epNums,nextEp)}
 function renderContent(epNums,nextEp,paid,remaining){
   const role=getEffectiveRole();
   if(tab==='home')return renderHome();
-  if(tab==='commissions'&&role!=='editorial')return renderCommList(epNums,nextEp);
+  if(tab==='commissions'&&role!=='editorial'&&role!=='afm')return renderCommList(epNums,nextEp);
   if(tab==='episodes'&&role!=='afm')return renderEpisodes(epNums,paid,remaining);
-  if(tab==='studio')return renderStudioCrew(epNums);
-  if(tab==='credits')return renderEndCredits(epNums);
+  if(tab==='studio'&&['admin','operations','production'].includes(role))return renderStudioCrew(epNums);
+  if(tab==='credits'&&['admin','operations','production'].includes(role))return renderEndCredits(epNums);
   if(tab==='promos'&&['admin','operations','prodmgmt'].includes(role))return renderPromoScheduling(epNums);
   if(tab==='musiccues')return renderMusicCues(epNums);
   if(tab==='prescal'&&['admin','operations','production','prodmgmt','editorial'].includes(role))return renderPresenterCalendar();
