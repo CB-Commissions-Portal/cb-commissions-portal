@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.3.2';
+const BUILD_VERSION='3.3.3';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2742,7 +2742,8 @@ function renderPromoScheduling(epNums){
           <span style="font-size:11px;color:#484f58">${isExp?'▲':'▼'}</span>
         </div>
         <div style="display:flex;gap:8px" onclick="event.stopPropagation()">
-          ${isExp?`<button class="btn" style="font-size:11px;border-color:#388bfd;color:#58a6ff" data-promo-pdf="${n}">⬇ PDF</button>
+          ${isExp?`<button class="btn promo-recalc-btn" data-ep="${n}" style="font-size:11px;border-color:#e3b341;color:#e3b341" title="Recalculate TX dates from broadcast date">↺ Recalc TX Dates</button>
+          <button class="btn" style="font-size:11px;border-color:#388bfd;color:#58a6ff" data-promo-pdf="${n}">⬇ PDF</button>
           <button class="btn" style="font-size:11px;border-color:#3fb950;color:#3fb950" data-promo-xlsx="${n}">⬇ Excel</button>`:''}
         </div>
       </div>
@@ -4964,6 +4965,25 @@ function bindApp(){
   });
 
   // Promo PDF export
+  // Recalculate TX dates
+  document.querySelectorAll('.promo-recalc-btn').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      const n=Number(btn.dataset.ep);
+      if(!promoData[String(n)])promoData[String(n)]={};
+      const pd=promoData[String(n)];
+      const epDate=resolveDate(n);
+      if(!epDate){showToast('No broadcast date set for this episode',true);return;}
+      PROMO_TYPES.forEach(pt=>{
+        const txD=getPromoTXDates(epDate,pt.txType);
+        pd['txFrom_'+pt.key]=txD.from;
+        pd['txTo_'+pt.key]=txD.to;
+      });
+      savePromoData(n,pd);
+      showToast('TX dates recalculated for EP '+String(n).padStart(2,'0')+' ✓');
+      render();
+    });
+  });
   document.querySelectorAll('[data-promo-pdf]').forEach(btn=>{
     btn.addEventListener('click',async()=>{
       const n=btn.dataset.promoPdf;
