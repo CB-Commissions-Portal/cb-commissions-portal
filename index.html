@@ -311,7 +311,7 @@ body[data-theme="light"] canvas {
 <script type="module">
 import{initializeApp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,createUserWithEmailAndPassword,updateProfile}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-import{getFirestore,doc,collection,onSnapshot,setDoc,getDoc,getDocs,deleteDoc,serverTimestamp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import{getFirestore,doc,collection,onSnapshot,setDoc,updateDoc,getDoc,getDocs,deleteDoc,serverTimestamp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
 const STORAGE_KEY='cb_portal_cfg_v2';
 const ADMIN_EMAIL='rudi@combinedartists.co.za';
@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.4.0';
+const BUILD_VERSION='3.4.1';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -854,8 +854,10 @@ async function saveEndCreditsRich(ep,html){
 async function saveEndCredits(ep,data){
   setSyncDot('saving');
   try{
-    await setDoc(doc(db,'end_credits',String(ep)),{...data,ep:Number(ep),updatedAt:serverTimestamp()});
-    endCredits[ep]={...data};
+    // Use merge:true so concurrent edits from multiple users don't overwrite each other
+    await setDoc(doc(db,'end_credits',String(ep)),{...data,ep:Number(ep),updatedAt:serverTimestamp()},{merge:true});
+    if(!endCredits[ep])endCredits[ep]={};
+    Object.assign(endCredits[ep],data);
     setSyncDot('live');
   }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}
 }
@@ -1850,11 +1852,19 @@ function saveECValue(epNum, sectionId, key, val){
   if(epNum==='fixed'){
     if(!endCredits['fixed'])endCredits['fixed']={};
     endCredits['fixed'][k]=val;
-    saveEndCredits('fixed', endCredits['fixed']);
+    // Save only this one field — merge:true prevents overwriting concurrent changes
+    setSyncDot('saving');
+    setDoc(doc(db,'end_credits','fixed'),{[k]:val,updatedAt:serverTimestamp()},{merge:true})
+      .then(()=>{setSyncDot('live');})
+      .catch(e=>{setSyncDot('offline');showToast('Save failed: '+e.message,true);});
   } else {
     if(!endCredits[epNum])endCredits[epNum]={};
     endCredits[epNum][k]=val;
-    saveEndCredits(epNum, endCredits[epNum]);
+    // Save only this one field — merge:true prevents overwriting concurrent changes
+    setSyncDot('saving');
+    setDoc(doc(db,'end_credits',String(epNum)),{[k]:val,ep:Number(epNum),updatedAt:serverTimestamp()},{merge:true})
+      .then(()=>{setSyncDot('live');})
+      .catch(e=>{setSyncDot('offline');showToast('Save failed: '+e.message,true);});
   }
 }
 
