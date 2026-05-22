@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.3.3';
+const BUILD_VERSION='3.3.4';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1476,8 +1476,8 @@ function renderApp(){
         ${previewRole?`<span style="font-size:10px;background:#2d2200;color:#f5a623;border:1px solid #f5a623;padding:2px 8px;border-radius:4px;font-weight:700">PREVIEW MODE</span>`:''}
       </div>`:''}
       <div class="user-chip">
-        <button id="help-btn" onclick="showHelp()" style="background:none;border:1px solid #2e3a50;color:#7a8ba0;border-radius:50%;width:26px;height:26px;font-size:13px;font-weight:900;cursor:pointer;margin-right:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center" title="How To Guide">?</button>
-        <button id="theme-toggle-btn" onclick="toggleTheme()" style="background:none;border:1px solid #2e3a50;color:#7a8ba0;border-radius:50%;width:26px;height:26px;font-size:13px;cursor:pointer;margin-right:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center" title="Toggle theme">${appTheme==='dark'?'☀':'🌙'}</button>
+        <button id="help-btn" style="background:none;border:1px solid #2e3a50;color:#7a8ba0;border-radius:50%;width:26px;height:26px;font-size:13px;font-weight:900;cursor:pointer;margin-right:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center" title="How To Guide">?</button>
+        <button id="theme-toggle-btn" style="background:none;border:1px solid #2e3a50;color:#7a8ba0;border-radius:50%;width:26px;height:26px;font-size:13px;cursor:pointer;margin-right:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center" title="Toggle theme">${appTheme==='dark'?'☀':'🌙'}</button>
         <span style="font-size:9px;color:#cdd9e5;margin-right:8px;font-family:'JetBrains Mono',monospace;font-weight:700">v${BUILD_VERSION}</span>
         <div class="avatar" style="background:${rm.bg};color:${rm.color}">${initials(currentUser.displayName||currentUser.email)}</div>
         <div><div class="u-name">${esc(currentUser.displayName||currentUser.email)}</div><div class="u-role-lbl" style="color:${rm.color}">${previewRole?`Previewing: ${ROLE_META[previewRole].label}`:rm.label}</div></div>
@@ -6674,6 +6674,21 @@ document.addEventListener('keydown',function ppTabHandler(e){
 });
 // Also protect pp-cell inputs from onSnapshot render wipe (add to existing check)
 
+// Theme and Help buttons — delegated since they're in the topbar
+document.addEventListener('click',function globalBtnHandler(e){
+  if(e.target.id==='theme-toggle-btn'||e.target.closest('#theme-toggle-btn')){
+    appTheme=appTheme==='dark'?'light':'dark';
+    localStorage.setItem('cb_theme',appTheme);
+    applyTheme();
+    const btn=document.getElementById('theme-toggle-btn');
+    if(btn)btn.textContent=appTheme==='dark'?'☀':'🌙';
+    return;
+  }
+  if(e.target.id==='help-btn'||e.target.closest('#help-btn')){
+    helpVisible=true;helpPage=0;renderHelp();
+    return;
+  }
+});
 // ── One-time global handlers (set up once, survive renders) ─────
 document.addEventListener('click',function epToggleHandler(e){
   // Expand All button
