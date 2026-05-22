@@ -293,6 +293,17 @@ td.needs-attention-cb{background:rgba(245,166,35,.08)!important}
 .ac-item{padding:7px 12px;font-size:12px;color:#e6edf3;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .1s}
 .ac-item:hover,.ac-item.selected{background:#2a4a6e;color:#fff}
 .ac-item em{color:#79c0ff;font-style:normal;font-weight:600}
+
+/* ── LIGHT THEME ─────────────────────────────────────── */
+body[data-theme="light"]{
+  filter: invert(1) hue-rotate(180deg);
+  background: #ffffff !important;
+}
+body[data-theme="light"] img,
+body[data-theme="light"] video,
+body[data-theme="light"] canvas {
+  filter: invert(1) hue-rotate(180deg);
+}
 </style>
 </head>
 <body>
@@ -391,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.3.4';
+const BUILD_VERSION='3.3.6';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1154,6 +1165,7 @@ function showToast(msg,err=false){
 
 function applyTheme(){
   document.body.setAttribute('data-theme',appTheme);
+  document.documentElement.setAttribute('data-theme',appTheme);
   document.documentElement.style.colorScheme=appTheme==='light'?'light':'dark';
 }
 function toggleTheme(){
@@ -3051,12 +3063,11 @@ function renderMusicCues(epNums){
         <span style="font-size:12px;color:#6e7681">${allSheets.length} total</span>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
-        ${canExport?`<select id="mc-ep-filter" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:5px 10px;border-radius:5px;font-size:12px">
+        <select id="mc-ep-filter" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:5px 10px;border-radius:5px;font-size:12px">
           <option value="all">All Episodes</option>
           ${epOptions}
         </select>
-        ${mcEpFilter!=='all'?`<button class="btn" id="mc-export-xl" style="font-size:11px;border-color:#3fb950;color:#3fb950">⬇ Export Episode Excel</button>`:''}
-        `:''}
+        ${canExport&&mcEpFilter!=='all'?`<button class="btn" id="mc-export-xl" style="font-size:11px;border-color:#3fb950;color:#3fb950">⬇ Export Episode Excel</button>`:''}
         <button class="btn primary" id="mc-new-story-btn">+ New Music Cue Sheet</button>
         ${canImport?`<button class="btn" id="mc-import-xl-btn" style="border-color:#7a3fbf;color:#c084fc;font-size:11px">⬆ Import from Excel</button>`:''}
       </div>
@@ -4120,6 +4131,7 @@ function bindApp(){
     if(tab===newTab)return;
     if(tab==='prescal')_presCalMonthAutoSet=false; // re-auto-jump next time calendar opens
     if(tab==='postprod')_ppWeekAutoSet=false; // re-auto-jump next time postprod opens
+    if(newTab==='musiccues')mcEpFilter='all'; // reset episode filter on tab open
     // Save scroll position of current tab
     const curWrap=document.querySelector('.ep-wrap');
     if(curWrap)_tabScroll[tab]=curWrap.scrollTop;
