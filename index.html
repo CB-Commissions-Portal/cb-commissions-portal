@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.4.9';
+const BUILD_VERSION='3.5.0';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1891,7 +1891,7 @@ function renderEndCredits(epNums){
           `:''}\n        </div>
       </div>
       ${isExp?`
-      <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0">
+      <div style="overflow-y:auto;display:flex;flex-direction:column;height:calc(100vh - 250px)">
       <div style="padding:10px 16px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid #21262d;background:#1e2535;position:sticky;top:0;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.3);flex-shrink:0">
         <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('bold')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;font-weight:900;font-size:13px" title="Bold">B</button>
         <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('italic')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;font-style:italic;font-size:13px" title="Italic">I</button>
@@ -1937,7 +1937,7 @@ function renderEndCredits(epNums){
     </div>`;
   }).join('');
 
-  return`<div class="ep-wrap" style="padding-bottom:${creditsExpandedEp?'0':'40px'};overflow-y:${creditsExpandedEp?'hidden':'auto'};display:flex;flex-direction:column;height:100%">${cards}</div>`;
+  return`<div class="ep-wrap" style="padding-bottom:40px;overflow-y:auto">${cards}</div>`;
 }
 
 
