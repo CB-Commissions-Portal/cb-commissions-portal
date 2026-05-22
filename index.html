@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.5.0';
+const BUILD_VERSION='3.5.1';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1096,6 +1096,19 @@ function updateTicker(){
   const rem=(settings.contractedMinutes||438)-paid;
   const pe=document.querySelector('.t-val.p');const re=document.querySelector('.t-val.r');
   if(pe)pe.textContent=paid.toFixed(1);if(re)re.textContent=rem.toFixed(1);
+  // Broadcast variance
+  const today=new Date().toISOString().split('T')[0];
+  const broadcastEps=getEpNums().filter(n=>{const d=resolveDate(n);return d&&d<today;});
+  const availBc=broadcastEps.length*34;
+  const usedBc=comms.filter(c=>!c.isInHouse&&!c.decommissioned&&c.broadcastEpisode&&broadcastEps.includes(Number(c.broadcastEpisode))).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);
+  const variance=availBc-usedBc; // positive = under (good), negative = over (bad)
+  const ve=document.querySelector('.t-val.bc-var');
+  const vl=document.querySelector('.t-lbl.bc-var');
+  if(ve){
+    ve.textContent=(variance>=0?'−':'+')+(Math.abs(variance).toFixed(1));
+    ve.style.color=variance>=0?'#3fb950':'#f85149';
+  }
+  if(vl)vl.textContent=`${broadcastEps.length} eps × 34 mins`;
 }
 
 async function deleteComm(id){
@@ -1506,6 +1519,12 @@ function renderApp(){
     <div class="t-item"><div class="t-lbl">Paid Mins</div><div class="t-val p">${paid.toFixed(1)}</div></div>
     <div class="t-sep">=</div>
     <div class="t-item"><div class="t-lbl">Remaining Mins</div><div class="t-val r">${remaining.toFixed(1)}</div></div>
+    <div class="t-sep" style="color:#2e3a50;margin:0 8px">│</div>
+    <div class="t-item" title="Broadcast episodes: available minutes vs paid minutes used">
+      <div class="t-lbl bc-var" style="white-space:nowrap">${(()=>{const today=new Date().toISOString().split('T')[0];const beps=getEpNums().filter(n=>{const d=resolveDate(n);return d&&d<today;});return beps.length+' eps × 34 mins';})()}</div>
+      <div class="t-val bc-var" style="font-size:22px">${(()=>{const today=new Date().toISOString().split('T')[0];const beps=getEpNums().filter(n=>{const d=resolveDate(n);return d&&d<today;});const avail=beps.length*34;const used=comms.filter(c=>!c.isInHouse&&!c.decommissioned&&c.broadcastEpisode&&beps.includes(Number(c.broadcastEpisode))).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);const v=avail-used;return`<span style="color:${v>=0?'#3fb950':'#f85149'}">${v>=0?'−':'+'}${Math.abs(v).toFixed(1)}</span>`;})()}</div>
+      <div style="font-size:9px;color:#484f58;margin-top:2px">broadcast variance</div>
+    </div>
     <div class="t-meta">
       <span>${comms.filter(c=>c.approvedForPayment).length} paid · ${comms.filter(c=>!c.decommissioned).length} active · ${epNums.length} episodes</span>
       ${readyCount>0?`<span class="t-ready">● ${readyCount} ready for payment</span>`:''}
