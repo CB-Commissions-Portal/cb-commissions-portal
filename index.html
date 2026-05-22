@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.3.9';
+const BUILD_VERSION='3.4.0';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -432,6 +432,7 @@ let mcImportModal=false;
 let presCalData={}; // {dateStr: {presenterKey: {commNum,storyName,producer,notAvailable}}}
 let lineups={}; // {epNum: {director:'', presenter1:'', presenter2:'', items:[{commNum,liveStudio,liveDuration,liveNote}], savedAt}}
 let luCollapsed=new Set();
+let studioCollapsed=new Set();
 let ppData={};
 let broadcastSearch='';
 let appTheme=localStorage.getItem('cb_theme')||'dark'; // 'dark' or 'light'
@@ -3276,6 +3277,8 @@ function renderStudioCrew(epNums){
   if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet.</div></div>`;
   const cards=epNums.map(n=>{
     const sc=studioCrew[String(n)]||{};
+    const collapsed=studioCollapsed.has(String(n));
+    const hasData=STUDIO_FIELDS.some(([field])=>sc[field]);
     function labelRow(label,val){return`<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #21262d">
       <div style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;letter-spacing:.5px;min-width:160px">${label}</div>
       <div style="flex:1">${val}</div>
@@ -3284,13 +3287,19 @@ function renderStudioCrew(epNums){
       ?`<input class="ci studio-ci" value="${esc(sc[field]||'')}" data-ep="${n}" data-field="${field}" style="width:100%;font-size:13px">`
       :esc(sc[field]||'—');}
     return`<div class="ep-card" style="margin-bottom:14px">
-      <div class="ep-head">
-        <span class="ep-num">EP ${n}</span>
-        <span style="font-size:13px;font-weight:600;color:#9aaabe">${fmtDate(resolveDate(n))}</span>
+      <div class="ep-head studio-collapse-hdr" data-ep="${n}" style="cursor:pointer;user-select:none" title="${collapsed?'Click to expand':'Click to collapse'}">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:12px;color:#7a8ba0">${collapsed?'▶':'▼'}</span>
+          <span class="ep-num">EP ${n}</span>
+          <span style="font-size:13px;font-weight:600;color:#9aaabe">${fmtDate(resolveDate(n))}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${hasData?`<span style="font-size:9px;background:#1f3a1f;color:#3fb950;padding:2px 7px;border-radius:3px;border:1px solid #2d6a2d">DATA</span>`:''}
+        </div>
       </div>
-      <div style="padding:12px 16px;display:grid;grid-template-columns:1fr 1fr;gap:0 24px">
+      ${collapsed?'':`<div style="padding:12px 16px;display:grid;grid-template-columns:1fr 1fr;gap:0 24px">
         ${STUDIO_FIELDS.map(([field,label])=>labelRow(label,sci(field))).join('')}
-      </div>
+      </div>`}
     </div>`;
   }).join('');
   return`<div class="ep-wrap">${cards}</div>`;
@@ -6698,6 +6707,16 @@ document.addEventListener('click',function globalBtnHandler(e){
     helpVisible=true;helpPage=0;renderHelp();
     return;
   }
+});
+// Studio Crew collapse
+document.addEventListener('click',function studioCollapseHandler(e){
+  const hdr=e.target.closest('.studio-collapse-hdr');
+  if(!hdr)return;
+  if(e.target.closest('button,input'))return;
+  const ep=String(hdr.dataset.ep);
+  if(studioCollapsed.has(ep))studioCollapsed.delete(ep);
+  else studioCollapsed.add(ep);
+  render();
 });
 // ── One-time global handlers (set up once, survive renders) ─────
 document.addEventListener('click',function epToggleHandler(e){
