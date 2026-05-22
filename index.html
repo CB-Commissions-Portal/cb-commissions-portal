@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.4.8';
+const BUILD_VERSION='3.4.9';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1888,11 +1888,7 @@ function renderEndCredits(epNums){
         </div>
         <div style="display:flex;gap:8px" onclick="event.stopPropagation()">
           ${isExp?`
-            <button class="btn" data-credits-copy="${n}" style="font-size:11px;border-color:#7a3fbf;color:#c084fc">Copy from EP…</button>
-            <button class="btn" data-credits-print="${n}" style="font-size:11px;border-color:#388bfd;color:#58a6ff">⬇ Print / PDF</button>
-            ${canEd?`<button class="btn primary" data-credits-save="${n}" style="font-size:11px">Save</button>`:''}
-          `:''}
-        </div>
+          `:''}\n        </div>
       </div>
       ${isExp?`
       <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:0">
@@ -1926,6 +1922,10 @@ function renderEndCredits(epNums){
         <div style="width:1px;background:#2e3a50;margin:0 2px"></div>
         <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('insertUnorderedList')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px" title="Bullet List">• List</button>
         <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('removeFormat')" style="background:#252d3d;border:1px solid #2e3a50;color:#8b949e;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px" title="Clear Formatting">Clear</button>
+        <div style="width:1px;background:#2e3a50;margin:0 4px"></div>
+        <button class="btn" data-credits-copy="${n}" style="font-size:11px;border-color:#7a3fbf;color:#c084fc" onmousedown="event.preventDefault()">Copy from EP…</button>
+        <button class="btn" data-credits-print="${n}" style="font-size:11px;border-color:#388bfd;color:#58a6ff" onmousedown="event.preventDefault()">⬇ Print / PDF</button>
+        ${canEd?`<button class="btn primary" data-credits-save="${n}" style="font-size:11px" onmousedown="event.preventDefault()">💾 Save</button>`:''}
       </div>
       <div id="credits-editor-${n}"
         contenteditable="${canEd?'true':'false'}"
