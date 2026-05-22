@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.3.6';
+const BUILD_VERSION='3.3.9';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2870,7 +2870,7 @@ function renderMusicCues(epNums){
   const userName=currentUser?.displayName||currentUser?.email||'';
 
   const allSheets=Object.entries(musicCues).map(([id,s])=>({id,...s}))
-    .filter(s=>role==='admin'||role==='operations'||s.afmUid===uid)
+    .filter(s=>role==='admin'||role==='production'||role==='operations'||s.afmUid===uid)
     .sort((a,b)=>(b.submittedAt?.seconds||0)-(a.submittedAt?.seconds||0));
 
   // ── NEW / EDIT FORM ──
@@ -3029,7 +3029,7 @@ function renderMusicCues(epNums){
     const c=comms.find(c=>c.commNum===s.commNum);
     const epNum=c?.broadcastEpisode||'—';
     const date=c?.broadcastEpisode?fmtDate(resolveDate(Number(c.broadcastEpisode))):'—';
-    const canEdit2=role==='admin'||role==='operations'||s.afmUid===uid;
+    const canEdit2=role==='admin'||(s.afmUid===uid&&role==='afm'); // only admin or the sheet's own AFM can edit/delete
     return`<div class="ep-card" style="margin-bottom:10px;padding:0">
       <div style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between">
         <div style="display:flex;align-items:center;gap:16px;flex:1">
@@ -6461,8 +6461,6 @@ document.addEventListener('click',function rosHandler(e){
     document.querySelectorAll('.ros-dur').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i]!==undefined)items[i].duration=inp.value;});
     let num=1;
     items.forEach(item=>{
-      // Breaks never get a number
-      if(item.type==='break'){return;}
       item.itemNum=num++;
     });
     if(!rosData[String(rosCurrentEp)])rosData[String(rosCurrentEp)]={};
