@@ -391,7 +391,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.3.0';
+const BUILD_VERSION='3.3.2';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -423,6 +423,7 @@ let lineups={}; // {epNum: {director:'', presenter1:'', presenter2:'', items:[{c
 let luCollapsed=new Set();
 let ppData={};
 let broadcastSearch='';
+let appTheme=localStorage.getItem('cb_theme')||'dark'; // 'dark' or 'light'
 let rosData={}; // {epNum: {items:[{type,label,content,duration}]}}
 let rosEpModal=false; // show episode picker modal
 let rosCurrentEp=null; // currently viewed episode // {commNum: {deliveryDate:'', cells:{}, editComplete:false}}
@@ -473,7 +474,10 @@ function buildSlug(season,epNum,slugSuffix){
 }
 
 function getPromoTXDates(epDateStr,txType){
-  const sun=new Date(epDateStr);
+  // Parse as local date (not UTC) to avoid timezone shift
+  if(!epDateStr)return{from:'',to:''};
+  const parts=epDateStr.split('-').map(Number);
+  const sun=new Date(parts[0],parts[1]-1,parts[2]); // local midnight, no UTC offset issue
   const fmt=d=>d.toLocaleDateString('en-ZA',{day:'2-digit',month:'2-digit',year:'numeric'});
   const addDays=(d,n)=>{const r=new Date(d);r.setDate(r.getDate()+n);return r;};
   // Broadcast = Sunday
@@ -1148,6 +1152,18 @@ function showToast(msg,err=false){
   else{render();}
 }
 
+function applyTheme(){
+  document.body.setAttribute('data-theme',appTheme);
+  document.documentElement.style.colorScheme=appTheme==='light'?'light':'dark';
+}
+function toggleTheme(){
+  appTheme=appTheme==='dark'?'light':'dark';
+  localStorage.setItem('cb_theme',appTheme);
+  applyTheme();
+  // Update button without full render
+  const btn=document.getElementById('theme-toggle-btn');
+  if(btn)btn.textContent=appTheme==='dark'?'☀':'🌙';
+}
 function render(){
   const _epWrap=document.querySelector('.ep-wrap');
   const _scrollTop=_epWrap?_epWrap.scrollTop:0;
@@ -1460,6 +1476,8 @@ function renderApp(){
         ${previewRole?`<span style="font-size:10px;background:#2d2200;color:#f5a623;border:1px solid #f5a623;padding:2px 8px;border-radius:4px;font-weight:700">PREVIEW MODE</span>`:''}
       </div>`:''}
       <div class="user-chip">
+        <button id="help-btn" onclick="showHelp()" style="background:none;border:1px solid #2e3a50;color:#7a8ba0;border-radius:50%;width:26px;height:26px;font-size:13px;font-weight:900;cursor:pointer;margin-right:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center" title="How To Guide">?</button>
+        <button id="theme-toggle-btn" onclick="toggleTheme()" style="background:none;border:1px solid #2e3a50;color:#7a8ba0;border-radius:50%;width:26px;height:26px;font-size:13px;cursor:pointer;margin-right:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center" title="Toggle theme">${appTheme==='dark'?'☀':'🌙'}</button>
         <span style="font-size:9px;color:#cdd9e5;margin-right:8px;font-family:'JetBrains Mono',monospace;font-weight:700">v${BUILD_VERSION}</span>
         <div class="avatar" style="background:${rm.bg};color:${rm.color}">${initials(currentUser.displayName||currentUser.email)}</div>
         <div><div class="u-name">${esc(currentUser.displayName||currentUser.email)}</div><div class="u-role-lbl" style="color:${rm.color}">${previewRole?`Previewing: ${ROLE_META[previewRole].label}`:rm.label}</div></div>
@@ -3508,6 +3526,238 @@ function renderRunOfShow(){
     </div>`:''}
   </div>`;
 }
+
+
+// ── HOW TO GUIDE ─────────────────────────────────────────────────
+let helpVisible=false;
+let helpPage=0;
+
+function showHelp(){helpVisible=true;helpPage=0;renderHelp();}
+function hideHelp(){helpVisible=false;const el=document.getElementById('help-overlay');if(el)el.remove();}
+
+function getHelpPages(){
+  const role=getEffectiveRole();
+  const pages=[];
+
+  // ── Page 0: Welcome (all roles) ──
+  pages.push({
+    title:'Welcome to the Carte Blanche Production Portal',
+    icon:'📺',
+    content:`<p>This portal is your central hub for managing all aspects of Carte Blanche Season ${currentSeason} production.</p>
+    <p>Use the tabs at the top to navigate between sections. This guide will walk you through the features available to you based on your role: <strong style="color:#c084fc">${ROLE_META[role]?.label||role}</strong>.</p>
+    <p>Your data is saved automatically to the cloud in real time — look for the green dot (● Live) in the top bar.</p>`
+  });
+
+  // ── Commission List ──
+  if(!['afm'].includes(role)){
+    pages.push({
+      title:'Commission List',
+      icon:'📋',
+      content:`<p>The <strong>Commission List</strong> is the master record of all stories commissioned for Season ${currentSeason}.</p>
+      <ul>
+        <li><strong>Comm #</strong> — unique commission number for each story</li>
+        <li><strong>Short Name</strong> — the abbreviated story code used across the portal</li>
+        <li><strong>Story Name</strong> — full story title</li>
+        <li><strong>Delivery Date</strong> — when the story must be delivered${['admin','operations','editorial'].includes(role)?' (click the date to edit)':' (read-only for your role)'}</li>
+        <li><strong>Comm / Del / Paid Duration</strong> — commissioned, delivered and paid minutes</li>
+        <li><strong>Producer, DOP, Editor, AFM</strong> — crew assignments</li>
+        <li><strong>Broadcast Episode</strong> — which episode the story is scheduled for</li>
+      </ul>
+      ${['admin','operations'].includes(role)?'<p>As <strong>'+ROLE_META[role]?.label+'</strong> you can edit all fields. Click any cell to edit and press Tab to move to the next field.</p>':''}
+      <p>Use the <strong>search box</strong> to filter by story name, comm # or producer. Click any column header to sort.</p>`
+    });
+  }
+
+  // ── Line-Ups ──
+  if(['admin','operations','production','prodmgmt','editorial'].includes(role)){
+    pages.push({
+      title:'Line-Ups',
+      icon:'📝',
+      content:`<p>The <strong>Line-Ups</strong> tab shows the content schedule for each broadcast episode.</p>
+      <ul>
+        <li>Each episode card shows the <strong>Director</strong>, <strong>Presenter 1</strong> and <strong>Presenter 2</strong></li>
+        <li>Content rows show commission details pulled from the Commission List</li>
+        <li>The <strong>duration</strong> shown is the delivered duration if available, otherwise the commissioned duration</li>
+        <li><strong>LIVE STUDIO</strong> segments can be added with a custom note and duration</li>
+        <li>The <strong>Total duration</strong> is calculated automatically</li>
+      </ul>
+      <p>Past episodes (already broadcast) are shown with a red tint. Click any episode header to expand or collapse it.</p>
+      <p>The <strong>Inserts in Production</strong> panel on the right shows all stories not yet on air — your available content at a glance.</p>`
+    });
+  }
+
+  // ── Run of Show ──
+  if(['admin','editorial'].includes(role)){
+    pages.push({
+      title:'Run of Show',
+      icon:'🎬',
+      content:`<p>The <strong>Run of Show</strong> tab lets you build a detailed running order for each episode.</p>
+      <ul>
+        <li>Select an episode, then use the <strong>Add Item</strong> panel on the right to build your running order</li>
+        <li>Items are colour-coded: <span style="color:#79c0ff">■ Live/Link</span> · <span style="color:#e3b341">■ Insert</span> · <span style="color:#c084fc">■ Cold Start</span> · <span style="color:#56d364">■ UP NEXT</span> · <span style="color:#9ca3af">■ Fixed</span></li>
+        <li>Fixed items (Opening Logo, Bumpers, Credits, Breaks) have pre-set durations and cannot be changed</li>
+        <li>Use the <strong>▲ ▼ arrows</strong> to reorder items, <strong>✕</strong> to delete</li>
+        <li>The <strong>Ep Duration</strong> column counts up from the bottom — the top row shows the full programme duration</li>
+        <li>Click <strong># Generate Item Numbers</strong> to number all items (Commercial Breaks are excluded)</li>
+        <li>Click <strong>⬇ Export PDF</strong> to download a print-ready version</li>
+      </ul>`
+    });
+  }
+
+  // ── Broadcast List ──
+  if(!['afm'].includes(role)){
+    pages.push({
+      title:'Broadcast List',
+      icon:'📡',
+      content:`<p>The <strong>Broadcast List</strong> is a quick searchable reference for all commissions.</p>
+      <ul>
+        <li>Search by <strong>comm #</strong>, <strong>story name</strong>, <strong>producer</strong> or <strong>presenter</strong></li>
+        <li>Shows broadcast date, episode number and delivered duration at a glance</li>
+        <li>Past broadcasts are shown in red, upcoming in blue</li>
+        <li>The counter at the top shows total shown, scheduled and already broadcast</li>
+      </ul>
+      <p>This tab is read-only — use the Commission List to make changes.</p>`
+    });
+  }
+
+  // ── Post Production ──
+  if(['admin','operations'].includes(role)){
+    pages.push({
+      title:'Post Production Schedule',
+      icon:'🎞',
+      content:`<p>The <strong>Post Production</strong> tab is your weekly editing schedule.</p>
+      <ul>
+        <li>Click <strong>+ New Edit</strong> to add a commission to the schedule — search by story name or comm #</li>
+        <li>Each commission row shows crew details pulled from the Commission List</li>
+        <li>The <strong>Delivery Date</strong> pulls through from the Commission List automatically</li>
+        <li>Each day has 5 columns: <strong>09:00, 11:30, 15:00, VO, MIX</strong> — type content into any cell</li>
+        <li>Cells colour automatically: blue=View, green=Shoot, purple=Edit, amber=VO/Mix, red=AFM</li>
+        <li>Tick <strong>Edit Complete ✓</strong> to grey out a row — use <em>Show Completed</em> to recall it</li>
+        <li>Use <strong>◀ Prev / Next ▶</strong> to navigate weeks, <strong>Today</strong> to jump to the current week</li>
+      </ul>`
+    });
+  }
+
+  // ── Music Cue Sheets ──
+  if(['admin','operations','afm','production'].includes(role)){
+    pages.push({
+      title:'Music Cue Sheets',
+      icon:'🎵',
+      content:`<p>The <strong>Music Cue Sheets</strong> tab manages all music licensing documentation.</p>
+      <ul>
+        <li>Click <strong>+ New Music Cue Sheet</strong> to create one — enter the commission number to auto-fill story details</li>
+        <li>Click <strong>+ Add Cue</strong> to add music tracks. Required fields are marked with <strong>*</strong></li>
+        <li>All fields must be completed before the <strong>Submit Cue Sheet</strong> button activates</li>
+        <li>Submitted sheets show a green <strong>✓ Submitted</strong> badge — they cannot be edited after submission</li>
+        ${role==='afm'?'<li>As AFM Operator, you can create and submit cue sheets. Import from Excel is not available for your role.</li>':'<li>Admin can import cue sheets from Excel and export them.</li>'}
+      </ul>
+      <p>Use the <strong>Episode filter</strong> at the top to view cue sheets by broadcast episode.</p>`
+    });
+  }
+
+  // ── Presenter Calendar ──
+  if(['admin','operations','production','prodmgmt','editorial'].includes(role)){
+    pages.push({
+      title:'Presenter Calendar',
+      icon:'📅',
+      content:`<p>The <strong>Presenter Calendar</strong> shows presenter availability across the season.</p>
+      <ul>
+        <li>The calendar opens on the <strong>current month</strong> automatically</li>
+        <li>Use <strong>◀ / ▶</strong> to navigate months, <strong>+ 3 months</strong> to extend the calendar</li>
+        <li>Click any empty cell to assign a presenter — choose from the dropdown: a commission, <em>Not Available</em>, <em>Studio</em> or a custom note</li>
+        <li>Once assigned, the cell shows the content. <strong>Click the badge</strong> to get a Remove prompt</li>
+        <li>Weekends are shown in a darker colour</li>
+        <li>South African public holidays are highlighted automatically</li>
+      </ul>`
+    });
+  }
+
+  // ── Admin ──
+  if(role==='admin'){
+    pages.push({
+      title:'Admin',
+      icon:'⚙️',
+      content:`<p>The <strong>Admin</strong> tab gives you full control over the portal.</p>
+      <ul>
+        <li><strong>Data Backup</strong> — click <em>⬇ Export Full Backup</em> to download all Firebase data as a JSON file. Do this regularly!</li>
+        <li><strong>Users & Access</strong> — create users, assign roles, reset passwords</li>
+        <li><strong>Role Preview</strong> — use the Preview As dropdown in the top bar to see the portal as any role</li>
+        <li><strong>UID Pool</strong> — manage unique identifiers for commissions</li>
+        <li><strong>Season Settings</strong> — contracted minutes, episode dates</li>
+      </ul>
+      <p><strong>Roles available:</strong> Admin · Operations · Production Management · Production · Editorial · AFM Operator</p>`
+    });
+  }
+
+  // ── Final page ──
+  pages.push({
+    title:'Tips & Shortcuts',
+    icon:'💡',
+    content:`<ul>
+      <li>Press <strong>Tab</strong> to move between fields in the Commission List</li>
+      <li>The <strong>green dot ● Live</strong> in the top bar means your changes are saved. Orange = saving. Red = offline.</li>
+      <li>The <strong>☀ / 🌙</strong> button in the top bar toggles between light and dark theme</li>
+      <li>Most lists are <strong>sortable</strong> — click any column header to sort, click again to reverse</li>
+      <li>The Commission List search updates as you type — wait for a short pause before results appear</li>
+      <li>All dates use South African format (DD MMM YYYY)</li>
+      <li>If something looks wrong, try <strong>signing out and back in</strong> — this refreshes all data from Firebase</li>
+    </ul>
+    <p style="margin-top:16px;color:#6e7681;font-size:12px">For technical issues or feature requests, contact your portal administrator.</p>`
+  });
+
+  return pages;
+}
+
+function renderHelp(){
+  const existing=document.getElementById('help-overlay');
+  if(existing)existing.remove();
+  if(!helpVisible)return;
+
+  const pages=getHelpPages();
+  const page=pages[Math.max(0,Math.min(helpPage,pages.length-1))];
+  const isFirst=helpPage===0;
+  const isLast=helpPage===pages.length-1;
+
+  const dots=pages.map((_,i)=>`<span style="width:8px;height:8px;border-radius:50%;background:${i===helpPage?'#c084fc':'#2e3a50'};display:inline-block;cursor:pointer;transition:background .2s" data-help-dot="${i}"></span>`).join('');
+
+  const overlay=document.createElement('div');
+  overlay.id='help-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px';
+  overlay.innerHTML=`
+    <div style="background:${appTheme==='light'?'#ffffff':'#161b22'};border:1px solid ${appTheme==='light'?'#d0d7de':'#30363d'};border-radius:16px;width:640px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+      <!-- Header -->
+      <div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:28px">${page.icon}</span>
+          <div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#c084fc;margin-bottom:3px">How To Guide · ${helpPage+1} of ${pages.length}</div>
+            <h2 style="font-size:18px;font-weight:900;color:${appTheme==='light'?'#1a1a2e':'#eaf0ff'};margin:0">${page.title}</h2>
+          </div>
+        </div>
+        <button id="help-close-btn" style="background:none;border:1px solid #2e3a50;color:#7a8ba0;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center">✕</button>
+      </div>
+      <!-- Content -->
+      <div style="padding:20px 24px;flex:1;overflow-y:auto;font-size:14px;line-height:1.7;color:${appTheme==='light'?'#444':'#cdd9e5'}">${page.content}</div>
+      <!-- Footer -->
+      <div style="padding:16px 24px;border-top:1px solid ${appTheme==='light'?'#e8ecf0':'#21262d'};display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0">
+        <button id="help-prev-btn" style="background:none;border:1px solid #2e3a50;color:${isFirst?'#333':'#7a8ba0'};padding:8px 18px;border-radius:6px;cursor:${isFirst?'default':'pointer'};font-size:13px;font-weight:700;opacity:${isFirst?.3:1}">◀ Previous</button>
+        <div style="display:flex;gap:6px;align-items:center">${dots}</div>
+        <button id="help-next-btn" style="background:${isLast?'#c084fc':'none'};border:1px solid ${isLast?'#c084fc':'#2e3a50'};color:${isLast?'#fff':'#7a8ba0'};padding:8px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700">${isLast?'Got it! ✓':'Next ▶'}</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  // Bind buttons
+  overlay.querySelector('#help-close-btn').addEventListener('click',hideHelp);
+  overlay.querySelector('#help-prev-btn').addEventListener('click',()=>{if(helpPage>0){helpPage--;renderHelp();}});
+  overlay.querySelector('#help-next-btn').addEventListener('click',()=>{if(isLast){hideHelp();}else{helpPage++;renderHelp();}});
+  overlay.querySelectorAll('[data-help-dot]').forEach(dot=>{
+    dot.addEventListener('click',()=>{helpPage=Number(dot.dataset.helpDot);renderHelp();});
+  });
+  overlay.addEventListener('click',e=>{if(e.target===overlay)hideHelp();});
+}
+
 
 function renderBroadcastList(){
   const q=broadcastSearch.toLowerCase().trim();
@@ -6432,6 +6682,7 @@ async function boot(){
     saveCfg(cfg);
   }
   if(cfg){const ok=initFB(cfg);if(!ok){localStorage.removeItem(STORAGE_KEY);render();return;}}
+  applyTheme();
   render();
   if(!auth)return;
   onAuthStateChanged(auth,async user=>{
