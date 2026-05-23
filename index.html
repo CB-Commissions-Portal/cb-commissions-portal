@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.5.8';
+const BUILD_VERSION='3.5.9';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3836,6 +3836,7 @@ function renderHelp(){
 
 // ── STUDIO CALL SHEET ───────────────────────────────────────────
 let csCurrentEp=null;
+let csRespModal=null; // {key, ep} when modal is open
 
 const CS_SCHED_ITEMS=[
   {key:'sMakeup',   label:'Make-Up & Styling'},
@@ -3891,9 +3892,15 @@ function renderCallSheet(epNums){
     ${canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${key+'_time'}" value="${esc(cs[key+'_time']||'')}" placeholder="00:00" style="width:100px;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#e3b341;font-size:15px;padding:8px 10px;outline:none;font-family:monospace;text-align:center">`:`<div style="width:100px;font-size:15px;color:#e3b341;font-family:monospace;text-align:center">${esc(cs[key+'_time']||'—')}</div>`}
   </div></div>`;
   const multiSel=(key,selArr)=>{
-    if(!canEdit)return`<span style="font-size:13px;color:#8b949e">${(selArr||[]).join(', ')||'—'}</span>`;
-    if(!allNames.length)return`<span style="font-size:11px;color:#484f58;font-style:italic">Fill in contacts above first</span>`;
-    return`<select class="cs-sched-resp" data-ep="${ep}" data-key="${key}" multiple style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#eaf0ff;font-size:13px;padding:4px 6px;outline:none;min-height:40px">${allNames.map(n=>`<option value="${esc(n)}" ${(selArr||[]).includes(n)?'selected':''}>${esc(n)}</option>`).join('')}</select>`;
+    const sel=selArr||[];
+    if(!canEdit)return`<span style="font-size:13px;color:#8b949e">${sel.join(', ')||'—'}</span>`;
+    const badges=sel.map(n=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#1e3a5c;color:#79c0ff;font-size:12px;padding:3px 8px;border-radius:4px;margin:2px">
+      ${esc(n)}<button class="cs-resp-remove" data-ep="${ep}" data-key="${key}" data-name="${esc(n)}" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:11px;padding:0;line-height:1" onmouseover="this.style.color='#f85149'" onmouseout="this.style.color='#484f58'">✕</button>
+    </span>`).join('');
+    return`<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+      ${badges}
+      <button class="cs-resp-add" data-ep="${ep}" data-key="${key}" style="background:#1a2235;border:1px dashed #2e3a50;color:#58a6ff;font-size:12px;padding:4px 10px;border-radius:4px;cursor:pointer" onmouseover="this.style.borderColor='#58a6ff'" onmouseout="this.style.borderColor='#2e3a50'">+ Add</button>
+    </div>`;
   };
   const schedData=cs.schedItems||[];
   const schedRows=CS_SCHED_ITEMS.map(si=>{const sd=schedData.find(x=>x.key===si.key)||{};return`<tr style="border-bottom:2px solid #1e2535">
@@ -3901,7 +3908,37 @@ function renderCallSheet(epNums){
     <td style="padding:10px 12px;width:110px">${canEdit?`<input class="cs-sched-time" data-ep="${ep}" data-key="${si.key}" value="${esc(sd.time||'')}" placeholder="00:00" style="width:95px;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#e3b341;font-size:16px;padding:8px;outline:none;font-family:monospace;text-align:center">`:`<span style="font-size:16px;color:#e3b341;font-family:monospace">${esc(sd.time||'—')}</span>`}</td>
     <td style="padding:10px 12px">${multiSel(si.key,sd.responsible||[])}</td>
   </tr>`;}).join('');
-  return`<div class="ep-wrap" style="padding:0;overflow-y:auto">
+  // Responsible picker modal
+  let respModalHtml='';
+  if(csRespModal&&csRespModal.ep===ep){
+    const mkey=csRespModal.key;
+    const mSi=CS_SCHED_ITEMS.find(s=>s.key===mkey)||{};
+    const mSel=((cs.schedItems||[]).find(x=>x.key===mkey)||{}).responsible||[];
+    const nameOpts=allNames.length
+      ?allNames.map(n=>`<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #21262d;cursor:pointer;font-size:14px;color:#eaf0ff" onmouseover="this.style.background='#1e2535'" onmouseout="this.style.background='transparent'">
+          <input type="checkbox" class="cs-resp-cb" data-key="${mkey}" data-name="${esc(n)}" ${mSel.includes(n)?'checked':''} style="width:16px;height:16px;cursor:pointer;accent-color:#58a6ff">
+          <span>${esc(n)}</span>
+        </label>`).join('')
+      :'<div style="padding:20px;color:#484f58;text-align:center;font-size:13px">No contacts added yet — fill in the contacts sections above first.</div>';
+    respModalHtml=`<div id="cs-resp-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center">
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;width:380px;max-width:95vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+        <div style="padding:16px 18px;border-bottom:1px solid #21262d;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+          <div>
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#7a8ba0;margin-bottom:2px">Responsible for</div>
+            <div style="font-size:15px;font-weight:800;color:#eaf0ff">${mSi.label}</div>
+          </div>
+          <button id="cs-resp-close" style="background:none;border:1px solid #2e3a50;color:#7a8ba0;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">✕</button>
+        </div>
+        <div style="overflow-y:auto;flex:1">${nameOpts}</div>
+        <div style="padding:12px 18px;border-top:1px solid #21262d;display:flex;justify-content:flex-end;gap:8px;flex-shrink:0">
+          <button class="btn" id="cs-resp-close" style="font-size:13px;padding:6px 16px">Cancel</button>
+          <button class="btn primary" id="cs-resp-confirm" style="font-size:13px;padding:6px 20px;font-weight:800">Confirm</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  return`<div class="ep-wrap" style="padding:0;overflow-y:auto">${respModalHtml}
     <div style="padding:12px 20px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;flex-wrap:wrap">
       <button class="btn" id="cs-back-btn" style="font-size:12px;padding:6px 14px">◀ Episodes</button>
       <div><span style="font-size:18px;font-weight:900;color:#e3b341;font-family:monospace">${epLabel}</span><span style="font-size:13px;color:#6e7681;margin-left:12px">${epDateFmt}</span></div>
@@ -6492,9 +6529,8 @@ function csFlushAndGet(){
   document.querySelectorAll(`.cs-field[data-ep="${ep}"]`).forEach(el=>{cs[el.dataset.field]=el.tagName==='TEXTAREA'?el.value:el.value;});
   const schedItems=CS_SCHED_ITEMS.map(si=>{
     const ti=document.querySelector(`.cs-sched-time[data-key="${si.key}"][data-ep="${ep}"]`);
-    const rs=document.querySelector(`.cs-sched-resp[data-key="${si.key}"][data-ep="${ep}"]`);
     const ex=(cs.schedItems||[]).find(x=>x.key===si.key)||{};
-    return{key:si.key,label:si.label,time:ti?ti.value:(ex.time||''),responsible:rs?Array.from(rs.selectedOptions).map(o=>o.value):(ex.responsible||[])};
+    return{key:si.key,label:si.label,time:ti?ti.value:(ex.time||''),responsible:ex.responsible||[]};
   });
   cs.schedItems=schedItems;
   return cs;
@@ -6607,6 +6643,47 @@ document.addEventListener('click',function csClickHandler(e){
   if(pick){csCurrentEp=Number(pick.dataset.ep);render();return;}
   // Back
   if(e.target.id==='cs-back-btn'){csCurrentEp=null;render();return;}
+  // Open responsible picker modal
+  const addBtn=e.target.closest('.cs-resp-add');
+  if(addBtn){
+    // Flush current field values first
+    const cs2=csFlushAndGet();
+    if(cs2){callSheetData[String(csCurrentEp)]=cs2;}
+    csRespModal={key:addBtn.dataset.key,ep:Number(addBtn.dataset.ep)};
+    render();return;
+  }
+  // Remove a responsible badge
+  const removeBtn=e.target.closest('.cs-resp-remove');
+  if(removeBtn){
+    const k=removeBtn.dataset.key;const n=removeBtn.dataset.name;const epN=Number(removeBtn.dataset.ep);
+    const cs2=callSheetData[String(epN)]||{};
+    cs2.schedItems=(cs2.schedItems||CS_SCHED_ITEMS.map(si=>({key:si.key,label:si.label,time:'',responsible:[]}))).map(si=>{
+      if(si.key===k)si.responsible=(si.responsible||[]).filter(x=>x!==n);
+      return si;
+    });
+    callSheetData[String(epN)]=cs2;
+    render();return;
+  }
+  // Close modal
+  if(e.target.id==='cs-resp-close'||e.target.id==='cs-resp-overlay'&&e.target===e.currentTarget){
+    csRespModal=null;render();return;
+  }
+  // Confirm modal selection
+  if(e.target.id==='cs-resp-confirm'){
+    if(!csRespModal)return;
+    const checked=Array.from(document.querySelectorAll('.cs-resp-cb:checked')).map(cb=>cb.dataset.name);
+    const k=csRespModal.key;const epN=csRespModal.ep;
+    const cs2=callSheetData[String(epN)]||{};
+    cs2.schedItems=(cs2.schedItems||CS_SCHED_ITEMS.map(si=>({key:si.key,label:si.label,time:'',responsible:[]}))).map(si=>{
+      if(si.key===k)si.responsible=checked;
+      return si;
+    });
+    callSheetData[String(epN)]=cs2;
+    csRespModal=null;
+    render();return;
+  }
+  // Close modal on overlay click
+  if(e.target.id==='cs-resp-overlay'){csRespModal=null;render();return;}
   // Generate schedule from contacts
   if(e.target.id==='cs-gen-sched-btn'){
     const cs=csFlushAndGet();
