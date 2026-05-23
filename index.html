@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.5.2';
+const BUILD_VERSION='3.5.3';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3874,21 +3874,22 @@ function renderCallSheet(epNums){
       const hasSaved=!!callSheetData[String(ep)];
       const isPast=d&&d<today;
       return`<div class="cs-ep-pick" data-ep="${ep}"
-        style="background:#1c2433;border:2px solid ${hasSaved?'#e3b341':'#2e3a50'};border-radius:10px;padding:16px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"
-        onmouseover="this.style.borderColor='#e3b341'" onmouseout="this.style.borderColor='${hasSaved?'#e3b341':'#2e3a50'}'">
+        style="background:#1c2433;border:2px solid ${hasSaved?'#e3b341':'#2e3a50'};border-radius:10px;padding:20px 24px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"
+        onmouseover="this.style.borderColor='#e3b341';this.style.background='#1e2233'"
+        onmouseout="this.style.borderColor='${hasSaved?'#e3b341':'#2e3a50'}';this.style.background='#1c2433'">
         <div>
-          <div style="font-size:18px;font-weight:900;color:${isPast?'#f85149':'#eaf0ff'};font-family:monospace">S${currentSeason} EP ${String(ep).padStart(2,'0')}</div>
-          <div style="font-size:12px;color:#6e7681;margin-top:3px">${d?new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'No date set'}</div>
+          <div style="font-size:22px;font-weight:900;color:${isPast?'#f85149':'#eaf0ff'};font-family:monospace">S${currentSeason} EP ${String(ep).padStart(2,'0')}</div>
+          <div style="font-size:13px;color:#6e7681;margin-top:4px">${d?new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'No date set'}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px">
-          ${hasSaved?'<span style="font-size:10px;background:#2d2000;color:#e3b341;padding:3px 9px;border-radius:4px;border:1px solid #4a3300;font-weight:700">HAS CALL SHEET</span>':''}
-          <span style="color:#e3b341;font-size:22px">→</span>
+        <div style="display:flex;align-items:center;gap:12px">
+          ${hasSaved?'<span style="font-size:11px;background:#2d2000;color:#e3b341;padding:4px 12px;border-radius:4px;border:1px solid #4a3300;font-weight:700">HAS CALL SHEET</span>':''}
+          <span style="color:#e3b341;font-size:26px">→</span>
         </div>
       </div>`;
     }).join('');
-    return`<div class="ep-wrap" style="padding:32px;max-width:620px;margin:0 auto">
-      <h2 style="font-size:20px;font-weight:900;color:#eaf0ff;margin:0 0 20px 0">Studio Call Sheet — Select Episode</h2>
-      ${epList||'<div style="color:#484f58">No episodes found.</div>'}
+    return`<div class="ep-wrap" style="padding:32px;max-width:640px;margin:0 auto">
+      <h2 style="font-size:22px;font-weight:900;color:#eaf0ff;margin:0 0 24px 0">Studio Call Sheet — Select Episode</h2>
+      ${epList||'<div style="color:#484f58;font-size:15px">No episodes found.</div>'}
     </div>`;
   }
 
@@ -3899,89 +3900,119 @@ function renderCallSheet(epNums){
   const cs=callSheetData[String(ep)]||{};
   const items=cs.items||defaultCallItems();
 
-  const inp=(field,placeholder,width='100%',cls='')=>canEdit
-    ?`<input class="cs-field ${cls}" data-ep="${ep}" data-field="${field}" value="${esc(cs[field]||'')}" placeholder="${placeholder}" style="width:${width};background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#eaf0ff;font-size:13px;padding:3px 4px;outline:none;font-family:inherit">`
-    :`<span style="font-size:13px;color:${cs[field]?'#eaf0ff':'#484f58'}">${esc(cs[field]||placeholder)}</span>`;
+  // Copy from episode options
+  const otherEps=epNums.filter(n=>n!==ep&&callSheetData[String(n)]);
+
+  const finp=(field,placeholder,width='100%')=>canEdit
+    ?`<input class="cs-field" data-ep="${ep}" data-field="${field}" value="${esc(cs[field]||'')}" placeholder="${placeholder}" style="width:${width};background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#eaf0ff;font-size:15px;padding:8px 10px;outline:none;font-family:inherit">`
+    :`<div style="font-size:15px;color:${cs[field]?'#eaf0ff':'#484f58'};padding:8px 0">${esc(cs[field]||'—')}</div>`;
+
+  const ftxt=(field,placeholder)=>canEdit
+    ?`<textarea class="cs-field" data-ep="${ep}" data-field="${field}" placeholder="${placeholder}" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#eaf0ff;font-size:15px;padding:8px 10px;outline:none;font-family:inherit;resize:vertical;min-height:100px;box-sizing:border-box">${esc(cs[field]||'')}</textarea>`
+    :`<div style="font-size:15px;color:${cs[field]?'#eaf0ff':'#484f58'};white-space:pre-wrap;padding:8px 0">${esc(cs[field]||'—')}</div>`;
 
   const scheduleRows=items.map((item,i)=>`
-    <tr style="border-bottom:1px solid #21262d">
-      <td style="padding:6px 10px;width:70px;font-size:12px;font-family:monospace;color:#e3b341">
-        ${canEdit?`<input class="cs-item-time" data-ep="${ep}" data-idx="${i}" value="${esc(item.time||'')}" placeholder="00:00" style="width:60px;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#e3b341;font-size:12px;padding:2px 3px;outline:none;font-family:monospace;text-align:center">`:`<span>${esc(item.time||'')}</span>`}
+    <tr style="border-bottom:2px solid #1e2535">
+      <td style="padding:10px 12px;width:90px">
+        ${canEdit
+          ?`<input class="cs-item-time" data-ep="${ep}" data-idx="${i}" value="${esc(item.time||'')}" placeholder="00:00" style="width:80px;background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#e3b341;font-size:16px;padding:8px;outline:none;font-family:monospace;text-align:center">`
+          :`<span style="font-size:16px;color:#e3b341;font-family:monospace;padding:8px 0;display:block">${esc(item.time||'')}</span>`}
       </td>
-      <td style="padding:6px 10px;font-size:13px;color:#eaf0ff;font-weight:600">
-        ${canEdit?`<input class="cs-item-desc" data-ep="${ep}" data-idx="${i}" value="${esc(item.description||'')}" placeholder="Description" style="width:100%;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#eaf0ff;font-size:13px;padding:2px 3px;outline:none;font-family:inherit;font-weight:600">`:`<span>${esc(item.description||'')}</span>`}
+      <td style="padding:10px 12px">
+        ${canEdit
+          ?`<input class="cs-item-desc" data-ep="${ep}" data-idx="${i}" value="${esc(item.description||'')}" placeholder="Description" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#eaf0ff;font-size:16px;padding:8px 10px;outline:none;font-family:inherit;font-weight:600">`
+          :`<span style="font-size:16px;color:#eaf0ff;font-weight:600;padding:8px 0;display:block">${esc(item.description||'')}</span>`}
       </td>
-      <td style="padding:6px 10px;font-size:12px;color:#8b949e">
-        ${canEdit?`<input class="cs-item-resp" data-ep="${ep}" data-idx="${i}" value="${esc(item.responsible||'')}" placeholder="Responsible" style="width:100%;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#8b949e;font-size:12px;padding:2px 3px;outline:none;font-family:inherit">`:`<span>${esc(item.responsible||'')}</span>`}
+      <td style="padding:10px 12px">
+        ${canEdit
+          ?`<input class="cs-item-resp" data-ep="${ep}" data-idx="${i}" value="${esc(item.responsible||'')}" placeholder="Responsible party" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#8b949e;font-size:15px;padding:8px 10px;outline:none;font-family:inherit">`
+          :`<span style="font-size:15px;color:#8b949e;padding:8px 0;display:block">${esc(item.responsible||'')}</span>`}
       </td>
-      ${canEdit?`<td style="padding:6px 4px;width:28px;text-align:center">
-        <button class="cs-del-item" data-ep="${ep}" data-idx="${i}" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:14px;padding:2px 5px" onmouseover="this.style.color='#f85149'" onmouseout="this.style.color='#484f58'">✕</button>
+      ${canEdit?`<td style="padding:10px 8px;width:40px;text-align:center">
+        <button class="cs-del-item" data-ep="${ep}" data-idx="${i}" style="background:none;border:1px solid #2e3a50;border-radius:4px;color:#484f58;cursor:pointer;font-size:16px;padding:6px 9px;width:36px;height:36px;display:flex;align-items:center;justify-content:center" onmouseover="this.style.color='#f85149';this.style.borderColor='#f85149'" onmouseout="this.style.color='#484f58';this.style.borderColor='#2e3a50'">✕</button>
       </td>`:''}
     </tr>`).join('');
 
+  const lbl=(text)=>`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#7a8ba0;margin-bottom:6px">${text}</div>`;
+
   return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
-    <!-- Header -->
-    <div style="padding:10px 18px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:14px;flex-shrink:0;flex-wrap:wrap">
-      <button class="btn" id="cs-back-btn" style="font-size:11px;padding:4px 10px">◀ Episodes</button>
+    <!-- Toolbar -->
+    <div style="padding:12px 20px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap">
+      <button class="btn" id="cs-back-btn" style="font-size:12px;padding:6px 14px">◀ Episodes</button>
       <div>
-        <span style="font-size:16px;font-weight:900;color:#e3b341;font-family:monospace">${epLabel}</span>
-        <span style="font-size:12px;color:#6e7681;margin-left:10px">${epDateFmt}</span>
+        <span style="font-size:18px;font-weight:900;color:#e3b341;font-family:monospace">${epLabel}</span>
+        <span style="font-size:13px;color:#6e7681;margin-left:12px">${epDateFmt}</span>
       </div>
-      <div style="margin-left:auto;display:flex;gap:8px">
-        ${canEdit?`<button class="btn" id="cs-add-row-btn" style="font-size:11px;border-color:#56d364;color:#56d364">+ Add Row</button>`:''}
-        <button class="btn" id="cs-export-pdf-btn" style="font-size:11px;border-color:#388bfd;color:#58a6ff">⬇ Print / PDF</button>
-        ${canEdit?`<button class="btn primary" id="cs-save-btn" style="font-size:11px;padding:5px 16px;font-weight:800">💾 Save</button>`:''}
+      <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        ${canEdit&&otherEps.length?`<select id="cs-copy-sel" style="background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 12px;border-radius:6px;font-size:13px">
+          <option value="">Copy from EP…</option>
+          ${otherEps.sort((a,b)=>b-a).map(n=>`<option value="${n}">EP ${String(n).padStart(2,'0')}</option>`).join('')}
+        </select>
+        <button class="btn" id="cs-copy-btn" style="font-size:12px;padding:6px 14px;border-color:#c084fc;color:#c084fc">Copy</button>`:''}
+        ${canEdit?`<button class="btn" id="cs-add-row-btn" style="font-size:12px;padding:6px 14px;border-color:#56d364;color:#56d364">+ Add Row</button>`:''}
+        <button class="btn" id="cs-export-pdf-btn" style="font-size:12px;padding:6px 14px;border-color:#388bfd;color:#58a6ff">⬇ Print / PDF</button>
+        ${canEdit?`<button class="btn primary" id="cs-save-btn" style="font-size:13px;padding:7px 20px;font-weight:800">💾 Save</button>`:''}
       </div>
     </div>
-    <!-- Content -->
-    <div style="flex:1;overflow-y:auto;padding:20px">
-      <!-- Header info grid -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
-        <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:8px;padding:14px 16px">
-          <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:10px">Production Contact</div>
-          <div style="display:grid;grid-template-columns:110px 1fr;gap:6px;align-items:center;font-size:12px">
-            <span style="color:#7a8ba0">Producer:</span>${inp('producer','Name')}
-            <span style="color:#7a8ba0">Cell:</span>${inp('producerCell','Cell number')}
-            <span style="color:#7a8ba0">Location:</span>${inp('location','Studio location')}
-            <span style="color:#7a8ba0">Studio contact:</span>${inp('studioContact','Name & number')}
+    <!-- Body -->
+    <div style="flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:20px">
+      <!-- Info grid -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <!-- Production Contact -->
+        <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:10px;padding:18px 20px">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #2e3a50">Production Contact</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div>${lbl('Producer')}${finp('producer','Full name')}</div>
+            <div>${lbl('Cell')}${finp('producerCell','Cell number')}</div>
+            <div>${lbl('Location')}${finp('location','Studio address')}</div>
+            <div>${lbl('Studio Contact')}${finp('studioContact','Name & number')}</div>
           </div>
         </div>
-        <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:8px;padding:14px 16px">
-          <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:10px">Anchor Call Times</div>
-          <div style="display:grid;grid-template-columns:80px 1fr 70px;gap:6px;align-items:center;font-size:12px">
-            <span style="color:#7a8ba0">Anchor 1:</span>${inp('anchor1','Name','100%')} ${inp('anchor1Time','00:00','65px')}
-            <span style="color:#7a8ba0">Anchor 2:</span>${inp('anchor2','Name','100%')} ${inp('anchor2Time','00:00','65px')}
+        <!-- Anchors -->
+        <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:10px;padding:18px 20px">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #2e3a50">Anchor Call Times</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:grid;grid-template-columns:1fr 120px;gap:10px">
+              <div>${lbl('Anchor 1')}${finp('anchor1','Name')}</div>
+              <div>${lbl('Call Time')}${finp('anchor1Time','00:00','100%')}</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 120px;gap:10px">
+              <div>${lbl('Anchor 2')}${finp('anchor2','Name')}</div>
+              <div>${lbl('Call Time')}${finp('anchor2Time','00:00','100%')}</div>
+            </div>
           </div>
         </div>
-        <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:8px;padding:14px 16px">
-          <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:10px">Key Crew</div>
-          <div style="display:grid;grid-template-columns:120px 1fr;gap:6px;align-items:center;font-size:12px">
-            <span style="color:#7a8ba0">Studio Director:</span>${inp('director','Name')}
-            <span style="color:#7a8ba0">Floor Manager:</span>${inp('floorMgr','Name')}
-            <span style="color:#7a8ba0">Autocue:</span>${inp('autocue','Operator / Company')}
-            <span style="color:#7a8ba0">Make-Up:</span>${inp('makeup','Name')}
-            <span style="color:#7a8ba0">VT Operator:</span>${inp('vtOp','Name')}
-            <span style="color:#7a8ba0">Engineer:</span>${inp('engineer','Name')}
+        <!-- Key Crew -->
+        <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:10px;padding:18px 20px">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #2e3a50">Key Crew</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>${lbl('Studio Director')}${finp('director','Name')}</div>
+            <div>${lbl('Floor Manager')}${finp('floorMgr','Name')}</div>
+            <div>${lbl('Autocue')}${finp('autocue','Operator / Company')}</div>
+            <div>${lbl('Make-Up')}${finp('makeup','Name')}</div>
+            <div>${lbl('VT Operator')}${finp('vtOp','Name')}</div>
+            <div>${lbl('Engineer')}${finp('engineer','Name')}</div>
           </div>
         </div>
-        <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:8px;padding:14px 16px">
-          <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:10px">Notes</div>
-          ${canEdit?`<textarea class="cs-field" data-ep="${ep}" data-field="notes" placeholder="Additional notes…" style="width:100%;background:transparent;border:1px solid #2e3a50;color:#eaf0ff;font-size:12px;padding:6px 8px;border-radius:4px;outline:none;font-family:inherit;resize:vertical;min-height:80px;box-sizing:border-box">${esc(cs.notes||'')}</textarea>`:`<div style="font-size:12px;color:#cdd9e5;white-space:pre-wrap">${esc(cs.notes||'—')}</div>`}
+        <!-- Notes -->
+        <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:10px;padding:18px 20px">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #2e3a50">Notes</div>
+          ${ftxt('notes','Additional notes, special instructions…')}
         </div>
       </div>
-      <!-- Schedule table -->
-      <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:8px;overflow:hidden">
-        <div style="padding:10px 16px;background:#1e2535;border-bottom:1px solid #2e3a50;display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341">Schedule & Running Order</span>
-          <span style="font-size:10px;color:#484f58">${items.length} items</span>
+      <!-- Schedule -->
+      <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:10px;overflow:hidden">
+        <div style="padding:14px 20px;background:#1e2535;border-bottom:2px solid #2e3a50;display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341">Schedule &amp; Running Order</span>
+          <span style="font-size:12px;color:#484f58">${items.length} items</span>
         </div>
         <table style="width:100%;border-collapse:collapse">
           <thead>
-            <tr style="background:#161b22;border-bottom:2px solid #2e3a50">
-              <th style="padding:7px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left;width:70px">Time</th>
-              <th style="padding:7px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left">Description</th>
-              <th style="padding:7px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left">Responsible</th>
-              ${canEdit?'<th style="width:28px"></th>':''}
+            <tr style="background:#161b22">
+              <th style="padding:10px 12px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left;width:90px;border-bottom:2px solid #2e3a50">Time</th>
+              <th style="padding:10px 12px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left;border-bottom:2px solid #2e3a50">Description</th>
+              <th style="padding:10px 12px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left;border-bottom:2px solid #2e3a50">Responsible</th>
+              ${canEdit?`<th style="width:40px;border-bottom:2px solid #2e3a50"></th>`:''}
             </tr>
           </thead>
           <tbody>${scheduleRows}</tbody>
@@ -6670,6 +6701,22 @@ document.addEventListener('click',function csClickHandler(e){
     cs.items.splice(idx,1);
     callSheetData[String(ep)]=cs;
     render();return;
+  }
+  // Copy from episode
+  if(e.target.id==='cs-copy-btn'){
+    const sel=document.getElementById('cs-copy-sel');
+    const srcEp=sel?.value;
+    if(!srcEp){showToast('Please select an episode to copy from',true);return;}
+    const src=callSheetData[String(srcEp)];
+    if(!src){showToast('No call sheet found for that episode',true);return;}
+    if(!confirm(`Copy call sheet from EP ${String(srcEp).padStart(2,'0')} to EP ${String(csCurrentEp).padStart(2,'0')}? This will overwrite any existing data.`))return;
+    // Deep copy, clear items' times so user updates them
+    const copy=JSON.parse(JSON.stringify(src));
+    callSheetData[String(csCurrentEp)]=copy;
+    saveCallSheet(csCurrentEp,copy);
+    showToast('Copied from EP '+String(srcEp).padStart(2,'0')+' ✓');
+    render();
+    return;
   }
   // Export PDF
   if(e.target.id==='cs-export-pdf-btn'){csExportPDF();return;}
