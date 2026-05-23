@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.6.0';
+const BUILD_VERSION='3.6.1';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3914,10 +3914,11 @@ function renderCallSheet(epNums){
     const mkey=csRespModal.key;
     const mSi=CS_SCHED_ITEMS.find(s=>s.key===mkey)||{};
     const mSel=((cs.schedItems||[]).find(x=>x.key===mkey)||{}).responsible||[];
+    const allNamesWithCrew=['ALL CREW',...allNames];
     const nameOpts=allNames.length
-      ?allNames.map(n=>`<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #21262d;cursor:pointer;font-size:14px;color:#eaf0ff" onmouseover="this.style.background='#1e2535'" onmouseout="this.style.background='transparent'">
+      ?allNamesWithCrew.map(n=>`<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #21262d;cursor:pointer;font-size:14px;color:#eaf0ff" onmouseover="this.style.background='#1e2535'" onmouseout="this.style.background='transparent'">
           <input type="checkbox" class="cs-resp-cb" data-key="${mkey}" data-name="${esc(n)}" ${mSel.includes(n)?'checked':''} style="width:16px;height:16px;cursor:pointer;accent-color:#58a6ff">
-          <span>${esc(n)}</span>
+          <span style="${n==='ALL CREW'?'font-weight:800;color:#e3b341':''}">${esc(n)}</span>
         </label>`).join('')
       :'<div style="padding:20px;color:#484f58;text-align:center;font-size:13px">No contacts added yet — fill in the contacts sections above first.</div>';
     respModalHtml=`<div id="cs-resp-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center">
@@ -6591,14 +6592,14 @@ function csExportPDF(){
     .anchor-label{font-size:7.5pt;font-weight:800;color:#0077b6;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}
     .anchor-name{font-size:11pt;font-weight:900;color:#111}
     /* Three columns */
-    .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+    .three-col{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
     .box{border:1px solid #0077b633;border-radius:4px;overflow:hidden}
     /* Info tables */
     table.info{width:100%;border-collapse:collapse;font-size:8.5pt}
     table.info tr{border-bottom:1px solid #e8f0f8}
-    table.info .il{color:#0055a0;font-weight:700;padding:4px 8px;width:44%;white-space:nowrap;vertical-align:top;background:#f0f6ff}
-    table.info .iv{color:#111;padding:4px 8px;vertical-align:top}
-    table.info .ic{color:#555;padding:4px 8px;vertical-align:top;font-size:8pt}
+    table.info .il{color:#0055a0;font-weight:700;padding:5px 10px;width:200px;white-space:nowrap;vertical-align:top;background:#f0f6ff;font-size:9pt}
+    table.info .iv{color:#111;padding:5px 10px;vertical-align:top;font-size:9.5pt;font-weight:700}
+    table.info .ic{color:#555;padding:5px 10px;vertical-align:top;font-size:9pt}
     /* Schedule */
     .sched-title{font-size:8pt;font-weight:900;text-transform:uppercase;letter-spacing:.8px;color:#fff;background:#0077b6;padding:5px 10px;margin-top:10px}
     table.sched{width:100%;border-collapse:collapse;border:1px solid #0077b633}
