@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.6.1';
+const BUILD_VERSION='3.6.2';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -6576,7 +6576,8 @@ function csExportPDF(){
   <style>
     @page{size:A4 portrait;margin:14mm 14mm}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,Helvetica,sans-serif;color:#111;font-size:9pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body{font-family:Calibri,'Calibri',Arial,sans-serif;color:#111;font-size:9.5pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    @font-face{font-family:'Calibri';}
     /* Header */
     .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:10px;border-bottom:3px solid #0077b6}
     .logo{height:60px;width:auto}
@@ -6584,7 +6585,7 @@ function csExportPDF(){
     .ep-num{font-size:20pt;font-weight:900;color:#111;font-family:monospace;display:block;text-align:right}
     .ep-date{font-size:9pt;color:#555;text-align:right;display:block}
     /* Section titles */
-    .sec-title{font-size:8pt;font-weight:900;text-transform:uppercase;letter-spacing:.8px;color:#fff;background:#0077b6;padding:4px 10px;margin-bottom:0}
+    .sec-title{font-size:9pt;font-weight:900;text-transform:uppercase;letter-spacing:.8px;color:#fff;background:#0077b6;padding:6px 12px;margin-bottom:0}
     /* Anchors row — full width */
     .anchors-row{display:flex;gap:0;margin-bottom:10px;border:1px solid #0077b6;border-radius:4px;overflow:hidden}
     .anchor-cell{flex:1;padding:8px 12px;border-right:1px solid #0077b633}
@@ -6597,11 +6598,11 @@ function csExportPDF(){
     /* Info tables */
     table.info{width:100%;border-collapse:collapse;font-size:8.5pt}
     table.info tr{border-bottom:1px solid #e8f0f8}
-    table.info .il{color:#0055a0;font-weight:700;padding:5px 10px;width:200px;white-space:nowrap;vertical-align:top;background:#f0f6ff;font-size:9pt}
-    table.info .iv{color:#111;padding:5px 10px;vertical-align:top;font-size:9.5pt;font-weight:700}
+    table.info .il{color:#0055a0;font-weight:700;padding:5px 10px;width:200px;white-space:nowrap;vertical-align:top;background:#f0f6ff;font-size:9pt;font-family:Calibri,Arial,sans-serif}
+    table.info .iv{color:#111;padding:5px 10px;vertical-align:top;font-size:9.5pt;font-weight:700;font-family:Calibri,Arial,sans-serif}
     table.info .ic{color:#555;padding:5px 10px;vertical-align:top;font-size:9pt}
     /* Schedule */
-    .sched-title{font-size:8pt;font-weight:900;text-transform:uppercase;letter-spacing:.8px;color:#fff;background:#0077b6;padding:5px 10px;margin-top:10px}
+    .sched-title{font-size:9pt;font-weight:900;text-transform:uppercase;letter-spacing:.8px;color:#fff;background:#0077b6;padding:6px 12px;margin-top:0}
     table.sched{width:100%;border-collapse:collapse;border:1px solid #0077b633}
     table.sched thead th{background:#e8f4ff;color:#0055a0;padding:5px 8px;font-size:8pt;font-weight:800;text-align:left;border-bottom:2px solid #0077b6}
     table.sched tbody tr:nth-child(even){background:#f7faff}
@@ -6649,7 +6650,7 @@ function csExportPDF(){
     </div>
     <!-- Facilities Contact -->
     <div class="box">
-      <div class="sec-title">Facilities Contact</div>
+      <div class="sec-title">Facilities Contacts</div>
       <table class="info">
         <tr><td class="il">Address</td><td class="iv" colspan="2">${cs.location||'—'}</td></tr>
         <tr><td class="il">Engineer 1</td><td class="iv">${cs.eng1||'—'}</td><td class="ic">${cs.eng1Cell||''}</td></tr>
@@ -6668,6 +6669,12 @@ function csExportPDF(){
   </div>
   ${cs.notes?`<div class="notes-box"><strong style="color:#0077b6">Notes:</strong> ${cs.notes}</div>`:''}
   <!-- Schedule -->
+  <div style="page-break-before:always;padding-top:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #0077b6">
+      <div style="font-size:10pt;font-weight:900;color:#0077b6;font-family:Calibri,Arial,sans-serif">${epLabel} &nbsp;·&nbsp; ${epDateFmt}</div>
+      <div style="font-size:9pt;color:#555;font-family:Calibri,Arial,sans-serif">Studio Call Sheet &amp; Running Order</div>
+    </div>
+  </div>
   <div class="sched-title">Schedule &amp; Running Order</div>
   <table class="sched">
     <thead><tr><th class="dcol">Activity</th><th class="tcol">Time</th><th>Responsible</th></tr></thead>
