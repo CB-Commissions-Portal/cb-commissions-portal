@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.5.9';
+const BUILD_VERSION='3.6.0';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -6571,61 +6571,105 @@ function csExportPDF(){
   </tr>`).join('');
 
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8">
-  <title>CB Studio Call Sheet</title>
+  <title>CB Studio Call Sheet — ${epLabel}</title>
   <style>
-    @page{size:A4 portrait;margin:12mm 14mm}
+    @page{size:A4 portrait;margin:14mm 14mm}
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Arial,Helvetica,sans-serif;color:#111;font-size:9pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:3px solid #0077b6}
-    .logo{height:55px;width:auto}
-    .doc-title{font-size:12pt;font-weight:900;color:#0077b6}
-    .ep-num{font-size:16pt;font-weight:900;color:#111;font-family:monospace;display:block;text-align:right}
-    .ep-date{font-size:8.5pt;color:#555;text-align:right;display:block}
-    h3{font-size:7.5pt;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#0077b6;margin-bottom:5px;border-bottom:1px solid #0077b644;padding-bottom:3px}
-    .four-col{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px;width:100%}
-    .box{border:1px solid #cce0f5;border-radius:4px;padding:8px 10px;background:#fafcff}
+    /* Header */
+    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:10px;border-bottom:3px solid #0077b6}
+    .logo{height:60px;width:auto}
+    .doc-title{font-size:13pt;font-weight:900;color:#0077b6;display:block;text-align:right}
+    .ep-num{font-size:20pt;font-weight:900;color:#111;font-family:monospace;display:block;text-align:right}
+    .ep-date{font-size:9pt;color:#555;text-align:right;display:block}
+    /* Section titles */
+    .sec-title{font-size:8pt;font-weight:900;text-transform:uppercase;letter-spacing:.8px;color:#fff;background:#0077b6;padding:4px 10px;margin-bottom:0}
+    /* Anchors row — full width */
+    .anchors-row{display:flex;gap:0;margin-bottom:10px;border:1px solid #0077b6;border-radius:4px;overflow:hidden}
+    .anchor-cell{flex:1;padding:8px 12px;border-right:1px solid #0077b633}
+    .anchor-cell:last-child{border-right:none}
+    .anchor-label{font-size:7.5pt;font-weight:800;color:#0077b6;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}
+    .anchor-name{font-size:11pt;font-weight:900;color:#111}
+    /* Three columns */
+    .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+    .box{border:1px solid #0077b633;border-radius:4px;overflow:hidden}
+    /* Info tables */
     table.info{width:100%;border-collapse:collapse;font-size:8.5pt}
-    table.info .il{color:#0055a0;font-weight:700;padding:2px 6px 2px 0;width:48%;white-space:nowrap;vertical-align:top;font-size:8pt}
-    table.info .iv{color:#111;padding:2px 0;vertical-align:top}
-    table.sched{width:100%;border-collapse:collapse}
-    table.sched thead th{background:#0077b6;color:#fff;padding:5px 7px;font-size:8pt;font-weight:800;text-align:left;text-transform:uppercase}
-    table.sched tbody tr:nth-child(even){background:#f4f8ff}
-    table.sched .time{width:48px;font-family:monospace;font-weight:700;color:#c07000;padding:4px 6px;border-bottom:1px solid #eee;white-space:nowrap}
-    table.sched .desc{font-weight:600;padding:4px 6px;border-bottom:1px solid #eee;width:200px}
-    table.sched .resp{color:#555;padding:4px 6px;border-bottom:1px solid #eee;font-size:8.5pt}
-    .sched-title{font-size:8.5pt;font-weight:800;text-transform:uppercase;color:#0077b6;margin:8px 0 4px}
-    .footer{margin-top:8px;font-size:7pt;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:4px}
+    table.info tr{border-bottom:1px solid #e8f0f8}
+    table.info .il{color:#0055a0;font-weight:700;padding:4px 8px;width:44%;white-space:nowrap;vertical-align:top;background:#f0f6ff}
+    table.info .iv{color:#111;padding:4px 8px;vertical-align:top}
+    table.info .ic{color:#555;padding:4px 8px;vertical-align:top;font-size:8pt}
+    /* Schedule */
+    .sched-title{font-size:8pt;font-weight:900;text-transform:uppercase;letter-spacing:.8px;color:#fff;background:#0077b6;padding:5px 10px;margin-top:10px}
+    table.sched{width:100%;border-collapse:collapse;border:1px solid #0077b633}
+    table.sched thead th{background:#e8f4ff;color:#0055a0;padding:5px 8px;font-size:8pt;font-weight:800;text-align:left;border-bottom:2px solid #0077b6}
+    table.sched tbody tr:nth-child(even){background:#f7faff}
+    table.sched td{padding:5px 8px;border-bottom:1px solid #e8f0f8;font-size:8.5pt;vertical-align:top}
+    table.sched .tcol{width:55px;font-family:monospace;font-weight:800;color:#c07000;white-space:nowrap}
+    table.sched .dcol{font-weight:700;width:180px}
+    .footer{margin-top:10px;font-size:7pt;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:5px}
+    ${cs.notes?'.notes-box{border:1px solid #0077b633;border-radius:4px;padding:7px 10px;margin-bottom:10px;font-size:8.5pt}':''}
   </style></head><body>
+  <!-- Header -->
   <div class="header">
     <img src="${logoSrc}" class="logo" alt="Carte Blanche">
-    <div><div class="doc-title">Studio Call Sheet &amp; Running Order</div>
-    <span class="ep-num">${epLabel}</span><span class="ep-date">${epDateFmt}</span></div>
-  </div>
-  <div class="four-col">
-    <div class="box"><h3>Production Contacts</h3><table class="info">
-      ${cr('Prod. Coordinator',cs.producer,cs.producerCell)}
-      ${cr('Editorial Manager',cs.editorialMgr,cs.editorialMgrCell)}
-      ${cr('Studio Director',cs.director,cs.directorCell)}
-      ${cr('Asst. Director',cs.asstDir,cs.asstDirCell)}
-      ${cr('Floor Manager',cs.floorMgr,cs.floorMgrCell)}
-      ${cr('Autocue',cs.autocue,cs.autocueCell)}
-      ${cr('Make-Up & Styling',cs.makeup,cs.makeupCell)}
-    </table></div>
-    <div class="box"><h3>Facilities Contacts</h3><table class="info">
-      ${cr('Engineer 1',cs.eng1,cs.eng1Cell)}
-      ${cr('Engineer 2',cs.eng2,cs.eng2Cell)}
-      ${cr('Facilities Manager',cs.facMgr,cs.facMgrCell)}
-      <tr><td class="il">Studio:</td><td class="iv">${cs.location||'—'}</td></tr>
-    </table>${cs.notes?`<div style="margin-top:5px;font-size:8pt;color:#444;border-top:1px solid #dde8f5;padding-top:4px"><strong style="color:#0077b6">Notes:</strong> ${cs.notes}</div>`:''}</div>
-    <div class="box"><h3>Anchors</h3>
-      ${cs.anchor1Name?`<div style="margin-bottom:6px"><div style="font-size:7pt;font-weight:700;color:#0077b6;text-transform:uppercase">Anchor 1</div><div style="font-size:9pt;font-weight:700">${cs.anchor1Name}</div>${cs.anchor1Pres?`<div style="font-size:8pt;color:#555;font-style:italic">${cs.anchor1Pres}</div>`:''} ${cs.anchor1Topics?`<div style="font-size:8pt;color:#7700aa">${cs.anchor1Topics}</div>`:''}</div>`:''}
-      ${cs.anchor2Name?`<div><div style="font-size:7pt;font-weight:700;color:#0077b6;text-transform:uppercase">Anchor 2</div><div style="font-size:9pt;font-weight:700">${cs.anchor2Name}</div>${cs.anchor2Pres?`<div style="font-size:8pt;color:#555;font-style:italic">${cs.anchor2Pres}</div>`:''} ${cs.anchor2Topics?`<div style="font-size:8pt;color:#7700aa">${cs.anchor2Topics}</div>`:''}</div>`:''}
+    <div>
+      <span class="doc-title">Studio Call Sheet &amp; Running Order</span>
+      <span class="ep-num">${epLabel}</span>
+      <span class="ep-date">${epDateFmt}</span>
     </div>
-    <div class="box"><h3>Call Times</h3><table style="width:100%;border-collapse:collapse;font-size:8.5pt">${ctRows}</table></div>
   </div>
+  <!-- Anchors — full width row -->
+  <div class="anchors-row">
+    <div class="sec-title" style="writing-mode:vertical-rl;text-orientation:mixed;padding:8px 6px;flex-shrink:0">ANCHORS</div>
+    <div class="anchor-cell">
+      <div class="anchor-label">Anchor 1</div>
+      <div class="anchor-name">${cs.anchor1Name||'—'}</div>
+    </div>
+    <div class="anchor-cell">
+      <div class="anchor-label">Anchor 2</div>
+      <div class="anchor-name">${cs.anchor2Name||'—'}</div>
+    </div>
+  </div>
+  <!-- Three columns -->
+  <div class="three-col">
+    <!-- Production Contacts -->
+    <div class="box">
+      <div class="sec-title">Production Contacts</div>
+      <table class="info">
+        <tr><td class="il">Production Coordinator</td><td class="iv">${cs.producer||'—'}</td><td class="ic">${cs.producerCell||''}</td></tr>
+        <tr><td class="il">Editorial Manager</td><td class="iv">${cs.editorialMgr||'—'}</td><td class="ic">${cs.editorialMgrCell||''}</td></tr>
+        <tr><td class="il">Studio Director</td><td class="iv">${cs.director||'—'}</td><td class="ic">${cs.directorCell||''}</td></tr>
+        <tr><td class="il">Assistant Director</td><td class="iv">${cs.asstDir||'—'}</td><td class="ic">${cs.asstDirCell||''}</td></tr>
+        <tr><td class="il">Floor Manager</td><td class="iv">${cs.floorMgr||'—'}</td><td class="ic">${cs.floorMgrCell||''}</td></tr>
+        <tr><td class="il">Autocue</td><td class="iv">${cs.autocue||'—'}</td><td class="ic">${cs.autocueCell||''}</td></tr>
+        <tr><td class="il">Make-Up &amp; Styling</td><td class="iv">${cs.makeup||'—'}</td><td class="ic">${cs.makeupCell||''}</td></tr>
+      </table>
+    </div>
+    <!-- Facilities Contact -->
+    <div class="box">
+      <div class="sec-title">Facilities Contact</div>
+      <table class="info">
+        <tr><td class="il">Address</td><td class="iv" colspan="2">${cs.location||'—'}</td></tr>
+        <tr><td class="il">Engineer 1</td><td class="iv">${cs.eng1||'—'}</td><td class="ic">${cs.eng1Cell||''}</td></tr>
+        <tr><td class="il">Engineer 2</td><td class="iv">${cs.eng2||'—'}</td><td class="ic">${cs.eng2Cell||''}</td></tr>
+        <tr><td class="il">Facilities Manager</td><td class="iv">${cs.facMgr||'—'}</td><td class="ic">${cs.facMgrCell||''}</td></tr>
+      </table>
+    </div>
+    <!-- Call Times -->
+    <div class="box">
+      <div class="sec-title">Call Times</div>
+      <table class="info">
+        <tr style="background:#e8f4ff"><th class="il" style="font-size:7.5pt">Role</th><th style="padding:4px 8px;font-size:7.5pt;color:#0055a0;font-weight:800;width:40px">Time</th><th style="padding:4px 8px;font-size:7.5pt;color:#0055a0;font-weight:800">Name</th></tr>
+        ${calltimes.map(ct=>`<tr><td class="il">${ct.label}</td><td style="padding:4px 8px;font-family:monospace;font-weight:900;color:#c07000;font-size:9pt;white-space:nowrap">${cs[ct.key+'_time']||'—'}</td><td style="padding:4px 8px;color:#111">${cs[ct.key+'_name']||''}</td></tr>`).join('')}
+      </table>
+    </div>
+  </div>
+  ${cs.notes?`<div class="notes-box"><strong style="color:#0077b6">Notes:</strong> ${cs.notes}</div>`:''}
+  <!-- Schedule -->
   <div class="sched-title">Schedule &amp; Running Order</div>
   <table class="sched">
-    <thead><tr><th style="width:200px">Activity</th><th style="width:52px">Time</th><th>Responsible</th></tr></thead>
+    <thead><tr><th class="dcol">Activity</th><th class="tcol">Time</th><th>Responsible</th></tr></thead>
     <tbody>${schedRows}</tbody>
   </table>
   <div class="footer">Carte Blanche Production Portal &nbsp;·&nbsp; ${epLabel} &nbsp;·&nbsp; Season ${currentSeason} &nbsp;·&nbsp; ${new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'})}</div>
