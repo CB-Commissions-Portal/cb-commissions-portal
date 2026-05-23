@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.5.1';
+const BUILD_VERSION='3.5.2';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -435,6 +435,7 @@ let luCollapsed=new Set();
 let studioCollapsed=new Set();
 let ppData={};
 let broadcastSearch='';
+let callSheetData={}; // {epNum: {anchor1,anchor1Time,anchor2,anchor2Time,director,floorMgr,autocue,makeup,vt,engineer,prod,prodTime,studioFacs,items:[{time,description,responsible}]}}
 let appTheme=localStorage.getItem('cb_theme')||'dark'; // 'dark' or 'light'
 let rosData={}; // {epNum: {items:[{type,label,content,duration}]}}
 let rosEpModal=false; // show episode picker modal
@@ -712,6 +713,15 @@ async function savePPEntry(commNum,data){
   setSyncDot('saving');
   try{await setDoc(doc(db,'postprod',String(commNum)),{...data,updatedAt:serverTimestamp()});ppData[commNum]={...data};setSyncDot('live');}
   catch(e){setSyncDot('offline');showToast('Post prod save failed: '+e.message,true);}
+}
+async function saveCallSheet(epNum,data){
+  setSyncDot('saving');
+  try{await setDoc(doc(db,'call_sheets',String(epNum)),{...data,updatedAt:serverTimestamp()});callSheetData[epNum]={...data};setSyncDot('live');}
+  catch(e){setSyncDot('offline');showToast('Call sheet save failed: '+e.message,true);}
+}
+async function loadCallSheets(){
+  try{const snap=await getDocs(collection(db,'call_sheets'));snap.docs.forEach(d=>{callSheetData[d.id]={...d.data()};});}
+  catch(e){console.error('Call sheets load:',e);}
 }
 async function saveROS(epNum,data){
   setSyncDot('saving');
@@ -1289,6 +1299,16 @@ function renderHome(){
       desc:'Build episode run of show with duration calculator'
     },
     {
+      tab:'callsheet',
+      title:'Studio Call Sheet',
+      sub:`Season ${season}`,
+      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
+      color:'#e3b341',
+      bg:'rgba(227,179,65,.1)',
+      show: ['admin','operations','production','prodmgmt','editorial'].includes(role),
+      desc:'Studio call sheet and running order per episode'
+    },
+    {
       tab:'broadcast',
       title:'Broadcast List',
       sub:`Season ${season}`,
@@ -1541,6 +1561,7 @@ function renderApp(){
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='deliverables'?' active':''}" data-tab="deliverables">Deliverables</div>`:''}
     ${['admin','operations','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='promos'?' active':''}" data-tab="promos">Promo Scheduling</div>`:''}
     ${['admin','operations','afm','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='musiccues'?' active':''}" data-tab="musiccues">Music Cue Sheets</div>`:''}
+    ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='callsheet'?' active':''}" data-tab="callsheet">Studio Call Sheet</div>`:''}
     ${['admin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='credits'?' active':''}" data-tab="credits">End Credits</div>`:''}
     ${['admin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}
     ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='prescal'?' active':''}" data-tab="prescal">Presenter Calendar</div>`:''}
@@ -1560,6 +1581,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='commissions'&&role!=='afm')return renderCommList(epNums,nextEp);
   if(tab==='episodes'&&role!=='afm')return renderEpisodes(epNums,paid,remaining);
   if(tab==='studio'&&['admin','operations','production'].includes(role))return renderStudioCrew(epNums);
+  if(tab==='callsheet'&&['admin','operations','production','prodmgmt','editorial'].includes(role))return renderCallSheet(epNums);
   if(tab==='credits'&&['admin','operations','production'].includes(role))return renderEndCredits(epNums);
   if(tab==='promos'&&['admin','operations','prodmgmt','editorial'].includes(role))return renderPromoScheduling(epNums);
   if(tab==='musiccues'&&['admin','operations','afm','production'].includes(role))return renderMusicCues(epNums);
@@ -3810,6 +3832,164 @@ function renderHelp(){
   overlay.addEventListener('click',e=>{if(e.target===overlay)hideHelp();});
 }
 
+
+
+// ── STUDIO CALL SHEET ───────────────────────────────────────────
+let csCurrentEp=null;
+
+// Default schedule items template
+function defaultCallItems(){
+  return [
+    {time:'14:00',description:'Call time: STYLING & MAKE-UP',responsible:''},
+    {time:'15:15',description:'Call time: ANCHOR',responsible:''},
+    {time:'15:30',description:'Make-Up & Wardrobe: MAKE-UP',responsible:''},
+    {time:'15:30',description:'Ingest: CONTENT',responsible:''},
+    {time:'16:00',description:'Call time: PRODUCTION',responsible:''},
+    {time:'16:00',description:'Call time: ANCHOR',responsible:''},
+    {time:'16:00',description:'Call time: STUDIO CREW & FACS CHECK',responsible:''},
+    {time:'16:00',description:'View: INSERTS',responsible:''},
+    {time:'16:15',description:'Call time: STUDIO DIRECTOR',responsible:''},
+    {time:'16:15',description:'Call time: FLOOR MANAGER',responsible:''},
+    {time:'16:15',description:'Call time: AUTOCUE',responsible:''},
+    {time:'16:30',description:'Script block',responsible:'DIRECTOR / FLOOR MANAGER / CAMERA OPS'},
+    {time:'16:50',description:'Mic anchors',responsible:'ALL CREW'},
+    {time:'17:15',description:'Rehearsal',responsible:'ALL'},
+    {time:'18:00',description:'DINNER',responsible:'ALL CREW'},
+    {time:'18:45',description:'Dry run: OPENING LINK',responsible:'ALL'},
+    {time:'19:00',description:'LIVE TX',responsible:'ALL'},
+    {time:'20:00',description:'TRANSFER SHOW: BACKUP DRIVE',responsible:'VT OPERATOR / ENGINEER'},
+    {time:'20:10',description:'WRAP',responsible:'ALL'},
+  ];
+}
+
+function renderCallSheet(epNums){
+  const role=getEffectiveRole();
+  const canEdit=['admin','prodmgmt'].includes(role);
+
+  // Episode picker
+  if(!csCurrentEp){
+    const today=new Date().toISOString().split('T')[0];
+    const epList=epNums.sort((a,b)=>a-b).map(ep=>{
+      const d=resolveDate(ep);
+      const hasSaved=!!callSheetData[String(ep)];
+      const isPast=d&&d<today;
+      return`<div class="cs-ep-pick" data-ep="${ep}"
+        style="background:#1c2433;border:2px solid ${hasSaved?'#e3b341':'#2e3a50'};border-radius:10px;padding:16px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"
+        onmouseover="this.style.borderColor='#e3b341'" onmouseout="this.style.borderColor='${hasSaved?'#e3b341':'#2e3a50'}'">
+        <div>
+          <div style="font-size:18px;font-weight:900;color:${isPast?'#f85149':'#eaf0ff'};font-family:monospace">S${currentSeason} EP ${String(ep).padStart(2,'0')}</div>
+          <div style="font-size:12px;color:#6e7681;margin-top:3px">${d?new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'No date set'}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${hasSaved?'<span style="font-size:10px;background:#2d2000;color:#e3b341;padding:3px 9px;border-radius:4px;border:1px solid #4a3300;font-weight:700">HAS CALL SHEET</span>':''}
+          <span style="color:#e3b341;font-size:22px">→</span>
+        </div>
+      </div>`;
+    }).join('');
+    return`<div class="ep-wrap" style="padding:32px;max-width:620px;margin:0 auto">
+      <h2 style="font-size:20px;font-weight:900;color:#eaf0ff;margin:0 0 20px 0">Studio Call Sheet — Select Episode</h2>
+      ${epList||'<div style="color:#484f58">No episodes found.</div>'}
+    </div>`;
+  }
+
+  const ep=csCurrentEp;
+  const epDate=resolveDate(ep);
+  const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'';
+  const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
+  const cs=callSheetData[String(ep)]||{};
+  const items=cs.items||defaultCallItems();
+
+  const inp=(field,placeholder,width='100%',cls='')=>canEdit
+    ?`<input class="cs-field ${cls}" data-ep="${ep}" data-field="${field}" value="${esc(cs[field]||'')}" placeholder="${placeholder}" style="width:${width};background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#eaf0ff;font-size:13px;padding:3px 4px;outline:none;font-family:inherit">`
+    :`<span style="font-size:13px;color:${cs[field]?'#eaf0ff':'#484f58'}">${esc(cs[field]||placeholder)}</span>`;
+
+  const scheduleRows=items.map((item,i)=>`
+    <tr style="border-bottom:1px solid #21262d">
+      <td style="padding:6px 10px;width:70px;font-size:12px;font-family:monospace;color:#e3b341">
+        ${canEdit?`<input class="cs-item-time" data-ep="${ep}" data-idx="${i}" value="${esc(item.time||'')}" placeholder="00:00" style="width:60px;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#e3b341;font-size:12px;padding:2px 3px;outline:none;font-family:monospace;text-align:center">`:`<span>${esc(item.time||'')}</span>`}
+      </td>
+      <td style="padding:6px 10px;font-size:13px;color:#eaf0ff;font-weight:600">
+        ${canEdit?`<input class="cs-item-desc" data-ep="${ep}" data-idx="${i}" value="${esc(item.description||'')}" placeholder="Description" style="width:100%;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#eaf0ff;font-size:13px;padding:2px 3px;outline:none;font-family:inherit;font-weight:600">`:`<span>${esc(item.description||'')}</span>`}
+      </td>
+      <td style="padding:6px 10px;font-size:12px;color:#8b949e">
+        ${canEdit?`<input class="cs-item-resp" data-ep="${ep}" data-idx="${i}" value="${esc(item.responsible||'')}" placeholder="Responsible" style="width:100%;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#8b949e;font-size:12px;padding:2px 3px;outline:none;font-family:inherit">`:`<span>${esc(item.responsible||'')}</span>`}
+      </td>
+      ${canEdit?`<td style="padding:6px 4px;width:28px;text-align:center">
+        <button class="cs-del-item" data-ep="${ep}" data-idx="${i}" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:14px;padding:2px 5px" onmouseover="this.style.color='#f85149'" onmouseout="this.style.color='#484f58'">✕</button>
+      </td>`:''}
+    </tr>`).join('');
+
+  return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
+    <!-- Header -->
+    <div style="padding:10px 18px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:14px;flex-shrink:0;flex-wrap:wrap">
+      <button class="btn" id="cs-back-btn" style="font-size:11px;padding:4px 10px">◀ Episodes</button>
+      <div>
+        <span style="font-size:16px;font-weight:900;color:#e3b341;font-family:monospace">${epLabel}</span>
+        <span style="font-size:12px;color:#6e7681;margin-left:10px">${epDateFmt}</span>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        ${canEdit?`<button class="btn" id="cs-add-row-btn" style="font-size:11px;border-color:#56d364;color:#56d364">+ Add Row</button>`:''}
+        <button class="btn" id="cs-export-pdf-btn" style="font-size:11px;border-color:#388bfd;color:#58a6ff">⬇ Print / PDF</button>
+        ${canEdit?`<button class="btn primary" id="cs-save-btn" style="font-size:11px;padding:5px 16px;font-weight:800">💾 Save</button>`:''}
+      </div>
+    </div>
+    <!-- Content -->
+    <div style="flex:1;overflow-y:auto;padding:20px">
+      <!-- Header info grid -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+        <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:8px;padding:14px 16px">
+          <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:10px">Production Contact</div>
+          <div style="display:grid;grid-template-columns:110px 1fr;gap:6px;align-items:center;font-size:12px">
+            <span style="color:#7a8ba0">Producer:</span>${inp('producer','Name')}
+            <span style="color:#7a8ba0">Cell:</span>${inp('producerCell','Cell number')}
+            <span style="color:#7a8ba0">Location:</span>${inp('location','Studio location')}
+            <span style="color:#7a8ba0">Studio contact:</span>${inp('studioContact','Name & number')}
+          </div>
+        </div>
+        <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:8px;padding:14px 16px">
+          <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:10px">Anchor Call Times</div>
+          <div style="display:grid;grid-template-columns:80px 1fr 70px;gap:6px;align-items:center;font-size:12px">
+            <span style="color:#7a8ba0">Anchor 1:</span>${inp('anchor1','Name','100%')} ${inp('anchor1Time','00:00','65px')}
+            <span style="color:#7a8ba0">Anchor 2:</span>${inp('anchor2','Name','100%')} ${inp('anchor2Time','00:00','65px')}
+          </div>
+        </div>
+        <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:8px;padding:14px 16px">
+          <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:10px">Key Crew</div>
+          <div style="display:grid;grid-template-columns:120px 1fr;gap:6px;align-items:center;font-size:12px">
+            <span style="color:#7a8ba0">Studio Director:</span>${inp('director','Name')}
+            <span style="color:#7a8ba0">Floor Manager:</span>${inp('floorMgr','Name')}
+            <span style="color:#7a8ba0">Autocue:</span>${inp('autocue','Operator / Company')}
+            <span style="color:#7a8ba0">Make-Up:</span>${inp('makeup','Name')}
+            <span style="color:#7a8ba0">VT Operator:</span>${inp('vtOp','Name')}
+            <span style="color:#7a8ba0">Engineer:</span>${inp('engineer','Name')}
+          </div>
+        </div>
+        <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:8px;padding:14px 16px">
+          <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:10px">Notes</div>
+          ${canEdit?`<textarea class="cs-field" data-ep="${ep}" data-field="notes" placeholder="Additional notes…" style="width:100%;background:transparent;border:1px solid #2e3a50;color:#eaf0ff;font-size:12px;padding:6px 8px;border-radius:4px;outline:none;font-family:inherit;resize:vertical;min-height:80px;box-sizing:border-box">${esc(cs.notes||'')}</textarea>`:`<div style="font-size:12px;color:#cdd9e5;white-space:pre-wrap">${esc(cs.notes||'—')}</div>`}
+        </div>
+      </div>
+      <!-- Schedule table -->
+      <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:8px;overflow:hidden">
+        <div style="padding:10px 16px;background:#1e2535;border-bottom:1px solid #2e3a50;display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341">Schedule & Running Order</span>
+          <span style="font-size:10px;color:#484f58">${items.length} items</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="background:#161b22;border-bottom:2px solid #2e3a50">
+              <th style="padding:7px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left;width:70px">Time</th>
+              <th style="padding:7px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left">Description</th>
+              <th style="padding:7px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left">Responsible</th>
+              ${canEdit?'<th style="width:28px"></th>':''}
+            </tr>
+          </thead>
+          <tbody>${scheduleRows}</tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+}
 
 function renderBroadcastList(){
   const q=broadcastSearch.toLowerCase().trim();
@@ -6340,6 +6520,161 @@ function ppCellStyle(val){
   return'background:#1c2433;color:#cdd9e5';
 }
 
+
+// ── STUDIO CALL SHEET handlers ────────────────────────────────────
+function csFlushAndGet(){
+  const ep=csCurrentEp;
+  if(!ep)return null;
+  const cs={...(callSheetData[String(ep)]||{})};
+  // Flush header fields
+  document.querySelectorAll(`.cs-field[data-ep="${ep}"]`).forEach(el=>{
+    cs[el.dataset.field]=el.tagName==='TEXTAREA'?el.value:el.value;
+  });
+  // Flush schedule items
+  const existingItems=cs.items||defaultCallItems();
+  document.querySelectorAll(`.cs-item-time[data-ep="${ep}"]`).forEach(inp=>{
+    const i=Number(inp.dataset.idx);
+    if(existingItems[i])existingItems[i].time=inp.value;
+  });
+  document.querySelectorAll(`.cs-item-desc[data-ep="${ep}"]`).forEach(inp=>{
+    const i=Number(inp.dataset.idx);
+    if(existingItems[i])existingItems[i].description=inp.value;
+  });
+  document.querySelectorAll(`.cs-item-resp[data-ep="${ep}"]`).forEach(inp=>{
+    const i=Number(inp.dataset.idx);
+    if(existingItems[i])existingItems[i].responsible=inp.value;
+  });
+  cs.items=existingItems;
+  return cs;
+}
+
+function csExportPDF(){
+  const ep=csCurrentEp;
+  if(!ep)return;
+  const cs=csFlushAndGet();
+  const epDate=resolveDate(ep);
+  const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'';
+  const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
+  const items=cs.items||defaultCallItems();
+
+  const rows=items.map(item=>`<tr>
+    <td style="padding:5px 8px;width:60px;font-family:monospace;font-size:10pt;color:#c07000;border-bottom:1px solid #e0e0e0;white-space:nowrap">${item.time||''}</td>
+    <td style="padding:5px 8px;font-size:10pt;font-weight:600;border-bottom:1px solid #e0e0e0">${item.description||''}</td>
+    <td style="padding:5px 8px;font-size:10pt;color:#555;border-bottom:1px solid #e0e0e0">${item.responsible||''}</td>
+  </tr>`).join('');
+
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>Carte Blanche Studio Call Sheet — ${epLabel}</title>
+  <style>
+    @page{size:A4 portrait;margin:15mm}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,Helvetica,sans-serif;color:#111;font-size:10pt}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:3px solid #c07000}
+    .brand{font-size:22pt;font-weight:900;color:#c07000;letter-spacing:-1px}
+    .doc-title{font-size:14pt;font-weight:700;color:#111;margin-top:2px}
+    .ep-info{text-align:right;font-size:11pt;color:#555}
+    .ep-num{font-size:16pt;font-weight:900;color:#111;font-family:monospace}
+    .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+    .info-box{border:1px solid #ddd;border-radius:5px;padding:10px 12px}
+    .info-box h3{font-size:8pt;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#c07000;margin-bottom:7px;border-bottom:1px solid #eee;padding-bottom:4px}
+    .info-row{display:grid;grid-template-columns:110px 1fr;gap:4px;font-size:9.5pt;margin-bottom:4px}
+    .info-lbl{color:#777;font-weight:600}
+    .info-val{color:#111}
+    table{width:100%;border-collapse:collapse;margin-top:0}
+    thead th{background:#1a1a1a;color:#fff;padding:6px 8px;font-size:8.5pt;font-weight:800;text-transform:uppercase;text-align:left}
+    tbody tr:nth-child(even){background:#f9f9f9}
+    .schedule-header{font-size:8pt;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#c07000;margin-bottom:6px;margin-top:14px}
+    .footer{margin-top:12px;font-size:7.5pt;color:#999;text-align:center;border-top:1px solid #ddd;padding-top:6px}
+    .notes-box{border:1px solid #ddd;border-radius:5px;padding:10px 12px;margin-bottom:14px}
+  </style></head><body>
+  <div class="header">
+    <div>
+      <div class="brand">CARTE BLANCHE</div>
+      <div class="doc-title">Studio Call Sheet &amp; Running Order</div>
+    </div>
+    <div class="ep-info">
+      <div class="ep-num">${epLabel}</div>
+      <div>${epDateFmt}</div>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="info-box">
+      <h3>Production Contact</h3>
+      <div class="info-row"><span class="info-lbl">Producer:</span><span class="info-val">${cs.producer||'—'}</span></div>
+      <div class="info-row"><span class="info-lbl">Cell:</span><span class="info-val">${cs.producerCell||'—'}</span></div>
+      <div class="info-row"><span class="info-lbl">Location:</span><span class="info-val">${cs.location||'—'}</span></div>
+      <div class="info-row"><span class="info-lbl">Studio contact:</span><span class="info-val">${cs.studioContact||'—'}</span></div>
+    </div>
+    <div class="info-box">
+      <h3>Anchor Call Times</h3>
+      <div class="info-row"><span class="info-lbl">Anchor 1:</span><span class="info-val">${cs.anchor1||'—'} ${cs.anchor1Time?'@ '+cs.anchor1Time:''}</span></div>
+      <div class="info-row"><span class="info-lbl">Anchor 2:</span><span class="info-val">${cs.anchor2||'—'} ${cs.anchor2Time?'@ '+cs.anchor2Time:''}</span></div>
+    </div>
+    <div class="info-box">
+      <h3>Key Crew</h3>
+      <div class="info-row"><span class="info-lbl">Studio Director:</span><span class="info-val">${cs.director||'—'}</span></div>
+      <div class="info-row"><span class="info-lbl">Floor Manager:</span><span class="info-val">${cs.floorMgr||'—'}</span></div>
+      <div class="info-row"><span class="info-lbl">Autocue:</span><span class="info-val">${cs.autocue||'—'}</span></div>
+      <div class="info-row"><span class="info-lbl">Make-Up:</span><span class="info-val">${cs.makeup||'—'}</span></div>
+      <div class="info-row"><span class="info-lbl">VT Operator:</span><span class="info-val">${cs.vtOp||'—'}</span></div>
+      <div class="info-row"><span class="info-lbl">Engineer:</span><span class="info-val">${cs.engineer||'—'}</span></div>
+    </div>
+    ${cs.notes?`<div class="info-box"><h3>Notes</h3><div style="font-size:9.5pt;white-space:pre-wrap">${cs.notes}</div></div>`:''}
+  </div>
+  <div class="schedule-header">Schedule &amp; Running Order</div>
+  <table>
+    <thead><tr><th style="width:60px">Time</th><th>Description</th><th style="width:35%">Responsible</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">Carte Blanche Production Portal &nbsp;·&nbsp; ${epLabel} &nbsp;·&nbsp; Season ${currentSeason} &nbsp;·&nbsp; ${new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'})}</div>
+  </body></html>`;
+
+  const win=window.open('','_blank','width=800,height:900');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),400);
+}
+
+document.addEventListener('click',function csClickHandler(e){
+  // Episode pick
+  const pick=e.target.closest('.cs-ep-pick');
+  if(pick){csCurrentEp=Number(pick.dataset.ep);render();return;}
+  // Back
+  if(e.target.id==='cs-back-btn'){csCurrentEp=null;render();return;}
+  // Save
+  if(e.target.id==='cs-save-btn'){
+    const cs=csFlushAndGet();
+    if(!cs)return;
+    callSheetData[String(csCurrentEp)]=cs;
+    saveCallSheet(csCurrentEp,cs);
+    showToast('Call sheet saved ✓');
+    return;
+  }
+  // Add row
+  if(e.target.id==='cs-add-row-btn'){
+    const cs=csFlushAndGet();
+    if(!cs)return;
+    cs.items=cs.items||defaultCallItems();
+    cs.items.push({time:'',description:'',responsible:''});
+    callSheetData[String(csCurrentEp)]=cs;
+    render();return;
+  }
+  // Delete row
+  const delBtn=e.target.closest('.cs-del-item');
+  if(delBtn){
+    const ep=Number(delBtn.dataset.ep);
+    const idx=Number(delBtn.dataset.idx);
+    const cs=csFlushAndGet();
+    if(!cs)return;
+    cs.items=cs.items||defaultCallItems();
+    cs.items.splice(idx,1);
+    callSheetData[String(ep)]=cs;
+    render();return;
+  }
+  // Export PDF
+  if(e.target.id==='cs-export-pdf-btn'){csExportPDF();return;}
+});
+
 // ── RUN OF SHOW handlers ──────────────────────────────────────────
 function rosGetCurrentItems(){
   return rosData[String(rosCurrentEp)]?.items||[];
@@ -6822,6 +7157,7 @@ async function boot(){
       try{await loadLineups();}catch(e){console.error('Lineup load error:',e);}
       try{await loadPostProd();}catch(e){console.error('Post prod load error:',e);}
       try{await loadROS();}catch(e){console.error('ROS load error:',e);}
+      try{await loadCallSheets();}catch(e){console.error('Call sheets load error:',e);}
       try{await loadLeaveBalances();}catch(e){console.error('Leave balances error:',e);}
       render();
     } else {
