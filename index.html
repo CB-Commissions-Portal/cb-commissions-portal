@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.6.5';
+const BUILD_VERSION='3.6.6';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4681,11 +4681,11 @@ function bindApp(){
 
     const filename=filterEp==='all'?`CB-Broadcast-Schedule-${currentSeason}.pdf`:`CB-Episode-${filterEp}-${currentSeason}.pdf`;
     html2pdf().set({
-      margin:10,
+      margin:[8,8,8,8],
       filename,
       image:{type:'jpeg',quality:0.98},
-      html2canvas:{scale:2,useCORS:true},
-      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+      html2canvas:{scale:2,useCORS:true,windowWidth:1100},
+      jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
     }).from(html).save().then(()=>{
       btn.innerHTML='⬇ Export PDF';
       btn.disabled=false;
