@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.6.3';
+const BUILD_VERSION='3.6.4';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4617,7 +4617,7 @@ function bindApp(){
       const rows=stories.map(s=>{
         const pd=toDecimalMins(s.paidDuration),dd=toDecimalMins(s.deliveredDuration)||toDecimalMins(s.commDuration)||0;
         return`<tr>
-          <td style="padding:7px 10px;border-bottom:1px solid #eee;font-weight:600;color:#111;font-size:11px">${esc(s.storyName||'')}</td>
+          <td style="padding:7px 10px;border-bottom:1px solid #eee;font-weight:600;color:#111;font-size:11px;word-wrap:break-word;overflow-wrap:break-word">${esc(s.storyName||'')}</td>
           <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;font-family:monospace;color:#1a3a6a;font-size:11px">${s.commNum}</td>
           <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;font-size:11px">${dd?`<span style="background:${s.isInHouse?'#fff8e8':'#e8f5e8'};color:${s.isInHouse?'#b8860b':'#1a5c1a'};padding:2px 7px;border-radius:3px;font-family:monospace;font-weight:700">${fmtHMS(dd)}</span>`:'—'}</td>
           <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;font-size:11px">${!s.isInHouse&&pd>0?`<span style="background:#e8f5e8;color:#1a5c1a;padding:2px 7px;border-radius:3px;font-family:monospace;font-weight:700">${fmtHMS(pd)}</span>`:'—'}</td>
@@ -4639,7 +4639,8 @@ function bindApp(){
           <span style="margin-left:auto;font-size:10px;font-weight:700;color:${epType==='extended'?'#b8860b':'#1a7a1a'}">${epType==='extended'?'★ EXTENDED':'NORMAL'}</span>
         </div>
         ${stories.length>0?`
-        <table style="width:100%;border-collapse:collapse">
+        <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+          <colgroup><col style="width:38%"><col style="width:10%"><col style="width:14%"><col style="width:14%"><col style="width:14%"><col style="width:10%"></colgroup>
           <thead><tr style="background:#f8f8f8">
             <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ccc">Story Name</th>
             <th style="padding:7px 10px;text-align:right;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#555;border-bottom:2px solid #ccc">Comm #</th>
