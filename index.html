@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.6.2';
+const BUILD_VERSION='3.6.3';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -6610,7 +6610,7 @@ function csExportPDF(){
     table.sched .tcol{width:55px;font-family:monospace;font-weight:800;color:#c07000;white-space:nowrap}
     table.sched .dcol{font-weight:700;width:180px}
     .footer{margin-top:10px;font-size:7pt;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:5px}
-    ${cs.notes?'.notes-box{border:1px solid #0077b633;border-radius:4px;padding:7px 10px;margin-bottom:10px;font-size:8.5pt}':''}
+    .notes-box{border:1px solid #0077b633;border-radius:4px;overflow:hidden;margin-bottom:10px}
   </style></head><body>
   <!-- Header -->
   <div class="header">
@@ -6667,7 +6667,7 @@ function csExportPDF(){
       </table>
     </div>
   </div>
-  ${cs.notes?`<div class="notes-box"><strong style="color:#0077b6">Notes:</strong> ${cs.notes}</div>`:''}
+  ${cs.notes?`<div class="notes-box"><div class="sec-title">Notes</div><div style="padding:8px 12px;font-family:Calibri,Arial,sans-serif;font-size:9.5pt;white-space:pre-wrap">${cs.notes}</div></div>`:''}
   <!-- Schedule -->
   <div style="page-break-before:always;padding-top:0">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #0077b6">
