@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.7.6';
+const BUILD_VERSION='3.7.7';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2599,6 +2599,8 @@ function renderPostProd(){
   return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
     ${addModalHtml}
     <div style="padding:8px 14px;background:#161b22;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap">
+      <button id="pp-view-toggle" class="btn" style="font-size:11px;padding:4px 12px;border-color:#58a6ff;color:#58a6ff">📅 Calendar</button>
+      <div style="width:1px;height:20px;background:#21262d;margin:0 2px"></div>
       ${canEdit?`<button class="btn primary" id="pp-new-edit-btn" style="font-size:12px;padding:5px 14px;font-weight:800">+ New Edit</button>`:''}
       <button class="btn" id="pp-toggle-completed" style="font-size:11px;padding:4px 10px;border-color:${ppShowCompleted?'#3fb950':'#2e3a50'};color:${ppShowCompleted?'#3fb950':'#484f58'}">
         ${ppShowCompleted?'Hide':'Show'} Completed${completedCount?` (${completedCount})`:''}
