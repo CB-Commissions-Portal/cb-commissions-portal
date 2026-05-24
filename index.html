@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.7.3';
+const BUILD_VERSION='3.7.4';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1390,13 +1390,13 @@ function renderHome(){
     },
     {
       tab:'fcc',
-      title:'Final Control Sheet',
+      title:'Studio Script',
       sub:`Season ${season}`,
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>`,
       color:'#f7768e',
       bg:'rgba(247,118,142,.1)',
       show: ['admin','operations','production','prodmgmt','editorial'].includes(role),
-      desc:'Final Control Sheet with timecode and segment durations'
+      desc:'Studio Script with timecode and segment durations'
     },
     {
       tab:'prescal',
@@ -1574,7 +1574,7 @@ function renderApp(){
     ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='callsheet'?' active':''}" data-tab="callsheet">Studio Call Sheet</div>`:''}
     ${['admin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='credits'?' active':''}" data-tab="credits">End Credits</div>`:''}
     ${['admin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}
-    ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='fcc'?' active':''}" data-tab="fcc">Final Control Sheet</div>`:''}
+    ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='fcc'?' active':''}" data-tab="fcc">Studio Script</div>`:''}
     ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='prescal'?' active':''}" data-tab="prescal">Presenter Calendar</div>`:''}
     ${userHasLeaveAccess()?`<div class="tab-btn${tab==='leave'?' active':''}" data-tab="leave">CAP Leave</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
@@ -3311,7 +3311,7 @@ function renderFCC(epNums){
 
   return`<div class="ep-wrap" style="padding:20px">
     <div style="margin-bottom:18px">
-      <h2 style="font-size:18px;font-weight:900;color:#eaf0ff;margin:0">Final Control Sheet</h2>
+      <h2 style="font-size:18px;font-weight:900;color:#eaf0ff;margin:0">Studio Script</h2>
       <div style="font-size:12px;color:#6e7681;margin-top:3px">Segments filled in studio · Durations saved here and printed on the PDF.</div>
     </div>
     ${cards||'<div style="color:#484f58;padding:40px;text-align:center">No episodes found.</div>'}
@@ -3346,7 +3346,7 @@ function fccExportPDF(ep){
   </tr>`).join('');
 
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8">
-  <title>CB Final Control Sheet — ${epLabel}</title>
+  <title>CB Studio Script — ${epLabel}</title>
   <style>
     @page{size:A4 portrait;margin:12mm 12mm}
     *{box-sizing:border-box;margin:0;padding:0}
@@ -3374,7 +3374,7 @@ function fccExportPDF(ep){
   <div class="header">
     <img src="${logoSrc}" class="logo" alt="Carte Blanche">
     <div>
-      <span class="doc-title">Final Control Sheet</span>
+      <span class="doc-title">Studio Script</span>
       <span class="ep-num">${epLabel}</span>
     </div>
   </div>
