@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.7.7';
+const BUILD_VERSION='3.7.8';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2626,7 +2626,20 @@ function renderPPCalendar(){
   if(!ppCalMonth) ppCalMonth=today.slice(0,7);
   const [yr,mo]=ppCalMonth.split('-').map(Number);
   const monthStart=new Date(Date.UTC(yr,mo-1,1));
-  const daysInMonth=new Date(Date.UTC(yr,mo,0)).getUTCDate();
+
+  // Extract activity type from cell value
+  function getActivity(val){
+    const v=val.toLowerCase();
+    if(v.includes('view 1'))return{label:'View 1',bg:'#003d82',tc:'#fff'};
+    if(v.includes('view 2'))return{label:'View 2',bg:'#005c1a',tc:'#fff'};
+    if(v.includes('view'))return{label:'View',bg:'#0057b8',tc:'#fff'};
+    if(v.includes('shoot'))return{label:'Shoot',bg:'#006622',tc:'#fff'};
+    if(v.includes('edit'))return{label:'Edit',bg:'#4a0080',tc:'#fff'};
+    if(v.includes('mix'))return{label:'Mix',bg:'#804000',tc:'#fff'};
+    if(v.includes('vo'))return{label:'VO',bg:'#005566',tc:'#fff'};
+    if(v.includes('afm')||v.includes('amf'))return{label:'AFM',bg:'#8b0000',tc:'#fff'};
+    return{label:val.slice(0,6),bg:'#253045',tc:'#cdd9e5'};
+  }
 
   // Build date->entries map
   const dateMap={};
@@ -2641,18 +2654,22 @@ function renderPPCalendar(){
       if(!val||!val.trim())return;
       const dateStr=key.slice(0,10);
       if(dateStr.slice(0,7)!==ppCalMonth)return;
+      const slotKey=key.slice(11); // _view0 etc → strip date prefix
+      const sl=slotKey==='_view0'?'09:00':slotKey==='_view1'?'11:30':slotKey==='_view2'?'15:00':slotKey==='_vo'?'VO':slotKey==='_mix'?'MIX':slotKey==='_morning'?'Morn':slotKey==='_midday'?'Mid':slotKey==='_afternoon'?'Aftn':'?';
       if(!dateMap[dateStr])dateMap[dateStr]=[];
-      const sl=key.endsWith('_view0')?'09:00':key.endsWith('_view1')?'11:30':key.endsWith('_view2')?'15:00':key.endsWith('_vo')?'VO':key.endsWith('_mix')?'MIX':key.endsWith('_morning')?'Morn':key.endsWith('_midday')?'Mid':key.endsWith('_afternoon')?'Aftn':'?';
-      const v=val.toLowerCase();
-      const bg=v.includes('view')?'#0057b8':v.includes('shoot')?'#006622':v.includes('edit')?'#4a0080':v.includes('mix')?'#804000':v.includes('vo')?'#005566':v.includes('afm')||v.includes('amf')?'#8b0000':'#253045';
-      dateMap[dateStr].push({sl,val,bg,story:comm.storyName});
+      const act=getActivity(val);
+      const story=comm.storyName;
+      dateMap[dateStr].push({sl,val,act,story});
     });
   });
 
-  // Calendar grid — start from Monday of the week containing day 1
+  // Sort entries by slot order
+  const slotOrder={'09:00':0,'11:30':1,'15:00':2,'Morn':0,'Mid':1,'Aftn':2,'VO':3,'MIX':4};
+
+  // Calendar grid
   const firstDow=monthStart.getUTCDay();
   const startOffset=firstDow===0?-6:1-firstDow;
-  const dayHdrs=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div style="text-align:center;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#7a8ba0;padding:6px 0;border-bottom:2px solid #21262d;border-right:1px solid #21262d">${d}</div>`).join('');
+  const dayHdrs=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map((d,i)=>`<div style="text-align:center;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:${i>=5?'#484f58':'#7a8ba0'};padding:8px 0;border-bottom:2px solid #21262d;border-right:1px solid #21262d;background:#161b22">${d}</div>`).join('');
 
   const cells=[];
   for(let i=0;i<42;i++){
@@ -2662,10 +2679,19 @@ function renderPPCalendar(){
     const inMonth=d.getUTCMonth()===mo-1&&d.getUTCFullYear()===yr;
     const isTod=ds===today;
     const isWknd=d.getUTCDay()===0||d.getUTCDay()===6;
-    const entries=inMonth?(dateMap[ds]||[]):[];
-    const entryHtml=entries.map(e=>`<div style="background:${e.bg};color:#fff;font-size:9px;border-radius:2px;padding:1px 4px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(e.story)} — ${e.sl}: ${esc(e.val)}"><span style="opacity:.7;font-size:8px">${e.sl}</span> ${esc(e.story.length>12?e.story.slice(0,12)+'…':e.story)}</div>`).join('');
-    cells.push(`<div style="border-right:1px solid #21262d;border-bottom:1px solid #21262d;min-height:100px;padding:5px;background:${isTod?'#0d2240':isWknd&&inMonth?'#191f2a':inMonth?'#1c2433':'#161b22'};opacity:${inMonth?1:0.35}">
-      <div style="font-size:11px;font-weight:${isTod?900:600};color:${isTod?'#fff':isWknd?'#484f58':'#6e7681'};margin-bottom:3px;${isTod?'background:#0057b8;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;':''}">${dn}</div>
+    const entries=inMonth?(dateMap[ds]||[]).sort((a,b)=>(slotOrder[a.sl]||9)-(slotOrder[b.sl]||9)):[];
+
+    const entryHtml=entries.map(e=>{
+      const name=e.story.length>18?e.story.slice(0,18)+'…':e.story;
+      return`<div style="background:${e.act.bg};color:${e.act.tc};font-size:10px;border-radius:3px;padding:2px 6px;margin-bottom:2px;display:flex;align-items:center;gap:5px;overflow:hidden" title="${esc(e.story)} — ${e.sl}: ${esc(e.val)}">
+        <span style="font-weight:900;font-size:9px;opacity:.85;white-space:nowrap;flex-shrink:0">${e.act.label}</span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</span>
+      </div>`;
+    }).join('');
+
+    const bgCol=isTod?'#0d2240':isWknd&&inMonth?'#191f2a':inMonth?'#1c2433':'#161b22';
+    cells.push(`<div style="border-right:1px solid #21262d;border-bottom:1px solid #21262d;min-height:130px;padding:6px;background:${bgCol};opacity:${inMonth?1:0.3};vertical-align:top">
+      <div style="${isTod?'background:#0057b8;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;':'color:'+( isWknd?'#484f58':'#6e7681')+';'}font-size:12px;font-weight:${isTod?900:700};margin-bottom:5px">${dn}</div>
       ${entryHtml}
     </div>`);
   }
@@ -2674,13 +2700,14 @@ function renderPPCalendar(){
 
   return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
     <div style="padding:8px 14px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
-      <button id="pp-view-toggle" class="btn" style="font-size:11px;padding:4px 12px;border-color:#e3b341;color:#e3b341;margin-right:8px">📋 Spreadsheet</button>
+      <button id="pp-view-toggle" class="btn" style="font-size:11px;padding:4px 12px;border-color:#e3b341;color:#e3b341">📋 Spreadsheet</button>
+      <div style="width:1px;height:20px;background:#21262d;margin:0 4px"></div>
       <button id="pp-cal-prev" class="btn" style="font-size:13px;padding:3px 12px">◀</button>
-      <span style="font-size:15px;font-weight:800;color:#eaf0ff;min-width:170px;text-align:center">${monthName}</span>
+      <span style="font-size:16px;font-weight:800;color:#eaf0ff;min-width:180px;text-align:center">${monthName}</span>
       <button id="pp-cal-next" class="btn" style="font-size:13px;padding:3px 12px">▶</button>
       <button id="pp-cal-today" class="btn" style="font-size:11px;padding:4px 10px">Today</button>
-      <div style="margin-left:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        ${[['#0057b8','View'],['#006622','Shoot'],['#4a0080','Edit'],['#804000','Mix'],['#005566','VO'],['#8b0000','AFM']].map(([c,l])=>`<span style="display:flex;align-items:center;gap:4px;font-size:10px;color:#7a8ba0"><span style="width:10px;height:10px;background:${c};border-radius:2px;display:inline-block"></span>${l}</span>`).join('')}
+      <div style="margin-left:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        ${[['#0057b8','View'],['#006622','Shoot'],['#4a0080','Edit'],['#804000','Mix'],['#005566','VO'],['#8b0000','AFM']].map(([c,l])=>`<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#7a8ba0"><span style="width:11px;height:11px;background:${c};border-radius:2px;display:inline-block"></span>${l}</span>`).join('')}
       </div>
     </div>
     <div style="flex:1;overflow-y:auto">
