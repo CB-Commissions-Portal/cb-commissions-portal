@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.7.4';
+const BUILD_VERSION='3.7.5';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3385,6 +3385,7 @@ function fccExportPDF(ep){
       <div class="il">Episode</div><div class="iv">${String(ep).padStart(2,'0')}</div>
       <div class="il">TX Date</div><div class="iv">${txFmt||'&nbsp;'}</div>
       <div class="il">UID</div><div class="iv" style="font-family:monospace;font-weight:700;color:#0055a0">${uid||'&nbsp;'}</div>
+      <div class="il">MCCR 5L</div><div class="iv" style="font-family:monospace;font-weight:700">011 289 5613</div>
     </div>
   </div>
   <div class="box">
