@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.7.5';
+const BUILD_VERSION='3.7.6';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -447,6 +447,8 @@ let ppShowCompleted=false; // toggle to show/hide Edit Complete rows
 let ppAddModal=false; // show the add commission modal // {commNum: {deliveryDate:'', cells:{dateStr_slot: text}}}
 let ppWeekOffset=0; // weeks offset from season start (2026-01-19 = first Mon)
 let _ppWeekAutoSet=false;
+let ppCalView=false; // false=spreadsheet, true=monthly calendar
+let ppCalMonth=null; // 'YYYY-MM' currently shown
 const PP_SEASON_START='2026-01-19'; // first Monday of season // episode numbers that are collapsed in the lineup view
 let presCalLoaded=false;
 let presCalViewMonth=0; // index into months array — auto-set to current month on first open
@@ -2347,6 +2349,7 @@ const DELIVERABLE_TASKS = [
 
 
 function renderPostProd(){
+  if(ppCalView)return renderPPCalendar();
   const canEdit=['admin','operations'].includes(getEffectiveRole());
 
   // Auto-jump to current week on first open
@@ -2612,6 +2615,77 @@ function renderPostProd(){
         <thead style="position:sticky;top:0;z-index:10">${h1}${h2}</thead>
         <tbody>${rowsHtml}</tbody>
       </table>
+    </div>
+  </div>`;
+}
+
+function renderPPCalendar(){
+  const today=new Date().toISOString().split('T')[0];
+  if(!ppCalMonth) ppCalMonth=today.slice(0,7);
+  const [yr,mo]=ppCalMonth.split('-').map(Number);
+  const monthStart=new Date(Date.UTC(yr,mo-1,1));
+  const daysInMonth=new Date(Date.UTC(yr,mo,0)).getUTCDate();
+
+  // Build date->entries map
+  const dateMap={};
+  const allComms=comms.filter(c=>!c.decommissioned&&c.commNum&&c.storyName);
+  const commMap=new Map(allComms.map(c=>[String(c.commNum),c]));
+  ppActiveComms.forEach(cn=>{
+    const pp=ppData[String(cn)]||{};
+    const cells=pp.cells||{};
+    const comm=commMap.get(String(cn));
+    if(!comm)return;
+    Object.entries(cells).forEach(([key,val])=>{
+      if(!val||!val.trim())return;
+      const dateStr=key.slice(0,10);
+      if(dateStr.slice(0,7)!==ppCalMonth)return;
+      if(!dateMap[dateStr])dateMap[dateStr]=[];
+      const sl=key.endsWith('_view0')?'09:00':key.endsWith('_view1')?'11:30':key.endsWith('_view2')?'15:00':key.endsWith('_vo')?'VO':key.endsWith('_mix')?'MIX':key.endsWith('_morning')?'Morn':key.endsWith('_midday')?'Mid':key.endsWith('_afternoon')?'Aftn':'?';
+      const v=val.toLowerCase();
+      const bg=v.includes('view')?'#0057b8':v.includes('shoot')?'#006622':v.includes('edit')?'#4a0080':v.includes('mix')?'#804000':v.includes('vo')?'#005566':v.includes('afm')||v.includes('amf')?'#8b0000':'#253045';
+      dateMap[dateStr].push({sl,val,bg,story:comm.storyName});
+    });
+  });
+
+  // Calendar grid — start from Monday of the week containing day 1
+  const firstDow=monthStart.getUTCDay();
+  const startOffset=firstDow===0?-6:1-firstDow;
+  const dayHdrs=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div style="text-align:center;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#7a8ba0;padding:6px 0;border-bottom:2px solid #21262d;border-right:1px solid #21262d">${d}</div>`).join('');
+
+  const cells=[];
+  for(let i=0;i<42;i++){
+    const d=new Date(Date.UTC(yr,mo-1,1+startOffset+i));
+    const ds=d.toISOString().slice(0,10);
+    const dn=d.getUTCDate();
+    const inMonth=d.getUTCMonth()===mo-1&&d.getUTCFullYear()===yr;
+    const isTod=ds===today;
+    const isWknd=d.getUTCDay()===0||d.getUTCDay()===6;
+    const entries=inMonth?(dateMap[ds]||[]):[];
+    const entryHtml=entries.map(e=>`<div style="background:${e.bg};color:#fff;font-size:9px;border-radius:2px;padding:1px 4px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(e.story)} — ${e.sl}: ${esc(e.val)}"><span style="opacity:.7;font-size:8px">${e.sl}</span> ${esc(e.story.length>12?e.story.slice(0,12)+'…':e.story)}</div>`).join('');
+    cells.push(`<div style="border-right:1px solid #21262d;border-bottom:1px solid #21262d;min-height:100px;padding:5px;background:${isTod?'#0d2240':isWknd&&inMonth?'#191f2a':inMonth?'#1c2433':'#161b22'};opacity:${inMonth?1:0.35}">
+      <div style="font-size:11px;font-weight:${isTod?900:600};color:${isTod?'#fff':isWknd?'#484f58':'#6e7681'};margin-bottom:3px;${isTod?'background:#0057b8;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;':''}">${dn}</div>
+      ${entryHtml}
+    </div>`);
+  }
+
+  const monthName=monthStart.toLocaleDateString('en-ZA',{month:'long',year:'numeric',timeZone:'UTC'});
+
+  return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
+    <div style="padding:8px 14px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
+      <button id="pp-view-toggle" class="btn" style="font-size:11px;padding:4px 12px;border-color:#e3b341;color:#e3b341;margin-right:8px">📋 Spreadsheet</button>
+      <button id="pp-cal-prev" class="btn" style="font-size:13px;padding:3px 12px">◀</button>
+      <span style="font-size:15px;font-weight:800;color:#eaf0ff;min-width:170px;text-align:center">${monthName}</span>
+      <button id="pp-cal-next" class="btn" style="font-size:13px;padding:3px 12px">▶</button>
+      <button id="pp-cal-today" class="btn" style="font-size:11px;padding:4px 10px">Today</button>
+      <div style="margin-left:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        ${[['#0057b8','View'],['#006622','Shoot'],['#4a0080','Edit'],['#804000','Mix'],['#005566','VO'],['#8b0000','AFM']].map(([c,l])=>`<span style="display:flex;align-items:center;gap:4px;font-size:10px;color:#7a8ba0"><span style="width:10px;height:10px;background:${c};border-radius:2px;display:inline-block"></span>${l}</span>`).join('')}
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto">
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);border-left:1px solid #21262d;border-top:1px solid #21262d">
+        ${dayHdrs}
+        ${cells.join('')}
+      </div>
     </div>
   </div>`;
 }
@@ -7479,6 +7553,30 @@ document.addEventListener('keydown',function ecInpKeydown(e){
     const idx=all.indexOf(inp);
     const next=all[idx+(e.shiftKey?-1:1)];
     if(next)setTimeout(()=>{next.focus();next.select();},10);
+  }
+});
+// ── POST PROD CALENDAR handlers ───────────────────────────────────
+document.addEventListener('click',function ppCalHandler(e){
+  if(e.target.id==='pp-view-toggle'){
+    ppCalView=!ppCalView;
+    if(ppCalView&&!ppCalMonth)ppCalMonth=new Date().toISOString().slice(0,7);
+    render();return;
+  }
+  if(e.target.id==='pp-cal-prev'){
+    const [y,m]=ppCalMonth.split('-').map(Number);
+    const d=new Date(Date.UTC(y,m-2,1));
+    ppCalMonth=d.toISOString().slice(0,7);
+    render();return;
+  }
+  if(e.target.id==='pp-cal-next'){
+    const [y,m]=ppCalMonth.split('-').map(Number);
+    const d=new Date(Date.UTC(y,m,1));
+    ppCalMonth=d.toISOString().slice(0,7);
+    render();return;
+  }
+  if(e.target.id==='pp-cal-today'){
+    ppCalMonth=new Date().toISOString().slice(0,7);
+    render();return;
   }
 });
 // ── One-time global handlers (set up once, survive renders) ─────
