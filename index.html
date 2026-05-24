@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.6.9';
+const BUILD_VERSION='3.7.0';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3243,12 +3243,13 @@ function renderFCC(epNums){
     const past=txDate&&txDate<new Date().toISOString().split('T')[0];
     const fd=fccData[String(ep)]||{};
 
-    const durInp=(field,placeholder)=>canEdit
-      ?`<input class="fcc-dur-inp" data-ep="${ep}" data-field="${field}" value="${esc(fd[field]||'')}" placeholder="${placeholder}" style="width:110px;background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#e3b341;font-size:13px;padding:5px 8px;outline:none;font-family:monospace;text-align:center">`
+    const durInp=(field)=>canEdit
+      ?`<input class="fcc-dur-inp" data-ep="${ep}" data-field="${field}" value="${esc(fd[field]||'')}" placeholder="00:00:00" style="width:120px;background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#e3b341;font-size:13px;padding:5px 8px;outline:none;font-family:monospace;text-align:center">`
       :`<span style="font-size:13px;color:#e3b341;font-family:monospace">${esc(fd[field]||'—')}</span>`;
 
-    const durRows=[
-      {field:'onAir',label:'ON-AIR'},
+    const durItems=[
+      {field:'onAir', label:'ON-AIR'},
+      {field:'offAir',label:'OFF-AIR'},
       ...Array.from({length:breakCount},(_,i)=>{return{field:`cb${i+1}`,label:`Commercial Break #${i+1}`}})
     ];
 
@@ -3263,10 +3264,10 @@ function renderFCC(epNums){
           <button class="btn fcc-print-btn" data-ep="${ep}" style="font-size:11px;padding:4px 14px;border-color:#388bfd;color:#58a6ff">⬇ Print / PDF</button>
         </div>
       </div>
-      <div style="padding:14px 18px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        <!-- Segments table -->
+      <div style="padding:14px 18px;display:flex;flex-direction:column;gap:14px">
+        <!-- Segments -->
         <div>
-          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#7a8ba0;margin-bottom:8px">Segments</div>
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#7a8ba0;margin-bottom:6px">Segments</div>
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead><tr style="background:#161b22">
               <th style="padding:6px 10px;text-align:left;color:#7a8ba0;font-size:10px;font-weight:800;text-transform:uppercase;border-bottom:2px solid #2e3a50">Segment</th>
@@ -3282,24 +3283,24 @@ function renderFCC(epNums){
                 <td style="padding:7px 10px;text-align:center;color:#484f58">—</td>
               </tr>`).join('')}
               <tr style="background:#1e2535;border-top:2px solid #2e3a50">
-                <td colspan="3" style="padding:7px 10px;font-weight:900;color:#f7768e;font-size:13px">EPISODE DURATION:</td>
+                <td colspan="3" style="padding:7px 10px;font-weight:900;color:#f7768e">EPISODE DURATION:</td>
                 <td style="padding:7px 10px;text-align:center;color:#484f58">—</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <!-- Durations table -->
+        <!-- Durations -->
         <div>
-          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#7a8ba0;margin-bottom:8px">Durations</div>
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#7a8ba0;margin-bottom:6px">Durations</div>
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead><tr style="background:#161b22">
               <th style="padding:6px 10px;text-align:left;color:#7a8ba0;font-size:10px;font-weight:800;text-transform:uppercase;border-bottom:2px solid #2e3a50">Item</th>
               <th style="padding:6px 10px;text-align:center;color:#7a8ba0;font-size:10px;font-weight:800;text-transform:uppercase;border-bottom:2px solid #2e3a50">Duration (HH:MM:SS)</th>
             </tr></thead>
             <tbody>
-              ${durRows.map(r=>`<tr style="border-bottom:1px solid #21262d">
-                <td style="padding:7px 10px;font-weight:700;color:#eaf0ff;white-space:nowrap">${r.label}</td>
-                <td style="padding:7px 10px;text-align:center">${durInp(r.field,'00:00:00')}</td>
+              ${durItems.map(r=>`<tr style="border-bottom:1px solid #21262d">
+                <td style="padding:7px 10px;font-weight:700;color:#eaf0ff">${r.label}</td>
+                <td style="padding:7px 10px;text-align:center">${durInp(r.field)}</td>
               </tr>`).join('')}
             </tbody>
           </table>
@@ -3311,7 +3312,7 @@ function renderFCC(epNums){
   return`<div class="ep-wrap" style="padding:20px">
     <div style="margin-bottom:18px">
       <h2 style="font-size:18px;font-weight:900;color:#eaf0ff;margin:0">Final Control Sheet</h2>
-      <div style="font-size:12px;color:#6e7681;margin-top:3px">Segments (to be filled in studio) · Durations saved here and exported on the PDF.</div>
+      <div style="font-size:12px;color:#6e7681;margin-top:3px">Segments filled in studio · Durations saved here and printed on the PDF.</div>
     </div>
     ${cards||'<div style="color:#484f58;padding:40px;text-align:center">No episodes found.</div>'}
   </div>`;
@@ -3335,7 +3336,8 @@ function fccExportPDF(ep){
   </tr>`).join('');
 
   const durItems=[
-    {field:'onAir',label:'ON-AIR'},
+    {field:'onAir', label:'ON-AIR'},
+    {field:'offAir',label:'OFF-AIR'},
     ...Array.from({length:breakCount},(_,i)=>{return{field:`cb${i+1}`,label:`Commercial Break #${i+1}`}})
   ];
   const durRows=durItems.map(r=>`<tr>
@@ -3353,29 +3355,29 @@ function fccExportPDF(ep){
     .logo{height:58px;width:auto}
     .doc-title{font-size:13pt;font-weight:900;color:#0077b6;text-align:right;display:block}
     .ep-num{font-size:20pt;font-weight:900;font-family:monospace;display:block;text-align:right;color:#111}
-    .info-box{border:1px solid #0077b633;border-radius:4px;overflow:hidden;margin-bottom:14px}
     .sec-title{background:#0077b6;color:#fff;font-size:9pt;font-weight:800;text-transform:uppercase;letter-spacing:.8px;padding:5px 12px}
+    /* Episode info */
+    .info-box{border:1px solid #0077b633;border-radius:4px;overflow:hidden;margin-bottom:14px}
     .info-grid{display:grid;grid-template-columns:140px 1fr 140px 1fr}
-    .il{background:#f0f6ff;color:#0055a0;font-weight:700;padding:8px 12px;border-right:1px solid #dde8f5;border-bottom:1px solid #dde8f5;font-size:10pt}
-    .iv{padding:8px 12px;border-right:1px solid #dde8f5;border-bottom:1px solid #dde8f5;font-weight:600;font-size:10pt}
-    /* Two column layout */
-    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:0}
-    .box{border:1px solid #0077b633;border-radius:4px;overflow:hidden}
-    /* Segments */
+    .il{background:#f0f6ff;color:#0055a0;font-weight:700;padding:8px 12px;border-right:1px solid #dde8f5;border-bottom:1px solid #dde8f5}
+    .iv{padding:8px 12px;border-right:1px solid #dde8f5;border-bottom:1px solid #dde8f5;font-weight:600}
+    /* Segments — stacked on top */
+    .box{border:1px solid #0077b633;border-radius:4px;overflow:hidden;margin-bottom:14px}
     table.segs{width:100%;border-collapse:collapse;table-layout:fixed}
-    table.segs thead th{background:#e8f4ff;color:#0055a0;padding:7px 10px;font-size:9pt;font-weight:800;text-align:left;border-bottom:2px solid #0077b6}
+    table.segs thead th{background:#e8f4ff;color:#0055a0;padding:8px 12px;font-size:10pt;font-weight:800;text-align:left;border-bottom:2px solid #0077b6}
     table.segs tbody tr{border-bottom:1px solid #cce0f5}
-    .sl{font-weight:700;font-size:10pt;color:#0055a0;padding:14px 10px;width:26%}
-    .tc{border:1px solid #aac4df;padding:14px 8px;background:#fff}
-    .ep-dur-row td{font-size:11pt;font-weight:900;color:#0077b6;padding:12px 10px;background:#e8f4ff;border-top:2px solid #0077b6}
-    /* Durations */
+    .sl{font-weight:700;font-size:11pt;color:#0055a0;padding:22px 12px;width:22%}
+    .tc{border:1px solid #aac4df;padding:22px 12px;background:#fff}
+    .ep-dur-row td{font-size:11pt;font-weight:900;color:#0077b6;padding:14px 12px;background:#e8f4ff;border-top:2px solid #0077b6}
+    /* Durations — stacked below */
     table.durs{width:100%;border-collapse:collapse}
-    table.durs thead th{background:#e8f4ff;color:#0055a0;padding:7px 10px;font-size:9pt;font-weight:800;text-align:left;border-bottom:2px solid #0077b6}
+    table.durs thead th{background:#e8f4ff;color:#0055a0;padding:8px 12px;font-size:10pt;font-weight:800;text-align:left;border-bottom:2px solid #0077b6}
     table.durs tbody tr{border-bottom:1px solid #cce0f5}
-    .dl{font-weight:700;font-size:10pt;color:#0055a0;padding:12px 10px;width:60%}
-    .dv{font-family:monospace;font-weight:700;font-size:11pt;color:#111;padding:12px 10px;border-left:1px solid #cce0f5}
-    .notes{border:1px solid #0077b633;border-radius:4px;overflow:hidden;margin-top:14px}
-    .footer{margin-top:12px;font-size:7.5pt;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:5px}
+    .dl{font-weight:700;font-size:11pt;color:#0055a0;padding:18px 12px;width:55%}
+    .dv{font-family:monospace;font-weight:700;font-size:12pt;color:#111;padding:18px 12px}
+    /* Notes */
+    .notes-box{border:1px solid #0077b633;border-radius:4px;overflow:hidden;margin-bottom:14px}
+    .footer{font-size:7.5pt;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:5px}
   </style></head><body>
   <div class="header">
     <img src="${logoSrc}" class="logo" alt="Carte Blanche">
@@ -3393,28 +3395,28 @@ function fccExportPDF(ep){
       <div class="il">UID</div><div class="iv" style="font-family:monospace;font-weight:700;color:#0055a0">${uid||'&nbsp;'}</div>
     </div>
   </div>
-  <div class="two-col">
-    <div class="box">
-      <div class="sec-title">Segments (${epType==='extended'?'Extended — 7':'Normal — 5'})</div>
-      <table class="segs">
-        <thead><tr><th>Segment</th><th>TC In</th><th>TC Out</th><th>Seg Dur</th></tr></thead>
-        <tbody>
-          ${segRows}
-          <tr class="ep-dur-row"><td colspan="3">EPISODE DURATION:</td><td></td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="box">
-      <div class="sec-title">Durations</div>
-      <table class="durs">
-        <thead><tr><th>Item</th><th>HH:MM:SS</th></tr></thead>
-        <tbody>${durRows}</tbody>
-      </table>
-    </div>
+  <div class="box">
+    <div class="sec-title">Segments (${epType==='extended'?'Extended — 7':'Normal — 5'})</div>
+    <table class="segs">
+      <thead><tr>
+        <th>Segment</th><th>TC In</th><th>TC Out</th><th>Seg Dur</th>
+      </tr></thead>
+      <tbody>
+        ${segRows}
+        <tr class="ep-dur-row"><td colspan="3">EPISODE DURATION:</td><td></td></tr>
+      </tbody>
+    </table>
   </div>
-  <div class="notes">
+  <div class="box">
+    <div class="sec-title">Durations</div>
+    <table class="durs">
+      <thead><tr><th>Item</th><th>HH:MM:SS</th></tr></thead>
+      <tbody>${durRows}</tbody>
+    </table>
+  </div>
+  <div class="notes-box">
     <div class="sec-title">Notes</div>
-    <div style="padding:36px 12px"></div>
+    <div style="padding:44px 12px"></div>
   </div>
   <div class="footer">Carte Blanche Production Portal &nbsp;·&nbsp; ${epLabel} &nbsp;·&nbsp; Season ${currentSeason} &nbsp;·&nbsp; ${new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'})}</div>
   </body></html>`;
