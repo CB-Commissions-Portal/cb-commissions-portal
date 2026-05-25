@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.8.0';
+const BUILD_VERSION='3.8.1';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4978,8 +4978,9 @@ function bindApp(){
     const printDate=new Date().toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
     const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
     <style>
+      @page{size:A4 landscape;margin:12mm 14mm}
       *{box-sizing:border-box;margin:0;padding:0}
-      body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;padding:10px 12px;font-size:10px}
+      body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;padding:0;font-size:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     </style></head><body>
     <table style="width:100%;margin-bottom:14px;padding-bottom:10px;border-bottom:3px solid #1a3a6a">
       <tr valign="middle">
@@ -4995,17 +4996,10 @@ function bindApp(){
     ${epCards}
     </body></html>`;
 
-    const filename=filterEp==='all'?`CB-Broadcast-Schedule-${currentSeason}.pdf`:`CB-Episode-${filterEp}-${currentSeason}.pdf`;
-    html2pdf().set({
-      margin:[8,8,8,8],
-      filename,
-      image:{type:'jpeg',quality:0.98},
-      html2canvas:{scale:2,useCORS:true,windowWidth:1100},
-      jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
-    }).from(html).save().then(()=>{
-      btn.innerHTML='⬇ Export PDF';
-      btn.disabled=false;
-    });
+    const win=window.open('','_blank');
+    win.document.write(html);
+    win.document.close();
+    setTimeout(()=>{win.print();btn.innerHTML='⬇ Export PDF';btn.disabled=false;},600);
   });
 
   // Collect all focusable text inputs for Tab navigation
