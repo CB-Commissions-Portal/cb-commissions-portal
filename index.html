@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.9.1';
+const BUILD_VERSION='3.9.2';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1626,6 +1626,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='lineups'&&['admin','operations','production','prodmgmt','editorial'].includes(role))return renderLineups(epNums);
   if(tab==='ros'&&['admin','editorial'].includes(role))return renderRunOfShow();
   if(tab==='broadcast'&&role!=='afm')return renderBroadcastList();
+  if(tab==='contracts'&&currentRole==='admin'&&!previewRole)return renderContracts();
   if(tab==='admin'&&currentRole==='admin'&&!previewRole)return renderAdmin();
   return '';
 }
