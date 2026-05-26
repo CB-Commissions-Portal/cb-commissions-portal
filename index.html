@@ -407,8 +407,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.6';
-const BUILD_DATE='26 May 2026';
+const BUILD_VERSION='3.10.4';
+const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -429,8 +429,6 @@ let leaveFormOpen=false;
 let leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',sickNoteFile:null};
 let leaveDeclineModal=null;
 let leaveReviewModal=null; // {id, showReject}
-let leaveCancelModal=null; // {id} cancel modal state
-let seenCancelledIds=new Set();
 let leaveViewMode='my'; // 'my'|'calendar'|'manage'
 let leaveCalYear=new Date().getFullYear();
 let leaveCalMonth=new Date().getMonth();
@@ -1568,50 +1566,6 @@ function bindAuth(){
   document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 }
 
-
-function getWeekRange(offsetWeeks){
-  const today=new Date();
-  const dow=today.getDay();
-  // Start of this week (Monday)
-  const mon=new Date(today);
-  mon.setDate(today.getDate()-((dow+6)%7)+offsetWeeks*7);
-  mon.setHours(0,0,0,0);
-  const fri=new Date(mon);fri.setDate(mon.getDate()+4);
-  const toISO=d=>d.toISOString().split('T')[0];
-  return{start:toISO(mon),end:toISO(fri),label:offsetWeeks===0?'This week':'Next week'};
-}
-function getLeaveThisAndNextWeek(){
-  const thisW=getWeekRange(0);
-  const nextW=getWeekRange(1);
-  const approved=Object.values(leaveRequests).filter(r=>r.status==='approved');
-  function peopleInRange(w){
-    return approved.filter(r=>
-      new Date(r.endDate+'T12:00:00')>=new Date(w.start+'T00:00:00')&&
-      new Date(r.startDate+'T00:00:00')<=new Date(w.end+'T23:59:59')
-    ).map(r=>({name:getLeaveName(r),lt:LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5]}));
-  }
-  return{this:peopleInRange(thisW),next:peopleInRange(nextW)};
-}
-function renderLeaveTickerBar(){
-  if(!userHasLeaveAccess())return'';
-  const lv=getLeaveThisAndNextWeek();
-  if(!lv.this.length&&!lv.next.length)return'';
-  function pill(p){return`<span style="display:inline-flex;align-items:center;gap:4px;background:${p.lt.color}18;border:1px solid ${p.lt.color}44;color:${p.lt.color};border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">${esc(p.name)}</span>`;}
-  const thisHtml=lv.this.length?lv.this.map(pill).join(''):'<span style="font-size:11px;color:#484f58;font-style:italic">No one on leave</span>';
-  const nextHtml=lv.next.length?lv.next.map(pill).join(''):'<span style="font-size:11px;color:#484f58;font-style:italic">No one on leave</span>';
-  return`<div class="no-print" style="background:#1a2035;border-bottom:1px solid #2e3a50;padding:6px 20px;display:flex;align-items:center;gap:20px;flex-shrink:0;overflow-x:auto;min-height:36px">
-    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-      <span style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#3fb950;white-space:nowrap">🏖 This Week</span>
-      <div style="display:flex;gap:5px;flex-wrap:nowrap">${thisHtml}</div>
-    </div>
-    <div style="width:1px;height:20px;background:#2e3a50;flex-shrink:0"></div>
-    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-      <span style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;white-space:nowrap">📅 Next Week</span>
-      <div style="display:flex;gap:5px;flex-wrap:nowrap">${nextHtml}</div>
-    </div>
-  </div>`;
-}
-
 function renderApp(){
   const paid=getPaidMins(),contracted=settings.contractedMinutes||438,remaining=contracted-paid;
   const epNums=getEpNums(),maxEp=epNums.length?Math.max(...epNums):0,nextEp=maxEp+1;
@@ -1639,9 +1593,9 @@ function renderApp(){
       <option value="new">+ Add Season…</option>
     </select>
     ${(currentRole==='admin'||currentRole==='deputyadmin')&&!previewRole?`
-    <button id="notif-bell-btn" onclick="tab='leave';leaveViewMode='manage';seenLeaveIds=new Set(Object.keys(leaveRequests).filter(id=>leaveRequests[id].status==='pending'));seenCancelledIds=new Set(Object.keys(leaveRequests).filter(id=>leaveRequests[id].status==='cancelled'&&leaveRequests[id].wasApproved));render();" style="position:relative;background:none;border:1px solid #2e3a50;color:#7a8ba0;border-radius:50%;width:30px;height:30px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0" title="Leave requests">
+    <button id="notif-bell-btn" onclick="tab='leave';leaveViewMode='manage';seenLeaveIds=new Set(Object.keys(leaveRequests).filter(id=>leaveRequests[id].status==='pending'));render();" style="position:relative;background:none;border:1px solid #2e3a50;color:#7a8ba0;border-radius:50%;width:30px;height:30px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0" title="Leave requests">
       🔔
-      ${(()=>{const n=Object.values(leaveRequests).filter(r=>r.status==='pending'&&!seenLeaveIds.has(Object.keys(leaveRequests).find(k=>leaveRequests[k]===r)));const pendingCount=Object.entries(leaveRequests).filter(([k,r])=>r.status==='pending'&&!seenLeaveIds.has(k)).length;const cancelCount=Object.entries(leaveRequests).filter(([k,r])=>r.status==='cancelled'&&r.wasApproved&&!seenCancelledIds.has(k)).length;const c=pendingCount+cancelCount;return c>0?`<span style="position:absolute;top:-4px;right:-4px;background:#f85149;color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #0d1117">${c}</span>`:''})()}
+      ${(()=>{const n=Object.values(leaveRequests).filter(r=>r.status==='pending'&&!seenLeaveIds.has(Object.keys(leaveRequests).find(k=>leaveRequests[k]===r)));const c=Object.entries(leaveRequests).filter(([k,r])=>r.status==='pending'&&!seenLeaveIds.has(k)).length;return c>0?`<span style="position:absolute;top:-4px;right:-4px;background:#f85149;color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #0d1117">${c}</span>`:''})()}
     </button>`:''}
     <div class="sync-pill"><span class="sync-dot ${syncStatus}" id="sync-dot"></span><span id="sync-lbl">${syncStatus==='live'?'Live':syncStatus==='saving'?'Saving…':'Offline'}</span></div>
     <div class="user-area">
@@ -1664,7 +1618,6 @@ function renderApp(){
       <button class="sign-out" id="logout-btn">Sign Out</button>
     </div>
   </div>
-  ${renderLeaveTickerBar()}
   ${['admin','editorial','operations'].includes(getEffectiveRole())?`  <div class="ticker no-print">
     <div class="t-item"><div class="t-lbl">Contracted Mins</div>${currentRole==='admin'&&!previewRole?`<input class="t-inp" type="number" id="contracted-input" tabindex="-1" value="${contracted}">`:`<div class="t-val c">${contracted}</div>`}</div>
     <div class="t-sep">−</div>
@@ -1698,7 +1651,7 @@ function renderApp(){
     ${['admin','deputyadmin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}
     ${['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='fcc'?' active':''}" data-tab="fcc">Studio Script</div>`:''}
     ${['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='prescal'?' active':''}" data-tab="prescal">Presenter Calendar</div>`:''}
-    ${userHasLeaveAccess()?`<div class="tab-btn${tab==='leave'?' active':''}" data-tab="leave" style="position:relative">CAP Leave${(currentRole==='admin'||currentRole==='deputyadmin')&&!previewRole?(()=>{const pn=Object.entries(leaveRequests).filter(([k,r])=>r.status==='pending'&&!seenLeaveIds.has(k)).length;const cn=Object.entries(leaveRequests).filter(([k,r])=>r.status==='cancelled'&&r.wasApproved&&!seenCancelledIds.has(k)).length;const n=pn+cn;return n>0?`<span style="display:inline-flex;align-items:center;justify-content:center;background:#f85149;color:#fff;border-radius:50%;width:15px;height:15px;font-size:9px;font-weight:900;margin-left:5px;vertical-align:middle">${n}</span>`:''})():''}</div>`:''}
+    ${userHasLeaveAccess()?`<div class="tab-btn${tab==='leave'?' active':''}" data-tab="leave" style="position:relative">CAP Leave${(currentRole==='admin'||currentRole==='deputyadmin')&&!previewRole?(()=>{const n=Object.entries(leaveRequests).filter(([k,r])=>r.status==='pending'&&!seenLeaveIds.has(k)).length;return n>0?`<span style="display:inline-flex;align-items:center;justify-content:center;background:#f85149;color:#fff;border-radius:50%;width:15px;height:15px;font-size:9px;font-weight:900;margin-left:5px;vertical-align:middle">${n}</span>`:''})():''}</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='contracts'?' active':''}" data-tab="contracts">Contracts</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
   </div>
@@ -2181,52 +2134,46 @@ function renderLeaveCalendarView(){
   const firstDay=new Date(yr,mo,1);
   const totalDays=new Date(yr,mo+1,0).getDate();
   const startDow=(firstDay.getDay()+6)%7; // 0=Mon
-  const activeLeave=Object.entries(leaveRequests).filter(([,r])=>r.status==='approved'||r.status==='pending');
-  const totalCells=Math.ceil((startDow+totalDays)/7)*7;
-  const numRows=totalCells/7;
-  // Approx available height: 100vh minus topbar(52)+ticker(~56)+tabs(~40)+leaveInner(~140) = ~320px overhead + cal header ~80px
-  const cellMinH=Math.max(90, Math.floor((window?.innerHeight||900-330)/numRows));
+  const approved=Object.entries(leaveRequests).filter(([,r])=>r.status==='approved');
+  // build day cells
   let cells='';
+  const totalCells=Math.ceil((startDow+totalDays)/7)*7;
   for(let i=0;i<totalCells;i++){
     const dayNum=i-startDow+1;
     const isValid=dayNum>=1&&dayNum<=totalDays;
     const dateStr=isValid?`${yr}-${String(mo+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`:'';
-    const dow=i%7;
+    const dow=i%7; // 0=Mon..6=Sun
     const isWeekend=dow>=5;
-    const isHoliday=isValid&&SA_PUBLIC_HOLIDAYS_2026.includes(dateStr);
     const today=new Date();
     const isToday=isValid&&yr===today.getFullYear()&&mo===today.getMonth()&&dayNum===today.getDate();
-    let entries='';
+    let pills='';
     if(isValid){
-      activeLeave.forEach(([,r])=>{
+      approved.forEach(([,r])=>{
         if(dateInRange(dateStr,r.startDate,r.endDate)){
           const nm=getLeaveName(r);
           const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5];
-          const isPending=r.status==='pending';
-          entries+=`<div style="background:${lt.color}${isPending?'18':'30'};color:${lt.color};border-left:3px solid ${lt.color};border-radius:0 4px 4px 0;padding:3px 7px;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;margin-top:3px;${isPending?'opacity:.7;font-style:italic':''}" title="${esc(nm)} — ${lt.label}${isPending?' (pending)':''}">${esc(nm)}${isPending?' ⏳':''}</div>`;
+          pills+=`<div style="background:${lt.color}22;color:${lt.color};border-radius:3px;padding:1px 5px;font-size:9px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;margin-top:2px">${esc(nm.split(' ')[0])}</div>`;
         }
       });
     }
-    const bgColor=isToday?'rgba(56,139,253,.12)':isHoliday?'rgba(227,179,65,.06)':isWeekend?'#0d1117':'#161b22';
-    const borderColor=isToday?'#388bfd':isHoliday?'#e3b34133':'#21262d';
-    cells+=`<div style="border:1px solid ${borderColor};border-radius:6px;padding:6px 7px;min-height:${cellMinH}px;background:${bgColor};${!isValid?'opacity:.15;background:#0d1117':''}">
-      ${isValid?`<div style="font-size:12px;font-weight:${isToday?'900':'600'};color:${isToday?'#388bfd':isHoliday?'#e3b341':isWeekend?'#484f58':'#9aaabe'}">${dayNum}${isHoliday?`<span style="font-size:8px;color:#e3b341;margin-left:4px;font-weight:600">PH</span>`:''}</div>`:''}
-      ${entries}
+    cells+=`<div style="border:1px solid #21262d;border-radius:5px;padding:5px 6px;min-height:64px;background:${isToday?'rgba(56,139,253,.08)':isWeekend?'#0d1117':'#161b22'};${!isValid?'opacity:.2':''}">
+      ${isValid?`<div style="font-size:10px;font-weight:${isToday?'900':'600'};color:${isToday?'#388bfd':'#6e7681'};margin-bottom:2px">${dayNum}</div>`:''}
+      ${pills}
     </div>`;
   }
-  const legend=LEAVE_TYPES.map(lt=>`<div style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:${lt.color}30;border-left:3px solid ${lt.color};border-radius:0 2px 2px 0;display:inline-block"></span><span style="font-size:11px;font-weight:600;color:${lt.color}">${lt.label}</span></div>`).join('');
-  return`<div style="display:flex;flex-direction:column;height:calc(100vh - 280px)">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;flex-shrink:0">
-      <button class="btn" id="lv-cal-prev" style="font-size:11px;padding:5px 14px">◀ Prev</button>
-      <span style="font-size:17px;font-weight:900;color:#eaf0ff;min-width:180px;text-align:center">${months[mo]} ${yr}</span>
-      <button class="btn" id="lv-cal-next" style="font-size:11px;padding:5px 14px">Next ▶</button>
+  const legend=LEAVE_TYPES.map(lt=>`<span style="background:${lt.color}22;color:${lt.color};border-radius:3px;padding:2px 7px;font-size:9px;font-weight:700">${lt.label.replace(' Leave','')}</span>`).join(' ');
+  return`<div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn" id="lv-cal-prev" style="font-size:11px">◀</button>
+      <span style="font-size:15px;font-weight:800;color:#eaf0ff;min-width:140px;text-align:center">${months[mo]} ${yr}</span>
+      <button class="btn" id="lv-cal-next" style="font-size:11px">▶</button>
       <button class="btn" id="lv-cal-today" style="font-size:11px">Today</button>
-      <div style="margin-left:auto;display:flex;gap:14px;flex-wrap:wrap;align-items:center">${legend}</div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px;flex-shrink:0">
-      ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>`<div style="text-align:center;font-size:10px;font-weight:700;color:${i>=5?'#484f58':'#7a8ba0'};padding:4px 0;text-transform:uppercase;letter-spacing:.5px">${d}</div>`).join('')}
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px">
+      ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div style="text-align:center;font-size:10px;font-weight:700;color:#484f58;padding:4px 0">${d}</div>`).join('')}
     </div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;flex:1">${cells}</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">${cells}</div>
+    <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">${legend}</div>
   </div>`;
 }
 function renderLeave(){
@@ -2308,7 +2255,7 @@ function renderLeave(){
     const history=myRequests.map(([id,r])=>{
       const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5];
       const d=countWorkingDays(r.startDate,r.endDate);
-      const sc=r.status==='approved'?'#3fb950':r.status==='declined'||r.status==='cancelled'?'#f85149':'#e3b341';
+      const sc=r.status==='approved'?'#3fb950':r.status==='declined'?'#f85149':'#e3b341';
       return`<div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px 16px;margin-bottom:8px">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
           <div style="display:flex;align-items:center;gap:10px">
@@ -2322,13 +2269,12 @@ function renderLeave(){
             ${r.hasSickNote?`<span style="font-size:10px;color:#3fb950">📎</span>`:''}
             <span style="font-size:10px;font-weight:700;color:${sc};text-transform:uppercase;background:${sc}22;padding:2px 8px;border-radius:3px">${r.status}</span>
             ${r.adminNote?`<span style="font-size:11px;color:#6e7681;font-style:italic">"${esc(r.adminNote)}"</span>`:''}
-            ${(r.status==='pending'||r.status==='approved')?`<button class="btn" data-leave-cancel-modal="${id}" style="font-size:10px;padding:2px 8px;border-color:#f85149;color:#f85149">${r.status==='approved'?'↩ Cancel Leave':'✕ Cancel Request'}</button>`:''}
+            ${r.status==='pending'?`<button class="btn danger" data-leave-cancel="${id}" style="font-size:10px;padding:2px 8px">Cancel</button>`:''}
           </div>
         </div>
       </div>`;
     }).join('');
     return`<div class="ep-wrap">${tabBar}
-      ${leaveCancelModal?renderLeaveCancelModal():''}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
         <span style="font-size:15px;font-weight:800;color:#eaf0ff">My Leave — ${esc(myName)}</span>
         <button class="btn primary" id="leave-new-btn">+ Apply for Leave</button>
@@ -2352,12 +2298,10 @@ function renderLeave(){
   const pending=Object.entries(leaveRequests).filter(([,r])=>r.status==='pending').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
   const approved=Object.entries(leaveRequests).filter(([,r])=>r.status==='approved').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
   const declined=Object.entries(leaveRequests).filter(([,r])=>r.status==='declined').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
-  const cancelled=Object.entries(leaveRequests).filter(([,r])=>r.status==='cancelled').sort((a,b)=>(b[1].cancelledAt||b[1].submittedAt)-(a[1].cancelledAt||a[1].submittedAt));
-  const newCancellations=cancelled.filter(([k,r])=>r.wasApproved&&!seenCancelledIds.has(k)).length;
   function reqCard([id,r],showActions){
     const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5];
     const d=countWorkingDays(r.startDate,r.endDate);
-    const sc=r.status==='approved'?'#3fb950':r.status==='declined'||r.status==='cancelled'?'#f85149':'#e3b341';
+    const sc=r.status==='approved'?'#3fb950':r.status==='declined'?'#f85149':'#e3b341';
     const nm=getLeaveName(r);
     return`<div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:14px 16px;margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
@@ -2369,13 +2313,12 @@ function renderLeave(){
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:10px;font-weight:700;color:${sc};text-transform:uppercase;background:${sc}22;padding:2px 8px;border-radius:3px">${r.status==='cancelled'&&r.wasApproved?'CANCELLED (was approved)':r.status}</span>
+          <span style="font-size:10px;font-weight:700;color:${sc};text-transform:uppercase;background:${sc}22;padding:2px 8px;border-radius:3px">${r.status}</span>
           ${showActions?`<button class="btn primary" data-leave-review="${id}" style="font-size:11px">Review</button>`:''}
           ${r.adminNote?`<span style="font-size:11px;color:#6e7681;font-style:italic">"${esc(r.adminNote)}"</span>`:''}
         </div>
       </div>
       ${r.reason?`<div style="margin-top:8px;font-size:11px;color:#8b949e;text-align:left">Reason: ${esc(r.reason)}</div>`:''}
-      ${r.cancelReason?`<div style="margin-top:6px;font-size:12px;color:#f5a623;text-align:left;background:#2d2200;border-radius:4px;padding:5px 10px">↩ Cancellation reason: ${esc(r.cancelReason)}</div>`:''}
       ${r.hasSickNote?`<div style="margin-top:4px;font-size:11px;color:#3fb950;text-align:left">📎 Sick note attached</div>`:''}
     </div>`;
   }
@@ -2404,10 +2347,6 @@ function renderLeave(){
     <div style="margin-bottom:28px">
       <div style="font-size:14px;font-weight:700;color:#f85149;margin-bottom:10px;text-align:left">✗ Declined</div>
       ${declined.length?declined.map(r=>reqCard(r,false)).join(''):'<div style="color:#484f58;font-size:12px;padding:8px 0;text-align:left">None yet.</div>'}
-    </div>
-    <div style="margin-bottom:28px">
-      <div style="font-size:14px;font-weight:700;color:#f5a623;margin-bottom:10px;text-align:left;display:flex;align-items:center;gap:8px">\u21a9 Cancelled ${newCancellations>0?`<span style="background:#f5a623;color:#000;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:900;display:inline-flex;align-items:center;justify-content:center">${newCancellations}</span>`:''}</div>
-      ${cancelled.length?cancelled.map(r=>reqCard(r,false)).join(''):'<div style="color:#484f58;font-size:12px;padding:8px 0;text-align:left">None yet.</div>'}
     </div>
     <div class="ep-card" style="margin-bottom:16px">
       <div class="ep-head"><span style="font-size:14px;font-weight:800;color:#eaf0ff">Leave Balances</span><span style="font-size:11px;color:#6e7681">Set starting balances per staff member</span></div>
@@ -4426,6 +4365,8 @@ function renderCallSheet(epNums){
   const anchorBlock=(nf,pf,tf,label)=>`<div style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #2e3a50">${lbl(label)}
     ${canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${nf}" value="${esc(cs[nf]||'')}" placeholder="Anchor name" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#eaf0ff;font-size:15px;padding:8px 10px;outline:none;font-family:inherit;display:block">`:`<div style="font-size:15px;color:${cs[nf]?'#eaf0ff':'#484f58'}">${esc(cs[nf]||'—')}</div>`}
   </div>`;
+  const nameCell2=(v,cls,ep,idx)=>canEdit?`<input class="${cls}" data-ep="${ep}" data-idx="${idx}" value="${esc(v)}" placeholder="Name" style="flex:1;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#eaf0ff;font-size:15px;padding:8px 10px;outline:none;font-family:inherit">`:`<div style="flex:1;font-size:15px;color:${v?'#eaf0ff':'#484f58'};padding:6px 0">${esc(v||'—')}</div>`;
+  const timeCell2=(v,cls,ep,idx)=>canEdit?`<input class="${cls}" data-ep="${ep}" data-idx="${idx}" value="${esc(v)}" placeholder="00:00" style="width:100px;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#e3b341;font-size:15px;padding:8px 10px;outline:none;font-family:monospace;text-align:center">`:`<div style="width:100px;font-size:15px;color:#e3b341;font-family:monospace;text-align:center">${esc(v||'—')}</div>`;
   const ctRow=(key,label)=>`<div style="margin-bottom:10px">${lbl(label)}<div style="display:flex;gap:8px">
     ${nameCell(key+'_name','Name')}
     ${canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${key+'_time'}" value="${esc(cs[key+'_time']||'')}" placeholder="00:00" style="width:100px;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#e3b341;font-size:15px;padding:8px 10px;outline:none;font-family:monospace;text-align:center">`:`<div style="width:100px;font-size:15px;color:#e3b341;font-family:monospace;text-align:center">${esc(cs[key+'_time']||'—')}</div>`}
@@ -4510,6 +4451,8 @@ function renderCallSheet(epNums){
         <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:10px;padding:18px 20px">
           <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #2e3a50">Call Times</div>
           ${ctRow('ctMakeup','Make-Up & Styling')}${ctRow('ctAnchor1','Anchor 1')}${ctRow('ctAnchor2','Anchor 2')}${ctRow('ctProd','Production')}${ctRow('ctDirector','Studio Director')}${ctRow('ctAsstDir','Assistant Director')}${ctRow('ctFloorMgr','Floor Manager')}${ctRow('ctAutocue','Autocue')}${ctRow('ctFacilities','Facilities Crew')}
+          ${(cs.extraCallTimes||[]).map((ec,idx)=>`<div style="margin-bottom:8px;border-top:1px dashed #2e3a50;padding-top:8px">${lbl(esc(ec.designation||'Additional Person'))}<div style="display:flex;gap:8px;align-items:center">${nameCell2(ec.name||'',"cs-extra-name",ep,idx)}${timeCell2(ec.time||'',"cs-extra-time",ep,idx)}${canEdit?`<button class="cs-remove-extra btn" data-ep="${ep}" data-idx="${idx}" style="font-size:11px;padding:4px 8px;border-color:#f85149;color:#f85149">✕</button>`:''}</div>${canEdit?`<div style="margin-top:4px"><input class="cs-extra-desig" data-ep="${ep}" data-idx="${idx}" value="${esc(ec.designation||'')}" placeholder="Designation / Role" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#9aaabe;font-size:12px;padding:6px 10px;outline:none;font-family:inherit"></div>`:''}</div>`).join('')}
+          ${canEdit?`<button class="cs-add-extra btn" data-ep="${ep}" style="width:100%;margin-top:8px;font-size:12px;border-style:dashed;border-color:#388bfd;color:#58a6ff">&#65291; Add Person</button>`:''}
         </div>
       </div>
       <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:10px;overflow:hidden">
@@ -6320,27 +6263,14 @@ function bindApp(){
     render();
   });
 
-  // Cancel leave — open reason modal
-  document.querySelectorAll('[data-leave-cancel-modal]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      leaveCancelModal={id:btn.dataset.leaveCancelModal};render();
+  // Cancel own pending request
+  document.querySelectorAll('[data-leave-cancel]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      if(!confirm('Cancel this leave request?'))return;
+      const id=btn.dataset.leaveCancel;
+      await saveLeaveRequest(id,{...leaveRequests[id],status:'cancelled'});
+      showToast('Request cancelled');render();
     });
-  });
-  // Cancel modal — keep leave
-  document.getElementById('lv-cancel-back')?.addEventListener('click',()=>{leaveCancelModal=null;render();});
-  document.getElementById('lv-cancel-overlay')?.addEventListener('click',e=>{if(e.target.id==='lv-cancel-overlay'){leaveCancelModal=null;render();}});
-  // Cancel modal — confirm cancellation
-  document.getElementById('lv-cancel-confirm-btn')?.addEventListener('click',async()=>{
-    const id=leaveCancelModal?.id;if(!id)return;
-    const reasonEl=document.getElementById('lv-cancel-reason');
-    const reason=(reasonEl?.value||'').trim();
-    if(!reason){reasonEl?.focus();showToast('Please provide a reason for cancelling.',true);return;}
-    const r=leaveRequests[id];
-    const wasApproved=r.status==='approved';
-    await saveLeaveRequest(id,{...r,status:'cancelled',cancelReason:reason,wasApproved,cancelledAt:Date.now()});
-    // Notify admins via a "notification" leave request flag
-    showToast(wasApproved?'Approved leave cancelled — admins have been notified.':'Leave request cancelled.');
-    leaveCancelModal=null;render();
   });
 
   // Admin: open review modal
@@ -7568,6 +7498,20 @@ function csFlushAndGet(){
     return{key:si.key,label:si.label,time:ti?ti.value:(ex.time||''),responsible:ex.responsible||[]};
   });
   cs.schedItems=schedItems;
+  const extras=[];
+  document.querySelectorAll(`.cs-extra-name[data-ep="${ep}"]`).forEach(el=>{
+    const i=Number(el.dataset.idx);if(!extras[i])extras[i]={designation:'',name:'',time:''};
+    extras[i].name=el.value;
+  });
+  document.querySelectorAll(`.cs-extra-time[data-ep="${ep}"]`).forEach(el=>{
+    const i=Number(el.dataset.idx);if(!extras[i])extras[i]={designation:'',name:'',time:''};
+    extras[i].time=el.value;
+  });
+  document.querySelectorAll(`.cs-extra-desig[data-ep="${ep}"]`).forEach(el=>{
+    const i=Number(el.dataset.idx);if(!extras[i])extras[i]={designation:'',name:'',time:''};
+    extras[i].designation=el.value.trim();
+  });
+  cs.extraCallTimes=extras.filter(Boolean);
   return cs;
 }
 function csExportPDF(){
@@ -7596,6 +7540,10 @@ function csExportPDF(){
     <td style="color:#0055a0;font-weight:700;font-size:8.5pt;padding:3px 6px 3px 0;width:40%;border-bottom:1px solid #f0f0f0">${ct.label}</td>
     <td style="font-family:monospace;font-weight:900;color:#c07000;font-size:9.5pt;padding:3px 6px;width:25%;border-bottom:1px solid #f0f0f0;white-space:nowrap">${cs[ct.key+'_time']||'—'}</td>
     <td style="font-size:9pt;padding:3px 4px;border-bottom:1px solid #f0f0f0">${cs[ct.key+'_name']||''}</td>
+  </tr>`).join('')+(cs.extraCallTimes||[]).map(ec=>`<tr>
+    <td style="color:#0055a0;font-style:italic;font-size:8.5pt;padding:3px 6px 3px 0;width:40%;border-bottom:1px solid #f0f0f0">${ec.designation||'Additional'}</td>
+    <td style="font-family:monospace;font-weight:900;color:#c07000;font-size:9.5pt;padding:3px 6px;width:25%;border-bottom:1px solid #f0f0f0;white-space:nowrap">${ec.time||'—'}</td>
+    <td style="font-size:9pt;padding:3px 4px;border-bottom:1px solid #f0f0f0">${ec.name||''}</td>
   </tr>`).join('');
 
   const defaultSched=CS_SCHED_ITEMS.map(si=>({key:si.key,label:si.label,time:'',responsible:[]}));
@@ -7855,6 +7803,21 @@ document.addEventListener('click',function csClickHandler(e){
     showToast('Copied from EP '+String(srcEp).padStart(2,'0')+' ✓');
     render();
     return;
+  }
+  // Add extra person to call times
+  if(e.target.classList.contains('cs-add-extra')){
+    const cs=csFlushAndGet();if(!cs)return;
+    cs.extraCallTimes=cs.extraCallTimes||[];
+    cs.extraCallTimes.push({designation:'',name:'',time:''});
+    callSheetData[String(csCurrentEp)]=cs;render();return;
+  }
+  // Remove extra person from call times
+  const rmExtra=e.target.closest('.cs-remove-extra');
+  if(rmExtra){
+    const idx=Number(rmExtra.dataset.idx);
+    const cs=csFlushAndGet();if(!cs)return;
+    (cs.extraCallTimes||[]).splice(idx,1);
+    callSheetData[String(csCurrentEp)]=cs;render();return;
   }
   // Export PDF
   if(e.target.id==='cs-export-pdf-btn'){csExportPDF();return;}
