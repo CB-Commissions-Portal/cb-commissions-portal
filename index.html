@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.16';
+const BUILD_VERSION='3.10.17';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1833,9 +1833,9 @@ async function exportCommissionsXLSX(){
   const headers=[
     'Season','Episode','TX Date','Episode UID',
     ...PROMO_TYPES.map(p=>p.label),
-    'Total On-Air Duration','Presenter 1','Presenter 2','Type',
+    'Total On-Air Duration','Studio Anchor 1','Studio Anchor 2','Normal/Extended',
     'Comm #','Story Name','Delivered Duration',
-    'Producer','Presenter / VO','DOP','Camera Asst','Editor','AFM Operator','Total Insert Cost'
+    'Producer','Insert Presenter','DOP','Camera Asst','Editor','AFM Operator','Total Insert Cost'
   ];
   const epNums=getEpNums();
   const rows=[headers];
