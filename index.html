@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.8';
+const BUILD_VERSION='3.10.9';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2359,6 +2359,21 @@ function renderLeave(){
 }
 
 function renderLeaveDeclineModal(){return '';}
+function renderLeaveCancelModal(){
+  const {id,reason='',wasApproved}=leaveCancelModal||{};
+  return`<div id="lv-cancel-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center">
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;width:420px;max-width:95vw;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+      <div style="font-size:15px;font-weight:800;color:#eaf0ff;margin-bottom:8px">Cancel Leave Request</div>
+      ${wasApproved?`<div style="background:#2d1f00;border:1px solid #e3b341;border-radius:6px;padding:8px 12px;font-size:12px;color:#e3b341;margin-bottom:14px">&#9888; This leave has been approved. Cancelling will notify your admin.</div>`:''}
+      <div style="font-size:12px;color:#8b949e;margin-bottom:6px">Please provide a reason for cancelling:</div>
+      <textarea id="lv-cancel-reason" placeholder="Reason for cancellation…" style="width:100%;min-height:80px;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:13px;padding:8px 10px;outline:none;font-family:inherit;resize:vertical;box-sizing:border-box">${esc(reason||'')}</textarea>
+      <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+        <button class="btn" id="lv-cancel-close">Keep Leave</button>
+        <button class="btn danger" id="lv-cancel-confirm">Confirm Cancellation</button>
+      </div>
+    </div>
+  </div>`;
+}
 function renderLeaveReviewModal(){
   if(!leaveReviewModal)return '';
   const {id,showReject}=leaveReviewModal;
@@ -6284,23 +6299,6 @@ function bindApp(){
     await saveLeaveRequest(id,{...leaveRequests[id],status:'cancelled',cancelReason:reason,wasApproved,cancelledAt:new Date().toISOString()});
     showToast('Leave request cancelled');leaveCancelModal=null;render();
   });
-
-  function renderLeaveCancelModal(){
-  const {id,reason='',wasApproved}=leaveCancelModal||{};
-  const r=leaveRequests[id]||{};
-  return`<div id="lv-cancel-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center">
-    <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;width:420px;max-width:95vw;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.6)">
-      <div style="font-size:15px;font-weight:800;color:#eaf0ff;margin-bottom:8px">Cancel Leave Request</div>
-      ${wasApproved?`<div style="background:#2d1f00;border:1px solid #e3b341;border-radius:6px;padding:8px 12px;font-size:12px;color:#e3b341;margin-bottom:14px">⚠ This leave has been approved. Cancelling will notify your admin.</div>`:''}
-      <div style="font-size:12px;color:#8b949e;margin-bottom:6px">Please provide a reason for cancelling:</div>
-      <textarea id="lv-cancel-reason" placeholder="Reason for cancellation…" style="width:100%;min-height:80px;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:13px;padding:8px 10px;outline:none;font-family:inherit;resize:vertical;box-sizing:border-box">${esc(reason)}</textarea>
-      <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
-        <button class="btn" id="lv-cancel-close">Keep Leave</button>
-        <button class="btn danger" id="lv-cancel-confirm">Confirm Cancellation</button>
-      </div>
-    </div>
-  </div>`;
-}
 
 // Admin: open review modal
   document.querySelectorAll('[data-leave-review]').forEach(btn=>{
