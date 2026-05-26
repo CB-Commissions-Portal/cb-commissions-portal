@@ -318,14 +318,14 @@ const ADMIN_EMAIL='rudi@combinedartists.co.za';
 function getCfg(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||null;}catch{return null;}}
 function saveCfg(c){localStorage.setItem(STORAGE_KEY,JSON.stringify(c));}
 
-const ROLE_META={admin:{label:'Admin',color:'#58a6ff',bg:'rgba(88,166,255,.12)'},editorial:{label:'Editorial',color:'#3fb950',bg:'rgba(63,185,80,.12)'},operations:{label:'Operations',color:'#d29922',bg:'rgba(210,153,34,.12)'},production:{label:'Production',color:'#bc8cff',bg:'rgba(188,140,255,.12)'},afm:{label:'AFM Operator',color:'#f7768e',bg:'rgba(247,118,142,.12)'},prodmgmt:{label:'Production Mgmt',color:'#fb923c',bg:'rgba(251,146,60,.12)'},capstaff:{label:'CAP Staff',color:'#34d399',bg:'rgba(52,211,153,.12)'}};
+const ROLE_META={admin:{label:'Admin',color:'#58a6ff',bg:'rgba(88,166,255,.12)'},deputyadmin:{label:'Deputy Admin',color:'#a5b4fc',bg:'rgba(165,180,252,.12)'},editorial:{label:'Editorial',color:'#3fb950',bg:'rgba(63,185,80,.12)'},operations:{label:'Operations',color:'#d29922',bg:'rgba(210,153,34,.12)'},production:{label:'Production',color:'#bc8cff',bg:'rgba(188,140,255,.12)'},afm:{label:'AFM Operator',color:'#f7768e',bg:'rgba(247,118,142,.12)'},prodmgmt:{label:'Production Mgmt',color:'#fb923c',bg:'rgba(251,146,60,.12)'},capstaff:{label:'CAP Staff',color:'#34d399',bg:'rgba(52,211,153,.12)'}};
 const DEL_KEYS=['callSheets','insertScripts','releaseForms','footageAgreement','musicCueSheet','footageDeclaration','carpUpload'];
 const DEL_LABELS=['Call Sheets','Insert Scripts','Release Forms','Footage Agr.','Music Cue','Footage Decl.','CARP Upload'];
 const OPS_ED=['dop','ca','editor','afm'];
 const PROD_ED=[...DEL_KEYS];
 
 function getEffectiveRole(){return previewRole||currentRole;}
-function canEdit(role,f){if(role==='admin')return true;if(role==='editorial')return f==='deliveryDate';if(f==='decommissionMotivation')return true;
+function canEdit(role,f){if(role==='admin'||role==='deputyadmin')return true;if(role==='editorial')return f==='deliveryDate';if(f==='decommissionMotivation')return true;
 if(role==='operations')return OPS_ED.includes(f);if(role==='production')return PROD_ED.includes(f);return false;}
 function suggestCode(n){if(!n)return'';const stop=/^(the|and|for|from|with|into|a|an|of|in|at|to|or|by|down|up)$/i;const w=n.trim().split(/\s+/).filter(x=>x.length>1&&!stop.test(x));if(!w.length)return n.substring(0,5).toUpperCase();if(w.length===1)return w[0].substring(0,6).toUpperCase();if(w.length===2)return(w[0].substring(0,3)+w[1].substring(0,3)).toUpperCase();return w.slice(0,3).map(x=>x.substring(0,2)).join('').toUpperCase();}
 function fmtHMS(v){
@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.9.5';
+const BUILD_VERSION='3.9.7';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1109,7 +1109,7 @@ function updateComm(id,field,val){
       if(td){td.style.opacity=greyForIHorLic?'0.3':'';td.style.pointerEvents=greyForIHorLic?'none':'';}
     });
     const afmTd=row.querySelector('input[data-field="afm"]')?.closest('td');
-    if(afmTd){const afmCanEdit=['admin','operations'].includes(getEffectiveRole());afmTd.style.opacity=c.isLicensed&&!afmCanEdit?'0.3':'';afmTd.style.pointerEvents=c.isLicensed&&!afmCanEdit?'none':'';}
+    if(afmTd){const afmCanEdit=['admin','deputyadmin','operations'].includes(getEffectiveRole());afmTd.style.opacity=c.isLicensed&&!afmCanEdit?'0.3':'';afmTd.style.pointerEvents=c.isLicensed&&!afmCanEdit?'none':'';}
     const csTd=row.querySelector('input[data-field="callSheets"]')?.closest('td');
     if(csTd){csTd.style.opacity=greyForIHorLic?'0.3':'';csTd.style.pointerEvents=greyForIHorLic?'none':'';}
     // Grey paid duration cell for in-house
@@ -1306,7 +1306,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.5"/><circle cx="3" cy="12" r="1.5"/><circle cx="3" cy="18" r="1.5"/></svg>`,
       color:'#e3b341',
       bg:'rgba(227,179,65,.1)',
-      show: ['admin','operations','production','prodmgmt','editorial'].includes(role),
+      show: ['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role),
       desc:'Episode line-ups, directors and presenter assignments'
     },
     {
@@ -1316,7 +1316,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
       color:'#c084fc',
       bg:'rgba(192,132,252,.1)',
-      show: ['admin','editorial'].includes(role),
+      show: ['admin','deputyadmin','editorial'].includes(role),
       desc:'Build episode run of show with duration calculator'
     },
     {
@@ -1326,7 +1326,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
       color:'#e3b341',
       bg:'rgba(227,179,65,.1)',
-      show: ['admin','operations','production','prodmgmt','editorial'].includes(role),
+      show: ['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role),
       desc:'Studio call sheet and running order per episode'
     },
     {
@@ -1356,7 +1356,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>`,
       color:'#f7768e',
       bg:'rgba(247,118,142,.1)',
-      show: ['admin','operations'].includes(role),
+      show: ['admin','deputyadmin','operations'].includes(role),
       desc:'Weekly post production schedule'
     },
     {
@@ -1366,7 +1366,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/><circle cx="18" cy="8" r="3"/><path d="M22 21a5 5 0 00-8-4"/></svg>`,
       color:'#3fb950',
       bg:'rgba(63,185,80,.1)',
-      show: ['admin','operations','production'].includes(role),
+      show: ['admin','deputyadmin','operations','production'].includes(role),
       desc:'Studio crew allocation and export'
     },
     {
@@ -1376,7 +1376,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,
       color:'#d2a8ff',
       bg:'rgba(210,168,255,.1)',
-      show: ['admin','operations','production'].includes(role),
+      show: ['admin','deputyadmin','operations','production'].includes(role),
       desc:'Edit and export end credits for each episode'
     },
     {
@@ -1386,7 +1386,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,
       color:'#ffa657',
       bg:'rgba(255,166,87,.1)',
-      show: ['admin','operations','prodmgmt','editorial'].includes(role),
+      show: ['admin','deputyadmin','operations','prodmgmt','editorial'].includes(role),
       desc:'UID codes and promo scheduling per episode'
     },
     {
@@ -1396,7 +1396,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
       color:'#f7768e',
       bg:'rgba(247,118,142,.1)',
-      show:['admin','operations','afm','production'].includes(role),
+      show:['admin','deputyadmin','operations','afm','production'].includes(role),
       desc:'Upload and manage music cue sheets per commission'
     },
     {
@@ -1416,7 +1416,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>`,
       color:'#f7768e',
       bg:'rgba(247,118,142,.1)',
-      show: ['admin','operations','production','prodmgmt','editorial'].includes(role),
+      show: ['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role),
       desc:'Studio Script with timecode and segment durations'
     },
     {
@@ -1426,7 +1426,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
       color:'#f472b6',
       bg:'rgba(244,114,182,.1)',
-      show:['admin','operations','production','prodmgmt','editorial'].includes(role),
+      show:['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role),
       desc:'Daily presenter scheduling from 25 May 2026'
     },
     {
@@ -1584,19 +1584,19 @@ function renderApp(){
   <div class="tabs no-print">
     <div class="tab-btn${tab==='home'?' active':''}" data-tab="home" style="font-size:16px;padding:4px 10px" title="Home">⌂</div>
     ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='commissions'?' active':''}" data-tab="commissions">Commission List ${currentSeason}</div>`:''}
-    ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='lineups'?' active':''}" data-tab="lineups">Line-Ups</div>`:''}
-    ${['admin','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='ros'?' active':''}" data-tab="ros">Run of Show</div>`:''}
+    ${['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='lineups'?' active':''}" data-tab="lineups">Line-Ups</div>`:''}
+    ${['admin','deputyadmin','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='ros'?' active':''}" data-tab="ros">Run of Show</div>`:''}
     ${getEffectiveRole()!=='afm'?`<div class="tab-btn${tab==='broadcast'?' active':''}" data-tab="broadcast">Broadcast List</div>`:''}
     ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='episodes'?' active':''}" data-tab="episodes">Episode Register</div>`:''}
-    ${['admin','operations'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='postprod'?' active':''}" data-tab="postprod">Post Production</div>`:''}
+    ${['admin','deputyadmin','operations'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='postprod'?' active':''}" data-tab="postprod">Post Production</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='deliverables'?' active':''}" data-tab="deliverables">Deliverables</div>`:''}
-    ${['admin','operations','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='promos'?' active':''}" data-tab="promos">Promo Scheduling</div>`:''}
-    ${['admin','operations','afm','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='musiccues'?' active':''}" data-tab="musiccues">Music Cue Sheets</div>`:''}
-    ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='callsheet'?' active':''}" data-tab="callsheet">Studio Call Sheet</div>`:''}
-    ${['admin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='credits'?' active':''}" data-tab="credits">End Credits</div>`:''}
-    ${['admin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}
-    ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='fcc'?' active':''}" data-tab="fcc">Studio Script</div>`:''}
-    ${['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='prescal'?' active':''}" data-tab="prescal">Presenter Calendar</div>`:''}
+    ${['admin','deputyadmin','operations','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='promos'?' active':''}" data-tab="promos">Promo Scheduling</div>`:''}
+    ${['admin','deputyadmin','operations','afm','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='musiccues'?' active':''}" data-tab="musiccues">Music Cue Sheets</div>`:''}
+    ${['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='callsheet'?' active':''}" data-tab="callsheet">Studio Call Sheet</div>`:''}
+    ${['admin','deputyadmin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='credits'?' active':''}" data-tab="credits">End Credits</div>`:''}
+    ${['admin','deputyadmin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}
+    ${['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='fcc'?' active':''}" data-tab="fcc">Studio Script</div>`:''}
+    ${['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='prescal'?' active':''}" data-tab="prescal">Presenter Calendar</div>`:''}
     ${userHasLeaveAccess()?`<div class="tab-btn${tab==='leave'?' active':''}" data-tab="leave">CAP Leave</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='contracts'?' active':''}" data-tab="contracts">Contracts</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
@@ -1613,18 +1613,18 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='home')return renderHome();
   if(tab==='commissions'&&role!=='afm')return renderCommList(epNums,nextEp);
   if(tab==='episodes'&&role!=='afm')return renderEpisodes(epNums,paid,remaining);
-  if(tab==='studio'&&['admin','operations','production'].includes(role))return renderStudioCrew(epNums);
-  if(tab==='callsheet'&&['admin','operations','production','prodmgmt','editorial'].includes(role))return renderCallSheet(epNums);
-  if(tab==='credits'&&['admin','operations','production'].includes(role))return renderEndCredits(epNums);
-  if(tab==='promos'&&['admin','operations','prodmgmt','editorial'].includes(role))return renderPromoScheduling(epNums);
-  if(tab==='musiccues'&&['admin','operations','afm','production'].includes(role))return renderMusicCues(epNums);
-  if(tab==='fcc'&&['admin','operations','production','prodmgmt','editorial'].includes(role))return renderFCC(epNums);
-  if(tab==='prescal'&&['admin','operations','production','prodmgmt','editorial'].includes(role))return renderPresenterCalendar();
+  if(tab==='studio'&&['admin','deputyadmin','operations','production'].includes(role))return renderStudioCrew(epNums);
+  if(tab==='callsheet'&&['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role))return renderCallSheet(epNums);
+  if(tab==='credits'&&['admin','deputyadmin','operations','production'].includes(role))return renderEndCredits(epNums);
+  if(tab==='promos'&&['admin','deputyadmin','operations','prodmgmt','editorial'].includes(role))return renderPromoScheduling(epNums);
+  if(tab==='musiccues'&&['admin','deputyadmin','operations','afm','production'].includes(role))return renderMusicCues(epNums);
+  if(tab==='fcc'&&['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role))return renderFCC(epNums);
+  if(tab==='prescal'&&['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role))return renderPresenterCalendar();
   if(tab==='leave'&&userHasLeaveAccess())return renderLeave();
-  if(tab==='postprod'&&['admin','operations'].includes(role))return renderPostProd();
-  if(tab==='deliverables'&&currentRole==='admin'&&!previewRole)return renderDeliverables(epNums);
-  if(tab==='lineups'&&['admin','operations','production','prodmgmt','editorial'].includes(role))return renderLineups(epNums);
-  if(tab==='ros'&&['admin','editorial'].includes(role))return renderRunOfShow();
+  if(tab==='postprod'&&['admin','deputyadmin','operations'].includes(role))return renderPostProd();
+  if(tab==='deliverables'&&['admin','deputyadmin'].includes(currentRole)&&!previewRole)return renderDeliverables(epNums);
+  if(tab==='lineups'&&['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role))return renderLineups(epNums);
+  if(tab==='ros'&&['admin','deputyadmin','editorial'].includes(role))return renderRunOfShow();
   if(tab==='broadcast'&&role!=='afm')return renderBroadcastList();
   if(tab==='contracts'&&currentRole==='admin'&&!previewRole)return renderContracts();
   if(tab==='admin'&&currentRole==='admin'&&!previewRole)return renderAdmin();
@@ -1736,7 +1736,7 @@ ${filtered.map(c=>{
 <td style="${c.isInHouse?'background:#1a1a1a;pointer-events:none':c.isLicensed?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'N/A — In-House':c.isLicensed?'Not applicable':''}">${c.isInHouse?'<span style="color:#484f58;font-size:11px;font-style:italic">In-House</span>':ci('dop')}</td>
 <td style="${c.isInHouse?'background:#1a1a1a;pointer-events:none':c.isLicensed?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'N/A — In-House':c.isLicensed?'Not applicable':''}">${c.isInHouse?'<span style="color:#484f58;font-size:11px;font-style:italic">In-House</span>':ci('ca')}</td>
 <td style="${c.isInHouse?'background:#1a1a1a;pointer-events:none':c.isLicensed?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'N/A — In-House':c.isLicensed?'Not applicable':''}">${c.isInHouse?'<span style="color:#484f58;font-size:11px;font-style:italic">In-House</span>':ci('editor')}</td>
-<td style="${c.isLicensed&&!['admin','operations'].includes(getEffectiveRole())?'opacity:.3;pointer-events:none':''}">${ci('afm')}</td>
+<td style="${c.isLicensed&&!['admin','deputyadmin','operations'].includes(getEffectiveRole())?'opacity:.3;pointer-events:none':''}">${ci('afm')}</td>
 ${DEL_KEYS.map((k,ki)=>{
   const isIHGrey = (c.isInHouse || c.isLicensed) && k === 'callSheets';
   const role=getEffectiveRole();
@@ -1946,7 +1946,7 @@ function saveECValue(epNum, sectionId, key, val){
 
 
 function renderEndCredits(epNums){
-  const canEd=['admin','operations','production'].includes(getEffectiveRole());
+  const canEd=['admin','deputyadmin','operations','production'].includes(getEffectiveRole());
   if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet.</div></div>`;
 
   const cards=epNums.map(n=>{
@@ -2068,7 +2068,7 @@ function userHasLeaveAccess(){
 
 function renderLeave(){
   const role=currentRole;
-  const isAdmin=role==='admin';
+  const isAdmin=role==='admin'||role==='deputyadmin';
   const uid=currentUser?.uid||'';
   const userName=currentUser?.displayName||currentUser?.email||'';
 
@@ -2371,7 +2371,7 @@ const DELIVERABLE_TASKS = [
 
 function renderPostProd(){
   if(ppCalView)return renderPPCalendar();
-  const canEdit=['admin','operations'].includes(getEffectiveRole());
+  const canEdit=['admin','deputyadmin','operations'].includes(getEffectiveRole());
 
   // Auto-jump to current week on first open
   if(!_ppWeekAutoSet){
@@ -3536,7 +3536,7 @@ function fccExportPDF(ep){
 }
 
 function renderPresenterCalendar(){
-  const canEd=['admin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole());
+  const canEd=['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole());
   // Auto-jump to current month on first open
   if(!_presCalMonthAutoSet){
     _presCalMonthAutoSet=true;
@@ -3663,7 +3663,7 @@ function renderPresenterCalendar(){
 }
 
 function renderStudioCrew(epNums){
-  const canEd=['admin','operations','production'].includes(getEffectiveRole());
+  const canEd=['admin','deputyadmin','operations','production'].includes(getEffectiveRole());
   if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet.</div></div>`;
   const cards=epNums.map(n=>{
     const sc=studioCrew[String(n)]||{};
@@ -3779,7 +3779,7 @@ function rosNewItem(key){
 }
 
 function renderRunOfShow(){
-  const canEdit=['admin','editorial'].includes(getEffectiveRole());
+  const canEdit=['admin','deputyadmin','editorial'].includes(getEffectiveRole());
   const epNums=getEpNums().sort((a,b)=>a-b);
 
   // Episode picker
@@ -3974,13 +3974,13 @@ function getHelpPages(){
         <li><strong>Producer, DOP, Editor, AFM</strong> — crew assignments</li>
         <li><strong>Broadcast Episode</strong> — which episode the story is scheduled for</li>
       </ul>
-      ${['admin','operations'].includes(role)?'<p>As <strong>'+ROLE_META[role]?.label+'</strong> you can edit all fields. Click any cell to edit and press Tab to move to the next field.</p>':''}
+      ${['admin','deputyadmin','operations'].includes(role)?'<p>As <strong>'+ROLE_META[role]?.label+'</strong> you can edit all fields. Click any cell to edit and press Tab to move to the next field.</p>':''}
       <p>Use the <strong>search box</strong> to filter by story name, comm # or producer. Click any column header to sort.</p>`
     });
   }
 
   // ── Line-Ups ──
-  if(['admin','operations','production','prodmgmt','editorial'].includes(role)){
+  if(['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role)){
     pages.push({
       title:'Line-Ups',
       icon:'📝',
@@ -3998,7 +3998,7 @@ function getHelpPages(){
   }
 
   // ── Run of Show ──
-  if(['admin','editorial'].includes(role)){
+  if(['admin','deputyadmin','editorial'].includes(role)){
     pages.push({
       title:'Run of Show',
       icon:'🎬',
@@ -4032,7 +4032,7 @@ function getHelpPages(){
   }
 
   // ── Post Production ──
-  if(['admin','operations'].includes(role)){
+  if(['admin','deputyadmin','operations'].includes(role)){
     pages.push({
       title:'Post Production Schedule',
       icon:'🎞',
@@ -4050,7 +4050,7 @@ function getHelpPages(){
   }
 
   // ── Music Cue Sheets ──
-  if(['admin','operations','afm','production'].includes(role)){
+  if(['admin','deputyadmin','operations','afm','production'].includes(role)){
     pages.push({
       title:'Music Cue Sheets',
       icon:'🎵',
@@ -4067,7 +4067,7 @@ function getHelpPages(){
   }
 
   // ── Presenter Calendar ──
-  if(['admin','operations','production','prodmgmt','editorial'].includes(role)){
+  if(['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role)){
     pages.push({
       title:'Presenter Calendar',
       icon:'📅',
@@ -4197,7 +4197,7 @@ function csGetAllNames(cs){
 }
 function renderCallSheet(epNums){
   const role=getEffectiveRole();
-  const canEdit=['admin','prodmgmt'].includes(role);
+  const canEdit=['admin','deputyadmin','prodmgmt'].includes(role);
   if(!csCurrentEp){
     const today=new Date().toISOString().split('T')[0];
     const epList=epNums.sort((a,b)=>a-b).map(ep=>{
@@ -4885,7 +4885,7 @@ function renderBroadcastList(){
 
 function renderLineups(epNums){
   const role=getEffectiveRole();
-  const canEdit=['admin','operations','production','prodmgmt','editorial'].includes(role);
+  const canEdit=['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role);
   const today=new Date().toISOString().split('T')[0];
   const activeComms=comms.filter(c=>!c.decommissioned);
   const insertsInProd=activeComms.filter(c=>{
@@ -5090,7 +5090,7 @@ function renderAdmin(){
         <th style="text-align:center;padding:8px 10px;font-size:10px;font-weight:700;color:#6e7681;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #2e3a50">Actions</th>
       </tr></thead>
       <tbody>
-      ${users.map(u=>{
+      ${[...users].sort((a,b)=>(a.displayName||a.email||'').localeCompare(b.displayName||b.email||'')).map(u=>{
         const rm=ROLE_META[u.role]||ROLE_META.editorial;
         const isSelf=currentUser&&u.uid===currentUser.uid;
         return`<tr style="border-bottom:1px solid #21262d">
@@ -7268,7 +7268,7 @@ document.addEventListener('click',function luHeaderToggle(e){
 
   const isNowCollapsed=luCollapsed.has(ep);
   const role=getEffectiveRole();
-  const canEdit=['admin','operations','production','prodmgmt','editorial'].includes(role);
+  const canEdit=['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role);
   const past=block.querySelector('.lu-ep-header')?.style.background?.includes('2d0f0f')||
               block.dataset.luPast==='1';
 
