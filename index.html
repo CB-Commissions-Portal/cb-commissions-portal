@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.15';
+const BUILD_VERSION='3.10.16';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1811,6 +1811,75 @@ ${DEL_KEYS.map((k,ki)=>{
 ${currentRole==='admin'?`<button class="add-row-btn" id="add-row-btn2">+ Add Commission Row</button>`:''}
 </div>`;}
 
+
+async function exportCommissionsXLSX(){
+  if(!window.XLSX){
+    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+  }
+  const PROMO_TYPES=[
+    {key:'TSR1', label:'Teaser 1 UID'},
+    {key:'TSR2', label:'Teaser 2 UID'},
+    {key:'AFR1', label:'Afrikaans 1 UID'},
+    {key:'AFR2', label:'Afrikaans 2 UID'},
+    {key:'WKLY1',label:'Weekly 1 UID'},
+    {key:'WKLY2',label:'Weekly 2 UID'},
+    {key:'TON1', label:'Tonight 1 UID'},
+    {key:'TON2', label:'Tonight 2 UID'},
+    {key:'TON3', label:'Tonight 3 UID'},
+    {key:'TON4', label:'Tonight 4 UID'},
+    {key:'CATCH1',label:'CatchUp 1 UID'},
+    {key:'CATCH2',label:'CatchUp 2 UID'},
+  ];
+  const headers=[
+    'Season','Episode','TX Date','Episode UID',
+    ...PROMO_TYPES.map(p=>p.label),
+    'Total On-Air Duration','Presenter 1','Presenter 2','Type',
+    'Comm #','Story Name','Delivered Duration',
+    'Producer','Presenter / VO','DOP','Camera Asst','Editor','AFM Operator','Total Insert Cost'
+  ];
+  const epNums=getEpNums();
+  const rows=[headers];
+  epNums.forEach(n=>{
+    const k=String(n);
+    const txDate=resolveDate(n)?new Date(resolveDate(n)+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}):'';
+    const pd=promoData[k]||{};
+    const uids=pd.uids||{};
+    const epUID=pd.liveUID||'';
+    const promoUIDs=PROMO_TYPES.map(p=>uids[p.key]||'');
+    const onAir=(settings.epOnAir||{})[k]||'';
+    const lu=lineups[k]||{};
+    const pres1=lu.presenter1||'';
+    const pres2=lu.presenter2||'';
+    const epType=(settings.epTypes||{})[k]==='extended'?'Extended':'Normal';
+    const epComms=comms.filter(c=>c.broadcastEpisode===k&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0));
+    if(epComms.length===0){
+      rows.push([currentSeason,n,txDate,epUID,...promoUIDs,onAir,pres1,pres2,epType,'','','','','','','','','','']);
+    } else {
+      epComms.forEach(c=>{
+        rows.push([
+          currentSeason, n, txDate, epUID,
+          ...promoUIDs,
+          onAir, pres1, pres2, epType,
+          c.commNum||'', c.storyName||'', c.deliveredDuration||c.commDuration||'',
+          c.producer||'', c.presenterVO||'', c.dop||'', c.ca||'', c.editor||'', c.afm||'', c.totalInsertCost||''
+        ]);
+      });
+    }
+  });
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  // Column widths
+  ws['!cols']=[
+    {wch:8},{wch:8},{wch:16},{wch:18},
+    {wch:16},{wch:16},{wch:16},{wch:16},{wch:16},{wch:16},{wch:16},{wch:16},{wch:16},{wch:16},{wch:16},{wch:16},
+    {wch:18},{wch:20},{wch:20},{wch:10},
+    {wch:14},{wch:36},{wch:16},{wch:24},{wch:20},{wch:20},{wch:16},{wch:16},{wch:16},{wch:16}
+  ];
+  XLSX.utils.book_append_sheet(wb,ws,`S${currentSeason} Commissions`);
+  XLSX.writeFile(wb,`CB-Commission-Export-S${currentSeason}.xlsx`);
+  showToast('Commission export downloaded ✓');
+}
+
 function renderEpisodes(epNums,paid,remaining){
   const episodes=epNums.map(n=>({ep:n,date:resolveDate(n),stories:comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned)}));
 
@@ -1824,6 +1893,7 @@ ${currentRole==='editorial'?`<div class="info-box"><strong>Editorial view</stron
   </select>`:''}
   ${currentRole==='admin'?`<button class="btn" id="add-ep-btn2">+ Add Episode</button>`:''}
   <button class="btn" id="ep-expand-all-btn" style="font-size:11px">${expandedEps.size===epNums.length?'Collapse All':'Expand All'}</button>
+  <button class="btn" id="ep-comm-export-btn" style="font-size:11px;border-color:#3fb950;color:#3fb950">⬇ Commission Export (Excel)</button>
   ${currentRole==='admin'?`<button class="btn" id="fix-dates-btn" style="font-size:11px;border-color:#e3b341;color:#e3b341" title="Snap all episode dates to Sunday">🗓 Fix All Dates to Sunday</button>`:''}
   <span class="count-lbl" style="margin-left:0">${episodes.length} episodes</span>
 </div>
@@ -5768,6 +5838,9 @@ function bindApp(){
 
   document.querySelectorAll('[data-eptype]').forEach(btn=>btn.addEventListener('click',()=>{const k=btn.dataset.eptype;settings.epTypes={...(settings.epTypes||{}),[k]:btn.dataset.val};saveSettings();render();}));
   // On-Air Duration
+  // Commission Excel export
+  document.getElementById('ep-comm-export-btn')?.addEventListener('click',()=>exportCommissionsXLSX());
+
   document.querySelectorAll('.ep-onair-inp').forEach(inp=>{
     inp.addEventListener('change',()=>{
       const ep=String(inp.dataset.ep);
