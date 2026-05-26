@@ -39,6 +39,11 @@ input,select,textarea,button{font-family:var(--font-main)}
 .sync-dot.live{background:#3fb950;box-shadow:0 0 5px #3fb950;animation:blink 2s infinite}
 .sync-dot.saving{background:#d29922;animation:blink .5s infinite}
 .sync-dot.offline{background:#f85149}
+.notif-container{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.notif-toast{background:#1c2433;border:1px solid #388bfd;border-radius:8px;padding:12px 16px;min-width:260px;max-width:340px;box-shadow:0 4px 20px rgba(0,0,0,.5);animation:slideIn .3s ease;pointer-events:all;display:flex;align-items:flex-start;gap:10px}
+.notif-toast.leave{border-color:#e3b341}
+@keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(120%);opacity:0}}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
 .user-area{margin-left:auto;display:flex;align-items:center;gap:8px}
 .user-chip{display:flex;align-items:center;gap:7px;background:#252d3d;border:1px solid #2e3a50;border-radius:20px;padding:4px 12px 4px 5px}
@@ -318,7 +323,7 @@ const ADMIN_EMAIL='rudi@combinedartists.co.za';
 function getCfg(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||null;}catch{return null;}}
 function saveCfg(c){localStorage.setItem(STORAGE_KEY,JSON.stringify(c));}
 
-const ROLE_META={admin:{label:'Admin',color:'#58a6ff',bg:'rgba(88,166,255,.12)'},deputyadmin:{label:'Deputy Admin',color:'#a5b4fc',bg:'rgba(165,180,252,.12)'},editorial:{label:'Editorial',color:'#3fb950',bg:'rgba(63,185,80,.12)'},operations:{label:'Operations',color:'#d29922',bg:'rgba(210,153,34,.12)'},production:{label:'Production',color:'#bc8cff',bg:'rgba(188,140,255,.12)'},afm:{label:'AFM Operator',color:'#f7768e',bg:'rgba(247,118,142,.12)'},prodmgmt:{label:'Production Mgmt',color:'#fb923c',bg:'rgba(251,146,60,.12)'},capstaff:{label:'CAP Staff',color:'#34d399',bg:'rgba(52,211,153,.12)'}};
+const ROLE_META={admin:{label:'Super Admin',color:'#58a6ff',bg:'rgba(88,166,255,.12)'},deputyadmin:{label:'Admin',color:'#a5b4fc',bg:'rgba(165,180,252,.12)'},editorial:{label:'Editorial',color:'#3fb950',bg:'rgba(63,185,80,.12)'},operations:{label:'Operations',color:'#d29922',bg:'rgba(210,153,34,.12)'},production:{label:'Production',color:'#bc8cff',bg:'rgba(188,140,255,.12)'},afm:{label:'AFM Operator',color:'#f7768e',bg:'rgba(247,118,142,.12)'},prodmgmt:{label:'Production Mgmt',color:'#fb923c',bg:'rgba(251,146,60,.12)'},capstaff:{label:'CAP Staff',color:'#34d399',bg:'rgba(52,211,153,.12)'}};
 const DEL_KEYS=['callSheets','insertScripts','releaseForms','footageAgreement','musicCueSheet','footageDeclaration','carpUpload'];
 const DEL_LABELS=['Call Sheets','Insert Scripts','Release Forms','Footage Agr.','Music Cue','Footage Decl.','CARP Upload'];
 const OPS_ED=['dop','ca','editor','afm'];
@@ -402,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.0';
+const BUILD_VERSION='3.10.4';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -423,9 +428,12 @@ let leaveBalances={};
 let leaveFormOpen=false;
 let leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',sickNoteFile:null};
 let leaveDeclineModal=null;
+let leaveReviewModal=null; // {id, showReject}
 let leaveViewMode='my'; // 'my'|'calendar'|'manage'
 let leaveCalYear=new Date().getFullYear();
 let leaveCalMonth=new Date().getMonth();
+let seenLeaveIds=new Set();
+let unsubLeave=null;
 let currentUserExtraRoles=[];
 let mcTab='dashboard';
 let mcEditId=null;
@@ -1064,6 +1072,44 @@ function subscribeData(){
   });
 }
 
+function showLeaveToast(msg,type='default',duration=6000){
+  const id='toast-'+Date.now();
+  const div=document.createElement('div');
+  div.className='notif-toast'+(type==='leave'?' leave':'');
+  div.id=id;
+  div.innerHTML=`<span style="font-size:18px">${type==='leave'?'🏖':''}</span><div><div style="font-size:13px;font-weight:700;color:#eaf0ff">${msg}</div><div style="font-size:11px;color:#6e7681;margin-top:2px">Click to view</div></div>`;
+  div.style.cursor='pointer';
+  div.addEventListener('click',()=>{
+    tab='leave';leaveViewMode='manage';render();
+    div.style.animation='slideOut .3s ease forwards';
+    setTimeout(()=>div.remove(),300);
+  });
+  let container=document.getElementById('notif-container');
+  if(!container){container=document.createElement('div');container.id='notif-container';container.className='notif-container';document.body.appendChild(container);}
+  container.appendChild(div);
+  setTimeout(()=>{div.style.animation='slideOut .3s ease forwards';setTimeout(()=>div.remove(),300);},duration);
+}
+
+function subscribeLeaveRequests(){
+  if(unsubLeave)unsubLeave();
+  if(!db)return;
+  unsubLeave=onSnapshot(collection(db,'leave_requests'),snap=>{
+    const isAdminUser=currentRole==='admin'||currentRole==='deputyadmin';
+    snap.docChanges().forEach(change=>{
+      const id=change.doc.id;
+      const data=change.doc.data();
+      leaveRequests[id]={...data};
+      if(isAdminUser&&(change.type==='added'||change.type==='modified')&&data.status==='pending'&&!seenLeaveIds.has(id)){
+        const name=data.userName||data.userEmail||'Someone';
+        const lt=LEAVE_TYPES.find(t=>t.key===data.leaveType);
+        showLeaveToast(`${name} applied for ${lt?lt.label:'leave'}`, 'leave');
+      }
+    });
+    // Refresh render if on leave tab
+    if(tab==='leave'&&!(document.activeElement?.closest('.leave-bal-inp'))){render();}
+  },()=>{});
+}
+
 async function loadUsers(){try{const snap=await getDocs(collection(db,'users'));users=snap.docs.map(d=>({uid:d.id,...d.data()}));render();}catch(e){console.error(e);}}
 
 function setSyncDot(s){syncStatus=s;const dot=document.getElementById('sync-dot');const lbl=document.getElementById('sync-lbl');if(!dot)return;dot.className='sync-dot '+s;lbl.textContent=s==='live'?'Live':s==='saving'?'Saving…':'Offline';}
@@ -1546,6 +1592,11 @@ function renderApp(){
       <option value="39" ${currentSeason==='39'?'selected':''}>Season 39</option>
       <option value="new">+ Add Season…</option>
     </select>
+    ${(currentRole==='admin'||currentRole==='deputyadmin')&&!previewRole?`
+    <button id="notif-bell-btn" onclick="tab='leave';leaveViewMode='manage';seenLeaveIds=new Set(Object.keys(leaveRequests).filter(id=>leaveRequests[id].status==='pending'));render();" style="position:relative;background:none;border:1px solid #2e3a50;color:#7a8ba0;border-radius:50%;width:30px;height:30px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0" title="Leave requests">
+      🔔
+      ${(()=>{const n=Object.values(leaveRequests).filter(r=>r.status==='pending'&&!seenLeaveIds.has(Object.keys(leaveRequests).find(k=>leaveRequests[k]===r)));const c=Object.entries(leaveRequests).filter(([k,r])=>r.status==='pending'&&!seenLeaveIds.has(k)).length;return c>0?`<span style="position:absolute;top:-4px;right:-4px;background:#f85149;color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #0d1117">${c}</span>`:''})()}
+    </button>`:''}
     <div class="sync-pill"><span class="sync-dot ${syncStatus}" id="sync-dot"></span><span id="sync-lbl">${syncStatus==='live'?'Live':syncStatus==='saving'?'Saving…':'Offline'}</span></div>
     <div class="user-area">
       ${currentRole==='admin'?`
@@ -1600,7 +1651,7 @@ function renderApp(){
     ${['admin','deputyadmin','operations','production'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}
     ${['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='fcc'?' active':''}" data-tab="fcc">Studio Script</div>`:''}
     ${['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='prescal'?' active':''}" data-tab="prescal">Presenter Calendar</div>`:''}
-    ${userHasLeaveAccess()?`<div class="tab-btn${tab==='leave'?' active':''}" data-tab="leave">CAP Leave</div>`:''}
+    ${userHasLeaveAccess()?`<div class="tab-btn${tab==='leave'?' active':''}" data-tab="leave" style="position:relative">CAP Leave${(currentRole==='admin'||currentRole==='deputyadmin')&&!previewRole?(()=>{const n=Object.entries(leaveRequests).filter(([k,r])=>r.status==='pending'&&!seenLeaveIds.has(k)).length;return n>0?`<span style="display:inline-flex;align-items:center;justify-content:center;background:#f85149;color:#fff;border-radius:50%;width:15px;height:15px;font-size:9px;font-weight:900;margin-left:5px;vertical-align:middle">${n}</span>`:''})():''}</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='contracts'?' active':''}" data-tab="contracts">Contracts</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
   </div>
@@ -2234,13 +2285,13 @@ function renderLeave(){
         <div style="font-size:13px;font-weight:700;color:#eaf0ff;margin-bottom:10px;text-align:left">My Applications</div>
         ${history||'<div style="color:#484f58;font-size:12px;padding:12px 0;text-align:left">No applications yet.</div>'}
       </div>
-      ${leaveDeclineModal?renderLeaveDeclineModal():''}
+      ${leaveReviewModal?renderLeaveReviewModal():''}
     </div>`;
   }
 
   // ── TEAM CALENDAR ───────────────────────────────────────────────
   if(leaveViewMode==='calendar'){
-    return`<div class="ep-wrap">${tabBar}${renderLeaveCalendarView()}${leaveDeclineModal?renderLeaveDeclineModal():''}</div>`;
+    return`<div class="ep-wrap">${tabBar}${renderLeaveCalendarView()}${leaveReviewModal?renderLeaveReviewModal():''}</div>`;
   }
 
   // ── MANAGE (admin/deputyadmin) ──────────────────────────────────
@@ -2263,8 +2314,7 @@ function renderLeave(){
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:10px;font-weight:700;color:${sc};text-transform:uppercase;background:${sc}22;padding:2px 8px;border-radius:3px">${r.status}</span>
-          ${showActions?`<button class="btn primary" data-leave-approve="${id}" style="font-size:11px">✓ Approve</button>
-          <button class="btn danger" data-leave-decline="${id}" style="font-size:11px">✗ Decline</button>`:''}
+          ${showActions?`<button class="btn primary" data-leave-review="${id}" style="font-size:11px">Review</button>`:''}
           ${r.adminNote?`<span style="font-size:11px;color:#6e7681;font-style:italic">"${esc(r.adminNote)}"</span>`:''}
         </div>
       </div>
@@ -2302,20 +2352,49 @@ function renderLeave(){
       <div class="ep-head"><span style="font-size:14px;font-weight:800;color:#eaf0ff">Leave Balances</span><span style="font-size:11px;color:#6e7681">Set starting balances per staff member</span></div>
       <div style="padding:12px 16px">${balEditor||'<div style="color:#484f58;font-size:12px;text-align:left">No CAP Staff users found.</div>'}</div>
     </div>
-    ${leaveDeclineModal?renderLeaveDeclineModal():''}
+    ${leaveReviewModal?renderLeaveReviewModal():''}
   </div>`;
 }
 
-function renderLeaveDeclineModal(){
-  return`<div class="modal-overlay" id="leave-decline-overlay"><div class="modal" style="max-width:400px">
-    <h3 style="margin-bottom:12px">Decline Leave Request</h3>
-    <p style="font-size:13px;color:#8b949e;margin-bottom:12px">Add an optional note for the staff member:</p>
-    <textarea id="decline-note-inp" rows="3" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px;border-radius:5px;font-size:13px" placeholder="Reason for declining..."></textarea>
-    <div class="modal-actions" style="margin-top:12px">
-      <button class="btn" id="decline-cancel-btn">Cancel</button>
-      <button class="btn danger" id="decline-confirm-btn">Decline Request</button>
+function renderLeaveDeclineModal(){return '';}
+function renderLeaveReviewModal(){
+  if(!leaveReviewModal)return '';
+  const {id,showReject}=leaveReviewModal;
+  const r=leaveRequests[id];
+  if(!r)return '';
+  const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5];
+  const days=countWorkingDays(r.startDate,r.endDate);
+  const nm=getLeaveName(r);
+  return`<div class="modal-overlay" id="lv-review-overlay">
+    <div class="modal" style="max-width:460px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+        <div style="background:${lt.color}22;color:${lt.color};padding:4px 12px;border-radius:5px;font-size:11px;font-weight:800;text-transform:uppercase">${lt.label}</div>
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#eaf0ff">${esc(nm)}</div>
+          <div style="font-size:11px;color:#6e7681;margin-top:2px">${r.startDate} → ${r.endDate} &nbsp;·&nbsp; <strong style="color:#eaf0ff">${days} working day${days!==1?'s':''}</strong></div>
+        </div>
+      </div>
+      ${r.reason?`<div style="background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:10px 12px;margin-bottom:16px">
+        <div style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:4px">Staff Reason</div>
+        <div style="font-size:13px;color:#cdd9e5">${esc(r.reason)}</div>
+      </div>`:''}
+      ${r.hasSickNote?`<div style="font-size:12px;color:#3fb950;margin-bottom:14px">📎 Sick note attached</div>`:''}
+      ${!showReject?`
+        <div class="modal-actions">
+          <button class="btn" id="lv-review-cancel">Cancel</button>
+          <button class="btn danger" id="lv-review-reject-btn">✗ Reject</button>
+          <button class="btn primary" id="lv-review-approve-btn">✓ Approve</button>
+        </div>`:`
+        <div style="margin-bottom:14px">
+          <label style="font-size:11px;font-weight:700;color:#f85149;text-transform:uppercase;display:block;margin-bottom:6px">Reason for Rejection *</label>
+          <textarea id="lv-reject-reason" rows="3" style="width:100%;background:#1c2433;border:1px solid #f8514944;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px;resize:vertical" placeholder="Enter reason for rejecting this leave request…"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" id="lv-review-cancel">Cancel</button>
+          <button class="btn danger" id="lv-reject-confirm-btn">Confirm Rejection</button>
+        </div>`}
     </div>
-  </div></div>`;
+  </div>`;
 }
 
 
@@ -6109,7 +6188,7 @@ function bindApp(){
   // New leave button
   // Leave tab switching
   document.querySelectorAll('.leave-tab-btn').forEach(btn=>{
-    btn.addEventListener('click',()=>{leaveViewMode=btn.dataset.leaveTab;leaveFormOpen=false;render();});
+    btn.addEventListener('click',()=>{leaveViewMode=btn.dataset.leaveTab;leaveFormOpen=false;if(leaveViewMode==='manage'){Object.entries(leaveRequests).filter(([,r])=>r.status==='pending').forEach(([id])=>seenLeaveIds.add(id));}render();});
   });
   // Calendar nav
   document.getElementById('lv-cal-prev')?.addEventListener('click',()=>{
@@ -6190,28 +6269,30 @@ function bindApp(){
     });
   });
 
-  // Admin: approve
-  document.querySelectorAll('[data-leave-approve]').forEach(btn=>{
-    btn.addEventListener('click',async()=>{
-      const id=btn.dataset.leaveApprove;
-      await saveLeaveRequest(id,{...leaveRequests[id],status:'approved',adminNote:''});
-      showToast('Leave approved');render();
-    });
+  // Admin: open review modal
+  document.querySelectorAll('[data-leave-review]').forEach(btn=>{
+    btn.addEventListener('click',()=>{leaveReviewModal={id:btn.dataset.leaveReview,showReject:false};render();});
   });
-
-  // Admin: decline — show modal
-  document.querySelectorAll('[data-leave-decline]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      leaveDeclineModal=btn.dataset.leaveDecline;render();
-    });
+  // Review modal — cancel / close overlay
+  document.getElementById('lv-review-cancel')?.addEventListener('click',()=>{leaveReviewModal=null;render();});
+  document.getElementById('lv-review-overlay')?.addEventListener('click',e=>{if(e.target.id==='lv-review-overlay'){leaveReviewModal=null;render();}});
+  // Review modal — approve
+  document.getElementById('lv-review-approve-btn')?.addEventListener('click',async()=>{
+    const id=leaveReviewModal?.id;if(!id)return;
+    await saveLeaveRequest(id,{...leaveRequests[id],status:'approved',adminNote:''});
+    showToast('Leave approved ✓');leaveReviewModal=null;render();
   });
-  document.getElementById('decline-cancel-btn')?.addEventListener('click',()=>{leaveDeclineModal=null;render();});
-  document.getElementById('leave-decline-overlay')?.addEventListener('click',e=>{if(e.target.id==='leave-decline-overlay'){leaveDeclineModal=null;render();}});
-  document.getElementById('decline-confirm-btn')?.addEventListener('click',async()=>{
-    const id=leaveDeclineModal;
-    const note=document.getElementById('decline-note-inp')?.value.trim()||'';
-    await saveLeaveRequest(id,{...leaveRequests[id],status:'declined',adminNote:note});
-    showToast('Leave declined');leaveDeclineModal=null;render();
+  // Review modal — show reject form
+  document.getElementById('lv-review-reject-btn')?.addEventListener('click',()=>{
+    leaveReviewModal={...leaveReviewModal,showReject:true};render();
+  });
+  // Review modal — confirm rejection
+  document.getElementById('lv-reject-confirm-btn')?.addEventListener('click',async()=>{
+    const id=leaveReviewModal?.id;if(!id)return;
+    const reason=document.getElementById('lv-reject-reason')?.value.trim()||'';
+    if(!reason){document.getElementById('lv-reject-reason')?.focus();return;}
+    await saveLeaveRequest(id,{...leaveRequests[id],status:'declined',adminNote:reason});
+    showToast('Leave declined');leaveReviewModal=null;render();
   });
 
   // Admin: save balance
@@ -8275,6 +8356,7 @@ async function boot(){
         currentRole=user.email===ADMIN_EMAIL?'admin':'editorial';
       }
       try{subscribeData();}catch(e){console.error('Subscribe error:',e);}
+      try{subscribeLeaveRequests();}catch(e){console.error('Leave subscribe error:',e);}
       try{await loadUsers();}catch(e){console.error('Load users error:',e);}
       try{await loadStudioCrew();}catch(e){console.error('Studio crew error:',e);}
       try{await loadEndCredits();}catch(e){console.error('End credits error:',e);}
