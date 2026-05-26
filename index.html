@@ -407,9 +407,9 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.13';
+const BUILD_VERSION='3.10.15';
 const BUILD_DATE='26 May 2026';
-let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
+let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
 let studioCrew={}; // {epNum: {studioDirector:'', ad:'', ...}}
@@ -1206,7 +1206,7 @@ async function deleteComm(id){
 async function addRow(){
   const maxId=comms.length?Math.max(...comms.map(c=>Number(c.id)||0)):0;
   const newId=maxId+1;
-  const blank={id:newId,broadcastOrder:0,portal:false,commNum:'',shortName:'',storyName:'',commDuration:'',deliveredDuration:'',paidDuration:'',producer:'',presenterVO:'',dop:'',ca:'',editor:'',afm:'',callSheets:false,insertScripts:false,releaseForms:false,footageAgreement:false,musicCueSheet:false,footageDeclaration:false,carpUpload:false,approvedForPayment:false,decommissioned:false,decommissionMotivation:'',broadcastEpisode:'',isInHouse:false,isLicensed:false};
+  const blank={id:newId,broadcastOrder:0,portal:false,commNum:'',shortName:'',storyName:'',commDuration:'',deliveredDuration:'',paidDuration:'',producer:'',presenterVO:'',dop:'',ca:'',editor:'',afm:'',callSheets:false,insertScripts:false,releaseForms:false,footageAgreement:false,musicCueSheet:false,footageDeclaration:false,carpUpload:false,approvedForPayment:false,decommissioned:false,decommissionMotivation:'',broadcastEpisode:'',isInHouse:false,isLicensed:false,totalInsertCost:''};
   pendingFocusId=newId;await saveComm(blank);
 }
 
@@ -1734,6 +1734,7 @@ function renderCommList(epNums,nextEp){
   <th data-sort="afm" style="width:160px;min-width:160px">AFM Op</th>
   ${DEL_LABELS.map(l=>`<th style="width:80px">${l}</th>`).join('')}
   <th data-sort="approvedForPayment" style="width:80px">✓ Paid</th>
+  <th style="width:130px;white-space:nowrap">Insert Cost</th>
   <th style="width:100px">Episode</th>
   <th >Decom</th>
   <th style="width:180px">Motivation</th>
@@ -1799,6 +1800,7 @@ ${DEL_KEYS.map((k,ki)=>{
   return `<td style="text-align:center${isIHGrey?';opacity:.3;pointer-events:none':''}${needsCbAttn?';background:rgba(245,166,35,.12)':''}"><input type="checkbox" class="cb${c[k]?' g':''}" data-field="${k}" tabindex="-1" ${c[k]?'checked':''} ${!canEdit(role,k)||isIHGrey?'disabled':''}></td>`;
 }).join('')}
 <td style="text-align:center;${c.isInHouse?'opacity:.3;pointer-events:none':''}">${canEdit(getEffectiveRole(),'approvedForPayment')&&!c.isInHouse?`<input type="checkbox" class="cb" data-field="approvedForPayment" tabindex="-1" ${c.approvedForPayment?'checked':''} style="${c.approvedForPayment?'accent-color:#388bfd':''}">`:c.approvedForPayment?`<span class="badge paid">✓ Paid</span>`:`<span style="color:#484f58">—</span>`}</td>
+<td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}">${['admin','deputyadmin'].includes(getEffectiveRole())&&!c.isInHouse?`<input class="ci" value="${esc(c.totalInsertCost||'')}" data-field="totalInsertCost" placeholder="R 0.00" style="width:120px;color:#3fb950;font-family:'JetBrains Mono',monospace;font-size:12px">`:c.totalInsertCost?`<span style="color:#3fb950;font-family:'JetBrains Mono',monospace;font-size:12px;padding:2px 4px">${esc(c.totalInsertCost)}</span>`:`<span style="color:#484f58">—</span>`}</td>
 <td><select class="ep-sel" data-field="broadcastEpisode" tabindex="-1" ${getEffectiveRole()!=='admin'?'disabled':''}><option value="">—</option>${epOpts}${nextOpt}</select></td>
 <td style="white-space:nowrap">${c.decommissioned?`${currentRole==='admin'?`<button class="undo-btn" data-undo="${c.id}">↩ Undo</button>`:''} <span class="badge decom">Decom</span>`:`<button class="decom-btn" data-decom="${c.id}" tabindex="-1" ${!canEdit(getEffectiveRole(),'decommissioned')&&getEffectiveRole()!=='admin'?'disabled':''}>Decommission</button>`}${currentRole==='admin'&&!previewRole?`<button class="decom-btn" data-delete-comm="${c.id}" tabindex="-1" style="margin-left:4px;border-color:#f85149;color:#f85149" title="Permanently delete">🗑</button>`:''}
 </td>
@@ -1846,6 +1848,7 @@ ${episodes.map(({ep,date,stories})=>{
     <span style="color:#7a8ba0">Ep Content: <strong style="color:#eaf0ff;font-family:'JetBrains Mono',monospace;font-size:13px">${fmtHMS(epContentMins)}</strong></span>
     <span style="color:#7a8ba0">Insert Mins: ${insertMinsDisplay(insertMins)}</span>
     <span style="color:#7a8ba0">Non-Insert: <strong style="color:#d29922;font-family:'JetBrains Mono',monospace;font-size:13px">${fmtHMS(nonMins)}</strong></span>
+    ${(settings.epOnAir||{})[k]?`<span style="color:#7a8ba0;border-left:1px solid #2e3a50;padding-left:12px">On-Air: <strong style="color:#3fb950;font-family:'JetBrains Mono',monospace;font-size:13px">${esc((settings.epOnAir||{})[k])}</strong></span>`:''}
   </span>
   <div class="type-toggle no-print" style="margin-left:auto" onclick="event.stopPropagation()">
     <button class="type-btn normal${epType==='normal'?' on':''}" data-eptype="${k}" data-val="normal">Normal</button>
@@ -1892,6 +1895,11 @@ return`<tr data-ep-row="${s.id}">
   <div class="ep-stat">Insert Mins: <b class="gr">${fmtHMS(insertMins)}</b></div>
   <div class="ep-stat">Non-Insert: <b class="am">${fmtHMS(nonMins)}</b></div>
   <div class="ep-stat">Type: <b style="color:#eaf0ff">${epType==='extended'?'★ Extended':'Normal'}</b></div>
+  <div class="ep-stat no-print" style="margin-left:auto;display:flex;align-items:center;gap:8px">
+    <span style="color:#7a8ba0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">On-Air Duration:</span>
+    ${['admin','deputyadmin'].includes(currentRole)?`<input class="ep-onair-inp" data-ep="${ep}" value="${esc((settings.epOnAir||{})[k]||'')}" placeholder="00:00:00" style="background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#3fb950;font-size:13px;font-family:'JetBrains Mono',monospace;padding:4px 8px;width:100px;outline:none;text-align:center">`:
+    `<strong style="color:#3fb950;font-family:'JetBrains Mono',monospace;font-size:13px">${esc((settings.epOnAir||{})[k]||'—')}</strong>`}
+  </div>
 </div>
 </div>`;}).join('')}
 ${episodes.length===0?`<div style="color:#6e7681;padding:32px;text-align:center">No episodes yet. Assign a broadcast episode from the Comm List tab.</div>`:''}
@@ -5759,6 +5767,15 @@ function bindApp(){
   });
 
   document.querySelectorAll('[data-eptype]').forEach(btn=>btn.addEventListener('click',()=>{const k=btn.dataset.eptype;settings.epTypes={...(settings.epTypes||{}),[k]:btn.dataset.val};saveSettings();render();}));
+  // On-Air Duration
+  document.querySelectorAll('.ep-onair-inp').forEach(inp=>{
+    inp.addEventListener('change',()=>{
+      const ep=String(inp.dataset.ep);
+      settings.epOnAir={...(settings.epOnAir||{}),[ep]:inp.value.trim()};
+      saveSettings();
+      render();
+    });
+  });
 
   // ep toggle handled globally below
 
