@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.9.8';
+const BUILD_VERSION='3.9.9';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1066,7 +1066,7 @@ async function loadUsers(){try{const snap=await getDocs(collection(db,'users'));
 function setSyncDot(s){syncStatus=s;const dot=document.getElementById('sync-dot');const lbl=document.getElementById('sync-lbl');if(!dot)return;dot.className='sync-dot '+s;lbl.textContent=s==='live'?'Live':s==='saving'?'Saving…':'Offline';}
 
 async function login(email,pass){try{await signInWithEmailAndPassword(auth,email,pass);return{ok:true};}catch(e){return{ok:false,error:e.message.replace('Firebase:','').replace(/\(auth\/.*\)/,'').trim()};}}
-async function getUserRole(uid){try{const s=await getDoc(doc(db,'users',uid));return s.exists()?s.data().role:null;}catch{return null;}}
+async function getUserRole(uid){try{const s=await getDoc(doc(db,'users',uid));if(s.exists()){const d=s.data();currentUserExtraRoles=d.extraRoles||[];return d.role||null;}return null;}catch{return null;}}
 async function updateUserRole(uid,role){
   try{
     await setDoc(doc(db,'users',uid),{role},{merge:true});
