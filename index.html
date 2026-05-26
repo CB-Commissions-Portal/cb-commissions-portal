@@ -402,7 +402,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.9.9';
+const BUILD_VERSION='3.10.0';
 const BUILD_DATE='18 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -423,6 +423,9 @@ let leaveBalances={};
 let leaveFormOpen=false;
 let leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',sickNoteFile:null};
 let leaveDeclineModal=null;
+let leaveViewMode='my'; // 'my'|'calendar'|'manage'
+let leaveCalYear=new Date().getFullYear();
+let leaveCalMonth=new Date().getMonth();
 let currentUserExtraRoles=[];
 let mcTab='dashboard';
 let mcEditId=null;
@@ -2066,179 +2069,238 @@ function userHasLeaveAccess(){
   return hasLeaveAccess(currentRole, currentUserExtraRoles);
 }
 
+function getLeaveName(r){
+  const u=users.find(x=>x.uid===r.uid);
+  return u?.displayName||r.userName||r.userEmail||'Unknown';
+}
+function dateInRange(d,s,e){
+  const dd=new Date(d+'T12:00:00'),ss=new Date(s+'T00:00:00'),ee=new Date(e+'T23:59:59');
+  return dd>=ss&&dd<=ee;
+}
+function renderLeaveCalendarView(){
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const yr=leaveCalYear,mo=leaveCalMonth;
+  const firstDay=new Date(yr,mo,1);
+  const totalDays=new Date(yr,mo+1,0).getDate();
+  const startDow=(firstDay.getDay()+6)%7; // 0=Mon
+  const approved=Object.entries(leaveRequests).filter(([,r])=>r.status==='approved');
+  // build day cells
+  let cells='';
+  const totalCells=Math.ceil((startDow+totalDays)/7)*7;
+  for(let i=0;i<totalCells;i++){
+    const dayNum=i-startDow+1;
+    const isValid=dayNum>=1&&dayNum<=totalDays;
+    const dateStr=isValid?`${yr}-${String(mo+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`:'';
+    const dow=i%7; // 0=Mon..6=Sun
+    const isWeekend=dow>=5;
+    const today=new Date();
+    const isToday=isValid&&yr===today.getFullYear()&&mo===today.getMonth()&&dayNum===today.getDate();
+    let pills='';
+    if(isValid){
+      approved.forEach(([,r])=>{
+        if(dateInRange(dateStr,r.startDate,r.endDate)){
+          const nm=getLeaveName(r);
+          const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5];
+          pills+=`<div style="background:${lt.color}22;color:${lt.color};border-radius:3px;padding:1px 5px;font-size:9px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;margin-top:2px">${esc(nm.split(' ')[0])}</div>`;
+        }
+      });
+    }
+    cells+=`<div style="border:1px solid #21262d;border-radius:5px;padding:5px 6px;min-height:64px;background:${isToday?'rgba(56,139,253,.08)':isWeekend?'#0d1117':'#161b22'};${!isValid?'opacity:.2':''}">
+      ${isValid?`<div style="font-size:10px;font-weight:${isToday?'900':'600'};color:${isToday?'#388bfd':'#6e7681'};margin-bottom:2px">${dayNum}</div>`:''}
+      ${pills}
+    </div>`;
+  }
+  const legend=LEAVE_TYPES.map(lt=>`<span style="background:${lt.color}22;color:${lt.color};border-radius:3px;padding:2px 7px;font-size:9px;font-weight:700">${lt.label.replace(' Leave','')}</span>`).join(' ');
+  return`<div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn" id="lv-cal-prev" style="font-size:11px">◀</button>
+      <span style="font-size:15px;font-weight:800;color:#eaf0ff;min-width:140px;text-align:center">${months[mo]} ${yr}</span>
+      <button class="btn" id="lv-cal-next" style="font-size:11px">▶</button>
+      <button class="btn" id="lv-cal-today" style="font-size:11px">Today</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px">
+      ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div style="text-align:center;font-size:10px;font-weight:700;color:#484f58;padding:4px 0">${d}</div>`).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">${cells}</div>
+    <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">${legend}</div>
+  </div>`;
+}
 function renderLeave(){
   const role=currentRole;
   const isAdmin=role==='admin'||role==='deputyadmin';
   const uid=currentUser?.uid||'';
-  const userName=currentUser?.displayName||currentUser?.email||'';
+  const myName=getLeaveName({uid,userName:currentUser?.displayName||currentUser?.email||''});
 
-  // ── ADMIN VIEW ──────────────────────────────────────────────────
-  if(isAdmin){
-    const pending=Object.entries(leaveRequests).filter(([,r])=>r.status==='pending').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
-    const approved=Object.entries(leaveRequests).filter(([,r])=>r.status==='approved').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
-    const declined=Object.entries(leaveRequests).filter(([,r])=>r.status==='declined').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
+  // ── TABS ─────────────────────────────────────────────────────────
+  const tabs=[
+    {k:'my',    label:'My Leave'},
+    {k:'calendar',label:'Team Calendar'},
+    ...(isAdmin?[{k:'manage',label:'Manage Requests'}]:[]),
+  ];
+  const tabBar=`<div style="display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid #21262d;padding-bottom:0">
+    ${tabs.map(t=>`<button class="leave-tab-btn" data-leave-tab="${t.k}" style="background:none;border:none;border-bottom:2px solid ${leaveViewMode===t.k?'#388bfd':'transparent'};color:${leaveViewMode===t.k?'#eaf0ff':'#6e7681'};font-size:13px;font-weight:${leaveViewMode===t.k?'700':'500'};padding:8px 16px;cursor:pointer;margin-bottom:-1px">${t.label}</button>`).join('')}
+  </div>`;
 
-    function reqCard([id,r],showActions){
-      const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[4];
-      const days=countWorkingDays(r.startDate,r.endDate);
-      const statusCol=r.status==='approved'?'#3fb950':r.status==='declined'?'#f85149':'#e3b341';
-      return`<div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:14px 16px;margin-bottom:8px">
+  // ── MY LEAVE ─────────────────────────────────────────────────────
+  if(leaveViewMode==='my'){
+    const myRequests=Object.entries(leaveRequests).filter(([,r])=>r.uid===uid).sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
+    const myBal=leaveBalances[uid]||{};
+    const balCards=LEAVE_TYPES.filter(t=>t.deductsBalance).map(t=>{
+      const total=myBal[t.key]??21;
+      const used=myRequests.filter(([,r])=>r.leaveType===t.key&&r.status==='approved').reduce((s,[,r])=>s+countWorkingDays(r.startDate,r.endDate),0);
+      const remaining=Math.max(0,total-used);
+      const pct=total>0?Math.round((remaining/total)*100):0;
+      return`<div style="background:#161b22;border:1px solid #21262d;border-radius:10px;padding:14px 16px;min-width:150px;flex:1">
+        <div style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:6px">${t.label}</div>
+        <div style="font-size:24px;font-weight:900;color:${remaining<=3?'#f85149':remaining<=7?'#e3b341':'#3fb950'}">${remaining}</div>
+        <div style="font-size:10px;color:#484f58;margin-top:2px">of ${total} days remaining</div>
+        <div style="margin-top:7px;height:3px;background:#21262d;border-radius:2px">
+          <div style="height:3px;border-radius:2px;background:${remaining<=3?'#f85149':remaining<=7?'#e3b341':'#3fb950'};width:${pct}%"></div>
+        </div>
+      </div>`;
+    }).join('');
+    const showForm=leaveFormOpen;
+    const fd=leaveDraft;
+    const days=fd.startDate&&fd.endDate?countWorkingDays(fd.startDate,fd.endDate):0;
+    const form=showForm?`<div class="ep-card" style="margin-bottom:16px">
+      <div class="ep-head" style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:14px;font-weight:800;color:#eaf0ff">New Leave Application</span>
+        <button class="btn" id="leave-form-close" style="font-size:11px">Cancel</button>
+      </div>
+      <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div>
+          <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Leave Type *</label>
+          <select id="leave-type-sel" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px">
+            ${LEAVE_TYPES.map(t=>`<option value="${t.key}" ${fd.leaveType===t.key?'selected':''}>${t.label}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:8px">
+          <div style="flex:1">
+            <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Start Date *</label>
+            <input type="date" id="leave-start" value="${fd.startDate||''}" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px">
+          </div>
+          <div style="flex:1">
+            <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">End Date *</label>
+            <input type="date" id="leave-end" value="${fd.endDate||''}" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px">
+          </div>
+          ${days>0?`<div style="padding-bottom:8px;white-space:nowrap;font-size:12px;color:#58a6ff;font-weight:700">${days} day${days!==1?'s':''}</div>`:''}
+        </div>
+        <div style="grid-column:1/-1">
+          <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Reason</label>
+          <textarea id="leave-reason" rows="2" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px;resize:vertical">${esc(fd.reason||'')}</textarea>
+        </div>
+        ${fd.leaveType==='sick'?`<div style="grid-column:1/-1">
+          <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Sick Note <span style="color:#484f58;font-weight:400;text-transform:none">(optional)</span></label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <label class="btn" style="cursor:pointer;font-size:11px">📎 Attach Sick Note<input type="file" id="leave-sick-note" accept=".pdf,.jpg,.jpeg,.png" style="display:none"></label>
+            <span id="sick-note-name" style="font-size:11px;color:#6e7681">${fd.sickNoteFile?fd.sickNoteFile.name:'No file selected'}</span>
+          </div>
+        </div>`:''}
+      </div>
+      <div style="padding:0 16px 16px;display:flex;gap:8px;justify-content:flex-start">
+        <button class="btn primary" id="leave-submit-btn">Submit Application</button>
+      </div>
+    </div>`:'';
+    const history=myRequests.map(([id,r])=>{
+      const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5];
+      const d=countWorkingDays(r.startDate,r.endDate);
+      const sc=r.status==='approved'?'#3fb950':r.status==='declined'?'#f85149':'#e3b341';
+      return`<div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px 16px;margin-bottom:8px">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-          <div style="display:flex;align-items:center;gap:12px">
-            <div style="background:${lt.color}22;color:${lt.color};padding:3px 10px;border-radius:4px;font-size:10px;font-weight:800;text-transform:uppercase">${lt.label}</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="background:${lt.color}22;color:${lt.color};padding:2px 9px;border-radius:4px;font-size:10px;font-weight:800;text-transform:uppercase">${lt.label}</span>
             <div>
-              <div style="font-size:13px;font-weight:700;color:#eaf0ff">${esc(r.userName||'Unknown')}</div>
-              <div style="font-size:11px;color:#6e7681;margin-top:1px">${r.startDate} → ${r.endDate} &nbsp;·&nbsp; <strong style="color:#eaf0ff">${days} working day${days!==1?'s':''}</strong></div>
+              <div style="font-size:12px;color:#eaf0ff;text-align:left">${r.startDate} → ${r.endDate} <span style="color:#6e7681">(${d} day${d!==1?'s':''})</span></div>
+              ${r.reason?`<div style="font-size:11px;color:#6e7681;margin-top:1px;text-align:left">${esc(r.reason)}</div>`:''}
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:10px;font-weight:700;color:${statusCol};text-transform:uppercase;background:${statusCol}22;padding:2px 8px;border-radius:3px">${r.status}</span>
-            ${showActions?`<button class="btn primary" data-leave-approve="${id}" style="font-size:11px">✓ Approve</button>
-            <button class="btn danger" data-leave-decline="${id}" style="font-size:11px">✗ Decline</button>`:''}
+            ${r.hasSickNote?`<span style="font-size:10px;color:#3fb950">📎</span>`:''}
+            <span style="font-size:10px;font-weight:700;color:${sc};text-transform:uppercase;background:${sc}22;padding:2px 8px;border-radius:3px">${r.status}</span>
             ${r.adminNote?`<span style="font-size:11px;color:#6e7681;font-style:italic">"${esc(r.adminNote)}"</span>`:''}
+            ${r.status==='pending'?`<button class="btn danger" data-leave-cancel="${id}" style="font-size:10px;padding:2px 8px">Cancel</button>`:''}
           </div>
         </div>
-        ${r.reason?`<div style="margin-top:8px;font-size:11px;color:#8b949e">Reason: ${esc(r.reason)}</div>`:''}
-        ${r.hasSickNote?`<div style="margin-top:4px;font-size:11px;color:#3fb950">📎 Sick note attached</div>`:''}
-      </div>`;
-    }
-
-    // Balance editor
-    const leaveUsers=users.filter(u=>u.role==='capstaff'||(u.extraRoles||[]).includes('capstaff')||u.role==='admin');
-    const balEditor=leaveUsers.map(u=>{
-      const bal=leaveBalances[u.uid]||{};
-      return`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #21262d;flex-wrap:wrap">
-        <div style="min-width:160px;font-size:13px;font-weight:600;color:#eaf0ff">${esc(u.displayName||u.email)}</div>
-        ${LEAVE_TYPES.filter(t=>t.deductsBalance).map(t=>`
-          <div style="display:flex;align-items:center;gap:6px">
-            <span style="font-size:10px;color:#7a8ba0;text-transform:uppercase;width:80px">${t.label.replace(' Leave','')}</span>
-            <input type="number" class="ci leave-bal-inp" data-uid="${u.uid}" data-type="${t.key}" value="${esc(String(bal[t.key]??21))}" min="0" max="365" style="width:56px;font-size:12px;text-align:center">
-          </div>`).join('')}
-        <button class="btn" data-save-balance="${u.uid}" style="font-size:11px">Save</button>
       </div>`;
     }).join('');
-
-    return`<div class="ep-wrap">
-      <div style="margin-bottom:20px">
-        <div style="font-size:15px;font-weight:800;color:#eaf0ff;margin-bottom:12px">⏳ Pending Requests (${pending.length})</div>
-        ${pending.length?pending.map(r=>reqCard(r,true)).join(''):'<div style="color:#484f58;font-size:12px;padding:12px 0">No pending requests.</div>'}
+    return`<div class="ep-wrap">${tabBar}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <span style="font-size:15px;font-weight:800;color:#eaf0ff">My Leave — ${esc(myName)}</span>
+        <button class="btn primary" id="leave-new-btn">+ Apply for Leave</button>
       </div>
-      <div style="margin-bottom:20px">
-        <div style="font-size:14px;font-weight:700;color:#3fb950;margin-bottom:10px">✓ Approved</div>
-        ${approved.length?approved.map(r=>reqCard(r,false)).join(''):'<div style="color:#484f58;font-size:12px;padding:8px 0">None yet.</div>'}
-      </div>
-      <div style="margin-bottom:28px">
-        <div style="font-size:14px;font-weight:700;color:#f85149;margin-bottom:10px">✗ Declined</div>
-        ${declined.length?declined.map(r=>reqCard(r,false)).join(''):'<div style="color:#484f58;font-size:12px;padding:8px 0">None yet.</div>'}
-      </div>
-      <div class="ep-card" style="margin-bottom:16px">
-        <div class="ep-head"><span style="font-size:14px;font-weight:800;color:#eaf0ff">Leave Balances</span><span style="font-size:11px;color:#6e7681">Set starting balances per staff member</span></div>
-        <div style="padding:12px 16px">${balEditor||'<div style="color:#484f58;font-size:12px">No CAP Staff users found. Create users and assign CAP Staff role or extra role.</div>'}</div>
+      <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">${balCards}</div>
+      ${form}
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#eaf0ff;margin-bottom:10px;text-align:left">My Applications</div>
+        ${history||'<div style="color:#484f58;font-size:12px;padding:12px 0;text-align:left">No applications yet.</div>'}
       </div>
       ${leaveDeclineModal?renderLeaveDeclineModal():''}
     </div>`;
   }
 
-  // ── STAFF VIEW ──────────────────────────────────────────────────
-  const myRequests=Object.entries(leaveRequests).filter(([,r])=>r.uid===uid).sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
-  const myBal=leaveBalances[uid]||{};
+  // ── TEAM CALENDAR ───────────────────────────────────────────────
+  if(leaveViewMode==='calendar'){
+    return`<div class="ep-wrap">${tabBar}${renderLeaveCalendarView()}${leaveDeclineModal?renderLeaveDeclineModal():''}</div>`;
+  }
 
-  // Balance cards
-  const balCards=LEAVE_TYPES.filter(t=>t.deductsBalance).map(t=>{
-    const total=myBal[t.key]??21;
-    const used=myRequests.filter(([,r])=>r.leaveType===t.key&&r.status==='approved').reduce((s,[,r])=>s+countWorkingDays(r.startDate,r.endDate),0);
-    const remaining=Math.max(0,total-used);
-    const pct=total>0?Math.round((remaining/total)*100):0;
-    return`<div style="background:#161b22;border:1px solid #21262d;border-radius:10px;padding:16px 20px;flex:1;min-width:180px">
-      <div style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:8px">${t.label}</div>
-      <div style="font-size:26px;font-weight:900;color:${remaining<=3?'#f85149':remaining<=7?'#e3b341':'#3fb950'}">${remaining}</div>
-      <div style="font-size:10px;color:#484f58;margin-top:2px">of ${total} days remaining</div>
-      <div style="margin-top:8px;height:4px;background:#21262d;border-radius:2px">
-        <div style="height:4px;border-radius:2px;background:${remaining<=3?'#f85149':remaining<=7?'#e3b341':'#3fb950'};width:${pct}%"></div>
+  // ── MANAGE (admin/deputyadmin) ──────────────────────────────────
+  const pending=Object.entries(leaveRequests).filter(([,r])=>r.status==='pending').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
+  const approved=Object.entries(leaveRequests).filter(([,r])=>r.status==='approved').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
+  const declined=Object.entries(leaveRequests).filter(([,r])=>r.status==='declined').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
+  function reqCard([id,r],showActions){
+    const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5];
+    const d=countWorkingDays(r.startDate,r.endDate);
+    const sc=r.status==='approved'?'#3fb950':r.status==='declined'?'#f85149':'#e3b341';
+    const nm=getLeaveName(r);
+    return`<div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:14px 16px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="background:${lt.color}22;color:${lt.color};padding:3px 10px;border-radius:4px;font-size:10px;font-weight:800;text-transform:uppercase">${lt.label}</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#eaf0ff;text-align:left">${esc(nm)}</div>
+            <div style="font-size:11px;color:#6e7681;margin-top:1px;text-align:left">${r.startDate} → ${r.endDate} &nbsp;·&nbsp; <strong style="color:#eaf0ff">${d} working day${d!==1?'s':''}</strong></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:10px;font-weight:700;color:${sc};text-transform:uppercase;background:${sc}22;padding:2px 8px;border-radius:3px">${r.status}</span>
+          ${showActions?`<button class="btn primary" data-leave-approve="${id}" style="font-size:11px">✓ Approve</button>
+          <button class="btn danger" data-leave-decline="${id}" style="font-size:11px">✗ Decline</button>`:''}
+          ${r.adminNote?`<span style="font-size:11px;color:#6e7681;font-style:italic">"${esc(r.adminNote)}"</span>`:''}
+        </div>
       </div>
+      ${r.reason?`<div style="margin-top:8px;font-size:11px;color:#8b949e;text-align:left">Reason: ${esc(r.reason)}</div>`:''}
+      ${r.hasSickNote?`<div style="margin-top:4px;font-size:11px;color:#3fb950;text-align:left">📎 Sick note attached</div>`:''}
+    </div>`;
+  }
+  const leaveUsers=users.filter(u=>u.role==='capstaff'||(u.extraRoles||[]).includes('capstaff')||u.role==='admin'||u.role==='deputyadmin');
+  const balEditor=leaveUsers.map(u=>{
+    const bal=leaveBalances[u.uid]||{};
+    return`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #21262d;flex-wrap:wrap">
+      <div style="min-width:160px;font-size:13px;font-weight:600;color:#eaf0ff;text-align:left">${esc(u.displayName||u.email)}</div>
+      ${LEAVE_TYPES.filter(t=>t.deductsBalance).map(t=>`
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:10px;color:#7a8ba0;text-transform:uppercase;width:70px;text-align:left">${t.label.replace(' Leave','')}</span>
+          <input type="number" class="ci leave-bal-inp" data-uid="${u.uid}" data-type="${t.key}" value="${esc(String(bal[t.key]??21))}" min="0" max="365" style="width:52px;font-size:12px;text-align:left">
+        </div>`).join('')}
+      <button class="btn" data-save-balance="${u.uid}" style="font-size:11px">Save</button>
     </div>`;
   }).join('');
-
-  // New leave form
-  const showForm=leaveFormOpen;
-  const fd=leaveDraft;
-  const days=fd.startDate&&fd.endDate?countWorkingDays(fd.startDate,fd.endDate):0;
-
-  const form=showForm?`<div class="ep-card" style="margin-bottom:16px">
-    <div class="ep-head" style="display:flex;align-items:center;justify-content:space-between">
-      <span style="font-size:14px;font-weight:800;color:#eaf0ff">New Leave Application</span>
-      <button class="btn" id="leave-form-close" style="font-size:11px">Cancel</button>
+  return`<div class="ep-wrap">${tabBar}
+    <div style="margin-bottom:20px">
+      <div style="font-size:15px;font-weight:800;color:#eaf0ff;margin-bottom:12px;text-align:left">⏳ Pending Requests (${pending.length})</div>
+      ${pending.length?pending.map(r=>reqCard(r,true)).join(''):'<div style="color:#484f58;font-size:12px;padding:12px 0;text-align:left">No pending requests.</div>'}
     </div>
-    <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
-      <div>
-        <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Leave Type *</label>
-        <select id="leave-type-sel" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px">
-          ${LEAVE_TYPES.map(t=>`<option value="${t.key}" ${fd.leaveType===t.key?'selected':''}>${t.label}</option>`).join('')}
-        </select>
-      </div>
-      <div style="display:flex;align-items:flex-end;gap:8px">
-        <div style="flex:1">
-          <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Start Date *</label>
-          <input type="date" id="leave-start" value="${fd.startDate||''}" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px">
-        </div>
-        <div style="flex:1">
-          <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">End Date *</label>
-          <input type="date" id="leave-end" value="${fd.endDate||''}" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px">
-        </div>
-        ${days>0?`<div style="padding-bottom:8px;white-space:nowrap;font-size:12px;color:#58a6ff;font-weight:700">${days} day${days!==1?'s':''}</div>`:''}
-      </div>
-      <div style="grid-column:1/-1">
-        <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Reason</label>
-        <textarea id="leave-reason" rows="2" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px;resize:vertical">${esc(fd.reason||'')}</textarea>
-      </div>
-      ${fd.leaveType==='sick'?`<div style="grid-column:1/-1">
-        <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Sick Note <span style="color:#484f58;font-weight:400;text-transform:none">(optional — attach file)</span></label>
-        <div style="display:flex;align-items:center;gap:10px">
-          <label class="btn" style="cursor:pointer;font-size:11px">
-            📎 Attach Sick Note
-            <input type="file" id="leave-sick-note" accept=".pdf,.jpg,.jpeg,.png" style="display:none">
-          </label>
-          <span id="sick-note-name" style="font-size:11px;color:#6e7681">${fd.sickNoteFile?fd.sickNoteFile.name:'No file selected'}</span>
-        </div>
-      </div>`:''}
+    <div style="margin-bottom:20px">
+      <div style="font-size:14px;font-weight:700;color:#3fb950;margin-bottom:10px;text-align:left">✓ Approved</div>
+      ${approved.length?approved.map(r=>reqCard(r,false)).join(''):'<div style="color:#484f58;font-size:12px;padding:8px 0;text-align:left">None yet.</div>'}
     </div>
-    <div style="padding:0 16px 16px;display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn primary" id="leave-submit-btn">Submit Application</button>
+    <div style="margin-bottom:28px">
+      <div style="font-size:14px;font-weight:700;color:#f85149;margin-bottom:10px;text-align:left">✗ Declined</div>
+      ${declined.length?declined.map(r=>reqCard(r,false)).join(''):'<div style="color:#484f58;font-size:12px;padding:8px 0;text-align:left">None yet.</div>'}
     </div>
-  </div>`:'';
-
-  // Request history
-  const history=myRequests.map(([id,r])=>{
-    const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[4];
-    const days=countWorkingDays(r.startDate,r.endDate);
-    const statusCol=r.status==='approved'?'#3fb950':r.status==='declined'?'#f85149':'#e3b341';
-    return`<div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <span style="background:${lt.color}22;color:${lt.color};padding:2px 9px;border-radius:4px;font-size:10px;font-weight:800;text-transform:uppercase">${lt.label}</span>
-        <div>
-          <div style="font-size:12px;color:#eaf0ff">${r.startDate} → ${r.endDate} &nbsp;<span style="color:#6e7681">(${days} day${days!==1?'s':''})</span></div>
-          ${r.reason?`<div style="font-size:11px;color:#6e7681;margin-top:1px">${esc(r.reason)}</div>`:''}
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        ${r.hasSickNote?`<span style="font-size:10px;color:#3fb950">📎 Note</span>`:''}
-        <span style="font-size:10px;font-weight:700;color:${statusCol};text-transform:uppercase;background:${statusCol}22;padding:2px 8px;border-radius:3px">${r.status}</span>
-        ${r.adminNote?`<span style="font-size:11px;color:#6e7681;font-style:italic">"${esc(r.adminNote)}"</span>`:''}
-        ${r.status==='pending'?`<button class="btn danger" data-leave-cancel="${id}" style="font-size:10px;padding:2px 8px">Cancel</button>`:''}
-      </div>
-    </div>`;
-  }).join('');
-
-  return`<div class="ep-wrap">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <span style="font-size:15px;font-weight:800;color:#eaf0ff">My Leave</span>
-      <button class="btn primary" id="leave-new-btn">+ Apply for Leave</button>
-    </div>
-    <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">${balCards}</div>
-    ${form}
-    <div>
-      <div style="font-size:13px;font-weight:700;color:#eaf0ff;margin-bottom:10px">My Applications</div>
-      ${history||'<div style="color:#484f58;font-size:12px;padding:12px 0">No applications yet.</div>'}
+    <div class="ep-card" style="margin-bottom:16px">
+      <div class="ep-head"><span style="font-size:14px;font-weight:800;color:#eaf0ff">Leave Balances</span><span style="font-size:11px;color:#6e7681">Set starting balances per staff member</span></div>
+      <div style="padding:12px 16px">${balEditor||'<div style="color:#484f58;font-size:12px;text-align:left">No CAP Staff users found.</div>'}</div>
     </div>
     ${leaveDeclineModal?renderLeaveDeclineModal():''}
   </div>`;
@@ -6045,6 +6107,20 @@ function bindApp(){
 
   // ── LEAVE BINDINGS ──────────────────────────────────────────────
   // New leave button
+  // Leave tab switching
+  document.querySelectorAll('.leave-tab-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{leaveViewMode=btn.dataset.leaveTab;leaveFormOpen=false;render();});
+  });
+  // Calendar nav
+  document.getElementById('lv-cal-prev')?.addEventListener('click',()=>{
+    leaveCalMonth--;if(leaveCalMonth<0){leaveCalMonth=11;leaveCalYear--;}render();
+  });
+  document.getElementById('lv-cal-next')?.addEventListener('click',()=>{
+    leaveCalMonth++;if(leaveCalMonth>11){leaveCalMonth=0;leaveCalYear++;}render();
+  });
+  document.getElementById('lv-cal-today')?.addEventListener('click',()=>{
+    const n=new Date();leaveCalYear=n.getFullYear();leaveCalMonth=n.getMonth();render();
+  });
   document.getElementById('leave-new-btn')?.addEventListener('click',()=>{
     leaveFormOpen=true;
     leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',sickNoteFile:null};
