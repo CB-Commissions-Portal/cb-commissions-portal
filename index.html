@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.17';
+const BUILD_VERSION='3.10.19';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1800,7 +1800,7 @@ ${DEL_KEYS.map((k,ki)=>{
   return `<td style="text-align:center${isIHGrey?';opacity:.3;pointer-events:none':''}${needsCbAttn?';background:rgba(245,166,35,.12)':''}"><input type="checkbox" class="cb${c[k]?' g':''}" data-field="${k}" tabindex="-1" ${c[k]?'checked':''} ${!canEdit(role,k)||isIHGrey?'disabled':''}></td>`;
 }).join('')}
 <td style="text-align:center;${c.isInHouse?'opacity:.3;pointer-events:none':''}">${canEdit(getEffectiveRole(),'approvedForPayment')&&!c.isInHouse?`<input type="checkbox" class="cb" data-field="approvedForPayment" tabindex="-1" ${c.approvedForPayment?'checked':''} style="${c.approvedForPayment?'accent-color:#388bfd':''}">`:c.approvedForPayment?`<span class="badge paid">✓ Paid</span>`:`<span style="color:#484f58">—</span>`}</td>
-<td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}">${['admin','deputyadmin'].includes(getEffectiveRole())&&!c.isInHouse?`<input class="ci" value="${esc(c.totalInsertCost||'')}" data-field="totalInsertCost" placeholder="R 0.00" style="width:120px;color:#3fb950;font-family:'JetBrains Mono',monospace;font-size:12px">`:c.totalInsertCost?`<span style="color:#3fb950;font-family:'JetBrains Mono',monospace;font-size:12px;padding:2px 4px">${esc(c.totalInsertCost)}</span>`:`<span style="color:#484f58">—</span>`}</td>
+<td>${['admin','deputyadmin'].includes(getEffectiveRole())?'<input class="ci" value="'+esc(c.totalInsertCost||'')+'" data-field="totalInsertCost" placeholder="R 0.00" style="width:120px;color:#3fb950;font-size:12px">':c.totalInsertCost?'<span style="color:#3fb950;font-size:12px;padding:2px 4px">'+esc(c.totalInsertCost)+'</span>':`<span style="color:#484f58">—</span>`}</td>
 <td><select class="ep-sel" data-field="broadcastEpisode" tabindex="-1" ${getEffectiveRole()!=='admin'?'disabled':''}><option value="">—</option>${epOpts}${nextOpt}</select></td>
 <td style="white-space:nowrap">${c.decommissioned?`${currentRole==='admin'?`<button class="undo-btn" data-undo="${c.id}">↩ Undo</button>`:''} <span class="badge decom">Decom</span>`:`<button class="decom-btn" data-decom="${c.id}" tabindex="-1" ${!canEdit(getEffectiveRole(),'decommissioned')&&getEffectiveRole()!=='admin'?'disabled':''}>Decommission</button>`}${currentRole==='admin'&&!previewRole?`<button class="decom-btn" data-delete-comm="${c.id}" tabindex="-1" style="margin-left:4px;border-color:#f85149;color:#f85149" title="Permanently delete">🗑</button>`:''}
 </td>
@@ -4432,7 +4432,7 @@ function csGetAllNames(cs){
 }
 function renderCallSheet(epNums){
   const role=getEffectiveRole();
-  const canEdit=['admin','deputyadmin','prodmgmt'].includes(role);
+  const canEdit=['admin','deputyadmin','operations','production','prodmgmt'].includes(role);
   if(!csCurrentEp){
     const today=new Date().toISOString().split('T')[0];
     const epList=epNums.sort((a,b)=>a-b).map(ep=>{
@@ -4520,6 +4520,7 @@ function renderCallSheet(epNums){
       <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         ${canEdit&&otherEps.length?`<select id="cs-copy-sel" style="background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 12px;border-radius:6px;font-size:13px"><option value="">Copy from EP…</option>${otherEps.sort((a,b)=>b-a).map(n=>`<option value="${n}">EP ${String(n).padStart(2,'0')}</option>`).join('')}</select><button class="btn" id="cs-copy-btn" style="font-size:12px;padding:6px 14px;border-color:#c084fc;color:#c084fc">Copy</button>`:''}
         <button class="btn" id="cs-export-pdf-btn" style="font-size:12px;padding:6px 14px;border-color:#388bfd;color:#58a6ff">⬇ Print / PDF</button>
+        ${canEdit?`<button class="btn" id="cs-clear-btn" data-ep="${ep}" style="font-size:12px;padding:6px 14px;border-color:#f85149;color:#f85149">🗑 Clear Call Sheet</button>`:''}
         ${canEdit?`<button class="btn primary" id="cs-save-btn" style="font-size:13px;padding:7px 20px;font-weight:800">💾 Save</button>`:''}
       </div>
     </div>
@@ -7919,6 +7920,14 @@ document.addEventListener('click',function csClickHandler(e){
     showToast('Copied from EP '+String(srcEp).padStart(2,'0')+' ✓');
     render();
     return;
+  }
+  // Clear call sheet
+  if(e.target.id==='cs-clear-btn'){
+    const ep=e.target.dataset.ep;
+    if(!confirm(`Clear the entire call sheet for EP ${String(ep).padStart(2,'0')}? This cannot be undone.`))return;
+    delete callSheetData[String(ep)];
+    try{await deleteDoc(doc(db,'call_sheets',String(ep)));setSyncDot('live');}catch(err){console.warn('CS delete err',err);}
+    showToast('Call sheet cleared');csCurrentEp=null;render();return;
   }
   // Add extra person to call times
   if(e.target.classList.contains('cs-add-extra')){
