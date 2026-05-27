@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.44';
+const BUILD_VERSION='3.10.45';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4395,6 +4395,11 @@ function renderRunOfShow(){
         ${ts.badge?`<span style="font-size:9px;font-weight:800;background:${ts.badgeBg};color:${ts.label};padding:2px 7px;border-radius:3px;margin-right:8px;letter-spacing:.5px">${ts.badge}</span>`:''}
         <span style="font-size:16px;font-weight:${ts.weight};color:${ts.label}">${esc(item.label)}</span>
       </td>
+      <td style="padding:6px 16px;vertical-align:middle;min-width:160px;max-width:200px">
+        ${canEdit&&!isLocked
+          ?`<input class="ros-slug" data-idx="${i}" value="${esc(item.slug||'')} " placeholder="Slug…" style="width:100%;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#e3b341;font-size:14px;padding:6px 2px;outline:none;font-family:inherit;font-weight:700">`
+          :`<span style="font-size:14px;color:${item.slug?'#e3b341':'#484f58'};font-weight:700">${esc(item.slug||'—')}</span>`}
+      </td>
       <td style="padding:10px 16px;vertical-align:middle;min-width:280px">
         ${item.type!=='fixed'&&item.type!=='break'
           ?(canEdit&&!isLocked
@@ -4449,6 +4454,7 @@ function renderRunOfShow(){
             <tr>
               <th style="width:80px;padding:10px;border-bottom:2px solid #2e3a50"></th>
               <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Item</th>
+              <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#e3b341;border-bottom:2px solid #2e3a50;text-align:left;min-width:160px">Slug</th>
               <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Content</th>
               <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:center;width:130px">Item Dur</th>
               <th style="padding:10px 20px;font-size:11px;font-weight:800;text-transform:uppercase;color:#c084fc;border-bottom:2px solid #2e3a50;text-align:right;width:130px">Ep Duration ↑</th>
@@ -8311,6 +8317,10 @@ function rosGetCurrentItems(){
 }
 function rosFlushAndSave(items){
   // Capture any unsaved DOM values first
+  document.querySelectorAll('.ros-slug').forEach(inp=>{
+    const idx=Number(inp.dataset.idx);
+    if(items[idx]!==undefined)items[idx].slug=inp.value.trim();
+  });
   document.querySelectorAll('.ros-content').forEach(inp=>{
     const idx=Number(inp.dataset.idx);
     if(items[idx]!==undefined)items[idx].content=inp.value;
@@ -8341,7 +8351,7 @@ function rosExportWord(){
     const desc=lbl+(cnt?`<br><span style="font-weight:normal;color:#000">${cnt}</span>`:'');
     return`<tr>
       <td width="28" align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top">${escHtml(num)}</td>
-      <td width="165" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top">&nbsp;</td>
+      <td width="165" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top">${escHtml(item.slug||'')}</td>
       <td width="120" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top">&nbsp;</td>
       <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;color:#0055a0;padding:3px 4px;border:1px solid #000;vertical-align:top">${desc}</td>
       <td width="55" align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top">&nbsp;</td>
@@ -8415,6 +8425,7 @@ function rosExportPDF(){
   const items=(rosData[String(epNum)]?.items)||[];
 
   // Flush any unsaved DOM values
+  document.querySelectorAll('.ros-slug').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i]!==undefined)items[i].slug=inp.value.trim();});
   document.querySelectorAll('.ros-content').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i])items[i].content=inp.value;});
   document.querySelectorAll('.ros-dur').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i])items[i].duration=inp.value;});
 
