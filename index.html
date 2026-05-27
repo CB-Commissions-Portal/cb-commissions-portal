@@ -407,12 +407,14 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.30';
+const BUILD_VERSION='3.10.31';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
 let studioCrew={}; // {epNum: {studioDirector:'', ad:'', ...}}
+let studioSchedule={}; // {epNum:{director,asstDir,makeup,autocue,floorMgr,production,bookingFrom,bookingTo}}
+let studioSchedMonth=''; // 'YYYY-MM'
 let endCredits={}; // {epNum: {presenters:[], storyCrew:[], studioCrew2:[], viewerPanel:[], etc}}
 let promoData={};
 let uidPool=[];
@@ -1027,6 +1029,16 @@ async function loadEndCredits(){
   }catch(e){console.error('End credits load error:',e);}
 }
 
+
+async function saveStudioSchedule(ep,data){
+  try{await setDoc(doc(db,'studio_schedule',String(ep)),{...data,updatedAt:serverTimestamp()});studioSchedule[ep]={...data};setSyncDot('live');}
+  catch(e){setSyncDot('offline');console.error(e);}
+}
+async function loadStudioSchedule(){
+  try{const snap=await getDocs(collection(db,'studio_schedule'));snap.docs.forEach(d=>{studioSchedule[d.id]={...d.data()};});}
+  catch(e){console.error(e);}
+}
+
 async function saveStudioCrew(ep,data){
   setSyncDot('saving');
   try{
@@ -1411,6 +1423,16 @@ function renderHome(){
       desc:'Weekly post production schedule'
     },
     {
+      tab:'studiosched',
+      title:'Studio Schedule',
+      sub:`Season ${season}`,
+      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/></svg>`,
+      color:'#22d3ee',
+      bg:'rgba(34,211,238,.1)',
+      show:['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance'].includes(role),
+      desc:'Monthly studio crew schedule and booking times'
+    },
+    {
       tab:'studio',
       title:'Studio Crew',
       sub:'Per Episode',
@@ -1671,6 +1693,7 @@ function renderApp(){
     ${['admin','deputyadmin','operations','production','prodmgmt','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='callsheet'?' active':''}" data-tab="callsheet">Studio Call Sheet</div>`:''}
     ${['admin','deputyadmin','operations','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='credits'?' active':''}" data-tab="credits">End Credits</div>`:''}
     ${['admin','deputyadmin','operations','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}
+    ${['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studiosched'?' active':''}" data-tab="studiosched">Studio Schedule</div>`:''}
     ${['admin','deputyadmin','production','prodmgmt','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='fcc'?' active':''}" data-tab="fcc">Studio Script</div>`:''}
     ${['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='prescal'?' active':''}" data-tab="prescal">Presenter Calendar</div>`:''}
     ${userHasLeaveAccess()?`<div class="tab-btn${tab==='leave'?' active':''}" data-tab="leave" style="position:relative">CAP Leave${(currentRole==='admin'||currentRole==='deputyadmin')&&!previewRole?(()=>{const n=Object.entries(leaveRequests).filter(([k,r])=>r.status==='pending'&&!seenLeaveIds.has(k)).length;return n>0?`<span style="display:inline-flex;align-items:center;justify-content:center;background:#f85149;color:#fff;border-radius:50%;width:15px;height:15px;font-size:9px;font-weight:900;margin-left:5px;vertical-align:middle">${n}</span>`:''})():''}</div>`:''}
@@ -1690,6 +1713,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='commissions'&&role!=='afm')return renderCommList(epNums,nextEp);
   if(tab==='episodes'&&role!=='afm')return renderEpisodes(epNums,paid,remaining);
   if(tab==='studio'&&['admin','deputyadmin','operations','production'].includes(role))return renderStudioCrew(epNums);
+  if(tab==='studiosched')return renderStudioSchedule(epNums);
   if(tab==='callsheet'&&['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role))return renderCallSheet(epNums);
   if(tab==='credits'&&['admin','deputyadmin','operations','production'].includes(role))return renderEndCredits(epNums);
   if(tab==='promos'&&['admin','deputyadmin','operations','prodmgmt','editorial','finance'].includes(role))return renderPromoScheduling(epNums);
@@ -3967,6 +3991,196 @@ function renderPresenterCalendar(){
   </div>`;
 }
 
+
+function getStudioAnchors(ep){
+  // Get presenters marked STUDIO on the TX date
+  const txDate=resolveDate(ep);
+  if(!txDate)return{anchor1:'',anchor2:''};
+  const dayData=presCalData[txDate]||{};
+  const studioPresKeys=PRESENTERS.map(p=>p.key).filter(k=>dayData[k]&&dayData[k].studio);
+  const anchor1=studioPresKeys[0]?PRESENTERS.find(p=>p.key===studioPresKeys[0])?.label||'':'';
+  const anchor2=studioPresKeys[1]?PRESENTERS.find(p=>p.key===studioPresKeys[1])?.label||'':'';
+  return{anchor1,anchor2};
+}
+
+function renderStudioSchedule(epNums){
+  const canEd=['admin','deputyadmin','prodmgmt'].includes(getEffectiveRole());
+  if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes found.</div></div>`;
+
+  // Build month list from TX dates
+  const months={};
+  epNums.forEach(n=>{
+    const d=resolveDate(n);
+    if(!d)return;
+    const ym=d.substring(0,7);
+    if(!months[ym])months[ym]=[];
+    months[ym].push(n);
+  });
+  const monthKeys=Object.keys(months).sort();
+  if(!studioSchedMonth||!months[studioSchedMonth])studioSchedMonth=monthKeys[0]||'';
+
+  const monthSel=`<select id="ss-month-sel" style="background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#eaf0ff;font-size:13px;padding:5px 10px;outline:none;font-family:inherit">
+    ${monthKeys.map(m=>`<option value="${m}" ${m===studioSchedMonth?'selected':''}>${new Date(m+'-01T00:00:00Z').toLocaleDateString('en-ZA',{month:'long',year:'numeric'})}</option>`).join('')}
+  </select>`;
+
+  const visEps=(months[studioSchedMonth]||[]).sort((a,b)=>a-b);
+
+  const thStyle='padding:8px 10px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#7a8ba0;background:#1a2235;white-space:nowrap;border-bottom:2px solid #2e3a50;text-align:left';
+  const tdStyle='padding:8px 10px;border-bottom:1px solid #21262d;vertical-align:top;font-size:12px';
+  const inp=(val,field,ep,ph='',w='100%')=>canEd
+    ?`<input class="ss-inp" data-ep="${ep}" data-field="${field}" value="${esc(val)}" placeholder="${ph}" style="width:${w};background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#eaf0ff;font-size:12px;padding:4px 7px;outline:none;font-family:inherit">`
+    :`<span style="color:${val?'#eaf0ff':'#484f58'};font-size:12px">${esc(val||'—')}</span>`;
+
+  const rows=visEps.map(n=>{
+    const k=String(n);
+    const ss=studioSchedule[k]||{};
+    const sc=studioCrew[k]||{};
+    const {anchor1,anchor2}=getStudioAnchors(n);
+    const txDate=resolveDate(n);
+    const txFmt=txDate?new Date(txDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}):'—';
+    const epType=(settings.epTypes||{})[k]==='extended'?'EXTENDED':'NORMAL';
+    const typeColor=epType==='EXTENDED'?'#e3b341':'#3fb950';
+    // Pre-fill from studioCrew if ss fields empty
+    const dir=ss.director!==undefined?ss.director:(sc.studioDirector||'');
+    const asst=ss.asstDir!==undefined?ss.asstDir:(sc.assistantDirector||'');
+    const fmgr=ss.floorMgr!==undefined?ss.floorMgr:(sc.floorManager||'');
+    const mkup=ss.makeup!==undefined?ss.makeup:((sc.makeupArtist?sc.makeupArtist+' ':''+(sc.studioStylist||'')).trim());
+    const auto=ss.autocue||'';
+    const prod=ss.production||'';
+    const bkFrom=ss.bookingFrom||'';
+    const bkTo=ss.bookingTo||'';
+    return`<tr data-ep="${n}">
+      <td style="${tdStyle};white-space:nowrap">
+        <span style="background:#1a3a6a;color:#79c0ff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:3px;font-family:monospace">EP ${String(n).padStart(2,'0')}</span>
+        <span style="color:${typeColor};font-size:9px;font-weight:800;background:${typeColor}22;padding:2px 6px;border-radius:3px;margin-left:4px">${epType}</span>
+      </td>
+      <td style="${tdStyle};white-space:nowrap;color:#e3b341;font-size:11px">${txFmt}</td>
+      <td style="${tdStyle};color:#58a6ff;font-size:12px;font-weight:600">${esc(anchor1||'—')}</td>
+      <td style="${tdStyle};color:#58a6ff;font-size:12px;font-weight:600">${esc(anchor2||'—')}</td>
+      <td style="${tdStyle}">${inp(dir,'director',n,'Director')}</td>
+      <td style="${tdStyle}">${inp(asst,'asstDir',n,'Asst Director')}</td>
+      <td style="${tdStyle}">${inp(mkup,'makeup',n,'Makeup & Styling')}</td>
+      <td style="${tdStyle}">${inp(auto,'autocue',n,'Autocue')}</td>
+      <td style="${tdStyle}">${inp(fmgr,'floorMgr',n,'Floor Manager')}</td>
+      <td style="${tdStyle}">${inp(prod,'production',n,'Production')}</td>
+      <td style="${tdStyle};white-space:nowrap">
+        ${canEd?`<div style="display:flex;align-items:center;gap:4px">
+          <input class="ss-inp" data-ep="${n}" data-field="bookingFrom" value="${esc(bkFrom)}" placeholder="08:00" style="width:60px;background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#e3b341;font-size:12px;padding:4px 6px;outline:none;font-family:monospace;text-align:center">
+          <span style="color:#484f58">–</span>
+          <input class="ss-inp" data-ep="${n}" data-field="bookingTo" value="${esc(bkTo)}" placeholder="18:00" style="width:60px;background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#e3b341;font-size:12px;padding:4px 6px;outline:none;font-family:monospace;text-align:center">
+        </div>`:bkFrom||bkTo?`<span style="color:#e3b341;font-family:monospace;font-size:12px">${esc(bkFrom)}–${esc(bkTo)}</span>`:`<span style="color:#484f58">—</span>`}
+      </td>
+      ${canEd?`<td style="${tdStyle}"><button class="btn ss-save-btn" data-ep="${n}" style="font-size:10px;padding:3px 8px">Save</button></td>`:`<td style="${tdStyle}"></td>`}
+    </tr>`;
+  }).join('');
+
+  return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
+    <div style="padding:12px 16px;background:#161b22;border-bottom:1px solid #2e3a50;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:15px;font-weight:800;color:#eaf0ff">Studio Schedule</span>
+        ${monthSel}
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="ss-pdf-btn" style="font-size:12px;border-color:#388bfd;color:#58a6ff">⬇ Export PDF</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto;overflow-y:auto;flex:1;min-height:0">
+      <table style="width:max-content;min-width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="${thStyle}">Episode</th>
+          <th style="${thStyle}">TX Date</th>
+          <th style="${thStyle}">Anchor 1</th>
+          <th style="${thStyle}">Anchor 2</th>
+          <th style="${thStyle}">Director</th>
+          <th style="${thStyle}">Asst Director</th>
+          <th style="${thStyle}">Makeup & Styling</th>
+          <th style="${thStyle}">Autocue</th>
+          <th style="${thStyle}">Floor Manager</th>
+          <th style="${thStyle}">Production</th>
+          <th style="${thStyle}">Studio Booking</th>
+          ${canEd?`<th style="${thStyle}"></th>`:''}
+        </tr></thead>
+        <tbody>${rows||'<tr><td colspan="12" style="padding:24px;color:#484f58;text-align:center">No episodes for this month.</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+async function exportStudioSchedPDF(){
+  const monthLabel=studioSchedMonth?new Date(studioSchedMonth+'-01T00:00:00Z').toLocaleDateString('en-ZA',{month:'long',year:'numeric'}):'';
+  const epNums=getEpNums();
+  const months={};
+  epNums.forEach(n=>{const d=resolveDate(n);if(!d)return;const ym=d.substring(0,7);if(!months[ym])months[ym]=[];months[ym].push(n);});
+  const visEps=((months[studioSchedMonth]||[])).sort((a,b)=>a-b);
+
+  const rows=visEps.map(n=>{
+    const k=String(n);
+    const ss=studioSchedule[k]||{};
+    const sc=studioCrew[k]||{};
+    const {anchor1,anchor2}=getStudioAnchors(n);
+    const txDate=resolveDate(n);
+    const txFmt=txDate?new Date(txDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short'}):'—';
+    const epType=(settings.epTypes||{})[k]==='extended'?'EXTENDED':'NORMAL';
+    const dir=ss.director!==undefined?ss.director:(sc.studioDirector||'');
+    const asst=ss.asstDir!==undefined?ss.asstDir:(sc.assistantDirector||'');
+    const fmgr=ss.floorMgr!==undefined?ss.floorMgr:(sc.floorManager||'');
+    const mkup=ss.makeup!==undefined?ss.makeup:((sc.makeupArtist?sc.makeupArtist+' ':''+(sc.studioStylist||'')).trim());
+    const bk=ss.bookingFrom&&ss.bookingTo?`${ss.bookingFrom}–${ss.bookingTo}`:(ss.bookingFrom||ss.bookingTo||'—');
+    return`<tr>
+      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8;font-weight:800;font-family:monospace;white-space:nowrap;color:#0055a0">EP ${String(n).padStart(2,'0')}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8;white-space:nowrap;font-size:8.5pt">${txFmt}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8;font-size:7.5pt;color:${epType==='EXTENDED'?'#b8860b':'#006400'};font-weight:800">${epType}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8;font-weight:700;color:#0055a0">${esc(anchor1||'—')}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8;font-weight:700;color:#0055a0">${esc(anchor2||'—')}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8">${esc(dir||'—')}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8">${esc(asst||'—')}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8">${esc(mkup||'—')}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8">${esc(ss.autocue||'—')}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8">${esc(fmgr||'—')}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8">${esc(ss.production||'—')}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8;font-family:monospace;color:#c07000;font-weight:800">${esc(bk)}</td>
+    </tr>`;
+  }).join('');
+
+  const logoSrc=BAKED_CB_LOGO||'';
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>CB Studio Schedule — ${monthLabel}</title>
+  <style>
+    @page{size:A4 landscape;margin:12mm 12mm}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Calibri,Arial,sans-serif;color:#111;font-size:9pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:3px solid #0077b6}
+    .logo{height:50px;width:auto}
+    .doc-title{font-size:13pt;font-weight:900;color:#0077b6;display:block;text-align:right}
+    .sub-title{font-size:10pt;color:#555;display:block;text-align:right;margin-top:2px}
+    table{width:100%;border-collapse:collapse;font-size:8.5pt}
+    thead th{background:#0077b6;color:#fff;padding:6px 8px;font-size:8pt;font-weight:800;text-align:left;white-space:nowrap}
+    tbody tr:nth-child(even){background:#f7faff}
+    .footer{margin-top:8px;font-size:7pt;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:4px}
+  </style></head><body>
+  <div class="header">
+    <img src="${logoSrc}" class="logo" alt="Carte Blanche">
+    <div>
+      <span class="doc-title">Studio Schedule — ${monthLabel}</span>
+      <span class="sub-title">Season ${currentSeason} &nbsp;·&nbsp; Carte Blanche Production Portal</span>
+    </div>
+  </div>
+  <table>
+    <thead><tr>
+      <th>EP</th><th>TX Date</th><th>Type</th>
+      <th>Anchor 1</th><th>Anchor 2</th>
+      <th>Director</th><th>Asst Director</th><th>Makeup & Styling</th>
+      <th>Autocue</th><th>Floor Manager</th><th>Production</th><th>Booking</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">Carte Blanche Production Portal &nbsp;·&nbsp; Studio Schedule &nbsp;·&nbsp; ${monthLabel} &nbsp;·&nbsp; Printed ${new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'})}</div>
+  </body></html>`;
+  const win=window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),500);
+}
+
 function renderStudioCrew(epNums){
   const canEd=['admin','deputyadmin','operations','production'].includes(getEffectiveRole());
   if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet.</div></div>`;
@@ -5304,12 +5518,21 @@ function renderLineups(epNums){
         <span style="font-size:12px;font-weight:800;color:${tot>0?(past?'#f85149':'#3fb950'):'#484f58'};font-family:monospace">Total: ${decToMmSs(tot)}</span>
       </div>
       <div class="lu-ep-body" style="display:${collapsed?'none':'block'}"><div style="padding:10px 16px;border-bottom:1px solid ${past?'#3d1f1f':'#21262d'};display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-        ${['director','presenter1','presenter2'].map(field=>`<div>
-          <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:4px">${field==='director'?'Director':field==='presenter1'?'Presenter 1':'Presenter 2'}</div>
-          ${canEdit
-            ?`<input class="lu-${field}" data-ep="${ep}" value="${esc(lu[field]||'')}" placeholder="${field==='director'?'Director':'Presenter'} name" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:5px 8px;border-radius:4px;font-size:12px;box-sizing:border-box">`
-            :`<span style="font-size:12px;font-weight:700;color:#eaf0ff">${esc(lu[field]||'—')}</span>`}
-        </div>`).join('')}
+        ${(()=>{
+          const {anchor1,anchor2}=getStudioAnchors(ep);
+          return ['director','presenter1','presenter2'].map(field=>{
+            const isAnc=field==='presenter1'||field==='presenter2';
+            const ancVal=field==='presenter1'?anchor1:anchor2;
+            const dispVal=isAnc?(ancVal||lu[field]||''):lu[field]||'';
+            const lbl=field==='director'?'Director':field==='presenter1'?'Anchor 1 ↩ Cal':'Anchor 2 ↩ Cal';
+            return`<div>
+              <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:4px">${lbl}</div>
+              ${canEdit&&!isAnc
+                ?`<input class="lu-${field}" data-ep="${ep}" value="${esc(lu[field]||'')}" placeholder="Director name" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:5px 8px;border-radius:4px;font-size:12px;box-sizing:border-box">`
+                :`<span style="font-size:12px;font-weight:700;color:${isAnc?'#58a6ff':'#eaf0ff'}">${esc(dispVal||'—')}</span>`}
+            </div>`;
+          }).join('');
+        })()}
       </div>
       <div style="padding:12px 16px">
         ${itemsHtml||`<div style="font-size:12px;color:#484f58;font-style:italic;padding:4px 0">No content added yet.</div>`}
@@ -8600,6 +8823,7 @@ async function boot(){
       try{subscribeLeaveRequests();}catch(e){console.error('Leave subscribe error:',e);}
       try{await loadUsers();}catch(e){console.error('Load users error:',e);}
       try{await loadStudioCrew();}catch(e){console.error('Studio crew error:',e);}
+      try{await loadStudioSchedule();}catch(e){console.error('Studio schedule error:',e);}
       try{await loadEndCredits();}catch(e){console.error('End credits error:',e);}
       try{await loadPromoData();}catch(e){console.error('Promo data error:',e);}
       try{await loadUIDPool();}catch(e){console.error('UID pool error:',e);}
