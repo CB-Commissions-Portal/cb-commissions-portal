@@ -407,13 +407,13 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.35';
+const BUILD_VERSION='3.10.36';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
 let studioCrew={}; // {epNum: {studioDirector:'', ad:'', ...}}
-let studioSchedule={}; // {epNum:{director,asstDir,makeup,autocue,floorMgr,production,bookingFrom,bookingTo}}
+let studioSchedule={}; // {epNum:{director,asstDir,makeup,autocue(Autocue Operator),floorMgr,production,bookingFrom,bookingTo}}
 let studioSchedMonth=''; // 'YYYY-MM'
 let endCredits={}; // {epNum: {presenters:[], storyCrew:[], studioCrew2:[], viewerPanel:[], etc}}
 let promoData={};
@@ -4050,7 +4050,7 @@ function renderStudioSchedule(epNums){
     const asst=ss.asstDir!==undefined?ss.asstDir:(sc.assistantDirector||'');
     const fmgr=ss.floorMgr!==undefined?ss.floorMgr:(sc.floorManager||'');
     const mkup=ss.makeup!==undefined?ss.makeup:((sc.makeupArtist?sc.makeupArtist+' ':''+(sc.studioStylist||'')).trim());
-    const auto=ss.autocue||'';
+    const auto=ss.autocue!==undefined?ss.autocue:(sc.autocueOperator||'');
     const prod=ss.production||'';
     const bkFrom=ss.bookingFrom||'';
     const bkTo=ss.bookingTo||'';
@@ -4065,7 +4065,7 @@ function renderStudioSchedule(epNums){
       <td style="${tdStyle}">${inp(dir,'director',n,'Director')}</td>
       <td style="${tdStyle}">${inp(asst,'asstDir',n,'Asst Director')}</td>
       <td style="${tdStyle}">${inp(mkup,'makeup',n,'Makeup & Styling')}</td>
-      <td style="${tdStyle}">${inp(auto,'autocue',n,'Autocue')}</td>
+      <td style="${tdStyle}">${inp(auto,'autocue',n,'Autocue Operator')}</td>
       <td style="${tdStyle}">${inp(fmgr,'floorMgr',n,'Floor Manager')}</td>
       <td style="${tdStyle}">${inp(prod,'production',n,'Production')}</td>
       <td style="${tdStyle};white-space:nowrap">
@@ -4099,7 +4099,7 @@ function renderStudioSchedule(epNums){
           <th style="${thStyle}">Director</th>
           <th style="${thStyle}">Asst Director</th>
           <th style="${thStyle}">Makeup & Styling</th>
-          <th style="${thStyle}">Autocue</th>
+          <th style="${thStyle}">Autocue Operator</th>
           <th style="${thStyle}">Floor Manager</th>
           <th style="${thStyle}">Production</th>
           <th style="${thStyle}">Studio Booking</th>
@@ -4124,43 +4124,62 @@ async function exportStudioSchedPDF(){
     const sc=studioCrew[k]||{};
     const {anchor1,anchor2}=getStudioAnchors(n);
     const txDate=resolveDate(n);
-    const txFmt=txDate?new Date(txDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short'}):'—';
+    const txFmt=txDate?new Date(txDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'—';
     const epType=(settings.epTypes||{})[k]==='extended'?'EXTENDED':'NORMAL';
     const dir=ss.director!==undefined?ss.director:(sc.studioDirector||'');
     const asst=ss.asstDir!==undefined?ss.asstDir:(sc.assistantDirector||'');
     const fmgr=ss.floorMgr!==undefined?ss.floorMgr:(sc.floorManager||'');
     const mkup=ss.makeup!==undefined?ss.makeup:((sc.makeupArtist?sc.makeupArtist+' ':''+(sc.studioStylist||'')).trim());
-    const bk=ss.bookingFrom&&ss.bookingTo?`${ss.bookingFrom}–${ss.bookingTo}`:(ss.bookingFrom||ss.bookingTo||'—');
-    return`<tr>
-      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8;font-weight:800;font-family:monospace;white-space:nowrap;color:#0055a0">EP ${String(n).padStart(2,'0')}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8;white-space:nowrap;font-size:8.5pt">${txFmt}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8;font-size:7.5pt;color:${epType==='EXTENDED'?'#b8860b':'#006400'};font-weight:800">${epType}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8;font-weight:700;color:#0055a0">${esc(anchor1||'—')}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8;font-weight:700;color:#0055a0">${esc(anchor2||'—')}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8">${esc(dir||'—')}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8">${esc(asst||'—')}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8">${esc(mkup||'—')}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8">${esc(ss.autocue||'—')}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8">${esc(fmgr||'—')}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8">${esc(ss.production||'—')}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #e8f0f8;font-family:monospace;color:#c07000;font-weight:800">${esc(bk)}</td>
-    </tr>`;
+    const auto=ss.autocue!==undefined?ss.autocue:(sc.autocueOperator||'');
+    const bk=ss.bookingFrom&&ss.bookingTo?`${ss.bookingFrom}–${ss.bookingTo}`:(ss.bookingFrom||ss.bookingTo||'Not set');
+    const fld=(label,val)=>`<div class="field"><div class="field-label">${label}</div><div class="field-val">${esc(val||'—')}</div></div>`;
+    return`<div class="ep-card">
+      <div class="ep-head">
+        <span class="ep-num">EP ${String(n).padStart(2,'0')}</span>
+        <span class="ep-date">${txFmt}</span>
+        <span class="ep-type">${epType}</span>
+      </div>
+      <div class="ep-body">
+        ${fld('Anchor 1',anchor1)}
+        ${fld('Anchor 2',anchor2)}
+        ${fld('Director',dir)}
+        ${fld('Asst Director',asst)}
+        ${fld('Makeup &amp; Styling',mkup)}
+        ${fld('Autocue Operator',auto)}
+        ${fld('Floor Manager',fmgr)}
+        ${fld('Production',ss.production||'')}
+        <div class="booking-card">
+          <span class="booking-label">Studio Booking</span>
+          <span class="booking-val">${esc(bk)}</span>
+        </div>
+      </div>
+    </div>`;
   }).join('');
 
   const logoSrc=BAKED_CB_LOGO||'';
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>CB Studio Schedule — ${monthLabel}</title>
   <style>
-    @page{size:A4 landscape;margin:12mm 12mm}
+    @page{size:A4 landscape;margin:14mm 16mm}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Calibri,Arial,sans-serif;color:#111;font-size:9pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:3px solid #0077b6}
-    .logo{height:50px;width:auto}
-    .doc-title{font-size:13pt;font-weight:900;color:#0077b6;display:block;text-align:right}
-    .sub-title{font-size:10pt;color:#555;display:block;text-align:right;margin-top:2px}
-    table{width:100%;border-collapse:collapse;font-size:8.5pt}
-    thead th{background:#0077b6;color:#fff;padding:6px 8px;font-size:8pt;font-weight:800;text-align:left;white-space:nowrap}
-    tbody tr:nth-child(even){background:#f7faff}
-    .footer{margin-top:8px;font-size:7pt;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:4px}
+    body{font-family:Calibri,Arial,sans-serif;color:#111;font-size:10pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:12px;border-bottom:3px solid #0077b6}
+    .logo{height:60px;width:auto}
+    .doc-title{font-size:16pt;font-weight:900;color:#0077b6;display:block;text-align:right}
+    .sub-title{font-size:10pt;color:#555;display:block;text-align:right;margin-top:3px}
+    .ep-card{border:1px solid #c8dff0;border-radius:6px;margin-bottom:14px;overflow:hidden;page-break-inside:avoid}
+    .ep-head{background:#0077b6;color:#fff;padding:8px 16px;display:flex;align-items:center;gap:16px}
+    .ep-num{font-size:13pt;font-weight:900;font-family:monospace;letter-spacing:1px}
+    .ep-date{font-size:10pt;font-weight:600;opacity:.9}
+    .ep-type{font-size:8.5pt;font-weight:800;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:3px}
+    .ep-body{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0}
+    .field{padding:10px 14px;border-right:1px solid #e0ecf8;border-top:1px solid #e0ecf8}
+    .field:nth-child(4n){border-right:none}
+    .field-label{font-size:7.5pt;font-weight:800;color:#0077b6;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+    .field-val{font-size:10.5pt;font-weight:700;color:#111}
+    .booking-card{grid-column:span 4;background:#f0f6ff;padding:10px 14px;border-top:1px solid #c8dff0;display:flex;align-items:center;gap:10px}
+    .booking-label{font-size:8pt;font-weight:800;color:#0077b6;text-transform:uppercase;margin-right:6px}
+    .booking-val{font-size:12pt;font-weight:900;color:#c07000;font-family:monospace}
+    .footer{margin-top:12px;font-size:7.5pt;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:6px}
   </style></head><body>
   <div class="header">
     <img src="${logoSrc}" class="logo" alt="Carte Blanche">
@@ -4169,15 +4188,7 @@ async function exportStudioSchedPDF(){
       <span class="sub-title">Season ${currentSeason} &nbsp;·&nbsp; Carte Blanche Production Portal</span>
     </div>
   </div>
-  <table>
-    <thead><tr>
-      <th>EP</th><th>TX Date</th><th>Type</th>
-      <th>Anchor 1</th><th>Anchor 2</th>
-      <th>Director</th><th>Asst Director</th><th>Makeup & Styling</th>
-      <th>Autocue</th><th>Floor Manager</th><th>Production</th><th>Booking</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table>
+  ${rows}
   <div class="footer">Carte Blanche Production Portal &nbsp;·&nbsp; Studio Schedule &nbsp;·&nbsp; ${monthLabel} &nbsp;·&nbsp; Printed ${new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'})}</div>
   </body></html>`;
   const win=window.open('','_blank');
