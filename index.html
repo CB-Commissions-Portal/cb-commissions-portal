@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.49';
+const BUILD_VERSION='3.10.50';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4397,7 +4397,7 @@ function renderRunOfShow(){
       </td>
       <td style="padding:6px 16px;vertical-align:middle;min-width:160px;max-width:200px">
         ${canEdit&&!isLocked
-          ?`<input class="ros-slug" data-idx="${i}" value="${esc(item.slug||'')} " placeholder="Slug…" style="width:100%;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#e3b341;font-size:14px;padding:6px 2px;outline:none;font-family:inherit;font-weight:700">`
+          ?`<input class="ros-slug" data-idx="${i}" value="${esc(item.slug||'')} " placeholder="Slug…" list="ros-slug-opts" style="width:100%;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#e3b341;font-size:14px;padding:6px 2px;outline:none;font-family:inherit;font-weight:700"><datalist id="ros-slug-opts"><option value="CB2026 OPENING LOGO"><option value="CB2026 KEY BUMPER OUT"><option value="CB2026 KEY BUMPER IN"><option value="CB2026 CLOSING CREDITS"></datalist>`
           :`<span style="font-size:14px;color:${item.slug?'#e3b341':'#484f58'};font-weight:700">${esc(item.slug||'—')}</span>`}
       </td>
       <td style="padding:6px 16px;vertical-align:middle;min-width:130px">
