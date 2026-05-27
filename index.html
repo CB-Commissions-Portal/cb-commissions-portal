@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.41';
+const BUILD_VERSION='3.10.42';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -8329,67 +8329,74 @@ function rosExportWord(){
   if(!ep)return;
   const items=(rosData[String(ep)]?.items)||[];
   if(!items.length){showToast('No items to export',true);return;}
-  const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
   const epDate=resolveDate(ep);
-  const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'';
-  const printed=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
-
+  const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'}):'';
+  const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
   const escHtml=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // Cell style — Arial 11pt, no spacing, tight padding
+  const cs='font-family:Arial,sans-serif;font-size:11pt;padding:2pt 4pt;vertical-align:top;border:1pt solid #000;line-height:1.2';
+  const hs='font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3pt 4pt;background:#003366;color:#fff;border:1pt solid #000;text-align:center';
 
   const rows=items.map((item,i)=>{
     const num=item.itemNum||String(i+1);
-    const desc=[item.label,item.content].filter(Boolean).join(' — ');
+    const desc=escHtml(item.label||'');
     return`<tr>
-      <td style="width:50pt;text-align:center;font-weight:bold;font-size:11pt">${escHtml(num)}</td>
-      <td style="width:90pt"></td>
-      <td style="width:90pt"></td>
-      <td style="font-size:11pt">${escHtml(desc)}</td>
-      <td style="width:70pt"></td>
+      <td style="${cs};text-align:center;font-weight:bold;width:1cm">${escHtml(num)}</td>
+      <td style="${cs};width:5.5cm">&nbsp;</td>
+      <td style="${cs};width:4cm">&nbsp;</td>
+      <td style="${cs};color:#0055a0;font-weight:bold">${desc}</td>
+      <td style="${cs};width:1.5cm;text-align:center">&nbsp;</td>
     </tr>`;
   }).join('');
 
   const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office"
 xmlns:w="urn:schemas-microsoft-com:office:word"
 xmlns="http://www.w3.org/TR/REC-html40">
-<head><meta charset="utf-8"><title>Studio Script — ${escHtml(epLabel)}</title>
-<!--[if gte mso 9]><xml><w:WordDocument>
-  <w:View>Print</w:View><w:Zoom>100</w:Zoom>
+<head><meta charset="utf-8">
+<title>CB Studio Script ${escHtml(epLabel)}</title>
+<!--[if gte mso 9]><xml>
+<w:WordDocument>
+  <w:View>Print</w:View>
+  <w:Zoom>100</w:Zoom>
   <w:DoNotOptimizeForBrowser/>
-</w:WordDocument></xml><![endif]-->
+</w:WordDocument>
+</xml><![endif]-->
 <style>
-  @page { size: A4 landscape; margin: 1.5cm 1.5cm; }
-  body { font-family: Arial, sans-serif; font-size: 11pt; color: #111; }
-  .doc-header { border-bottom: 3pt solid #0077b6; padding-bottom: 8pt; margin-bottom: 16pt; display: flex; justify-content: space-between; align-items: flex-end; }
-  .doc-title { font-size: 18pt; font-weight: bold; color: #0077b6; }
-  .doc-sub { font-size: 10pt; color: #555; margin-top: 3pt; }
-  table { width: 100%; border-collapse: collapse; }
-  thead th { background-color: #0077b6; color: #ffffff; font-weight: bold; font-size: 10pt;
-    padding: 8pt 10pt; text-align: left; text-transform: uppercase; letter-spacing: 0.5pt; }
-  tbody tr:nth-child(even) { background-color: #f0f6ff; }
-  tbody td { padding: 10pt 10pt; border-bottom: 1pt solid #dde8f4; vertical-align: top; font-size: 11pt; min-height: 30pt; }
-  .footer { margin-top: 16pt; font-size: 8pt; color: #aaa; border-top: 1pt solid #eee; padding-top: 6pt; }
+  @page Section1 {
+    size:420.0pt 595.3pt; /* A4 landscape in pt: 297mm x 210mm */
+    mso-page-orientation:landscape;
+    margin:56.7pt 56.7pt 56.7pt 56.7pt; /* 2cm margins */
+  }
+  div.Section1 { page:Section1; }
+  body {
+    font-family:Arial,sans-serif;
+    font-size:11pt;
+    margin:0;
+    mso-default-header-footer:none;
+  }
+  p { margin:0; padding:0; line-height:1.2; }
+  table { border-collapse:collapse; width:100%; }
 </style>
 </head>
 <body>
-<div class="doc-header">
-  <div>
-    <div class="doc-title">Studio Script — ${escHtml(epLabel)}</div>
-    <div class="doc-sub">${escHtml(epDateFmt)} &nbsp;·&nbsp; Season ${currentSeason} &nbsp;·&nbsp; Carte Blanche Production Portal</div>
-  </div>
-</div>
+<div class="Section1">
+<p style="font-family:Arial,sans-serif;font-size:14pt;font-weight:bold;color:#003366;margin-bottom:2pt">CARTE BLANCHE</p>
+<p style="font-family:Arial,sans-serif;font-size:11pt;margin-bottom:2pt"><b>Season ${currentSeason}, ${epLabel}</b></p>
+<p style="font-family:Arial,sans-serif;font-size:11pt;margin-bottom:8pt"><b>TX: ${escHtml(epDateFmt)}</b></p>
 <table>
   <thead>
     <tr>
-      <th style="width:50pt">Item #</th>
-      <th style="width:90pt">Production</th>
-      <th style="width:90pt">Sound</th>
-      <th>Description</th>
-      <th style="width:70pt">Duration</th>
+      <th style="${hs};width:1cm">ITEM</th>
+      <th style="${hs};width:5.5cm">PRODUCTION</th>
+      <th style="${hs};width:4cm">SOUND</th>
+      <th style="${hs}">DESCRIPTION</th>
+      <th style="${hs};width:1.5cm">DUR</th>
     </tr>
   </thead>
   <tbody>${rows}</tbody>
 </table>
-<div class="footer">Carte Blanche Production Portal &nbsp;·&nbsp; Studio Script &nbsp;·&nbsp; ${escHtml(epLabel)} &nbsp;·&nbsp; Printed ${printed}</div>
+</div>
 </body></html>`;
 
   const blob=new Blob(['\ufeff',html],{type:'application/msword'});
