@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.43';
+const BUILD_VERSION='3.10.44';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -8363,7 +8363,7 @@ xmlns="http://www.w3.org/TR/REC-html40">
   @page {
     size:841.9pt 595.3pt;
     mso-page-orientation:landscape;
-    margin:56.7pt 56.7pt 56.7pt 56.7pt;
+    margin:36pt 36pt 36pt 36pt; /* Narrow: 1.27cm all sides */
   }
   body{font-family:Arial,sans-serif;font-size:11pt;margin:0;padding:0}
   p{margin:0;padding:0;font-family:Arial,sans-serif;font-size:11pt;line-height:1.15}
