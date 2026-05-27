@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.28';
+const BUILD_VERSION='3.10.30';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -427,6 +427,7 @@ let deliverables={}; // {epNum: {task_key: bool}}
 let leaveBalances={};
 let leaveFormOpen=false;
 let leaveCancelModal=null;
+let leaveExportWeek='';
 let leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',sickNoteFile:null};
 let leaveDeclineModal=null;
 let leaveReviewModal=null; // {id, showReject}
@@ -2390,7 +2391,13 @@ function renderLeave(){
 
   // ── TEAM CALENDAR ───────────────────────────────────────────────
   if(leaveViewMode==='calendar'){
-    return`<div class="ep-wrap">${tabBar}${renderLeaveCalendarView()}${leaveReviewModal?renderLeaveReviewModal():''}</div>`;
+    // Team Calendar + week export toolbar
+    const weekExportBar=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <span style="font-size:12px;color:#7a8ba0;font-weight:600">Export week:</span>
+      <input type="date" id="leave-export-week-inp" value="${leaveExportWeek}" style="background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#eaf0ff;font-size:12px;padding:5px 8px;outline:none">
+      <button class="btn" id="leave-export-week-btn" style="font-size:12px;border-color:#3fb950;color:#3fb950">⬇ Export Week (Excel)</button>
+    </div>`;
+    return`<div class="ep-wrap">${tabBar}${weekExportBar}${renderLeaveCalendarView()}${leaveReviewModal?renderLeaveReviewModal():''}</div>`;
   }
 
   // ── MANAGE (admin/deputyadmin) ──────────────────────────────────
@@ -2453,6 +2460,49 @@ function renderLeave(){
     </div>
     ${leaveReviewModal?renderLeaveReviewModal():''}
   </div>`;
+}
+
+
+async function exportLeaveWeekXLSX(weekStart){
+  if(!window.XLSX){
+    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+  }
+  // Build Mon-Sun of the selected week
+  const base=new Date(weekStart+'T00:00:00Z');
+  const dow=base.getUTCDay(); // 0=Sun
+  const mon=new Date(base);
+  mon.setUTCDate(base.getUTCDate()-(dow===0?6:dow-1));
+  const weekDays=Array.from({length:7},(_,i)=>{
+    const d=new Date(mon);d.setUTCDate(mon.getUTCDate()+i);
+    return d.toISOString().split('T')[0];
+  });
+  const fmt=d=>new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+  const monStr=fmt(weekDays[0]);
+  const sunStr=fmt(weekDays[6]);
+
+  const headers=['Employee','Leave Type','Start Date','End Date','Working Days','Status',
+    ...weekDays.map(d=>new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short'}))];
+
+  const rows=[headers];
+  const approved=Object.values(leaveRequests).filter(r=>r.status==='approved'||r.status==='pending');
+  // Filter to requests that overlap with the week
+  const overlapping=approved.filter(r=>r.startDate<=weekDays[6]&&r.endDate>=weekDays[0]);
+  overlapping.sort((a,b)=>a.startDate.localeCompare(b.startDate));
+  overlapping.forEach(r=>{
+    const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5];
+    const nm=getLeaveName(r);
+    const wd=countWorkingDays(r.startDate,r.endDate);
+    const dayCells=weekDays.map(d=>(d>=r.startDate&&d<=r.endDate)?lt.label:'');
+    rows.push([nm,lt.label,r.startDate,r.endDate,wd,r.status,...dayCells]);
+  });
+  if(rows.length===1){rows.push(['No leave requests for this week','','','','','']);}
+
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:24},{wch:22},{wch:14},{wch:14},{wch:12},{wch:10},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws,`Leave ${weekDays[0]}`);
+  XLSX.writeFile(wb,`CB-Leave-Week-${weekDays[0]}.xlsx`);
+  showToast('Leave week exported ✓');
 }
 
 function renderLeaveDeclineModal(){return '';}
@@ -6438,6 +6488,12 @@ function bindApp(){
   });
 
   // Admin: save balance
+  // Leave week export
+  document.getElementById('leave-export-week-inp')?.addEventListener('change',e=>{leaveExportWeek=e.target.value;});
+  document.getElementById('leave-export-week-btn')?.addEventListener('click',()=>{
+    if(!leaveExportWeek){showToast('Please select a date first',true);return;}
+    exportLeaveWeekXLSX(leaveExportWeek);
+  });
   document.querySelectorAll('[data-save-balance]').forEach(btn=>{
     btn.addEventListener('click',async()=>{
       const uid=btn.dataset.saveBalance;
@@ -7785,6 +7841,7 @@ function csExportPDF(){
       <table class="info">
         <tr style="background:#e8f4ff"><th class="il" style="font-size:7.5pt">Role</th><th style="padding:4px 8px;font-size:7.5pt;color:#0055a0;font-weight:800;width:40px">Time</th><th style="padding:4px 8px;font-size:7.5pt;color:#0055a0;font-weight:800">Name</th></tr>
         ${calltimes.map(ct=>`<tr><td class="il">${ct.label}</td><td style="padding:4px 8px;font-family:monospace;font-weight:900;color:#c07000;font-size:9pt;white-space:nowrap">${cs[ct.key+'_time']||'—'}</td><td style="padding:4px 8px;color:#111">${cs[ct.key+'_name']||''}</td></tr>`).join('')}
+        ${(cs.extraCallTimes||[]).map(ec=>`<tr style="background:#f7faff"><td class="il" style="font-style:italic">${ec.designation||'Additional'}</td><td style="padding:4px 8px;font-family:monospace;font-weight:900;color:#c07000;font-size:9pt;white-space:nowrap">${ec.time||'—'}</td><td style="padding:4px 8px;color:#111">${ec.name||''}</td></tr>`).join('')}
       </table>
     </div>
   </div>
