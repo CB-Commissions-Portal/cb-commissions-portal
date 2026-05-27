@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.47';
+const BUILD_VERSION='3.10.49';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4401,7 +4401,7 @@ function renderRunOfShow(){
           :`<span style="font-size:14px;color:${item.slug?'#e3b341':'#484f58'};font-weight:700">${esc(item.slug||'—')}</span>`}
       </td>
       <td style="padding:6px 16px;vertical-align:middle;min-width:130px">
-        ${canEdit&&!isLocked
+        ${item.type!=='break'&&canEdit
           ?`<select class="ros-sound" data-idx="${i}" style="background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#58a6ff;font-size:13px;font-weight:700;padding:5px 8px;outline:none;font-family:inherit;cursor:pointer;width:100%"><option value="" ${item.sound===''?'selected':''}>— none —</option><option value="A" ${item.sound==='A'?'selected':''}>A</option><option value="B" ${item.sound==='B'?'selected':''}>B</option><option value="C" ${item.sound==='C'?'selected':''}>C</option><option value="D" ${item.sound==='D'?'selected':''}>D</option><option value="COLD START" ${item.sound==='COLD START'?'selected':''}>COLD START</option><option value="CLEAN" ${item.sound==='CLEAN'?'selected':''}>CLEAN</option><option value="GENERIC" ${item.sound==='GENERIC'?'selected':''}>GENERIC</option></select>`
           :`<span style="font-size:13px;font-weight:700;color:${item.sound?'#58a6ff':'#484f58'}">${esc(item.sound||'—')}</span>`}
       </td>
@@ -4448,6 +4448,7 @@ function renderRunOfShow(){
           <span style="font-size:18px;font-weight:900;color:#c084fc;font-family:monospace" id="ros-total">Total: ${rosSecsToStr(totalSecs)}</span>
           <button class="btn" id="ros-export-pdf-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#56d364;color:#56d364">⬇ Export PDF</button>
           <button class="btn" id="ros-export-word-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#388bfd;color:#58a6ff">⬇ Studio Script (Word)</button>
+          <button class="btn" id="ros-export-vt-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#e3b341;color:#e3b341">⬇ VT List (Word)</button>
           ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#e3b341;color:#e3b341"># Generate Item Numbers</button>`:''}
           ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:13px;padding:7px 20px;font-weight:800">💾 Save</button>`:''}
         </div>
@@ -8344,6 +8345,83 @@ function rosFlushAndSave(items){
   saveROS(rosCurrentEp,{items,epNum:rosCurrentEp});
 }
 
+
+function rosExportVTList(){
+  const ep=rosCurrentEp;
+  if(!ep)return;
+  const items=(rosData[String(ep)]?.items)||[];
+  if(!items.length){showToast('No items to export',true);return;}
+  const epDate=resolveDate(ep);
+  const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'}):'';
+  const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
+  const escHtml=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const cs='font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top';
+  const hs='font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;background:#003366;color:#fff;border:1px solid #000;text-align:center';
+
+  const rows=items.map((item,i)=>{
+    const num=item.itemNum||String(i+1);
+    const slug=escHtml(item.slug||'');
+    const lbl=escHtml(item.label||'');
+    const cnt=escHtml(item.content||'');
+    const desc=lbl+(cnt?`<br><span style="font-weight:normal">${cnt}</span>`:'');
+    return`<tr>
+      <td width="28" align="center" style="${cs};font-weight:bold;text-align:center">${escHtml(num)}</td>
+      <td width="160" style="${cs};font-weight:bold;color:#c07000">${slug}</td>
+      <td style="${cs};font-weight:bold;color:#0055a0">${desc}</td>
+      <td width="160" style="${cs}">&nbsp;</td>
+    </tr>`;
+  }).join('');
+
+  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office"
+xmlns:w="urn:schemas-microsoft-com:office:word"
+xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8">
+<title>VT List ${escHtml(epLabel)}</title>
+<!--[if gte mso 9]><xml>
+<w:WordDocument><w:View>Print</w:View><w:Zoom>90</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument>
+</xml><![endif]-->
+<style>
+  @page{size:841.9pt 595.3pt;mso-page-orientation:landscape;margin:36pt 36pt 36pt 36pt;}
+  body{font-family:Arial,sans-serif;font-size:11pt;margin:0;padding:0}
+  p{margin:0;padding:0;line-height:1.15}
+  table{border-collapse:collapse;width:100%;table-layout:fixed}
+  td,th{font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;word-wrap:break-word}
+</style>
+</head>
+<body>
+<p style="font-size:14pt;font-weight:bold;color:#003366;margin-bottom:2pt"><b>CARTE BLANCHE — VT LIST</b></p>
+<p style="margin-bottom:1pt"><b>Season ${currentSeason}, ${escHtml(epLabel)}</b></p>
+<p style="margin-bottom:8pt"><b>TX: ${escHtml(epDateFmt)}</b></p>
+<table border="1" cellpadding="3" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed">
+  <colgroup>
+    <col width="28">
+    <col width="160">
+    <col>
+    <col width="160">
+  </colgroup>
+  <thead>
+    <tr>
+      <th width="28" style="${hs}">ITEM</th>
+      <th width="160" style="${hs}">SLUG</th>
+      <th style="${hs}">DESCRIPTION</th>
+      <th width="160" style="${hs}">SOURCES</th>
+    </tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>
+</body></html>`;
+
+  const blob=new Blob(['\ufeff',html],{type:'application/msword'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`CB-VT-List-${epLabel.replace(/ /g,'-')}.doc`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('VT List downloaded ✓');
+}
+
 function rosExportWord(){
   const ep=rosCurrentEp;
   if(!ep)return;
@@ -8530,6 +8608,7 @@ function rosRecalc(){
   if(totalEl)totalEl.textContent='Total: '+rosSecsToStr(total);
 }
 document.addEventListener('click',function rosHandler(e){
+  if(e.target.id==='ros-export-vt-btn'){rosExportVTList();return;}
   if(e.target.id==='ros-export-word-btn'){rosExportWord();return;}
   if(e.target.id==='ros-export-pdf-btn'){rosExportPDF();return;}
   if(e.target.id==='ros-pick-ep-btn'){rosEpModal=true;rosCurrentEp=null;render();return;}
