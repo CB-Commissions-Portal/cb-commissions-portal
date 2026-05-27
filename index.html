@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.34';
+const BUILD_VERSION='3.10.35';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -5513,6 +5513,7 @@ function renderLineups(epNums){
     const usedComms=items.filter(i=>!i.liveStudio).map(i=>String(i.commNum));
     const availableComms=activeComms.filter(c=>c.commNum&&c.storyName&&!usedComms.includes(String(c.commNum))).sort((a,b)=>Number(a.commNum)-Number(b.commNum));
 
+    const {anchor1:luAnc1,anchor2:luAnc2}=getStudioAnchors(ep);
     epsHtml+=`<div data-lu-ep-block="${ep}" data-lu-past="${past?1:0}" style="${past?'background:#1a0a0a;border-color:#3d1f1f':'background:#0d1117;border-color:#21262d'};border:1px solid;border-radius:8px;margin-bottom:16px;overflow:hidden">
       <div class="lu-ep-header" data-lu-ep="${ep}" style="${past?'background:#2d0f0f':'background:#161b22'};padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;cursor:pointer;user-select:none" title="${collapsed?'Click to expand':'Click to collapse'}">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -5524,21 +5525,19 @@ function renderLineups(epNums){
         <span style="font-size:12px;font-weight:800;color:${tot>0?(past?'#f85149':'#3fb950'):'#484f58'};font-family:monospace">Total: ${decToMmSs(tot)}</span>
       </div>
       <div class="lu-ep-body" style="display:${collapsed?'none':'block'}"><div style="padding:10px 16px;border-bottom:1px solid ${past?'#3d1f1f':'#21262d'};display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-        ${(()=>{
-          const {anchor1,anchor2}=getStudioAnchors(ep);
-          return ['director','presenter1','presenter2'].map(field=>{
-            const isAnc=field==='presenter1'||field==='presenter2';
-            const ancVal=field==='presenter1'?anchor1:anchor2;
-            const dispVal=isAnc?(ancVal||lu[field]||''):lu[field]||'';
-            const lbl=field==='director'?'Director':field==='presenter1'?'Anchor 1 ↩ Cal':'Anchor 2 ↩ Cal';
-            return`<div>
-              <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:4px">${lbl}</div>
-              ${canEdit&&!isAnc
-                ?`<input class="lu-${field}" data-ep="${ep}" value="${esc(lu[field]||'')}" placeholder="Director name" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:5px 8px;border-radius:4px;font-size:12px;box-sizing:border-box">`
-                :`<span style="font-size:12px;font-weight:700;color:${isAnc?'#58a6ff':'#eaf0ff'}">${esc(dispVal||'—')}</span>`}
-            </div>`;
-          }).join('');
-        })()}
+        <div>
+          <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:4px">Director</div>
+          ${canEdit?`<input class="lu-director" data-ep="${ep}" value="${esc(lu.director||'')}" placeholder="Director name" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:5px 8px;border-radius:4px;font-size:12px;box-sizing:border-box">`:``}
+          ${!canEdit?`<span style="font-size:12px;font-weight:700;color:#eaf0ff">${esc(lu.director||'—')}</span>`:``}
+        </div>
+        <div>
+          <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:4px">Anchor 1</div>
+          <span style="font-size:12px;font-weight:700;color:#58a6ff">${esc(luAnc1||lu.presenter1||'—')}</span>
+        </div>
+        <div>
+          <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:4px">Anchor 2</div>
+          <span style="font-size:12px;font-weight:700;color:#58a6ff">${esc(luAnc2||lu.presenter2||'—')}</span>
+        </div>
       </div>
       <div style="padding:12px 16px">
         ${itemsHtml||`<div style="font-size:12px;color:#484f58;font-style:italic;padding:4px 0">No content added yet.</div>`}
