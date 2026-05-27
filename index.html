@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.21';
+const BUILD_VERSION='3.10.22';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1656,7 +1656,7 @@ function renderApp(){
     ${(currentRole==='admin'&&!previewRole)||currentRole==='finance'?`<div class="tab-btn${tab==='contracts'?' active':''}" data-tab="contracts">Contracts</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
   </div>
-  <div class="content" id="tab-content">
+  <div class="content" id="tab-content" style="${tab==='home'?'background:#ffffff;':\''}">
     ${renderContent(epNums,nextEp,paid,remaining)}
   </div>
 </div>
