@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.37';
+const BUILD_VERSION='3.10.39';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4271,6 +4271,8 @@ const ROS_ITEM_TYPES=[
   {key:'live_link_ins7', label:'LINK TO INSERT 7',            type:'live',   defaultDur:'', group:'Live'},
   {key:'live_link_ins8', label:'LINK TO INSERT 8',            type:'live',   defaultDur:'', group:'Live'},
   {key:'live_link_brk',  label:'LINK TO BREAK',               type:'live',   defaultDur:'', group:'Live'},
+  {key:'live_link_int',  label:'LINK TO INTERVIEW',           type:'live',   defaultDur:'', group:'Live'},
+  {key:'live_studio_int',label:'STUDIO INTERVIEW',            type:'live',   defaultDur:'', group:'Live'},
   {key:'live_closing',   label:'CLOSING LINK',                type:'live',   defaultDur:'', group:'Live'},
   // Inserts (orange)
   {key:'insert1', label:'INSERT 1', type:'insert', defaultDur:'', group:'Insert'},
@@ -5538,8 +5540,9 @@ function renderLineups(epNums){
       <div class="lu-ep-body" style="display:${collapsed?'none':'block'}"><div style="padding:10px 16px;border-bottom:1px solid ${past?'#3d1f1f':'#21262d'};display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
         <div>
           <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:4px">Director</div>
-          ${canEdit?`<input class="lu-director" data-ep="${ep}" value="${esc(lu.director||'')}" placeholder="Director name" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:5px 8px;border-radius:4px;font-size:12px;box-sizing:border-box">`:``}
-          ${!canEdit?`<span style="font-size:12px;font-weight:700;color:#eaf0ff">${esc(lu.director||'—')}</span>`:``}
+          ${canEdit
+            ?`<input class="lu-director" data-ep="${ep}" value="${esc(lu.director||'')}" placeholder="Director name" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:5px 8px;border-radius:4px;font-size:12px;box-sizing:border-box">`
+            :`<span style="font-size:12px;font-weight:700;color:#eaf0ff">${esc(lu.director||'—')}</span>`}
         </div>
         <div>
           <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:4px">Anchor 1</div>
