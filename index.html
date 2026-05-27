@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.39';
+const BUILD_VERSION='3.10.40';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -5526,7 +5526,8 @@ function renderLineups(epNums){
     const usedComms=items.filter(i=>!i.liveStudio).map(i=>String(i.commNum));
     const availableComms=activeComms.filter(c=>c.commNum&&c.storyName&&!usedComms.includes(String(c.commNum))).sort((a,b)=>Number(a.commNum)-Number(b.commNum));
 
-    const {anchor1:luAnc1,anchor2:luAnc2}=getStudioAnchors(ep);
+    let luAnc1='',luAnc2='';
+    try{const _a=getStudioAnchors(ep);luAnc1=_a.anchor1||'';luAnc2=_a.anchor2||'';}catch(_e){}
     epsHtml+=`<div data-lu-ep-block="${ep}" data-lu-past="${past?1:0}" style="${past?'background:#1a0a0a;border-color:#3d1f1f':'background:#0d1117;border-color:#21262d'};border:1px solid;border-radius:8px;margin-bottom:16px;overflow:hidden">
       <div class="lu-ep-header" data-lu-ep="${ep}" style="${past?'background:#2d0f0f':'background:#161b22'};padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;cursor:pointer;user-select:none" title="${collapsed?'Click to expand':'Click to collapse'}">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
