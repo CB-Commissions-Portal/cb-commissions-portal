@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.22';
+const BUILD_VERSION='3.10.24';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1656,7 +1656,7 @@ function renderApp(){
     ${(currentRole==='admin'&&!previewRole)||currentRole==='finance'?`<div class="tab-btn${tab==='contracts'?' active':''}" data-tab="contracts">Contracts</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
   </div>
-  <div class="content" id="tab-content" style="${tab==='home'?'background:#ffffff;':\''}">
+  <div class="content" id="tab-content" style="${tab==='home'?'background:#ffffff;':''}">
     ${renderContent(epNums,nextEp,paid,remaining)}
   </div>
 </div>
@@ -3793,7 +3793,7 @@ function renderPresenterCalendar(){
     months[m].push(d);
   });
 
-  const thBase='padding:8px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#eaf0ff;background:#1a2035;text-align:center;white-space:nowrap;position:sticky;top:0;z-index:5;border-bottom:2px solid #2e3a50;min-width:150px';
+  const thBase='padding:8px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#eaf0ff;background:#1a2035;text-align:center;white-space:nowrap;position:sticky;top:0;z-index:10;border-bottom:2px solid #2e3a50;min-width:150px;box-shadow:0 2px 4px rgba(0,0,0,.4)';
   const dateThBase='padding:6px 4px;font-size:10px;font-weight:700;text-align:left;white-space:nowrap;position:sticky;left:0;z-index:4;border-bottom:1px solid #21262d;min-width:90px;background:#161b22';
 
   const monthEntries=Object.entries(months);
@@ -3863,7 +3863,7 @@ function renderPresenterCalendar(){
       <div style="padding:8px 12px;background:#252d3d;font-size:12px;font-weight:800;color:#eaf0ff;position:sticky;top:0;z-index:6;border-bottom:2px solid #388bfd">${month}</div>
       <table style="width:max-content;border-collapse:collapse;min-width:100%">
         <thead><tr>
-          <th style="${dateThBase};background:#1a2035;z-index:7;top:0;position:sticky">Date</th>
+          <th style="${dateThBase};background:#1a2035;top:0;left:0;position:sticky;z-index:12;box-shadow:2px 2px 4px rgba(0,0,0,.4)">Date</th>
           ${PRESENTERS.map(p=>`<th style="${thBase}">${p.label}</th>`).join('')}
         </tr></thead>
         <tbody>${rows}</tbody>
@@ -3871,7 +3871,7 @@ function renderPresenterCalendar(){
     </div>`;
   }).join('');
 
-  return`<div class="ep-wrap" style="overflow-x:auto;padding:0">
+  return`<div class="ep-wrap" style="overflow-x:auto;overflow-y:hidden;padding:0">
     <div style="padding:12px 16px;background:#161b22;position:sticky;left:0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #2e3a50;z-index:8">
       <div>
         <span style="font-size:15px;font-weight:800;color:#eaf0ff">Presenter Calendar</span>
