@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.25';
+const BUILD_VERSION='3.10.26';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -5429,6 +5429,7 @@ function bindApp(){
     if(contentEl){
       const paid=getPaidMins(),contracted=settings.contractedMinutes||438,remaining=contracted-paid;
       const epNums=getEpNums(),maxEp=epNums.length?Math.max(...epNums):0,nextEp=maxEp+1;
+      contentEl.style.background=tab==='home'?'#ffffff':'';
       contentEl.innerHTML=renderContent(epNums,nextEp,paid,remaining);
     }
     bindApp();
@@ -6503,7 +6504,8 @@ function bindApp(){
       if(contentEl){
         const paid=getPaidMins(),contracted=settings.contractedMinutes||438,remaining=contracted-paid;
         const epNums=getEpNums(),maxEp=epNums.length?Math.max(...epNums):0,nextEp=maxEp+1;
-        contentEl.innerHTML=renderContent(epNums,nextEp,paid,remaining);
+        contentEl.style.background=tab==='home'?'#ffffff':'';
+      contentEl.innerHTML=renderContent(epNums,nextEp,paid,remaining);
         bindApp();
         // Re-focus and restore cursor
         const inp=document.getElementById('mc-comm-num-confirm');
