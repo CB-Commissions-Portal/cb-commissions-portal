@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.36';
+const BUILD_VERSION='3.10.37';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4050,7 +4050,7 @@ function renderStudioSchedule(epNums){
     const asst=ss.asstDir!==undefined?ss.asstDir:(sc.assistantDirector||'');
     const fmgr=ss.floorMgr!==undefined?ss.floorMgr:(sc.floorManager||'');
     const mkup=ss.makeup!==undefined?ss.makeup:((sc.makeupArtist?sc.makeupArtist+' ':''+(sc.studioStylist||'')).trim());
-    const auto=ss.autocue!==undefined?ss.autocue:(sc.autocueOperator||'');
+    const auto=ss.autocue||(sc.autocueOperator||'');
     const prod=ss.production||'';
     const bkFrom=ss.bookingFrom||'';
     const bkTo=ss.bookingTo||'';
@@ -4130,7 +4130,7 @@ async function exportStudioSchedPDF(){
     const asst=ss.asstDir!==undefined?ss.asstDir:(sc.assistantDirector||'');
     const fmgr=ss.floorMgr!==undefined?ss.floorMgr:(sc.floorManager||'');
     const mkup=ss.makeup!==undefined?ss.makeup:((sc.makeupArtist?sc.makeupArtist+' ':''+(sc.studioStylist||'')).trim());
-    const auto=ss.autocue!==undefined?ss.autocue:(sc.autocueOperator||'');
+    const auto=ss.autocue||(sc.autocueOperator||'');
     const bk=ss.bookingFrom&&ss.bookingTo?`${ss.bookingFrom}–${ss.bookingTo}`:(ss.bookingFrom||ss.bookingTo||'Not set');
     const fld=(label,val)=>`<div class="field"><div class="field-label">${label}</div><div class="field-val">${esc(val||'—')}</div></div>`;
     return`<div class="ep-card">
