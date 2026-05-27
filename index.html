@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.31';
+const BUILD_VERSION='3.10.34';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3855,6 +3855,7 @@ function fccExportPDF(ep){
       <tbody>${durRows}</tbody>
     </table>
   </div>
+  ${cs.notes?`<div class="notes-box" style="margin-top:10px"><div class="sec-title">Notes</div><div style="padding:8px 12px;font-family:Calibri,Arial,sans-serif;font-size:9.5pt;white-space:pre-wrap">${cs.notes}</div></div>`:''}
   <div class="footer">Carte Blanche Production Portal &nbsp;·&nbsp; ${epLabel} &nbsp;·&nbsp; Season ${currentSeason} &nbsp;·&nbsp; ${new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'})}</div>
   </body></html>`;
 
@@ -4017,7 +4018,11 @@ function renderStudioSchedule(epNums){
     months[ym].push(n);
   });
   const monthKeys=Object.keys(months).sort();
-  if(!studioSchedMonth||!months[studioSchedMonth])studioSchedMonth=monthKeys[0]||'';
+  // Only auto-set when unset — never override user's selection
+  if(!studioSchedMonth){
+    const today=new Date().toISOString().substring(0,7);
+    studioSchedMonth=monthKeys.find(m=>m>=today)||monthKeys[0]||'';
+  }
 
   const monthSel=`<select id="ss-month-sel" style="background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#eaf0ff;font-size:13px;padding:5px 10px;outline:none;font-family:inherit">
     ${monthKeys.map(m=>`<option value="${m}" ${m===studioSchedMonth?'selected':''}>${new Date(m+'-01T00:00:00Z').toLocaleDateString('en-ZA',{month:'long',year:'numeric'})}</option>`).join('')}
@@ -4712,6 +4717,7 @@ function csGetAllNames(cs){
   const names=new Set();
   ['producer','editorialMgr','director','asstDir','floorMgr','autocue','makeup','eng1','eng2','facMgr','anchor1Name','anchor2Name'].forEach(f=>{if(cs[f])names.add(cs[f].trim());});
   ['ctMakeup','ctAnchor1','ctAnchor2','ctProd','ctDirector','ctAsstDir','ctFloorMgr','ctAutocue','ctFacilities'].forEach(k=>{if(cs[k+'_name'])names.add(cs[k+'_name'].trim());});
+  (cs.extraCallTimes||[]).forEach(ec=>{if(ec.name&&ec.name.trim())names.add(ec.name.trim());});
   return Array.from(names).filter(Boolean).sort();
 }
 function renderCallSheet(epNums){
@@ -8059,7 +8065,7 @@ function csExportPDF(){
       </table>
     </div>
     <!-- Call Times -->
-    <div class="box">
+    <div class="box" style="page-break-after:always">
       <div class="sec-title">Call Times</div>
       <table class="info">
         <tr style="background:#e8f4ff"><th class="il" style="font-size:7.5pt">Role</th><th style="padding:4px 8px;font-size:7.5pt;color:#0055a0;font-weight:800;width:40px">Time</th><th style="padding:4px 8px;font-size:7.5pt;color:#0055a0;font-weight:800">Name</th></tr>
@@ -8068,8 +8074,7 @@ function csExportPDF(){
       </table>
     </div>
   </div>
-  ${cs.notes?`<div class="notes-box"><div class="sec-title">Notes</div><div style="padding:8px 12px;font-family:Calibri,Arial,sans-serif;font-size:9.5pt;white-space:pre-wrap">${cs.notes}</div></div>`:''}
-  <!-- Schedule -->
+  <!-- Schedule - always top of page 2 -->
   <div style="page-break-before:always;padding-top:0">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #0077b6">
       <div style="font-size:10pt;font-weight:900;color:#0077b6;font-family:Calibri,Arial,sans-serif">${epLabel} &nbsp;·&nbsp; ${epDateFmt}</div>
@@ -8081,6 +8086,7 @@ function csExportPDF(){
     <thead><tr><th class="dcol">Activity</th><th class="tcol">Time</th><th>Responsible</th></tr></thead>
     <tbody>${schedRows}</tbody>
   </table>
+  ${cs.notes?`<div class="notes-box" style="margin-top:10px"><div class="sec-title">Notes</div><div style="padding:8px 12px;font-family:Calibri,Arial,sans-serif;font-size:9.5pt;white-space:pre-wrap">${cs.notes}</div></div>`:''}
   <div class="footer">Carte Blanche Production Portal &nbsp;·&nbsp; ${epLabel} &nbsp;·&nbsp; Season ${currentSeason} &nbsp;·&nbsp; ${new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'})}</div>
   </body></html>`;
 
@@ -8089,6 +8095,21 @@ function csExportPDF(){
   win.document.close();
   setTimeout(()=>win.print(),600);
 }
+
+document.addEventListener('change',function ssChangeHandler(e){
+  if(e.target.id==='ss-month-sel'){studioSchedMonth=e.target.value;render();return;}
+});
+
+document.addEventListener('click',function ssClickHandler(e){
+  if(e.target.id==='ss-pdf-btn'){exportStudioSchedPDF();return;}
+  if(e.target.classList.contains('ss-save-btn')){
+    const ep=e.target.dataset.ep;
+    const data=studioSchedule[ep]||{};
+    document.querySelectorAll(`.ss-inp[data-ep='${ep}']`).forEach(inp=>{data[inp.dataset.field]=inp.value;});
+    saveStudioSchedule(ep,data).then(()=>showToast('Studio schedule saved ✓'));
+    return;
+  }
+});
 
 document.addEventListener('click',async function csClickHandler(e){
   // Episode pick
