@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.40';
+const BUILD_VERSION='3.10.41';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4437,6 +4437,7 @@ function renderRunOfShow(){
         <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <span style="font-size:18px;font-weight:900;color:#c084fc;font-family:monospace" id="ros-total">Total: ${rosSecsToStr(totalSecs)}</span>
           <button class="btn" id="ros-export-pdf-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#56d364;color:#56d364">⬇ Export PDF</button>
+          <button class="btn" id="ros-export-word-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#388bfd;color:#58a6ff">⬇ Studio Script (Word)</button>
           ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#e3b341;color:#e3b341"># Generate Item Numbers</button>`:''}
           ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:13px;padding:7px 20px;font-weight:800">💾 Save</button>`:''}
         </div>
@@ -8322,6 +8323,85 @@ function rosFlushAndSave(items){
   rosData[String(rosCurrentEp)].items=items;
   saveROS(rosCurrentEp,{items,epNum:rosCurrentEp});
 }
+
+function rosExportWord(){
+  const ep=rosCurrentEp;
+  if(!ep)return;
+  const items=(rosData[String(ep)]?.items)||[];
+  if(!items.length){showToast('No items to export',true);return;}
+  const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
+  const epDate=resolveDate(ep);
+  const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'';
+  const printed=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
+
+  const escHtml=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const rows=items.map((item,i)=>{
+    const num=item.itemNum||String(i+1);
+    const desc=[item.label,item.content].filter(Boolean).join(' — ');
+    return`<tr>
+      <td style="width:50pt;text-align:center;font-weight:bold;font-size:11pt">${escHtml(num)}</td>
+      <td style="width:90pt"></td>
+      <td style="width:90pt"></td>
+      <td style="font-size:11pt">${escHtml(desc)}</td>
+      <td style="width:70pt"></td>
+    </tr>`;
+  }).join('');
+
+  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office"
+xmlns:w="urn:schemas-microsoft-com:office:word"
+xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>Studio Script — ${escHtml(epLabel)}</title>
+<!--[if gte mso 9]><xml><w:WordDocument>
+  <w:View>Print</w:View><w:Zoom>100</w:Zoom>
+  <w:DoNotOptimizeForBrowser/>
+</w:WordDocument></xml><![endif]-->
+<style>
+  @page { size: A4 landscape; margin: 1.5cm 1.5cm; }
+  body { font-family: Arial, sans-serif; font-size: 11pt; color: #111; }
+  .doc-header { border-bottom: 3pt solid #0077b6; padding-bottom: 8pt; margin-bottom: 16pt; display: flex; justify-content: space-between; align-items: flex-end; }
+  .doc-title { font-size: 18pt; font-weight: bold; color: #0077b6; }
+  .doc-sub { font-size: 10pt; color: #555; margin-top: 3pt; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { background-color: #0077b6; color: #ffffff; font-weight: bold; font-size: 10pt;
+    padding: 8pt 10pt; text-align: left; text-transform: uppercase; letter-spacing: 0.5pt; }
+  tbody tr:nth-child(even) { background-color: #f0f6ff; }
+  tbody td { padding: 10pt 10pt; border-bottom: 1pt solid #dde8f4; vertical-align: top; font-size: 11pt; min-height: 30pt; }
+  .footer { margin-top: 16pt; font-size: 8pt; color: #aaa; border-top: 1pt solid #eee; padding-top: 6pt; }
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div>
+    <div class="doc-title">Studio Script — ${escHtml(epLabel)}</div>
+    <div class="doc-sub">${escHtml(epDateFmt)} &nbsp;·&nbsp; Season ${currentSeason} &nbsp;·&nbsp; Carte Blanche Production Portal</div>
+  </div>
+</div>
+<table>
+  <thead>
+    <tr>
+      <th style="width:50pt">Item #</th>
+      <th style="width:90pt">Production</th>
+      <th style="width:90pt">Sound</th>
+      <th>Description</th>
+      <th style="width:70pt">Duration</th>
+    </tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="footer">Carte Blanche Production Portal &nbsp;·&nbsp; Studio Script &nbsp;·&nbsp; ${escHtml(epLabel)} &nbsp;·&nbsp; Printed ${printed}</div>
+</body></html>`;
+
+  const blob=new Blob(['\ufeff',html],{type:'application/msword'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`CB-Studio-Script-${epLabel.replace(/ /g,'-')}.doc`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Studio Script downloaded ✓');
+}
+
 function rosExportPDF(){
   if(!rosCurrentEp)return;
   const epNum=rosCurrentEp;
@@ -8424,6 +8504,7 @@ function rosRecalc(){
   if(totalEl)totalEl.textContent='Total: '+rosSecsToStr(total);
 }
 document.addEventListener('click',function rosHandler(e){
+  if(e.target.id==='ros-export-word-btn'){rosExportWord();return;}
   if(e.target.id==='ros-export-pdf-btn'){rosExportPDF();return;}
   if(e.target.id==='ros-pick-ep-btn'){rosEpModal=true;rosCurrentEp=null;render();return;}
   const pick=e.target.closest('.ros-ep-pick');
