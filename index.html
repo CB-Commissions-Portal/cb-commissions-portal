@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.51';
+const BUILD_VERSION='3.10.52';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4261,7 +4261,7 @@ const ROS_ITEM_TYPES=[
   {key:'fixed_credits',  label:'CLOSING CREDITS',             type:'fixed',  defaultDur:'0:00:30', locked:true, group:'Fixed'},
   // Live / Links (blue)
   {key:'live_opening',   label:'OPENING LINK (WITH SHOW OPENER)', type:'live', defaultDur:'', group:'Live'},
-  {key:'live_cs_dial',   label:'COLD START DIALOGUE',         type:'live',   defaultDur:'', group:'Live'},
+  {key:'live_cs_dial',   label:'COLD START 2',         type:'live',   defaultDur:'', group:'Live'},
   {key:'live_link_ins1', label:'LINK TO INSERT 1',            type:'live',   defaultDur:'', group:'Live'},
   {key:'live_link_ins2', label:'LINK TO INSERT 2',            type:'live',   defaultDur:'', group:'Live'},
   {key:'live_link_ins3', label:'LINK TO INSERT 3',            type:'live',   defaultDur:'', group:'Live'},
@@ -4395,10 +4395,16 @@ function renderRunOfShow(){
         ${ts.badge?`<span style="font-size:9px;font-weight:800;background:${ts.badgeBg};color:${ts.label};padding:2px 7px;border-radius:3px;margin-right:8px;letter-spacing:.5px">${ts.badge}</span>`:''}
         <span style="font-size:16px;font-weight:${ts.weight};color:${ts.label}">${esc(item.label)}</span>
       </td>
-      <td style="padding:6px 16px;vertical-align:middle;min-width:160px;max-width:200px">
-        ${canEdit
-          ?`<input class="ros-slug" data-idx="${i}" value="${esc(item.slug||'')} " placeholder="Slug…" list="ros-slug-opts" style="width:100%;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#e3b341;font-size:14px;padding:6px 2px;outline:none;font-family:inherit;font-weight:700"><datalist id="ros-slug-opts"><option value="CB2026 OPENING LOGO"><option value="CB2026 KEY BUMPER OUT"><option value="CB2026 KEY BUMPER IN"><option value="CB2026 CLOSING CREDITS"></datalist>`
-          :`<span style="font-size:14px;color:${item.slug?'#e3b341':'#484f58'};font-weight:700">${esc(item.slug||'—')}</span>`}
+      <td style="padding:6px 16px;vertical-align:top;min-width:160px;max-width:220px">
+        ${canEdit?`
+          ${(item.slugs||(item.slug?[item.slug]:[''])).map((s,si)=>`
+            <div style="display:flex;align-items:center;gap:3px;margin-bottom:3px">
+              <input class="ros-slug" data-idx="${i}" data-sidx="${si}" value="${esc(s||'')}" placeholder="Slug…" list="ros-slug-opts" style="flex:1;min-width:0;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#e3b341;font-size:13px;padding:4px 2px;outline:none;font-family:inherit;font-weight:700">
+              ${(item.slugs||(item.slug?[item.slug]:[''])).length>1?`<button class="ros-rm-slug btn" data-idx="${i}" data-sidx="${si}" style="font-size:9px;padding:1px 4px;border-color:#f85149;color:#f85149;flex-shrink:0">×</button>`:''}
+            </div>`).join('')}
+          <datalist id="ros-slug-opts"><option value="CB2026 OPENING LOGO"><option value="CB2026 KEY BUMPER OUT"><option value="CB2026 KEY BUMPER IN"><option value="CB2026 CLOSING CREDITS"></datalist>
+          <button class="ros-add-slug btn" data-idx="${i}" style="font-size:9px;padding:1px 6px;border-style:dashed;border-color:#e3b341;color:#e3b341;margin-top:2px">＋</button>
+        `:`<div>${(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean).map(s=>`<div style="font-size:13px;color:#e3b341;font-weight:700">${esc(s)}</div>`).join('')||'<span style="color:#484f58">—</span>'}</div>`}
       </td>
       <td style="padding:6px 16px;vertical-align:middle;min-width:130px">
         ${item.type!=='break'&&canEdit
@@ -8128,6 +8134,30 @@ document.addEventListener('change',function ssChangeHandler(e){
   if(e.target.id==='ss-month-sel'){studioSchedMonth=e.target.value;render();return;}
 });
 
+document.addEventListener('click',function rosSlugHandler(e){
+  // Add slug row
+  if(e.target.classList.contains('ros-add-slug')){
+    const idx=Number(e.target.dataset.idx);
+    const items=rosGetCurrentItems();
+    rosFlushAndSave(items);
+    const cur=items[idx].slugs||(items[idx].slug?[items[idx].slug]:['']);
+    items[idx].slugs=[...cur,''];
+    items[idx].slug=cur[0]||'';
+    rosData[String(rosCurrentEp)].items=items;render();return;
+  }
+  // Remove slug row
+  if(e.target.classList.contains('ros-rm-slug')){
+    const idx=Number(e.target.dataset.idx),si=Number(e.target.dataset.sidx);
+    const items=rosGetCurrentItems();
+    rosFlushAndSave(items);
+    const cur=[...(items[idx].slugs||(items[idx].slug?[items[idx].slug]:['']))];
+    cur.splice(si,1);
+    items[idx].slugs=cur.length?cur:[''];
+    items[idx].slug=cur[0]||'';
+    rosData[String(rosCurrentEp)].items=items;render();return;
+  }
+});
+
 document.addEventListener('click',function ssClickHandler(e){
   if(e.target.id==='ss-pdf-btn'){exportStudioSchedPDF();return;}
   if(e.target.classList.contains('ss-save-btn')){
@@ -8324,9 +8354,14 @@ function rosGetCurrentItems(){
 }
 function rosFlushAndSave(items){
   // Capture any unsaved DOM values first
+  const _slugMap={};
   document.querySelectorAll('.ros-slug').forEach(inp=>{
-    const idx=Number(inp.dataset.idx);
-    if(items[idx]!==undefined)items[idx].slug=inp.value.trim();
+    const idx=Number(inp.dataset.idx),si=Number(inp.dataset.sidx||0);
+    if(!_slugMap[idx])_slugMap[idx]=[];
+    _slugMap[idx][si]=inp.value.trim();
+  });
+  Object.entries(_slugMap).forEach(([idx,slugs])=>{
+    if(items[idx]!==undefined){items[idx].slugs=slugs;items[idx].slug=slugs[0]||'';}
   });
   document.querySelectorAll('.ros-sound').forEach(sel=>{
     const idx=Number(sel.dataset.idx);
@@ -8361,7 +8396,7 @@ function rosExportVTList(){
 
   const rows=items.map((item,i)=>{
     const num=item.itemNum||String(i+1);
-    const slug=escHtml(item.slug||'');
+    const slug=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean).map(s=>escHtml(s)).join('<br>')||'';
     const lbl=escHtml(item.label||'');
     const cnt=escHtml(item.content||'');
     const desc=lbl+(cnt?`<br><span style="font-weight:normal">${cnt}</span>`:'');
@@ -8439,7 +8474,7 @@ function rosExportWord(){
     const desc=lbl+(cnt?`<br><span style="font-weight:normal;color:#000">${cnt}</span>`:'');
     return`<tr>
       <td width="28" align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top">${escHtml(num)}</td>
-      <td width="165" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top">${escHtml(item.slug||'')}</td>
+      <td width="165" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top">${(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean).map(s=>escHtml(s)).join('<br>')||''}</td>
       <td width="120" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top">${escHtml(item.sound||"")}</td>
       <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;color:#0055a0;padding:3px 4px;border:1px solid #000;vertical-align:top">${desc}</td>
       <td width="55" align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top">&nbsp;</td>
@@ -8513,7 +8548,7 @@ function rosExportPDF(){
   const items=(rosData[String(epNum)]?.items)||[];
 
   // Flush any unsaved DOM values
-  document.querySelectorAll('.ros-slug').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i]!==undefined)items[i].slug=inp.value.trim();});
+  const _sm={};document.querySelectorAll('.ros-slug').forEach(inp=>{const i=Number(inp.dataset.idx),si=Number(inp.dataset.sidx||0);if(!_sm[i])_sm[i]=[];_sm[i][si]=inp.value.trim();});Object.entries(_sm).forEach(([i,sl])=>{if(items[i]!==undefined){items[i].slugs=sl;items[i].slug=sl[0]||'';}});
   document.querySelectorAll('.ros-sound').forEach(sel=>{const i=Number(sel.dataset.idx);if(items[i]!==undefined)items[i].sound=sel.value;});
   document.querySelectorAll('.ros-content').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i])items[i].content=inp.value;});
   document.querySelectorAll('.ros-dur').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i])items[i].duration=inp.value;});
