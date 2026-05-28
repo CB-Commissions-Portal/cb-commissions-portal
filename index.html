@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.59';
+const BUILD_VERSION='3.10.60';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2829,7 +2829,7 @@ function renderPostProd(){
   const fixedSpacers=[
     'min-width:46px;position:sticky;left:0;z-index:12;background:#0d1117',
     'min-width:40ch;position:sticky;left:52px;z-index:12;background:#0d1117',
-    'min-width:45ch','min-width:60px;text-align:center','min-width:45ch','min-width:25ch','min-width:60ch','min-width:25ch','min-width:180px','min-width:100px'
+    'min-width:60px;text-align:center','min-width:45ch','min-width:25ch','min-width:60ch','min-width:25ch','min-width:180px','min-width:100px'
   ];
   fixedSpacers.forEach(s=>h2+=`<th style="${thSlot};background:#0d1117;${s}"></th>`);
   days.forEach((d,i)=>{
@@ -7846,12 +7846,9 @@ document.addEventListener('change',function luChangeHandler(e){
     const ep=e.target.dataset.ep;
     const cn=e.target.value;
     if(!cn||!ep)return;
-    if(!lineups[ep])lineups[ep]={director:'',presenter1:'',presenter2:'',items:[],excluded:[]};
+    if(!lineups[ep])lineups[ep]={director:'',presenter1:'',presenter2:'',items:[]};
     if(!lineups[ep].items)lineups[ep].items=[];
-    // Remove from excluded when manually re-adding
-    if(lineups[ep].excluded)lineups[ep].excluded=lineups[ep].excluded.filter(x=>String(x)!==String(cn));
-    if(!lineups[ep].items.find(i=>String(i.commNum)===String(cn)))
-      lineups[ep].items.push({commNum:String(cn),liveStudio:false});
+    lineups[ep].items.push({commNum:String(cn),liveStudio:false});
     saveLineup(ep,lineups[ep]);
     luFlushFields();render();
   }
