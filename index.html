@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.58';
+const BUILD_VERSION='3.10.59';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -7846,9 +7846,12 @@ document.addEventListener('change',function luChangeHandler(e){
     const ep=e.target.dataset.ep;
     const cn=e.target.value;
     if(!cn||!ep)return;
-    if(!lineups[ep])lineups[ep]={director:'',presenter1:'',presenter2:'',items:[]};
+    if(!lineups[ep])lineups[ep]={director:'',presenter1:'',presenter2:'',items:[],excluded:[]};
     if(!lineups[ep].items)lineups[ep].items=[];
-    lineups[ep].items.push({commNum:String(cn),liveStudio:false});
+    // Remove from excluded when manually re-adding
+    if(lineups[ep].excluded)lineups[ep].excluded=lineups[ep].excluded.filter(x=>String(x)!==String(cn));
+    if(!lineups[ep].items.find(i=>String(i.commNum)===String(cn)))
+      lineups[ep].items.push({commNum:String(cn),liveStudio:false});
     saveLineup(ep,lineups[ep]);
     luFlushFields();render();
   }
