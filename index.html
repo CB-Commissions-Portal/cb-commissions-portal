@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.54';
+const BUILD_VERSION='3.10.55';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1293,7 +1293,13 @@ function render(){
   const cfg=getCfg();
   if(!cfg){root.innerHTML=renderSetup();bindSetup();return;}
   if(!currentUser){root.innerHTML=renderAuth();bindAuth();return;}
-  root.innerHTML=renderApp();
+  try{
+    root.innerHTML=renderApp();
+  }catch(err){
+    console.error('renderApp error:',err);
+    showToast('UI Error: '+err.message+' (check console)',true);
+    return;
+  }
   bindApp();
   // Restore scroll after re-render
   const _epWrap2=document.querySelector('.ep-wrap');
