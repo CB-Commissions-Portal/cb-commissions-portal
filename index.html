@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.60';
+const BUILD_VERSION='3.10.61';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -5525,17 +5525,7 @@ function renderLineups(epNums){
     items.forEach((item,idx)=>{
       const rowBg=past?'background:rgba(248,81,73,0.15);border-left:3px solid #f85149':'background:rgba(88,166,255,0.06);border-left:3px solid #1e3a5f';
       if(item.liveStudio){
-        itemsHtml+=`<div style="${rowBg};padding:8px 12px;border-radius:4px;margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span style="font-size:11px;font-weight:900;color:${past?'#f85149':'#e3b341'};width:90px;font-family:monospace;flex-shrink:0">LIVE STUDIO</span>
-          ${canEdit&&!past
-            ?`<input class="lu-live-note" data-ep="${ep}" data-idx="${idx}" value="${esc(item.liveNote||'')}" placeholder="Content note…" style="background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 8px;border-radius:3px;font-size:11px;flex:1;min-width:120px">`
-            :`<span style="font-size:11px;color:${past?'#f87171':'#e3b341'};flex:1;font-style:${item.liveNote?'normal':'italic'}">${esc(item.liveNote||'No note')}</span>`}
-          ${canEdit&&!past
-            ?`<input class="lu-live-dur" data-ep="${ep}" data-idx="${idx}" value="${esc(item.liveDuration||'')}" placeholder="mm:ss" style="background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 7px;border-radius:3px;font-size:11px;width:75px;font-family:monospace;flex-shrink:0">`
-            :`<span style="font-size:11px;font-weight:700;color:#eaf0ff;font-family:monospace;flex-shrink:0">${esc(item.liveDuration||'—')}</span>`}
-          <span style="font-size:11px;font-family:monospace;color:${past?'#f85149':'#3fb950'};flex-shrink:0">${decToMmSs(toDecimalMins(item.liveDuration||''))}</span>
-          ${canEdit&&!past?`<button class="lu-remove-item" data-ep="${ep}" data-idx="${idx}" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:14px;line-height:1;flex-shrink:0">✕</button>`:''}
-        </div>`;
+        // Live Studio hidden
       } else {
         const c=getCommData(item.commNum);
         const dur=durForComm(c);
@@ -5589,7 +5579,6 @@ function renderLineups(epNums){
             <option value="">+ Add commission…</option>
             ${availableComms.map(c=>`<option value="${esc(String(c.commNum))}">${esc(String(c.commNum))} | ${esc(c.storyName)} (${decToMmSs(toDecimalMins(durForComm(c)))})</option>`).join('')}
           </select>
-          <button class="lu-add-live" data-ep="${ep}" style="background:#1c2433;border:1px solid #e3b341;color:#e3b341;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;font-weight:700;white-space:nowrap">+ Live Studio</button>
         </div>`:''}
       </div></div>
     </div>`;
