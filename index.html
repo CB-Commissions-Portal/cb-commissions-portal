@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.52';
+const BUILD_VERSION='3.10.53';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4380,6 +4380,17 @@ function renderRunOfShow(){
     const durSecs=rosDurToSecs(item.duration);
     const epDurSecs=epDurs[i];
 
+    // Compute slug HTML outside template literal to avoid nesting issues
+    const _slugs=item.slugs||(item.slug?[item.slug]:['']);
+    const _slugDatalist='<datalist id="ros-slug-opts"><option value="CB2026 OPENING LOGO"><option value="CB2026 KEY BUMPER OUT"><option value="CB2026 KEY BUMPER IN"><option value="CB2026 CLOSING CREDITS"></datalist>';
+    const _slugInputs=_slugs.map((s,si)=>{
+      const rmBtn=_slugs.length>1?`<button class="ros-rm-slug btn" data-idx="${i}" data-sidx="${si}" style="font-size:9px;padding:1px 4px;border-color:#f85149;color:#f85149;flex-shrink:0">×</button>`:'';
+      return `<div style="display:flex;align-items:center;gap:3px;margin-bottom:3px"><input class="ros-slug" data-idx="${i}" data-sidx="${si}" value="${esc(s||'')}" placeholder="Slug…" list="ros-slug-opts" style="flex:1;min-width:0;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#e3b341;font-size:13px;padding:4px 2px;outline:none;font-family:inherit;font-weight:700">${rmBtn}</div>`;
+    }).join('');
+    const _addBtn=canEdit?`<button class="ros-add-slug btn" data-idx="${i}" style="font-size:9px;padding:1px 6px;border-style:dashed;border-color:#e3b341;color:#e3b341;margin-top:2px">＋</button>`:'';
+    const _slugCell=canEdit
+      ?(_slugInputs+_slugDatalist+_addBtn)
+      :(_slugs.filter(Boolean).map(s=>'<div style="font-size:13px;color:#e3b341;font-weight:700">'+esc(s)+'</div>').join('')||'<span style="color:#484f58">—</span>');
     return`<tr data-ros-idx="${i}" style="background:${ts.bg};border-bottom:2px solid ${ts.border}">
       <td style="padding:0;width:80px;text-align:center;vertical-align:middle">
         ${canEdit?`<div style="display:flex;align-items:center;justify-content:center;gap:2px;padding:6px">
@@ -4395,17 +4406,7 @@ function renderRunOfShow(){
         ${ts.badge?`<span style="font-size:9px;font-weight:800;background:${ts.badgeBg};color:${ts.label};padding:2px 7px;border-radius:3px;margin-right:8px;letter-spacing:.5px">${ts.badge}</span>`:''}
         <span style="font-size:16px;font-weight:${ts.weight};color:${ts.label}">${esc(item.label)}</span>
       </td>
-      <td style="padding:6px 16px;vertical-align:top;min-width:160px;max-width:220px">
-        ${canEdit?`
-          ${(item.slugs||(item.slug?[item.slug]:[''])).map((s,si)=>`
-            <div style="display:flex;align-items:center;gap:3px;margin-bottom:3px">
-              <input class="ros-slug" data-idx="${i}" data-sidx="${si}" value="${esc(s||'')}" placeholder="Slug…" list="ros-slug-opts" style="flex:1;min-width:0;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#e3b341;font-size:13px;padding:4px 2px;outline:none;font-family:inherit;font-weight:700">
-              ${(item.slugs||(item.slug?[item.slug]:[''])).length>1?`<button class="ros-rm-slug btn" data-idx="${i}" data-sidx="${si}" style="font-size:9px;padding:1px 4px;border-color:#f85149;color:#f85149;flex-shrink:0">×</button>`:''}
-            </div>`).join('')}
-          <datalist id="ros-slug-opts"><option value="CB2026 OPENING LOGO"><option value="CB2026 KEY BUMPER OUT"><option value="CB2026 KEY BUMPER IN"><option value="CB2026 CLOSING CREDITS"></datalist>
-          <button class="ros-add-slug btn" data-idx="${i}" style="font-size:9px;padding:1px 6px;border-style:dashed;border-color:#e3b341;color:#e3b341;margin-top:2px">＋</button>
-        `:`<div>${(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean).map(s=>`<div style="font-size:13px;color:#e3b341;font-weight:700">${esc(s)}</div>`).join('')||'<span style="color:#484f58">—</span>'}</div>`}
-      </td>
+      <td style="padding:6px 16px;vertical-align:top;min-width:160px;max-width:220px">${_slugCell}</td>
       <td style="padding:6px 16px;vertical-align:middle;min-width:130px">
         ${item.type!=='break'&&canEdit
           ?`<select class="ros-sound" data-idx="${i}" style="background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#58a6ff;font-size:13px;font-weight:700;padding:5px 8px;outline:none;font-family:inherit;cursor:pointer;width:100%"><option value="" ${item.sound===''?'selected':''}>— none —</option><option value="A" ${item.sound==='A'?'selected':''}>A</option><option value="B" ${item.sound==='B'?'selected':''}>B</option><option value="C" ${item.sound==='C'?'selected':''}>C</option><option value="D" ${item.sound==='D'?'selected':''}>D</option><option value="COLD START" ${item.sound==='COLD START'?'selected':''}>COLD START</option><option value="CLEAN" ${item.sound==='CLEAN'?'selected':''}>CLEAN</option><option value="GENERIC" ${item.sound==='GENERIC'?'selected':''}>GENERIC</option></select>`
