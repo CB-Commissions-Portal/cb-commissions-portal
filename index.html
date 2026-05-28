@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.53';
+const BUILD_VERSION='3.10.54';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -8135,30 +8135,6 @@ document.addEventListener('change',function ssChangeHandler(e){
   if(e.target.id==='ss-month-sel'){studioSchedMonth=e.target.value;render();return;}
 });
 
-document.addEventListener('click',function rosSlugHandler(e){
-  // Add slug row
-  if(e.target.classList.contains('ros-add-slug')){
-    const idx=Number(e.target.dataset.idx);
-    const items=rosGetCurrentItems();
-    rosFlushAndSave(items);
-    const cur=items[idx].slugs||(items[idx].slug?[items[idx].slug]:['']);
-    items[idx].slugs=[...cur,''];
-    items[idx].slug=cur[0]||'';
-    rosData[String(rosCurrentEp)].items=items;render();return;
-  }
-  // Remove slug row
-  if(e.target.classList.contains('ros-rm-slug')){
-    const idx=Number(e.target.dataset.idx),si=Number(e.target.dataset.sidx);
-    const items=rosGetCurrentItems();
-    rosFlushAndSave(items);
-    const cur=[...(items[idx].slugs||(items[idx].slug?[items[idx].slug]:['']))];
-    cur.splice(si,1);
-    items[idx].slugs=cur.length?cur:[''];
-    items[idx].slug=cur[0]||'';
-    rosData[String(rosCurrentEp)].items=items;render();return;
-  }
-});
-
 document.addEventListener('click',function ssClickHandler(e){
   if(e.target.id==='ss-pdf-btn'){exportStudioSchedPDF();return;}
   if(e.target.classList.contains('ss-save-btn')){
@@ -8644,6 +8620,30 @@ function rosRecalc(){
   if(totalEl)totalEl.textContent='Total: '+rosSecsToStr(total);
 }
 document.addEventListener('click',function rosHandler(e){
+  // Slug add
+  if(e.target.classList.contains('ros-add-slug')){
+    if(!rosCurrentEp)return;
+    const idx=Number(e.target.dataset.idx);
+    const items=rosGetCurrentItems();
+    rosFlushAndSave(items);
+    const cur=items[idx]?.slugs||(items[idx]?.slug?[items[idx].slug]:['']);
+    if(items[idx]){items[idx].slugs=[...cur,''];items[idx].slug=cur[0]||'';}
+    rosData[String(rosCurrentEp)].items=items;render();return;
+  }
+  // Slug remove
+  if(e.target.classList.contains('ros-rm-slug')){
+    if(!rosCurrentEp)return;
+    const idx=Number(e.target.dataset.idx),si=Number(e.target.dataset.sidx);
+    const items=rosGetCurrentItems();
+    rosFlushAndSave(items);
+    if(items[idx]){
+      const cur=[...(items[idx].slugs||(items[idx].slug?[items[idx].slug]:['']))];
+      cur.splice(si,1);
+      items[idx].slugs=cur.length?cur:[''];
+      items[idx].slug=cur[0]||'';
+    }
+    rosData[String(rosCurrentEp)].items=items;render();return;
+  }
   if(e.target.id==='ros-export-vt-btn'){rosExportVTList();return;}
   if(e.target.id==='ros-export-word-btn'){rosExportWord();return;}
   if(e.target.id==='ros-export-pdf-btn'){rosExportPDF();return;}
