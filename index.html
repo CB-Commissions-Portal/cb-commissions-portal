@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.55';
+const BUILD_VERSION='3.10.56';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -5486,7 +5486,8 @@ function renderLineups(epNums){
     }
     // Saved lineup exists — use saved data but merge in any commissions not yet in items
     const savedCommNums=new Set((saved.items||[]).filter(i=>!i.liveStudio).map(i=>String(i.commNum)));
-    const missingItems=autoItems.filter(i=>!savedCommNums.has(i.commNum));
+    const excluded=new Set((saved.excluded||[]).map(String));
+    const missingItems=autoItems.filter(i=>!savedCommNums.has(i.commNum)&&!excluded.has(String(i.commNum)));
     return {...saved, items:[...(saved.items||[]),...missingItems]};
   }
   function epIsPast(ep){const d=resolveDate(Number(ep));return d&&d<today;}
@@ -7926,7 +7927,14 @@ document.addEventListener('click',function luClickHandler(e){
     const btn=e.target.classList.contains('lu-remove-item')?e.target:e.target.closest('.lu-remove-item');
     const ep=btn.dataset.ep;const idx=Number(btn.dataset.idx);
     if(!ep||!lineups[ep]||!lineups[ep].items)return;
+    const removedItem=lineups[ep].items[idx];
     lineups[ep].items.splice(idx,1);
+    // If it's a commission, add to excluded so auto-merge doesn't re-add it
+    if(removedItem&&removedItem.commNum){
+      lineups[ep].excluded=lineups[ep].excluded||[];
+      if(!lineups[ep].excluded.includes(String(removedItem.commNum)))
+        lineups[ep].excluded.push(String(removedItem.commNum));
+    }
     saveLineup(ep,lineups[ep]);luFlushFields();render();return;
   }
 });
