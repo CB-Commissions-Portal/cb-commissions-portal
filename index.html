@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.56';
+const BUILD_VERSION='3.10.57';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -5546,7 +5546,7 @@ function renderLineups(epNums){
           <span style="font-size:11px;color:#8b949e;min-width:70px">${esc(c?.presenterVO||'')}</span>
           <span style="font-size:11px;color:#6e7681;min-width:70px">${esc(c?.producer||'')}</span>
           <span style="font-size:11px;font-family:monospace;color:${isDelivered?'#3fb950':'#8b949e'};min-width:50px;text-align:right" title="${isDelivered?'Delivered':'Commissioned'}">${decToMmSs(toDecimalMins(dur))}${isDelivered?' ✓':''}</span>
-          ${canEdit&&!past?`<button class="lu-remove-item" data-ep="${ep}" data-idx="${idx}" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:14px;line-height:1">✕</button>`:''}
+          ${canEdit&&!past?`<button class="lu-remove-item" data-ep="${ep}" data-idx="${idx}" data-commnum="${item.commNum||''}" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:14px;line-height:1">✕</button>`:''}
         </div>`;
       }
     });
@@ -7926,14 +7926,20 @@ document.addEventListener('click',function luClickHandler(e){
   if(e.target.classList.contains('lu-remove-item')||e.target.closest('.lu-remove-item')){
     const btn=e.target.classList.contains('lu-remove-item')?e.target:e.target.closest('.lu-remove-item');
     const ep=btn.dataset.ep;const idx=Number(btn.dataset.idx);
-    if(!ep||!lineups[ep]||!lineups[ep].items)return;
-    const removedItem=lineups[ep].items[idx];
-    lineups[ep].items.splice(idx,1);
-    // If it's a commission, add to excluded so auto-merge doesn't re-add it
-    if(removedItem&&removedItem.commNum){
+    const commNum=btn.dataset.commnum||'';
+    if(!ep)return;
+    if(!lineups[ep])lineups[ep]={director:'',presenter1:'',presenter2:'',items:[],excluded:[]};
+    if(!lineups[ep].items)lineups[ep].items=[];
+    if(commNum){
+      // Remove by commNum — works regardless of array index
+      lineups[ep].items=lineups[ep].items.filter(i=>String(i.commNum||'')!==String(commNum));
+      // Add to excluded so auto-merge doesn't re-add it
       lineups[ep].excluded=lineups[ep].excluded||[];
-      if(!lineups[ep].excluded.includes(String(removedItem.commNum)))
-        lineups[ep].excluded.push(String(removedItem.commNum));
+      if(!lineups[ep].excluded.includes(String(commNum)))
+        lineups[ep].excluded.push(String(commNum));
+    } else {
+      // Live Studio item — remove by idx
+      lineups[ep].items.splice(idx,1);
     }
     saveLineup(ep,lineups[ep]);luFlushFields();render();return;
   }
