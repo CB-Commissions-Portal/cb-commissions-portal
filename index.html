@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.57';
+const BUILD_VERSION='3.10.58';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -7826,17 +7826,7 @@ document.addEventListener('input',function luInputHandler(e){
     lineups[ep].items[idx].liveDuration=e.target.value;
     clearTimeout(window['_luLiveSave_'+ep+'_'+idx]);
     window['_luLiveSave_'+ep+'_'+idx]=setTimeout(()=>{
-      saveLineup(ep,lineups[ep]);
-      // Recalculate total correctly and update display without full render
-      const totEl=document.querySelector(`[data-lu-total="${ep}"]`);
-      if(totEl){
-        let t=0;
-        (lineups[ep].items||[]).forEach(item=>{
-          if(item.liveStudio){t+=toDecimalMins(item.liveDuration||'0:00');}
-          else if(item.commNum){const c=comms.find(c=>String(c.commNum)===String(item.commNum));if(c)t+=toDecimalMins(c.deliveredDuration&&c.deliveredDuration!=='00:00:00'?c.deliveredDuration:c.commDuration);}
-        });
-        totEl.textContent='Total: '+decToMmSs(t);
-      }
+      saveLineup(ep,lineups[ep]);render();
     },800);
     return;
   }
