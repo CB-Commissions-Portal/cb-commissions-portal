@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.65';
+const BUILD_VERSION='3.10.66';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4470,7 +4470,7 @@ function renderRunOfShow(){
           <span style="font-size:18px;font-weight:900;color:#c084fc;font-family:monospace" id="ros-total">Total: ${rosSecsToStr(totalSecs)}</span>
           <button class="btn" id="ros-export-pdf-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#56d364;color:#56d364">⬇ Export PDF</button>
           <button class="btn" id="ros-export-word-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#388bfd;color:#58a6ff">⬇ Studio Script (Word)</button>
-          <button class="btn" id="ros-export-vt-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#e3b341;color:#e3b341">⬇ VT List (Word)</button>
+          <button class="btn" id="ros-export-vt-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#e3b341;color:#e3b341">⬇ VT List (PDF)</button>
           ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#e3b341;color:#e3b341"># Generate Item Numbers</button>`:''}
           ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:13px;padding:7px 20px;font-weight:800">💾 Save</button>`:''}
         </div>
@@ -8367,79 +8367,85 @@ function rosFlushAndSave(items){
 
 
 function rosExportVTList(){
-  const ep=rosCurrentEp;
-  if(!ep)return;
-  const items=(rosData[String(ep)]?.items)||[];
+  if(!rosCurrentEp)return;
+  const epNum=rosCurrentEp;
+  const epDate=resolveDate(epNum);
+  const epLabel=`S${currentSeason} EP ${String(epNum).padStart(2,'0')}`;
+  const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'';
+  const items=(rosData[String(epNum)]?.items)||[];
   if(!items.length){showToast('No items to export',true);return;}
-  const epDate=resolveDate(ep);
-  const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'}):'';
-  const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
-  const escHtml=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-  const cs='font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top';
-  const hs='font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;background:#003366;color:#fff;border:1px solid #000;text-align:center';
+  // Flush unsaved DOM values
+  const _sm={};document.querySelectorAll('.ros-slug').forEach(inp=>{const i=Number(inp.dataset.idx),si=Number(inp.dataset.sidx||0);if(!_sm[i])_sm[i]=[];_sm[i][si]=inp.value.trim();});Object.entries(_sm).forEach(([i,sl])=>{if(items[i]!==undefined){items[i].slugs=sl;items[i].slug=sl[0]||'';}});
+  document.querySelectorAll('.ros-slug-source').forEach(sel=>{const i=Number(sel.dataset.idx),si=Number(sel.dataset.sidx||0);if(items[i]!==undefined){if(!items[i].slugSources)items[i].slugSources=[];items[i].slugSources[si]=sel.value;}});
 
-  const rows=items.map((item,i)=>{
-    const num=item.itemNum||String(i+1);
-    const slug=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean).map(s=>escHtml(s)).join('<br>')||'';
-    const lbl=escHtml(item.label||'');
-    const cnt=escHtml(item.content||'');
-    const desc=lbl+(cnt?`<br><span style="font-weight:normal">${cnt}</span>`:'');
-    return`<tr>
-      <td width="28" align="center" style="${cs};font-weight:bold;text-align:center">${escHtml(num)}</td>
-      <td width="160" style="${cs};font-weight:bold;color:#c07000">${slug}</td>
-      <td style="${cs};font-weight:bold;color:#0055a0">${desc}</td>
-      <td width="160" style="${cs}">&nbsp;</td>
-    </tr>`;
-  }).join('');
+  const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office"
-xmlns:w="urn:schemas-microsoft-com:office:word"
-xmlns="http://www.w3.org/TR/REC-html40">
-<head><meta charset="utf-8">
-<title>VT List ${escHtml(epLabel)}</title>
-<!--[if gte mso 9]><xml>
-<w:WordDocument><w:View>Print</w:View><w:Zoom>90</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument>
-</xml><![endif]-->
-<style>
-  @page{size:841.9pt 595.3pt;mso-page-orientation:landscape;margin:36pt 36pt 36pt 36pt;}
-  body{font-family:Arial,sans-serif;font-size:11pt;margin:0;padding:0}
-  p{margin:0;padding:0;line-height:1.15}
-  table{border-collapse:collapse;width:100%;table-layout:fixed}
-  td,th{font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;word-wrap:break-word}
-</style>
-</head>
-<body>
-<p style="font-size:14pt;font-weight:bold;color:#003366;margin-bottom:2pt"><b>CARTE BLANCHE — VT LIST</b></p>
-<p style="margin-bottom:1pt"><b>Season ${currentSeason}, ${escHtml(epLabel)}</b></p>
-<p style="margin-bottom:8pt"><b>TX: ${escHtml(epDateFmt)}</b></p>
-<table border="1" cellpadding="3" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed">
-  <colgroup>
-    <col width="28">
-    <col width="160">
-    <col>
-    <col width="160">
-  </colgroup>
-  <thead>
-    <tr>
-      <th width="28" style="${hs}">ITEM</th>
-      <th width="160" style="${hs}">SLUG</th>
-      <th style="${hs}">DESCRIPTION</th>
-      <th width="160" style="${hs}">SOURCES</th>
-    </tr>
-  </thead>
-  <tbody>${rows}</tbody>
-</table>
-</body></html>`;
+  // Build rows — one row per slug per item; skip items with no slugs
+  let rows='';
+  items.forEach(item=>{
+    const slugs=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean);
+    if(!slugs.length)return;
+    const sources=item.slugSources||[];
+    slugs.forEach((slug,si)=>{
+      const src=sources[si]||'';
+      const num=item.itemNum||'';
+      rows+=`<tr>
+        <td style="padding:6px 10px;font-size:10pt;font-weight:700;text-align:center;border-right:1px solid #ccc;white-space:nowrap">${esc(num)}</td>
+        <td style="padding:6px 10px;font-size:10pt;font-weight:700;color:#7a4a00;border-right:1px solid #ccc">${esc(slug)}</td>
+        <td style="padding:6px 10px;font-size:10pt;font-weight:800;color:${src?'#1a5c1a':'#999'};text-align:center">${esc(src||'—')}</td>
+      </tr>`;
+    });
+  });
 
-  const blob=new Blob(['\ufeff',html],{type:'application/msword'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download=`CB-VT-List-${epLabel.replace(/ /g,'-')}.doc`;
-  document.body.appendChild(a);a.click();document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('VT List downloaded ✓');
+  if(!rows){showToast('No slugs to export',true);return;}
+
+  const logoSrc=BAKED_CB_LOGO||'';
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>Carte Blanche VT List — ${esc(epLabel)}</title>
+  <style>
+    @page{size:A4 portrait;margin:15mm 15mm 15mm 15mm}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;color:#111;background:#fff;font-size:10pt}
+    .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:10px;border-bottom:3px solid #111}
+    .header-logo img{height:52px;width:auto}
+    .header-info{text-align:right}
+    .header-info h1{font-size:16pt;font-weight:900;color:#111;margin-bottom:3px}
+    .header-info p{font-size:10pt;color:#555}
+    table{width:100%;border-collapse:collapse;border:1px solid #ccc}
+    thead th{background:#111;color:#fff;padding:7px 10px;font-size:9pt;font-weight:800;text-transform:uppercase;text-align:left;border-right:1px solid #444}
+    thead th:last-child{border-right:none;text-align:center}
+    thead th:first-child{text-align:center}
+    tbody tr:nth-child(even){background:#f7f7f7}
+    tbody tr:hover{background:#eef5ff}
+    tbody td{border-bottom:1px solid #e0e0e0}
+    .footer{margin-top:10px;font-size:8pt;color:#999;text-align:center;border-top:1px solid #ddd;padding-top:6px}
+  </style>
+  </head><body>
+  <div class="header">
+    <div class="header-logo">${logoSrc?`<img src="${logoSrc}" alt="Carte Blanche">`:'<span style="font-size:18pt;font-weight:900">CARTE BLANCHE</span>'}</div>
+    <div class="header-info">
+      <h1>VT LIST</h1>
+      <p>${esc(epLabel)} &nbsp;·&nbsp; ${esc(epDateFmt)}</p>
+      <p style="margin-top:3px;font-size:9pt;color:#888">Exported ${new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'})}</p>
+    </div>
+  </div>
+  <table>
+    <thead><tr>
+      <th style="width:60px">Item #</th>
+      <th>Slug</th>
+      <th style="width:80px">Source</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">Carte Blanche Production Portal &nbsp;·&nbsp; ${esc(epLabel)} &nbsp;·&nbsp; Season ${currentSeason}</div>
+  </body></html>`;
+
+  const win=window.open('','_blank','width=800,height=900');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>{win.print();},400);
+  showToast('VT List ready to print/save as PDF ✓');
 }
 
 function rosExportWord(){
