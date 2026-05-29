@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.61';
+const BUILD_VERSION='3.10.62';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -761,7 +761,9 @@ async function loadContracts(){
 }
 async function saveROS(epNum,data){
   setSyncDot('saving');
-  try{await setDoc(doc(db,'run_of_show',String(epNum)),{...data,updatedAt:serverTimestamp()});rosData[epNum]={...data};setSyncDot('live');}
+  const updatedByName=currentUser?.displayName||currentUser?.email||'Unknown';
+  const updatedAtStr=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  try{await setDoc(doc(db,'run_of_show',String(epNum)),{...data,updatedAt:serverTimestamp(),updatedByName,updatedAtStr});rosData[epNum]={...data,updatedByName,updatedAtStr};setSyncDot('live');}
   catch(e){setSyncDot('offline');showToast('ROS save failed: '+e.message,true);}
 }
 async function loadROS(){
@@ -4457,6 +4459,7 @@ function renderRunOfShow(){
           <span style="font-size:18px;font-weight:900;color:#c084fc;font-family:monospace">${epLabel}</span>
           <span style="font-size:13px;color:#6e7681;margin-left:12px">${epDateFmt}</span>
         </div>
+        ${(()=>{const _ub=rosData[String(epNum)]?.updatedByName;const _ua=rosData[String(epNum)]?.updatedAtStr;return _ub?`<div style="font-size:11px;color:#6e7681;background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:4px 10px;line-height:1.5"><span style="color:#484f58;font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:9px">Last saved by</span><br><span style="color:#eaf0ff;font-weight:700">${esc(_ub)}</span>${_ua?`<span style="color:#484f58"> &nbsp;·&nbsp; ${esc(_ua)}</span>`:''}</div>`:'';})()}
         <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <span style="font-size:18px;font-weight:900;color:#c084fc;font-family:monospace" id="ros-total">Total: ${rosSecsToStr(totalSecs)}</span>
           <button class="btn" id="ros-export-pdf-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#56d364;color:#56d364">⬇ Export PDF</button>
