@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.64';
+const BUILD_VERSION='3.10.65';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4391,9 +4391,15 @@ function renderRunOfShow(){
     // Compute slug HTML outside template literal to avoid nesting issues
     const _slugs=item.slugs||(item.slug?[item.slug]:['']);
     const _slugDatalist='<datalist id="ros-slug-opts"><option value="CB2026 OPENING LOGO"><option value="CB2026 KEY BUMPER OUT"><option value="CB2026 KEY BUMPER IN"><option value="CB2026 CLOSING CREDITS"></datalist>';
+    const _slugSources=item.slugSources||[];
+    const _srcOpts=['','A','B','C','D','BLUE'];
     const _slugInputs=_slugs.map((s,si)=>{
+      const curSrc=_slugSources[si]||'';
       const rmBtn=_slugs.length>1?`<button class="ros-rm-slug btn" data-idx="${i}" data-sidx="${si}" style="font-size:9px;padding:1px 4px;border-color:#f85149;color:#f85149;flex-shrink:0">×</button>`:'';
-      return `<div style="display:flex;align-items:center;gap:3px;margin-bottom:3px"><input class="ros-slug" data-idx="${i}" data-sidx="${si}" value="${esc(s||'')}" placeholder="Slug…" list="ros-slug-opts" style="flex:1;min-width:0;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#e3b341;font-size:13px;padding:4px 2px;outline:none;font-family:inherit;font-weight:700">${rmBtn}</div>`;
+      const srcSel=canEdit
+        ?`<select class="ros-slug-source" data-idx="${i}" data-sidx="${si}" style="background:#1a2235;border:1px solid #2e3a50;border-radius:3px;color:#56d364;font-size:11px;font-weight:700;padding:2px 4px;outline:none;font-family:inherit;cursor:pointer;width:62px;flex-shrink:0">${_srcOpts.map(o=>`<option value="${o}" ${curSrc===o?'selected':''}>${o||'—'}</option>`).join('')}</select>`
+        :(curSrc?`<span style="font-size:11px;font-weight:700;color:#56d364;flex-shrink:0">${esc(curSrc)}</span>`:'');
+      return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px"><input class="ros-slug" data-idx="${i}" data-sidx="${si}" value="${esc(s||'')}" placeholder="Slug…" list="ros-slug-opts" style="flex:1;min-width:0;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#e3b341;font-size:13px;padding:4px 2px;outline:none;font-family:inherit;font-weight:700">${srcSel}${rmBtn}</div>`;
     }).join('');
     const _addBtn=canEdit?`<button class="ros-add-slug btn" data-idx="${i}" style="font-size:9px;padding:1px 6px;border-style:dashed;border-color:#e3b341;color:#e3b341;margin-top:2px">＋</button>`:'';
     const _slugCell=canEdit
@@ -4415,12 +4421,7 @@ function renderRunOfShow(){
         <span style="font-size:16px;font-weight:${ts.weight};color:${ts.label}">${esc(item.label)}</span>
       </td>
       <td style="padding:6px 16px;vertical-align:top;min-width:160px;max-width:220px">${_slugCell}</td>
-      <td style="padding:6px 16px;vertical-align:middle;min-width:110px">
-        ${canEdit
-          ?`<select class="ros-source" data-idx="${i}" style="background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#56d364;font-size:13px;font-weight:700;padding:5px 8px;outline:none;font-family:inherit;cursor:pointer;width:100%"><option value="" ${item.source===''||!item.source?'selected':''}>— none —</option><option value="A" ${item.source==='A'?'selected':''}>A</option><option value="B" ${item.source==='B'?'selected':''}>B</option><option value="C" ${item.source==='C'?'selected':''}>C</option><option value="D" ${item.source==='D'?'selected':''}>D</option><option value="BLUE" ${item.source==='BLUE'?'selected':''}>BLUE</option></select>`
-          :`<span style="font-size:13px;font-weight:700;color:${item.source?'#56d364':'#484f58'}">${esc(item.source||'—')}</span>`}
-      </td>
-      <td style="padding:6px 16px;vertical-align:middle;min-width:130px">
+      <td style="padding:6px 16px;vertical-align:middle;min-width:80px">
         ${item.type!=='break'&&canEdit
           ?`<select class="ros-sound" data-idx="${i}" style="background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#58a6ff;font-size:13px;font-weight:700;padding:5px 8px;outline:none;font-family:inherit;cursor:pointer;width:100%"><option value="" ${item.sound===''?'selected':''}>— none —</option><option value="A" ${item.sound==='A'?'selected':''}>A</option><option value="B" ${item.sound==='B'?'selected':''}>B</option><option value="C" ${item.sound==='C'?'selected':''}>C</option><option value="D" ${item.sound==='D'?'selected':''}>D</option><option value="COLD START" ${item.sound==='COLD START'?'selected':''}>COLD START</option><option value="CLEAN" ${item.sound==='CLEAN'?'selected':''}>CLEAN</option><option value="GENERIC" ${item.sound==='GENERIC'?'selected':''}>GENERIC</option></select>`
           :`<span style="font-size:13px;font-weight:700;color:${item.sound?'#58a6ff':'#484f58'}">${esc(item.sound||'—')}</span>`}
@@ -4482,8 +4483,7 @@ function renderRunOfShow(){
               <th style="width:80px;padding:10px;border-bottom:2px solid #2e3a50"></th>
               <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Item</th>
               <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#e3b341;border-bottom:2px solid #2e3a50;text-align:left;min-width:160px">Slug</th>
-              <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#56d364;border-bottom:2px solid #2e3a50;text-align:left;min-width:110px">Sources</th>
-              <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#58a6ff;border-bottom:2px solid #2e3a50;text-align:left;min-width:130px">Sound</th>
+              <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#58a6ff;border-bottom:2px solid #2e3a50;text-align:left;min-width:80px">Sound</th>
               <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Content</th>
               <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:center;width:130px">Item Dur</th>
               <th style="padding:10px 20px;font-size:11px;font-weight:800;text-transform:uppercase;color:#c084fc;border-bottom:2px solid #2e3a50;text-align:right;width:130px">Ep Duration ↑</th>
@@ -8534,7 +8534,7 @@ function rosExportPDF(){
 
   // Flush any unsaved DOM values
   const _sm={};document.querySelectorAll('.ros-slug').forEach(inp=>{const i=Number(inp.dataset.idx),si=Number(inp.dataset.sidx||0);if(!_sm[i])_sm[i]=[];_sm[i][si]=inp.value.trim();});Object.entries(_sm).forEach(([i,sl])=>{if(items[i]!==undefined){items[i].slugs=sl;items[i].slug=sl[0]||'';}});
-  document.querySelectorAll('.ros-source').forEach(sel=>{const i=Number(sel.dataset.idx);if(items[i]!==undefined)items[i].source=sel.value;});
+  document.querySelectorAll('.ros-slug-source').forEach(sel=>{const i=Number(sel.dataset.idx),si=Number(sel.dataset.sidx||0);if(items[i]!==undefined){if(!items[i].slugSources)items[i].slugSources=[];items[i].slugSources[si]=sel.value;}});
   document.querySelectorAll('.ros-sound').forEach(sel=>{const i=Number(sel.dataset.idx);if(items[i]!==undefined)items[i].sound=sel.value;});
   document.querySelectorAll('.ros-content').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i])items[i].content=inp.value;});
   document.querySelectorAll('.ros-dur').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i])items[i].duration=inp.value;});
@@ -8636,7 +8636,7 @@ document.addEventListener('click',function rosHandler(e){
     const items=rosGetCurrentItems();
     rosFlushAndSave(items);
     const cur=items[idx]?.slugs||(items[idx]?.slug?[items[idx].slug]:['']);
-    if(items[idx]){items[idx].slugs=[...cur,''];items[idx].slug=cur[0]||'';}
+    if(items[idx]){items[idx].slugs=[...cur,''];items[idx].slug=cur[0]||'';const curSrc=items[idx].slugSources||[];items[idx].slugSources=[...curSrc,''];}
     rosData[String(rosCurrentEp)].items=items;render();return;
   }
   // Slug remove
@@ -8650,6 +8650,9 @@ document.addEventListener('click',function rosHandler(e){
       cur.splice(si,1);
       items[idx].slugs=cur.length?cur:[''];
       items[idx].slug=cur[0]||'';
+      const curSrc=[...(items[idx].slugSources||[])];
+      curSrc.splice(si,1);
+      items[idx].slugSources=curSrc;
     }
     rosData[String(rosCurrentEp)].items=items;render();return;
   }
