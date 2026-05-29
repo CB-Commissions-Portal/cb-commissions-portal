@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.69';
+const BUILD_VERSION='3.10.70';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4437,7 +4437,7 @@ function renderRunOfShow(){
       <td style="padding:10px 16px;vertical-align:middle;width:130px;text-align:center">
         ${canEdit&&!isLocked
           ?`<input class="ros-dur" data-idx="${i}" value="${esc(item.duration||'')}" placeholder="0:00:00" style="width:110px;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#eaf0ff;font-size:16px;padding:6px 4px;outline:none;text-align:center;font-family:monospace">`
-          :`<span style="font-size:16px;font-family:monospace;color:${durSecs?'#eaf0ff':'#484f58'}">${item.duration||'—'}</span>`}
+          :`<span class="ros-dur-display" style="font-size:16px;font-family:monospace;color:${durSecs?'#eaf0ff':'#484f58'}">${item.duration||'—'}</span>`}
       </td>
       <td style="padding:14px 20px;vertical-align:middle;width:130px;text-align:right">
         <span class="ros-epdur" data-idx="${i}" style="font-size:${i===0?'20px':'16px'};font-family:monospace;color:${i===0?'#c084fc':epDurSecs?'#7a8ba0':'#333'};font-weight:${i===0?'900':'400'}">${epDurSecs?rosSecsToStr(epDurSecs):'—'}</span>
@@ -8633,7 +8633,7 @@ function rosRecalc(){
   const rows=document.querySelectorAll('tbody tr[data-ros-idx]');
   const allSecs=Array.from(rows).map(tr=>{
     const durInp=tr.querySelector('.ros-dur');
-    const durSpan=tr.querySelector('td:nth-child(4) span');
+    const durSpan=tr.querySelector('.ros-dur-display');
     return rosDurToSecs(durInp?durInp.value:durSpan?durSpan.textContent:'');
   });
   const total=allSecs.reduce((s,v)=>s+v,0);
