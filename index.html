@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.66';
+const BUILD_VERSION='3.10.69';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -763,7 +763,8 @@ async function saveROS(epNum,data){
   setSyncDot('saving');
   const updatedByName=currentUser?.displayName||currentUser?.email||'Unknown';
   const updatedAtStr=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  try{await setDoc(doc(db,'run_of_show',String(epNum)),{...data,updatedAt:serverTimestamp(),updatedByName,updatedAtStr});rosData[epNum]={...data,updatedByName,updatedAtStr};setSyncDot('live');}
+  rosData[epNum]={...data,updatedByName,updatedAtStr};
+  try{await setDoc(doc(db,'run_of_show',String(epNum)),{...data,updatedAt:serverTimestamp(),updatedByName,updatedAtStr});setSyncDot('live');}
   catch(e){setSyncDot('offline');showToast('ROS save failed: '+e.message,true);}
 }
 async function loadROS(){
@@ -8348,6 +8349,10 @@ function rosFlushAndSave(items){
   Object.entries(_slugMap).forEach(([idx,slugs])=>{
     if(items[idx]!==undefined){items[idx].slugs=slugs;items[idx].slug=slugs[0]||'';}
   });
+  document.querySelectorAll('.ros-slug-source').forEach(sel=>{
+    const idx=Number(sel.dataset.idx),si=Number(sel.dataset.sidx||0);
+    if(items[idx]!==undefined){if(!items[idx].slugSources)items[idx].slugSources=[];items[idx].slugSources[si]=sel.value;}
+  });
   document.querySelectorAll('.ros-sound').forEach(sel=>{
     const idx=Number(sel.dataset.idx);
     if(items[idx]!==undefined)items[idx].sound=sel.value;
@@ -8384,6 +8389,7 @@ function rosExportVTList(){
   // Build rows — one row per slug per item; skip items with no slugs
   let rows='';
   items.forEach(item=>{
+    if(item.type==='fixed'||item.type==='break')return;
     const slugs=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean);
     if(!slugs.length)return;
     const sources=item.slugSources||[];
@@ -8391,9 +8397,9 @@ function rosExportVTList(){
       const src=sources[si]||'';
       const num=item.itemNum||'';
       rows+=`<tr>
-        <td style="padding:6px 10px;font-size:10pt;font-weight:700;text-align:center;border-right:1px solid #ccc;white-space:nowrap">${esc(num)}</td>
-        <td style="padding:6px 10px;font-size:10pt;font-weight:700;color:#7a4a00;border-right:1px solid #ccc">${esc(slug)}</td>
-        <td style="padding:6px 10px;font-size:10pt;font-weight:800;color:${src?'#1a5c1a':'#999'};text-align:center">${esc(src||'—')}</td>
+        <td style="padding:5px 6px;font-size:9.5pt;font-weight:700;text-align:center;border-right:1px solid #ccc">${esc(num)}</td>
+        <td style="padding:5px 6px;font-size:9.5pt;font-weight:700;color:#7a4a00;border-right:1px solid #ccc">${esc(slug)}</td>
+        <td style="padding:5px 6px;font-size:9.5pt;font-weight:800;color:${src?'#1a5c1a':'#999'};text-align:center">${esc(src||'—')}</td>
       </tr>`;
     });
   });
@@ -8412,13 +8418,15 @@ function rosExportVTList(){
     .header-info{text-align:right}
     .header-info h1{font-size:16pt;font-weight:900;color:#111;margin-bottom:3px}
     .header-info p{font-size:10pt;color:#555}
-    table{width:100%;border-collapse:collapse;border:1px solid #ccc}
-    thead th{background:#111;color:#fff;padding:7px 10px;font-size:9pt;font-weight:800;text-transform:uppercase;text-align:left;border-right:1px solid #444}
+    table{width:100%;border-collapse:collapse;border:1px solid #ccc;table-layout:fixed}
+    col.col-item{width:10%}
+    col.col-slug{width:76%}
+    col.col-src{width:14%}
+    thead th{background:#111;color:#fff;padding:5px 6px;font-size:9pt;font-weight:800;text-transform:uppercase;text-align:left;border-right:1px solid #444;word-wrap:break-word}
     thead th:last-child{border-right:none;text-align:center}
     thead th:first-child{text-align:center}
     tbody tr:nth-child(even){background:#f7f7f7}
-    tbody tr:hover{background:#eef5ff}
-    tbody td{border-bottom:1px solid #e0e0e0}
+    tbody td{border-bottom:1px solid #e0e0e0;word-wrap:break-word;overflow:hidden}
     .footer{margin-top:10px;font-size:8pt;color:#999;text-align:center;border-top:1px solid #ddd;padding-top:6px}
   </style>
   </head><body>
@@ -8431,10 +8439,15 @@ function rosExportVTList(){
     </div>
   </div>
   <table>
+    <colgroup>
+      <col class="col-item">
+      <col class="col-slug">
+      <col class="col-src">
+    </colgroup>
     <thead><tr>
-      <th style="width:60px">Item #</th>
+      <th>Item #</th>
       <th>Slug</th>
-      <th style="width:80px">Source</th>
+      <th>Source</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
@@ -8690,6 +8703,7 @@ document.addEventListener('click',function rosHandler(e){
     if(!rosCurrentEp)return;
     const items=rosGetCurrentItems();
     rosFlushAndSave(items);
+    render();
     showToast('Run of Show saved ✓');
     return;
   }
