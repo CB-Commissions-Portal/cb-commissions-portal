@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.71';
+const BUILD_VERSION='3.10.72';
 const BUILD_DATE='26 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -8389,7 +8389,6 @@ function rosExportVTList(){
   // Build rows — one row per slug per item; skip items with no slugs
   let rows='';
   items.forEach(item=>{
-    if(item.type==='fixed'||item.type==='break')return;
     const slugs=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean);
     if(!slugs.length)return;
     const sources=item.slugSources||[];
