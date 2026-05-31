@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.84';
+const BUILD_VERSION='3.10.85';
 const BUILD_DATE='31 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -123,6 +123,7 @@ let leaveCalMonth=new Date().getMonth();
 let seenLeaveIds=new Set();
 let unsubLeave=null;
 let currentUserExtraRoles=[];
+let restorePreview=null; // {backup,summary} — set when a backup JSON is loaded for confirmation
 let mcTab='dashboard';
 let mcEditId=null;
 let mcDraft={afmName:'',commNum:'',storyName:'',producer:'',rows:[]};
@@ -509,6 +510,30 @@ async function exportAllDataToJSON(){
   }catch(e){
     showToast('Backup failed: '+e.message,true);
     console.error('Backup error:',e);
+  }
+}
+async function restoreFromBackup(backup){
+  const allDocs=Object.entries(backup.collections).filter(([,v])=>Array.isArray(v));
+  const total=allDocs.reduce((s,[,a])=>s+a.length,0);
+  let done=0;
+  const btn=document.getElementById('restore-confirm-btn');
+  try{
+    for(const[colName,docs]of allDocs){
+      for(const docData of docs){
+        const{id,...data}=docData;
+        if(!id)continue;
+        await setDoc(doc(db,colName,String(id)),data);
+        done++;
+        if(btn)btn.textContent=`Restoring… ${done} / ${total}`;
+      }
+    }
+    restorePreview=null;
+    showToast(`✓ Restore complete — ${done} records written across ${allDocs.length} collections`);
+    render();
+  }catch(e){
+    showToast('Restore failed: '+e.message,true);
+    console.error('Restore error:',e);
+    if(btn){btn.textContent='Confirm Restore';btn.disabled=false;}
   }
 }
 async function loadPostProd(){
@@ -5414,6 +5439,37 @@ function renderAdmin(){
     <div style="margin-top:12px;padding:10px 12px;background:#0d1117;border-radius:6px;border:1px solid #21262d;font-size:10px;color:#484f58">
       💡 <strong style="color:#6e7681">Tip:</strong> Run a backup before major changes, and keep at least one copy offsite (Google Drive, email to yourself, etc.). The file can be used to restore data if needed.
     </div>
+    <hr style="border:none;border-top:1px solid #21262d;margin:16px 0">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <h4 style="margin:0 0 4px 0;color:#f85149">Restore from Backup</h4>
+        <div style="font-size:11px;color:#6e7681">Upload a previously exported JSON backup file to restore all data to that point in time.</div>
+      </div>
+      <label class="btn" style="cursor:pointer;border-color:#f85149;color:#f85149;background:rgba(248,81,73,.08);white-space:nowrap;padding:8px 18px;font-size:12px;font-weight:800">
+        ⬆ Restore from Backup
+        <input type="file" id="restore-file-input" accept=".json" style="display:none">
+      </label>
+    </div>
+    ${restorePreview?`
+    <div style="background:#160808;border:1px solid #f8514966;border-radius:6px;padding:14px 16px;margin-top:14px">
+      <div style="font-size:12px;font-weight:700;color:#f85149;margin-bottom:10px">Restore Preview — confirm before proceeding</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;margin-bottom:10px;font-size:11px;color:#8b949e">
+        <div>Backup date: <strong style="color:#e6edf3">${new Date(restorePreview.backup.exportedAt).toLocaleString('en-ZA')}</strong></div>
+        <div>Exported by: <strong style="color:#e6edf3">${restorePreview.backup.exportedBy||'—'}</strong></div>
+        <div>App version: <strong style="color:#e6edf3">${restorePreview.backup.appVersion||'—'}</strong></div>
+        <div>Season: <strong style="color:#e6edf3">${restorePreview.backup.season||'—'}</strong></div>
+      </div>
+      <div style="font-size:10px;color:#6e7681;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:6px">
+        ${restorePreview.summary.map(([col,count])=>`<span style="background:#21262d;padding:2px 8px;border-radius:3px;font-family:monospace">${col}: ${count}</span>`).join('')}
+      </div>
+      <div style="background:#0d0505;border:1px solid #f85149;border-radius:4px;padding:8px 12px;margin-bottom:12px;font-size:10px;color:#f85149;line-height:1.5">
+        ⚠ <strong>WARNING:</strong> This will overwrite existing data for all collections in the backup file. This cannot be undone. Export a fresh backup first if you want to preserve the current state.
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn" id="restore-cancel-btn" style="font-size:12px">Cancel</button>
+        <button class="btn" id="restore-confirm-btn" style="border-color:#f85149;color:#f85149;background:rgba(248,81,73,.12);font-weight:800;font-size:12px">Confirm Restore</button>
+      </div>
+    </div>`:''}
   </div>
   <div class="admin-card" style="grid-column:1/-1">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -7012,6 +7068,32 @@ function bindApp(){
 
   document.getElementById('backup-export-btn')?.addEventListener('click',()=>{
     exportAllDataToJSON();
+  });
+  document.getElementById('restore-file-input')?.addEventListener('change',e=>{
+    const file=e.target.files[0];
+    if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const backup=JSON.parse(ev.target.result);
+        if(!backup.collections)throw new Error('Not a valid portal backup file.');
+        const summary=Object.entries(backup.collections).map(([col,docs])=>[col,Array.isArray(docs)?docs.length:'error']);
+        restorePreview={backup,summary};
+        render();
+      }catch(err){
+        showToast('Invalid backup file: '+err.message,true);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value='';
+  });
+  document.getElementById('restore-cancel-btn')?.addEventListener('click',()=>{restorePreview=null;render();});
+  document.getElementById('restore-confirm-btn')?.addEventListener('click',async()=>{
+    const btn=document.getElementById('restore-confirm-btn');
+    if(!restorePreview)return;
+    btn.disabled=true;
+    btn.textContent='Restoring…';
+    await restoreFromBackup(restorePreview.backup);
   });
   document.getElementById('add-user-btn')?.addEventListener('click',()=>{addUserModal=true;render();});
 
