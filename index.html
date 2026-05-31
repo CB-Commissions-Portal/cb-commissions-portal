@@ -407,7 +407,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.73';
+const BUILD_VERSION='3.10.74';
 const BUILD_DATE='31 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3874,30 +3874,16 @@ function fccExportPDF(ep){
     win.document.close();
     setTimeout(()=>{try{win.focus();win.print();}catch(e){}},500);
   } else {
-    // Popup was blocked — fall back to a hidden iframe so Print/PDF still works
     const existing=document.getElementById('fcc-print-frame');
     if(existing) existing.remove();
     const frame=document.createElement('iframe');
     frame.id='fcc-print-frame';
-    frame.style.position='fixed';
-    frame.style.right='0';
-    frame.style.bottom='0';
-    frame.style.width='0';
-    frame.style.height='0';
-    frame.style.border='0';
+    frame.style.position='fixed';frame.style.right='0';frame.style.bottom='0';
+    frame.style.width='0';frame.style.height='0';frame.style.border='0';
     document.body.appendChild(frame);
     const fdoc=frame.contentWindow.document;
-    fdoc.open();
-    fdoc.write(html);
-    fdoc.close();
-    setTimeout(()=>{
-      try{
-        frame.contentWindow.focus();
-        frame.contentWindow.print();
-      }catch(e){
-        showToast('Could not open print dialog. Please allow pop-ups for this site.');
-      }
-    },500);
+    fdoc.open();fdoc.write(html);fdoc.close();
+    setTimeout(()=>{try{frame.contentWindow.focus();frame.contentWindow.print();}catch(e){alert('Could not open print dialog. Please allow pop-ups for this site.');}},500);
   }
 }
 
