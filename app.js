@@ -3552,11 +3552,50 @@ function fccExportPDF(ep){
   <div class="footer">Carte Blanche Production Portal &nbsp;·&nbsp; ${epLabel} &nbsp;·&nbsp; Season ${currentSeason} &nbsp;·&nbsp; ${new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'})}</div>
   </body></html>`;
 
+  // Wait for the print document (and its images, e.g. the base64 logo) to
+  // finish rendering before calling print(). A fixed setTimeout fired too
+  // early and produced a blank/partial page, which is why this was failing.
+  function printWhenReady(targetWin){
+    if(!targetWin||!targetWin.document) return false;
+    const doc=targetWin.document;
+    let printed=false;
+    const doPrint=()=>{
+      if(printed) return;
+      printed=true;
+      try{targetWin.focus();targetWin.print();}catch(e){}
+    };
+    const waitForImages=()=>{
+      const imgs=Array.from(doc.images||[]);
+      const pending=imgs.filter(img=>!img.complete);
+      if(pending.length===0){
+        // Give layout one frame to settle, then print.
+        setTimeout(doPrint,150);
+        return;
+      }
+      let remaining=pending.length;
+      const done=()=>{remaining--;if(remaining<=0){setTimeout(doPrint,150);}};
+      pending.forEach(img=>{
+        img.addEventListener('load',done,{once:true});
+        img.addEventListener('error',done,{once:true});
+      });
+    };
+    if(doc.readyState==='complete'){
+      waitForImages();
+    } else {
+      targetWin.addEventListener('load',waitForImages,{once:true});
+      doc.addEventListener('DOMContentLoaded',waitForImages,{once:true});
+    }
+    // Safety net: print anyway if load events never fire.
+    setTimeout(doPrint,3000);
+    return true;
+  }
+
   const win=window.open('','_blank');
   if(win&&win.document){
+    win.document.open();
     win.document.write(html);
     win.document.close();
-    setTimeout(()=>{try{win.focus();win.print();}catch(e){}},500);
+    printWhenReady(win);
   } else {
     const existing=document.getElementById('fcc-print-frame');
     if(existing) existing.remove();
@@ -3567,7 +3606,9 @@ function fccExportPDF(ep){
     document.body.appendChild(frame);
     const fdoc=frame.contentWindow.document;
     fdoc.open();fdoc.write(html);fdoc.close();
-    setTimeout(()=>{try{frame.contentWindow.focus();frame.contentWindow.print();}catch(e){alert('Could not open print dialog. Please allow pop-ups for this site.');}},500);
+    if(!printWhenReady(frame.contentWindow)){
+      alert('Could not open print dialog. Please allow pop-ups for this site.');
+    }
   }
 }
 
