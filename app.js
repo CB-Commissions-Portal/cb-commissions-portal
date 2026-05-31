@@ -878,8 +878,7 @@ function updateTicker(){
   const pe=document.querySelector('.t-val.p');const re=document.querySelector('.t-val.r');
   if(pe)pe.textContent=paid.toFixed(1);if(re)re.textContent=rem.toFixed(1);
   // Broadcast variance
-  const today=new Date().toISOString().split('T')[0];
-  const broadcastEps=getEpNums().filter(n=>{const d=resolveDate(n);return d&&d<today;});
+  const broadcastEps=getEpNums().filter(n=>isEpBroadcast(n));
   const availBc=broadcastEps.length*34;
   const usedBc=comms.filter(c=>!c.isInHouse&&!c.decommissioned&&c.broadcastEpisode&&broadcastEps.includes(Number(c.broadcastEpisode))).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);
   const variance=availBc-usedBc; // positive = under (good), negative = over (bad)
@@ -930,6 +929,22 @@ function resolveDate(n){
   const prev=resolveDate(n-1);
   const auto=addDays(prev,7);
   return nextSunday(auto);
+}
+function isEpBroadcast(n){
+  // An episode counts as broadcast from 21:00 SAST (UTC+2 = 19:00 UTC) on its air date.
+  const d=resolveDate(n);
+  if(!d)return false;
+  const sastNow=new Date(Date.now()+2*60*60*1000);
+  const sastDate=sastNow.toISOString().split('T')[0];
+  return d<sastDate||(d===sastDate&&sastNow.getUTCHours()>=21);
+}
+function scheduleSundayRefresh(){
+  // Schedule a render at the next Sunday 21:00 SAST (= 19:00 UTC)
+  const now=new Date();
+  const next=new Date(now);
+  next.setUTCHours(19,0,0,0);
+  while(next.getUTCDay()!==0||next<=now)next.setUTCDate(next.getUTCDate()+1);
+  setTimeout(()=>{render();scheduleSundayRefresh();},next-now);
 }
 function assignEpisode(id,val){const num=Number(val);if(val&&!getEpNums().includes(num))showToast(`Episode ${num} created — ${fmtDate(resolveDate(num))}`);updateComm(id,'broadcastEpisode',val);}
 function allDel(c){return DEL_KEYS.every(k=>c[k]);}
@@ -1363,8 +1378,8 @@ function renderApp(){
     <div class="t-item"><div class="t-lbl">Remaining Mins</div><div class="t-val r">${remaining.toFixed(1)}</div></div>
     <div class="t-sep" style="color:#2e3a50;margin:0 8px">│</div>
     <div class="t-item" title="Broadcast episodes: available minutes vs paid minutes used">
-      <div class="t-lbl bc-var" style="white-space:nowrap">${(()=>{const today=new Date().toISOString().split('T')[0];const beps=getEpNums().filter(n=>{const d=resolveDate(n);return d&&d<today;});return beps.length+' eps × 34 mins';})()}</div>
-      <div class="t-val bc-var" style="font-size:22px">${(()=>{const today=new Date().toISOString().split('T')[0];const beps=getEpNums().filter(n=>{const d=resolveDate(n);return d&&d<today;});const avail=beps.length*34;const used=comms.filter(c=>!c.isInHouse&&!c.decommissioned&&c.broadcastEpisode&&beps.includes(Number(c.broadcastEpisode))).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);const v=avail-used;return`<span style="color:${v>=0?'#3fb950':'#f85149'}">${v>=0?'−':'+'}${Math.abs(v).toFixed(1)}</span>`;})()}</div>
+      <div class="t-lbl bc-var" style="white-space:nowrap">${(()=>{const beps=getEpNums().filter(n=>isEpBroadcast(n));return beps.length+' eps × 34 mins';})()}</div>
+      <div class="t-val bc-var" style="font-size:22px">${(()=>{const beps=getEpNums().filter(n=>isEpBroadcast(n));const avail=beps.length*34;const used=comms.filter(c=>!c.isInHouse&&!c.decommissioned&&c.broadcastEpisode&&beps.includes(Number(c.broadcastEpisode))).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);const v=avail-used;return`<span style="color:${v>=0?'#3fb950':'#f85149'}">${v>=0?'−':'+'}${Math.abs(v).toFixed(1)}</span>`;})()}</div>
       <div style="font-size:9px;color:#484f58;margin-top:2px">broadcast variance</div>
     </div>
     <div class="t-meta">
@@ -8840,6 +8855,7 @@ async function boot(){
   if(cfg){const ok=initFB(cfg);if(!ok){localStorage.removeItem(STORAGE_KEY);render();return;}}
   applyTheme();
   render();
+  scheduleSundayRefresh();
   if(!auth)return;
   onAuthStateChanged(auth,async user=>{
     if(user){
