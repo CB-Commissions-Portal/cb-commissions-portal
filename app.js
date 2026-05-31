@@ -3591,7 +3591,7 @@ function fccExportPDF(ep){
   }
 
   const win=window.open('','_blank');
-  if(win&&win.document){
+  if(win&&!win.closed&&win.document){
     win.document.open();
     win.document.write(html);
     win.document.close();
@@ -3606,9 +3606,7 @@ function fccExportPDF(ep){
     document.body.appendChild(frame);
     const fdoc=frame.contentWindow.document;
     fdoc.open();fdoc.write(html);fdoc.close();
-    if(!printWhenReady(frame.contentWindow)){
-      alert('Could not open print dialog. Please allow pop-ups for this site.');
-    }
+    printWhenReady(frame.contentWindow);
   }
 }
 
