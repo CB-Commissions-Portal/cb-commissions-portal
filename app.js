@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.83';
+const BUILD_VERSION='3.10.84';
 const BUILD_DATE='31 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4875,14 +4875,14 @@ const _CT_SIG2      = 'RUDI BOTHA';
 const _CT_CAP_LOGO  = BAKED_CAP_LOGO;
 
 const _CT_CSS=`
-  @page{size:A4 portrait;margin:14mm 18mm}
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Calibri,'Calibri',Arial,sans-serif;font-weight:300;color:#111;font-size:10.5pt;line-height:1.6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .lh{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid #1a3a6a}
-  .lh-left{display:flex;align-items:center;gap:14px}
+  @page{size:A4 portrait;margin:14mm 16mm}
+  *{box-sizing:border-box;margin:0;padding:0;max-width:100%}
+  body{font-family:Calibri,'Calibri',Arial,sans-serif;font-weight:300;color:#111;font-size:10.5pt;line-height:1.6;-webkit-print-color-adjust:exact;print-color-adjust:exact;overflow-x:hidden;width:100%}
+  .lh{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid #1a3a6a;gap:12px}
+  .lh-left{display:flex;align-items:center;gap:14px;flex-shrink:0}
   .lh-logo{height:60px;width:auto}
   .lh-cap-logo{height:36px;width:auto;opacity:.85}
-  .lh-info{text-align:right;font-size:8pt;color:#333;line-height:1.6}
+  .lh-info{text-align:right;font-size:8pt;color:#333;line-height:1.6;min-width:0;word-break:break-word}
   .lh-co{font-weight:700;font-size:8.5pt;color:#111;font-family:Calibri,'Calibri',Arial,sans-serif}
   h1{font-size:12.5pt;font-weight:700;font-family:Calibri,'Calibri',Arial,sans-serif;text-align:center;margin:14px 0 8px;text-transform:uppercase;letter-spacing:.5px;page-break-after:avoid}
   h2{font-size:11pt;font-weight:700;font-family:Calibri,'Calibri',Arial,sans-serif;text-align:center;margin:10px 0 6px;text-transform:uppercase;page-break-after:avoid}
