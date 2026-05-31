@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.81';
+const BUILD_VERSION='3.10.82';
 const BUILD_DATE='31 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -5808,7 +5808,7 @@ function bindApp(){
     }).join('');
 
     const printDate=new Date().toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-    const pdfTitle=filterEp==='all'?`CARTE BLANCHE BROADCAST REGISTER ${currentSeason}`:`CARTE BLANCHE BROADCAST REGISTER ${currentSeason} EP${filterEp}`;
+    const pdfTitle=filterEp==='all'?`CARTE BLANCHE BROADCAST REGISTER S${currentSeason}`:`CARTE BLANCHE BROADCAST REGISTER S${currentSeason} EP${filterEp}`;
     const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${pdfTitle}</title>
     <style>
       @page{size:A4 landscape;margin:12mm 14mm}
