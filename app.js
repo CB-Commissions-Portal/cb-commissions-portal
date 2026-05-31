@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.77';
+const BUILD_VERSION='3.10.78';
 const BUILD_DATE='31 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3355,6 +3355,7 @@ function presCalMonth(dateStr){
 
 // FCC durations saved per episode: fccData[ep] = {onAir:'', cb1:'', cb2:..., cb6:''}
 let fccData={};
+let fccOpenEp='__unset__'; // '__unset__'=first render auto-open, null=all closed, number=open ep
 
 async function saveFCCData(ep, data){
   setSyncDot('saving');
@@ -3374,6 +3375,11 @@ function renderFCC(epNums){
   const role=getEffectiveRole();
   const canEdit=['admin','operations','prodmgmt','production','editorial'].includes(role);
   const sorted=epNums.sort((a,b)=>a-b);
+  if(fccOpenEp==='__unset__'){
+    const today=new Date().toISOString().split('T')[0];
+    const upcoming=sorted.find(ep=>{const d=resolveDate(ep);return d&&d>=today;});
+    fccOpenEp=upcoming!==undefined?upcoming:(sorted.length?sorted[sorted.length-1]:null);
+  }
 
   const cards=sorted.map(ep=>{
     const pd=promoData[String(ep)]||{};
@@ -3396,8 +3402,9 @@ function renderFCC(epNums){
       ...Array.from({length:breakCount},(_,i)=>{return{field:`cb${i+1}`,label:`Commercial Break #${i+1}`}})
     ];
 
+    const isOpen=fccOpenEp===ep;
     return`<div style="background:${past?'rgba(248,81,73,0.04)':'#1c2433'};border:1px solid ${past?'#3d1f1f':'#2e3a50'};border-radius:10px;margin-bottom:12px;overflow:hidden">
-      <div style="padding:12px 18px;background:${past?'#1a0f0f':'#1e2535'};border-bottom:1px solid ${past?'#3d1f1f':'#2e3a50'};display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div data-fcc-toggle="${ep}" style="padding:12px 18px;background:${past?'#1a0f0f':'#1e2535'};border-bottom:1px solid ${past?'#3d1f1f':'#2e3a50'};display:flex;align-items:center;gap:16px;flex-wrap:wrap;cursor:pointer;user-select:none">
         <span style="font-size:16px;font-weight:900;color:${past?'#f85149':'#f7768e'};font-family:monospace">S${currentSeason} EP ${String(ep).padStart(2,'0')}</span>
         ${txFmt?`<span style="font-size:13px;color:#6e7681">${txFmt}</span>`:''}
         ${uid?`<span style="font-size:13px;font-family:monospace;color:#e3b341;font-weight:700">UID: ${uid}</span>`:''}
@@ -3405,9 +3412,10 @@ function renderFCC(epNums){
         <div style="margin-left:auto;display:flex;gap:8px">
           ${canEdit?`<button class="btn fcc-save-btn" data-ep="${ep}" style="font-size:11px;padding:4px 14px;border-color:#3fb950;color:#3fb950">💾 Save</button>`:''}
           <button class="btn fcc-print-btn" data-ep="${ep}" style="font-size:11px;padding:4px 14px;border-color:#388bfd;color:#58a6ff">⬇ Print / PDF</button>
+          <span style="font-size:14px;color:#6e7681;pointer-events:none;margin-left:4px">${isOpen?'▼':'▶'}</span>
         </div>
       </div>
-      <div style="padding:14px 18px;display:flex;flex-direction:column;gap:14px">
+      <div style="padding:14px 18px;display:${isOpen?'flex':'none'};flex-direction:column;gap:14px">
         <!-- Segments -->
         <div>
           <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#7a8ba0;margin-bottom:6px">Segments</div>
@@ -8054,6 +8062,13 @@ document.addEventListener('click',async function csClickHandler(e){
 
 // ── FINAL CONTROL SHEET handlers ──────────────────────────────────
 document.addEventListener('click',function fccHandler(e){
+  // Toggle episode expand/collapse (accordion)
+  const toggle=e.target.closest('[data-fcc-toggle]');
+  if(toggle&&!e.target.closest('button,input,select')){
+    const ep=Number(toggle.dataset.fccToggle);
+    fccOpenEp=(fccOpenEp===ep)?null:ep;
+    render();return;
+  }
   // Print
   const printBtn=e.target.closest('.fcc-print-btn');
   if(printBtn){fccExportPDF(Number(printBtn.dataset.ep));return;}
