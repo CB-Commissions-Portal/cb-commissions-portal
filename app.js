@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.79';
+const BUILD_VERSION='3.10.80';
 const BUILD_DATE='31 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -5741,6 +5741,10 @@ function bindApp(){
 
     // Build clean HTML for PDF
     const paid=getPaidMins(),contracted=settings.contractedMinutes||438,remaining=contracted-paid;
+    const bcEps=getEpNums().filter(n=>isEpBroadcast(n));
+    const bcAvail=bcEps.length*34;
+    const bcUsed=comms.filter(c=>!c.isInHouse&&!c.decommissioned&&c.broadcastEpisode&&bcEps.includes(Number(c.broadcastEpisode))).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);
+    const bcVariance=bcAvail-bcUsed;
     const epNums=getEpNums();
     const episodes=epNums
       .filter(n=>filterEp==='all'||String(n)===filterEp)
@@ -5816,7 +5820,31 @@ function bindApp(){
         <td style="text-align:center;padding:0 16px">
           <div style="font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#111">CARTE BLANCHE SEASON ${currentSeason} — BROADCAST SCHEDULE</div>
           <div style="font-size:9px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase">Generated: ${printDate}${filterEp!=='all'?' · Episode '+filterEp+' only':''}</div>
-          <div style="font-size:9px;color:#555;margin-top:4px">Contracted: <strong>${contracted} min</strong> &nbsp;·&nbsp; Paid: <strong>${paid.toFixed(1)} min</strong> &nbsp;·&nbsp; Remaining: <strong>${remaining.toFixed(1)} min</strong></div>
+          <div style="margin-top:8px;background:#f0f4f8;border:1px solid #c8d0dc;border-radius:6px;padding:7px 16px;display:inline-flex;align-items:center;gap:0">
+            <div style="text-align:center;padding:0 14px">
+              <div style="font-size:7px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.5px;margin-bottom:2px">Contracted</div>
+              <div style="font-size:17px;font-weight:900;font-family:monospace;color:#1a3a6a;line-height:1">${contracted}</div>
+              <div style="font-size:7px;color:#888;margin-top:1px">mins</div>
+            </div>
+            <div style="color:#aaa;font-size:16px;padding:0 2px">−</div>
+            <div style="text-align:center;padding:0 14px">
+              <div style="font-size:7px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.5px;margin-bottom:2px">Paid Mins</div>
+              <div style="font-size:17px;font-weight:900;font-family:monospace;color:#1a3a6a;line-height:1">${paid.toFixed(1)}</div>
+              <div style="font-size:7px;color:#888;margin-top:1px">insert mins</div>
+            </div>
+            <div style="color:#aaa;font-size:16px;padding:0 2px">=</div>
+            <div style="text-align:center;padding:0 14px">
+              <div style="font-size:7px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.5px;margin-bottom:2px">Remaining</div>
+              <div style="font-size:17px;font-weight:900;font-family:monospace;color:#1a3a6a;line-height:1">${remaining.toFixed(1)}</div>
+              <div style="font-size:7px;color:#888;margin-top:1px">mins</div>
+            </div>
+            <div style="width:1px;background:#c8d0dc;height:36px;margin:0 6px"></div>
+            <div style="text-align:center;padding:0 14px">
+              <div style="font-size:7px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.5px;margin-bottom:2px">${bcEps.length} eps × 34 mins</div>
+              <div style="font-size:17px;font-weight:900;font-family:monospace;color:${bcVariance>=0?'#1a7a1a':'#c0392b'};line-height:1">${bcVariance>=0?'−':'+'}${Math.abs(bcVariance).toFixed(1)}</div>
+              <div style="font-size:7px;color:#888;margin-top:1px">broadcast variance</div>
+            </div>
+          </div>
         </td>
         <td style="width:80px;text-align:right"><img src="${BAKED_CAP_LOGO}" style="height:36px;width:auto;max-width:76px"></td>
       </tr>
