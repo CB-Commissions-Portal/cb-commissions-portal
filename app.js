@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.82';
+const BUILD_VERSION='3.10.83';
 const BUILD_DATE='31 May 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4867,7 +4867,7 @@ const _CT_CO_PO     = 'PO Box 1099, Pinegowrie, 2123';
 const _CT_CO_TEL    = '+27 11 886 8899';
 const _CT_CO_WEB    = 'www.carteblanche.co.za';
 const _CT_CO_EMAIL  = 'rudi@combinedartists.co.za';
-const _CT_INV_EMAIL = 'invoice@carteblanche.co.za';
+const _CT_INV_EMAIL = 'CAP Payment Portal ONLY';
 const _CT_MNET      = 'Electronic Media Network Proprietary Limited';
 const _CT_MNET_REG  = '1985/002853/07';
 const _CT_SIG1      = 'JOHN WEBB';
