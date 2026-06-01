@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.109';
+const BUILD_VERSION='3.10.110';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1419,6 +1419,7 @@ function renderApp(){
     ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='commissions'?' active':''}" data-tab="commissions">Commission List ${currentSeason}</div>`:''}
     ${['admin','deputyadmin','operations','production','prodmgmt','editorial','content','capstaff','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='lineups'?' active':''}" data-tab="lineups">Line-Ups</div>`:''}
     ${['admin','deputyadmin','editorial','content','operations','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='ros'?' active':''}" data-tab="ros">Studio Script Build</div>`:''}
+    ${['admin','deputyadmin','production','prodmgmt','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='fcc'?' active':''}" data-tab="fcc">Studio Script Cover Page</div>`:''}
     ${getEffectiveRole()!=='afm'?`<div class="tab-btn${tab==='broadcast'?' active':''}" data-tab="broadcast">Broadcast List</div>`:''}
     ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='episodes'?' active':''}" data-tab="episodes">Episode Register</div>`:''}
     ${['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='postprod'?' active':''}" data-tab="postprod">Post Production</div>`:''}
@@ -1429,7 +1430,6 @@ function renderApp(){
     ${['admin','deputyadmin','operations','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='credits'?' active':''}" data-tab="credits">End Credits</div>`:''}
     ${['admin','deputyadmin','operations','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}
     ${['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studiosched'?' active':''}" data-tab="studiosched">Studio Schedule</div>`:''}
-    ${['admin','deputyadmin','production','prodmgmt','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='fcc'?' active':''}" data-tab="fcc">Studio Script Cover Page</div>`:''}
     ${['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='prescal'?' active':''}" data-tab="prescal">Presenter Calendar</div>`:''}
     ${userHasLeaveAccess()?`<div class="tab-btn${tab==='leave'?' active':''}" data-tab="leave" style="position:relative">CAP Leave${(currentRole==='admin'||currentRole==='deputyadmin')&&!previewRole?(()=>{const n=Object.entries(leaveRequests).filter(([k,r])=>r.status==='pending'&&!seenLeaveIds.has(k)).length;return n>0?`<span style="display:inline-flex;align-items:center;justify-content:center;background:#f85149;color:#fff;border-radius:50%;width:15px;height:15px;font-size:9px;font-weight:900;margin-left:5px;vertical-align:middle">${n}</span>`:''})():''}</div>`:''}
     ${(currentRole==='admin'&&!previewRole)||currentRole==='finance'?`<div class="tab-btn${tab==='contracts'?' active':''}" data-tab="contracts">Contracts</div>`:''}
