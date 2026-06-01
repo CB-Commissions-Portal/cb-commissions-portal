@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.108';
+const BUILD_VERSION='3.10.109';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1109,13 +1109,13 @@ function renderHome(){
     },
     {
       tab:'ros',
-      title:'Run of Show',
+      title:'Studio Script Build',
       sub:`Season ${season}`,
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
       color:'#c084fc',
       bg:'rgba(192,132,252,.1)',
       show: ['admin','deputyadmin','editorial','content','operations','finance'].includes(role),
-      desc:'Build episode run of show with duration calculator'
+      desc:'Build the episode studio script with duration calculator'
     },
     {
       tab:'callsheet',
@@ -1418,7 +1418,7 @@ function renderApp(){
     <div class="tab-btn${tab==='home'?' active':''}" data-tab="home" style="font-size:16px;padding:4px 10px" title="Home">⌂</div>
     ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='commissions'?' active':''}" data-tab="commissions">Commission List ${currentSeason}</div>`:''}
     ${['admin','deputyadmin','operations','production','prodmgmt','editorial','content','capstaff','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='lineups'?' active':''}" data-tab="lineups">Line-Ups</div>`:''}
-    ${['admin','deputyadmin','editorial','content','operations','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='ros'?' active':''}" data-tab="ros">Run of Show</div>`:''}
+    ${['admin','deputyadmin','editorial','content','operations','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='ros'?' active':''}" data-tab="ros">Studio Script Build</div>`:''}
     ${getEffectiveRole()!=='afm'?`<div class="tab-btn${tab==='broadcast'?' active':''}" data-tab="broadcast">Broadcast List</div>`:''}
     ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='episodes'?' active':''}" data-tab="episodes">Episode Register</div>`:''}
     ${['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='postprod'?' active':''}" data-tab="postprod">Post Production</div>`:''}
@@ -4137,7 +4137,7 @@ function renderRunOfShow(){
       </div>`;
     }).join('');
     return`<div class="ep-wrap" style="padding:32px;max-width:680px;margin:0 auto">
-      <h2 style="font-size:22px;font-weight:900;color:#eaf0ff;margin:0 0 24px 0">Run of Show — Select Episode</h2>
+      <h2 style="font-size:22px;font-weight:900;color:#eaf0ff;margin:0 0 24px 0">Studio Script Build — Select Episode</h2>
       ${epList||'<div style="color:#484f58;font-size:16px">No episodes in the Episode Register.</div>'}
     </div>`;
   }
@@ -4145,8 +4145,8 @@ function renderRunOfShow(){
   if(!rosCurrentEp){
     return`<div class="ep-wrap" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px">
       <div style="font-size:48px">📋</div>
-      <div style="font-size:22px;font-weight:900;color:#eaf0ff">Run of Show</div>
-      <div style="font-size:15px;color:#6e7681">Select an episode to build or view the run of show.</div>
+      <div style="font-size:22px;font-weight:900;color:#eaf0ff">Studio Script Build</div>
+      <div style="font-size:15px;color:#6e7681">Select an episode to build or view the studio script build.</div>
       <button class="btn primary" id="ros-pick-ep-btn" style="font-size:14px;padding:12px 32px;margin-top:8px">Select Episode</button>
     </div>`;
   }
@@ -4227,7 +4227,7 @@ function renderRunOfShow(){
   }).join('');
 
   const emptyState=items.length===0?`<tr><td colspan="7" style="padding:80px;text-align:center;color:#484f58;font-size:18px">
-    No items yet — use "Add Item" below to start building the run of show.
+    No items yet — use "Add Item" below to start building the studio script build.
   </td></tr>`:'';
 
   return`<div style="display:flex;height:100%;overflow:hidden">
@@ -4345,12 +4345,12 @@ function getHelpPages(){
     });
   }
 
-  // ── Run of Show ──
+  // ── Studio Script Build ──
   if(['admin','deputyadmin','editorial'].includes(role)){
     pages.push({
-      title:'Run of Show',
+      title:'Studio Script Build',
       icon:'🎬',
-      content:`<p>The <strong>Run of Show</strong> tab lets you build a detailed running order for each episode.</p>
+      content:`<p>The <strong>Studio Script Build</strong> tab lets you build a detailed running order for each episode.</p>
       <ul>
         <li>Select an episode, then use the <strong>Add Item</strong> panel on the right to build your running order</li>
         <li>Items are colour-coded: <span style="color:#79c0ff">■ Live/Link</span> · <span style="color:#e3b341">■ Insert</span> · <span style="color:#c084fc">■ Cold Start</span> · <span style="color:#56d364">■ UP NEXT</span> · <span style="color:#9ca3af">■ Fixed</span></li>
@@ -5511,7 +5511,7 @@ function renderAdmin(){
   </div>
   <div class="admin-card">
     <h4>Role Permissions</h4>
-    ${Object.entries(ROLE_META).map(([k,v])=>`<div class="perm-row"><span class="u-role-badge" style="background:${v.bg};color:${v.color};padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700;white-space:nowrap">${v.label}</span><div class="perm-desc">${k==='admin'?'Full access — edit everything, create users, change roles.':k==='deputyadmin'?'Full edit access across all tabs. No Contracts. Cannot create users or change roles. Has ticker.':k==='editorial'?'Has ticker. Commission List: delivery date only. Full edit: Line-Ups, Run of Show, Presenter Calendar. View: Episode Register, Post Production, Promo Scheduling. Search: Broadcast List. No access: Deliverables, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script Cover Page, Contracts.':k==='operations'?'Has ticker. Commission List: crew editing only. Full edit: Post Production, Call Sheet, End Credits, Studio Crew, Presenter Calendar. View: Line-Ups, Run of Show, Episode Register, Promo Scheduling, Music Cue Sheets. Search: Broadcast List. No access: Deliverables, Studio Script, Contracts.':k==='production'?'Has ticker. Commission List: deliverable checkboxes only. Full edit: Call Sheet, Studio Script Cover Page, Presenter Calendar. View: Line-Ups, Episode Register, Post Production, Music Cue Sheets. Search: Broadcast List. No access: Run of Show, Deliverables, Promo Scheduling, End Credits, Studio Crew, Contracts.':k==='prodmgmt'?'Has ticker. Commission List: view only. Full edit: Call Sheet, Studio Script Cover Page, Presenter Calendar. View: Line-Ups, Episode Register, Post Production. Promo Scheduling: pull promo tick only. Search: Broadcast List. No access: Run of Show, Deliverables, Music Cue Sheets, End Credits, Studio Crew, Contracts.':k==='afm'?'Music Cue Sheets only.':k==='capstaff'?'Has ticker. View only: Commission List, Line-Ups, Episode Register, Post Production. Search: Broadcast List. CAP Leave: full access. No access: Run of Show, Deliverables, Promo Scheduling, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script, Presenter Calendar, Contracts.':k==='content'?'Has ticker. View only: Commission List, Line-Ups, Episode Register, Post Production, Presenter Calendar. Search: Broadcast List. Run of Show: can open EDIT ITEM and edit scripts only — cannot change slugs, sound, out words, durations, or item order. No access: Deliverables, Promo Scheduling, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script, Contracts.':k==='finance'?'Has ticker. View-only access to all tabs including Contracts. No edit rights.':''}</div></div>`).join('')}
+    ${Object.entries(ROLE_META).map(([k,v])=>`<div class="perm-row"><span class="u-role-badge" style="background:${v.bg};color:${v.color};padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700;white-space:nowrap">${v.label}</span><div class="perm-desc">${k==='admin'?'Full access — edit everything, create users, change roles.':k==='deputyadmin'?'Full edit access across all tabs. No Contracts. Cannot create users or change roles. Has ticker.':k==='editorial'?'Has ticker. Commission List: delivery date only. Full edit: Line-Ups, Studio Script Build, Presenter Calendar. View: Episode Register, Post Production, Promo Scheduling. Search: Broadcast List. No access: Deliverables, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script Cover Page, Contracts.':k==='operations'?'Has ticker. Commission List: crew editing only. Full edit: Post Production, Call Sheet, End Credits, Studio Crew, Presenter Calendar. View: Line-Ups, Studio Script Build, Episode Register, Promo Scheduling, Music Cue Sheets. Search: Broadcast List. No access: Deliverables, Studio Script, Contracts.':k==='production'?'Has ticker. Commission List: deliverable checkboxes only. Full edit: Call Sheet, Studio Script Cover Page, Presenter Calendar. View: Line-Ups, Episode Register, Post Production, Music Cue Sheets. Search: Broadcast List. No access: Studio Script Build, Deliverables, Promo Scheduling, End Credits, Studio Crew, Contracts.':k==='prodmgmt'?'Has ticker. Commission List: view only. Full edit: Call Sheet, Studio Script Cover Page, Presenter Calendar. View: Line-Ups, Episode Register, Post Production. Promo Scheduling: pull promo tick only. Search: Broadcast List. No access: Studio Script Build, Deliverables, Music Cue Sheets, End Credits, Studio Crew, Contracts.':k==='afm'?'Music Cue Sheets only.':k==='capstaff'?'Has ticker. View only: Commission List, Line-Ups, Episode Register, Post Production. Search: Broadcast List. CAP Leave: full access. No access: Studio Script Build, Deliverables, Promo Scheduling, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script, Presenter Calendar, Contracts.':k==='content'?'Has ticker. View only: Commission List, Line-Ups, Episode Register, Post Production, Presenter Calendar. Search: Broadcast List. Studio Script Build: can open EDIT ITEM and edit scripts only — cannot change slugs, sound, out words, durations, or item order. No access: Deliverables, Promo Scheduling, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script, Contracts.':k==='finance'?'Has ticker. View-only access to all tabs including Contracts. No edit rights.':''}</div></div>`).join('')}
   </div>
   </div>
   ${deleteUserModal?`<div class="modal-overlay" id="delete-user-overlay"><div class="modal">
@@ -8600,7 +8600,7 @@ function rosExportPDF(){
   }).join('');
 
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8">
-  <title>Carte Blanche Run of Show — ${epLabel}</title>
+  <title>Carte Blanche Studio Script Build — ${epLabel}</title>
   <style>
     @page{size:A4 landscape;margin:15mm 15mm 15mm 15mm}
     *{box-sizing:border-box;margin:0;padding:0}
@@ -8830,7 +8830,7 @@ document.addEventListener('click',function rosHandler(e){
     const items=rosGetCurrentItems();
     rosFlushAndSave(items);
     render();
-    showToast('Run of Show saved ✓');
+    showToast('Studio Script Build saved ✓');
     return;
   }
   // Add item
