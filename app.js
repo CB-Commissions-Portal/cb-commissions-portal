@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.123';
+const BUILD_VERSION='3.10.124';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2608,6 +2608,7 @@ const DELIVERABLE_TASKS = [
 function renderPostProd(){
   if(ppCalView)return renderPPCalendar();
   const canEdit=['admin','deputyadmin','operations','finance'].includes(getEffectiveRole());
+  const canRemove=['admin','deputyadmin','operations'].includes(getEffectiveRole());
 
   // Auto-jump to current week on first open
   if(!_ppWeekAutoSet){
@@ -2762,7 +2763,7 @@ function renderPostProd(){
                 c.isInHouse?'<span style="font-size:6px;background:#1a1a2e;color:#7a8ba0;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">IH</span>':'';
 
     rowsHtml+=`<tr style="background:${rowBg}${pp.editComplete?';opacity:0.75':''}">`;
-    rowsHtml+=`<td style="${tdFix};position:sticky;left:0;z-index:2;background:${rowBg};font-weight:900;color:${pp.editComplete?'#3fb950':'#58a6ff'};font-family:monospace;font-size:11px">${esc(String(c.commNum))}${badge}</td>`;
+    rowsHtml+=`<td style="${tdFix};position:sticky;left:0;z-index:2;background:${rowBg};font-weight:900;color:${pp.editComplete?'#3fb950':'#58a6ff'};font-family:monospace;font-size:11px">${esc(String(c.commNum))}${badge}${canRemove?`<br><button class="pp-remove-btn" data-commnum="${esc(String(c.commNum))}" style="background:none;border:none;color:#484f58;font-size:8px;cursor:pointer;padding:0;margin-top:2px;font-family:inherit;font-weight:400">✕ remove</button>`:''}</td>`;
     rowsHtml+=`<td style="${tdFix};position:sticky;left:52px;z-index:2;background:${rowBg};color:${pp.editComplete?'#3fb950':'#eaf0ff'};font-weight:600;min-width:40ch;max-width:40ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.storyName)}">${esc(c.storyName)}</td>`;
     // Edit Complete checkbox — between Story and Producer
     rowsHtml+=`<td style="${tdFix};text-align:center;min-width:60px;position:sticky;left:calc(74px + 40ch);z-index:2;background:${rowBg}">`;
@@ -9306,6 +9307,15 @@ document.addEventListener('click',function ppAddHandler(e){
     if(!ppData[cn])ppData[cn]={deliveryDate:'',cells:{},editComplete:false};
     ppData[cn].editComplete=false;
     savePPEntry(cn,ppData[cn]);
+    render();return;
+  }
+  // Remove commission from Post Production schedule
+  const removeBtn=e.target.closest('.pp-remove-btn');
+  if(removeBtn){
+    const cn=String(removeBtn.dataset.commnum);
+    if(!confirm(`Remove comm ${cn} from Post Production? It will return to the "Add" pool. Any saved data will be kept if re-added.`))return;
+    ppActiveComms=ppActiveComms.filter(c=>String(c)!==cn);
+    savePPActiveComms();
     render();return;
   }
 });
