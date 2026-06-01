@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.122';
+const BUILD_VERSION='3.10.123';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2711,7 +2711,7 @@ function renderPostProd(){
   let h1='<tr>';
   h1+=`<th data-pp-sort="commNum" style="${thFix};min-width:46px;position:sticky;left:0;z-index:12;background:#161b22;cursor:pointer">Comm #${ppSortArrow('commNum')}</th>`;
   h1+=`<th data-pp-sort="storyName" style="${thFix};min-width:40ch;position:sticky;left:52px;z-index:12;background:#161b22;cursor:pointer">Story${ppSortArrow('storyName')}</th>`;
-  h1+=`<th data-pp-sort="editComplete" style="${thFix};min-width:60px;text-align:center;cursor:pointer" title="Edit Complete">✓${ppSortArrow('editComplete')}</th>`;
+  h1+=`<th data-pp-sort="editComplete" style="${thFix};min-width:60px;text-align:center;cursor:pointer;position:sticky;left:calc(74px + 40ch);z-index:12;background:#1e2535" title="Edit Complete">✓${ppSortArrow('editComplete')}</th>`;
   h1+=`<th data-pp-sort="producer" style="${thFix};min-width:45ch;cursor:pointer">Producer${ppSortArrow('producer')}</th>`;
   h1+=`<th data-pp-sort="editor" style="${thFix};min-width:25ch;cursor:pointer">Editor${ppSortArrow('editor')}</th>`;
   h1+=`<th data-pp-sort="dop" style="${thFix};min-width:60ch;cursor:pointer">DOP${ppSortArrow('dop')}</th>`;
@@ -2730,7 +2730,7 @@ function renderPostProd(){
   const fixedSpacers=[
     'min-width:46px;position:sticky;left:0;z-index:12;background:#0d1117',
     'min-width:40ch;position:sticky;left:52px;z-index:12;background:#0d1117',
-    'min-width:60px;text-align:center','min-width:45ch','min-width:25ch','min-width:60ch','min-width:25ch','min-width:180px','min-width:100px'
+    'min-width:60px;text-align:center;position:sticky;left:calc(74px + 40ch);z-index:12;background:#0d1117','min-width:45ch','min-width:25ch','min-width:60ch','min-width:25ch','min-width:180px','min-width:100px'
   ];
   fixedSpacers.forEach(s=>h2+=`<th style="${thSlot};background:#0d1117;${s}"></th>`);
   days.forEach((d,i)=>{
@@ -2765,7 +2765,7 @@ function renderPostProd(){
     rowsHtml+=`<td style="${tdFix};position:sticky;left:0;z-index:2;background:${rowBg};font-weight:900;color:${pp.editComplete?'#3fb950':'#58a6ff'};font-family:monospace;font-size:11px">${esc(String(c.commNum))}${badge}</td>`;
     rowsHtml+=`<td style="${tdFix};position:sticky;left:52px;z-index:2;background:${rowBg};color:${pp.editComplete?'#3fb950':'#eaf0ff'};font-weight:600;min-width:40ch;max-width:40ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.storyName)}">${esc(c.storyName)}</td>`;
     // Edit Complete checkbox — between Story and Producer
-    rowsHtml+=`<td style="${tdFix};text-align:center;min-width:60px">`;
+    rowsHtml+=`<td style="${tdFix};text-align:center;min-width:60px;position:sticky;left:calc(74px + 40ch);z-index:2;background:${rowBg}">`;
     if(pp.editComplete){
       rowsHtml+=`<span title="Edit Complete — click Undo to revert" style="color:#3fb950;font-size:14px;cursor:default">✓</span>`;
       if(canEdit)rowsHtml+=`<br><button class="pp-complete-toggle" data-commnum="${esc(String(c.commNum))}" style="background:none;border:none;color:#484f58;font-size:8px;cursor:pointer;padding:0;margin-top:2px">Undo</button>`;
