@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.98';
+const BUILD_VERSION='3.10.99';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -8403,7 +8403,7 @@ function rosExportWord(){
       const txt=src?`${escHtml(src)} - ${escHtml(s)}`:escHtml(s);
       return _p(`<span style="background:#39FF14;font-weight:bold">${txt}</span>`);
     }).join('')||'';
-    let desc=_p(escHtml(item.label||''),'font-weight:bold;color:#0055a0');
+    let desc=_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
     if(item.content) desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
     if(item.type==='insert'&&item.outWords) desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
     if(['live','coldstart','upnext'].includes(item.type)&&item.script){
@@ -8449,7 +8449,7 @@ xmlns="http://www.w3.org/TR/REC-html40">
 </head>
 <body>
 <div class="Section1">
-<p style="font-size:14pt;font-weight:bold;color:#003366;margin-bottom:2pt;mso-line-height-rule:exactly;line-height:18pt">CARTE BLANCHE</p>
+<p style="font-size:14pt;font-weight:bold;color:#000;margin-bottom:2pt;mso-line-height-rule:exactly;line-height:18pt">CARTE BLANCHE</p>
 <p style="margin-bottom:1pt;mso-line-height-rule:exactly;line-height:14pt"><b>Season ${currentSeason}, ${escHtml(epLabel.replace(`S${currentSeason} `,'Season '+currentSeason+', '))}</b></p>
 <p style="margin-bottom:8pt;mso-line-height-rule:exactly;line-height:14pt"><b>TX: ${escHtml(epDateFmt)}</b></p>
 <table border="1" cellpadding="3" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed">
