@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.89';
+const BUILD_VERSION='3.10.90';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4191,6 +4191,11 @@ function renderRunOfShow(){
     const _slugCell=canEdit
       ?(_slugInputs+_slugDatalist+_addBtn)
       :(_slugs.filter(Boolean).map(s=>'<div style="font-size:13px;color:#e3b341;font-weight:700">'+esc(s)+'</div>').join('')||'<span style="color:#484f58">—</span>');
+    const _outWordsHtml=item.type==='insert'
+      ?(canEdit&&!isLocked
+        ?`<div style="margin-top:8px"><div style="font-size:12px;font-weight:700;text-decoration:underline;color:#e3b341;margin-bottom:2px">OUT WORDS:</div><input class="ros-out-words" data-idx="${i}" value="${esc(item.outWords||'')}" placeholder="Enter out words…" style="width:100%;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#eaf0ff;font-size:14px;padding:4px 2px;outline:none;font-family:inherit"></div>`
+        :(item.outWords?`<div style="margin-top:6px"><span style="font-size:12px;font-weight:700;text-decoration:underline;color:#e3b341">OUT WORDS:</span> <span style="font-size:14px;color:#eaf0ff">${esc(item.outWords)}</span></div>`:''))
+      :'';
     return`<tr data-ros-idx="${i}" style="background:${ts.bg};border-bottom:2px solid ${ts.border}">
       <td style="padding:0;width:80px;text-align:center;vertical-align:middle">
         ${canEdit?`<div style="display:flex;align-items:center;justify-content:center;gap:2px;padding:6px">
@@ -4217,7 +4222,7 @@ function renderRunOfShow(){
           ?(canEdit&&!isLocked
             ?`<input class="ros-content" data-idx="${i}" value="${esc(item.content||'')}" placeholder="${esc(item.placeholder||'Add content…')}" style="width:100%;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#eaf0ff;font-size:16px;padding:6px 2px;outline:none;font-family:inherit">`
             :`<span style="font-size:16px;color:${item.content?'#eaf0ff':'#484f58'};font-style:${item.content?'normal':'italic'}">${esc(item.content||'—')}</span>`)
-          :''}
+          :''}${_outWordsHtml}
       </td>
       <td style="padding:10px 16px;vertical-align:middle;width:130px;text-align:center">
         ${canEdit&&!isLocked
@@ -8239,6 +8244,10 @@ function rosFlushAndSave(items){
     const idx=Number(inp.dataset.idx);
     if(items[idx]!==undefined)items[idx].content=inp.value;
   });
+  document.querySelectorAll('.ros-out-words').forEach(inp=>{
+    const idx=Number(inp.dataset.idx);
+    if(items[idx]!==undefined)items[idx].outWords=inp.value;
+  });
   document.querySelectorAll('.ros-dur').forEach(inp=>{
     const idx=Number(inp.dataset.idx);
     if(items[idx]!==undefined)items[idx].duration=inp.value;
@@ -8352,7 +8361,8 @@ function rosExportWord(){
     const num=item.itemNum||String(i+1);
     const lbl=escHtml(item.label||'');
     const cnt=escHtml(item.content||'');
-    const desc=lbl+(cnt?`<br><span style="font-weight:normal;color:#000">${cnt}</span>`:'');
+    const outWTxt=item.type==='insert'&&item.outWords?`<br><u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`:'';
+    const desc=lbl+(cnt?`<br><span style="font-weight:normal;color:#000">${cnt}</span>`:'')+outWTxt;
     const slugs=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean);
     const sources=item.slugSources||[];
     const slugCell=slugs.map((s,si)=>{
@@ -8439,6 +8449,7 @@ function rosExportPDF(){
   document.querySelectorAll('.ros-slug-source').forEach(sel=>{const i=Number(sel.dataset.idx),si=Number(sel.dataset.sidx||0);if(items[i]!==undefined){if(!items[i].slugSources)items[i].slugSources=[];items[i].slugSources[si]=sel.value;}});
   document.querySelectorAll('.ros-sound').forEach(sel=>{const i=Number(sel.dataset.idx);if(items[i]!==undefined)items[i].sound=sel.value;});
   document.querySelectorAll('.ros-content').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i])items[i].content=inp.value;});
+  document.querySelectorAll('.ros-out-words').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i])items[i].outWords=inp.value;});
   document.querySelectorAll('.ros-dur').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i])items[i].duration=inp.value;});
 
   const totalSecs=items.reduce((s,it)=>s+rosDurToSecs(it.duration),0);
