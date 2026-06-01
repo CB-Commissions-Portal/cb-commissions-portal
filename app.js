@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.119';
+const BUILD_VERSION='3.10.120';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1955,6 +1955,68 @@ const LEAVE_TYPES=[
   {key:'study',     label:'Study Leave',                color:'#c084fc', deductsBalance:true},
   {key:'other',     label:'Other',                      color:'#8b949e', deductsBalance:false},
 ];
+const LEAVE_POLICY={
+  annual:{
+    entitlement:'21 days per leave cycle (12-month period)',
+    accrual:'Accrues at 1.75 days per month worked',
+    notes:[
+      'Leave must be taken within the leave cycle, or by written agreement within 6 months after the cycle ends.',
+      'Leave pay is calculated at the employee\'s normal rate of remuneration.',
+      'A minimum of 2 consecutive weeks must be granted on request.',
+      'Annual leave may not be substituted for a cash payment, except upon termination of employment.',
+    ]
+  },
+  sick:{
+    entitlement:'30 days per 36-month employment cycle',
+    accrual:'First 6 months: 1 day per 26 days worked. Thereafter: full 30-day cycle entitlement applies',
+    notes:[
+      'A medical certificate is required for any absence exceeding 2 consecutive days.',
+      'A medical certificate is also required for absences on a Monday, Friday, or day adjacent to a public holiday.',
+      'Unused sick leave does not accumulate or carry over beyond the 3-year cycle.',
+      'Sick leave taken in the first 6 months is deducted from the full 30-day entitlement once it accrues.',
+    ]
+  },
+  family:{
+    entitlement:'3 days per leave cycle (12-month period)',
+    accrual:'Full entitlement is available from the start of each leave cycle',
+    notes:[
+      'Applicable when a child, spouse, or life partner is ill.',
+      'Applicable upon the death of a child, spouse, life partner, parent, adoptive parent, grandparent, sibling, or grandchild.',
+      'Supporting documentation (e.g. death certificate, doctor\'s note) may be requested.',
+      'Unused family responsibility leave does not accumulate to the next cycle.',
+    ]
+  },
+  editorial:{
+    entitlement:'As specified in the individual employment contract',
+    accrual:'Granted at management discretion, subject to operational requirements',
+    notes:[
+      'Applicable to editorial and production staff for industry-specific activities.',
+      'Must be applied for at least 5 working days in advance.',
+      'Approval is subject to broadcast schedule and project deadlines.',
+      'Documentation of the activity may be required upon return.',
+    ]
+  },
+  study:{
+    entitlement:'As specified in the individual employment contract',
+    accrual:'Granted per registered academic year or study period',
+    notes:[
+      'Applicable for accredited courses or programmes relevant to the employee\'s role.',
+      'Proof of enrolment or registration must be submitted prior to approval.',
+      'Results or proof of attendance must be submitted within 30 days of completion.',
+      'Paid study leave may be subject to a written service-back agreement.',
+    ]
+  },
+  other:{
+    entitlement:'At management\'s discretion — does not deduct from any leave balance',
+    accrual:'N/A',
+    notes:[
+      'Includes unpaid leave, special leave, compassionate leave, and other approved absences.',
+      'Does not deduct from any accrued leave balance.',
+      'Requires prior written approval from management.',
+      'Terms and duration are agreed on a case-by-case basis.',
+    ]
+  },
+};
 
 function hasLeaveAccess(role,extraRoles){
   if(!role)return false;
@@ -2032,6 +2094,7 @@ function renderLeave(){
     {k:'my',    label:'My Leave'},
     {k:'calendar',label:'Team Calendar'},
     ...(isAdmin?[{k:'manage',label:'Manage Requests'}]:[]),
+    {k:'policy',label:'Leave Policy'},
   ];
   const tabBar=`<div style="display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid #21262d;padding-bottom:0">
     ${tabs.map(t=>`<button class="leave-tab-btn" data-leave-tab="${t.k}" style="background:none;border:none;border-bottom:2px solid ${leaveViewMode===t.k?'#388bfd':'transparent'};color:${leaveViewMode===t.k?'#eaf0ff':'#6e7681'};font-size:13px;font-weight:${leaveViewMode===t.k?'700':'500'};padding:8px 16px;cursor:pointer;margin-bottom:-1px">${t.label}</button>`).join('')}
@@ -2146,6 +2209,40 @@ function renderLeave(){
     return`<div class="ep-wrap">${tabBar}${weekExportBar}${renderLeaveCalendarView()}${leaveReviewModal?renderLeaveReviewModal():''}</div>`;
   }
 
+  // ── LEAVE POLICY ────────────────────────────────────────────────
+  if(leaveViewMode==='policy'){
+    const cards=LEAVE_TYPES.map(lt=>{
+      const p=LEAVE_POLICY[lt.key];
+      if(!p)return'';
+      return`<div style="background:#161b22;border:1px solid #21262d;border-radius:10px;padding:18px 20px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <span style="background:${lt.color}22;color:${lt.color};padding:3px 12px;border-radius:5px;font-size:11px;font-weight:800;text-transform:uppercase">${lt.label}</span>
+          ${lt.deductsBalance?'':'<span style="font-size:10px;color:#484f58;font-weight:600">Does not deduct from balance</span>'}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div style="background:#0d1117;border-radius:6px;padding:10px 12px">
+            <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;margin-bottom:4px">Entitlement</div>
+            <div style="font-size:13px;font-weight:700;color:#eaf0ff">${p.entitlement}</div>
+          </div>
+          <div style="background:#0d1117;border-radius:6px;padding:10px 12px">
+            <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;margin-bottom:4px">Accrual</div>
+            <div style="font-size:13px;font-weight:700;color:#eaf0ff">${p.accrual}</div>
+          </div>
+        </div>
+        <ul style="margin:0;padding-left:18px">
+          ${p.notes.map(n=>`<li style="font-size:12px;color:#8b949e;margin-bottom:5px;line-height:1.5">${n}</li>`).join('')}
+        </ul>
+      </div>`;
+    }).join('');
+    return`<div class="ep-wrap">${tabBar}
+      <div style="font-size:15px;font-weight:800;color:#eaf0ff;margin-bottom:16px">CAP Leave Policy</div>
+      <div style="font-size:12px;color:#484f58;margin-bottom:20px;padding:10px 14px;background:#0d1117;border-radius:6px;border-left:3px solid #2e3a50">
+        Policies are based on the South African Basic Conditions of Employment Act (BCEA). Company-specific leave types are governed by individual employment contracts. Contact your administrator for queries.
+      </div>
+      ${cards}
+    </div>`;
+  }
+
   // ── MANAGE (admin/deputyadmin) ──────────────────────────────────
   const pending=Object.entries(leaveRequests).filter(([,r])=>r.status==='pending').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
   const approved=Object.entries(leaveRequests).filter(([,r])=>r.status==='approved').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
@@ -2201,7 +2298,7 @@ function renderLeave(){
       ${declined.length?declined.map(r=>reqCard(r,false)).join(''):'<div style="color:#484f58;font-size:12px;padding:8px 0;text-align:left">None yet.</div>'}
     </div>
     <div class="ep-card" style="margin-bottom:16px">
-      <div class="ep-head"><span style="font-size:14px;font-weight:800;color:#eaf0ff">Leave Balances</span><span style="font-size:11px;color:#6e7681">Set starting balances per staff member</span></div>
+      <div class="ep-head"><span style="font-size:14px;font-weight:800;color:#eaf0ff">Leave Balances</span><span style="font-size:11px;color:#6e7681">Set starting balances per staff member</span><button class="btn" id="leave-bal-export-btn" style="font-size:11px;border-color:#3fb950;color:#3fb950;margin-left:auto">⬇ Export Balance Report</button></div>
       <div style="padding:12px 16px">${balEditor||'<div style="color:#484f58;font-size:12px;text-align:left">No CAP Staff users found.</div>'}</div>
     </div>
     ${leaveReviewModal?renderLeaveReviewModal():''}
@@ -2249,6 +2346,93 @@ async function exportLeaveWeekXLSX(weekStart){
   XLSX.utils.book_append_sheet(wb,ws,`Leave ${weekDays[0]}`);
   XLSX.writeFile(wb,`CB-Leave-Week-${weekDays[0]}.xlsx`);
   showToast('Leave week exported ✓');
+}
+
+async function exportLeaveBalancesXLSX(){
+  if(!window.XLSX){
+    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+  }
+  const dateStr=new Date().toISOString().slice(0,10);
+  const today=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
+  const leaveUsers=users.filter(u=>u.role==='capstaff'||(u.extraRoles||[]).includes('capstaff')||u.role==='admin'||u.role==='deputyadmin');
+  const balTypes=LEAVE_TYPES.filter(t=>t.deductsBalance);
+  const wb=XLSX.utils.book_new();
+
+  // ── Sheet 1: Balance Summary ──────────────────────────────────
+  const sumHeaders=['Employee',...balTypes.flatMap(t=>[`${t.label} — Total`,`${t.label} — Used`,`${t.label} — Remaining`])];
+  const sumRows=[sumHeaders];
+  leaveUsers.forEach(u=>{
+    const bal=leaveBalances[u.uid]||{};
+    const approved=Object.values(leaveRequests).filter(r=>r.uid===u.uid&&r.status==='approved');
+    const row=[u.displayName||u.email];
+    balTypes.forEach(t=>{
+      const total=bal[t.key]??21;
+      const used=approved.filter(r=>r.leaveType===t.key).reduce((s,r)=>s+countCalendarDays(r.startDate,r.endDate),0);
+      row.push(total,used,Math.max(0,total-used));
+    });
+    sumRows.push(row);
+  });
+  const wsSummary=XLSX.utils.aoa_to_sheet(sumRows);
+  wsSummary['!cols']=[{wch:28},...balTypes.flatMap(()=>[{wch:22},{wch:12},{wch:14}])];
+  XLSX.utils.book_append_sheet(wb,wsSummary,'Balance Summary');
+
+  // ── Sheet 2: Leave History ────────────────────────────────────
+  const histHeaders=['Employee','Leave Type','Start Date','End Date','Days','Status','Admin Note'];
+  const histRows=[histHeaders];
+  Object.values(leaveRequests)
+    .filter(r=>r.status!=='cancelled')
+    .sort((a,b)=>a.startDate.localeCompare(b.startDate))
+    .forEach(r=>{
+      const u=users.find(x=>x.uid===r.uid);
+      const nm=u?.displayName||u?.email||r.userName||'Unknown';
+      const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5];
+      histRows.push([nm,lt.label,r.startDate,r.endDate,countCalendarDays(r.startDate,r.endDate),r.status,r.adminNote||'']);
+    });
+  if(histRows.length===1)histRows.push(['No leave history on record','','','','','','']);
+  const wsHistory=XLSX.utils.aoa_to_sheet(histRows);
+  wsHistory['!cols']=[{wch:28},{wch:26},{wch:14},{wch:14},{wch:8},{wch:12},{wch:32}];
+  XLSX.utils.book_append_sheet(wb,wsHistory,'Leave History');
+
+  // ── Sheet 3: Per-Person Detail ────────────────────────────────
+  const detailRows=[
+    [`CB Productions — Leave Balance Report`],
+    [`Generated: ${today}`],
+    [],
+  ];
+  leaveUsers.forEach(u=>{
+    const bal=leaveBalances[u.uid]||{};
+    const approved=Object.values(leaveRequests)
+      .filter(r=>r.uid===u.uid&&r.status==='approved')
+      .sort((a,b)=>a.startDate.localeCompare(b.startDate));
+    detailRows.push([`── ${u.displayName||u.email} ──`,'','','','']);
+    detailRows.push(['Leave Type','Start Date','End Date','Days Taken','Balance After']);
+    const running={};
+    balTypes.forEach(t=>{running[t.key]=bal[t.key]??21;});
+    if(approved.length){
+      approved.forEach(r=>{
+        const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5];
+        const d=countCalendarDays(r.startDate,r.endDate);
+        if(lt.deductsBalance)running[lt.key]=Math.max(0,(running[lt.key]||0)-d);
+        const balAfter=lt.deductsBalance?`${running[lt.key]} days remaining`:'N/A';
+        detailRows.push([lt.label,r.startDate,r.endDate,d,balAfter]);
+      });
+    } else {
+      detailRows.push(['No approved leave on record','','','','']);
+    }
+    detailRows.push(['Balance Summary','','','','']);
+    balTypes.forEach(t=>{
+      const total=bal[t.key]??21;
+      const used=approved.filter(r=>r.leaveType===t.key).reduce((s,r)=>s+countCalendarDays(r.startDate,r.endDate),0);
+      detailRows.push([`  ${t.label}`,`Total: ${total}`,`Used: ${used}`,`Remaining: ${Math.max(0,total-used)}`,'']);
+    });
+    detailRows.push([]);
+  });
+  const wsDetail=XLSX.utils.aoa_to_sheet(detailRows);
+  wsDetail['!cols']=[{wch:32},{wch:14},{wch:14},{wch:14},{wch:22}];
+  XLSX.utils.book_append_sheet(wb,wsDetail,'Per-Person Detail');
+
+  XLSX.writeFile(wb,`CB-Leave-Balance-Report-${dateStr}.xlsx`);
+  showToast('Leave balance report exported ✓');
 }
 
 function renderLeaveDeclineModal(){return '';}
@@ -6871,6 +7055,7 @@ function bindApp(){
     if(!leaveExportWeek){showToast('Please select a date first',true);return;}
     exportLeaveWeekXLSX(leaveExportWeek);
   });
+  document.getElementById('leave-bal-export-btn')?.addEventListener('click',()=>exportLeaveBalancesXLSX());
   document.querySelectorAll('[data-save-balance]').forEach(btn=>{
     btn.addEventListener('click',async()=>{
       const uid=btn.dataset.saveBalance;
