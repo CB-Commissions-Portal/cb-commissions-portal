@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.94';
+const BUILD_VERSION='3.10.95';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -8404,14 +8404,15 @@ function rosExportWord(){
     const sources=item.slugSources||[];
     const slugCell=slugs.map((s,si)=>{
       const src=sources[si]||'';
-      return src?`${escHtml(src)} - ${escHtml(s)}`:escHtml(s);
+      const txt=src?`${escHtml(src)} - ${escHtml(s)}`:escHtml(s);
+      return `<span style="background:#c6efce;mso-highlight:green">${txt}</span>`;
     }).join('<br>')||'';
     return`<tr>
-      <td width="28" align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top">${escHtml(num)}</td>
-      <td width="165" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;background:#c6efce;mso-background-themecolor:accent6;mso-background-themetint:153">${slugCell}</td>
-      <td width="120" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top">${escHtml(item.sound||"")}</td>
-      <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;color:#0055a0;padding:3px 4px;border:1px solid #000;vertical-align:top">${desc}</td>
-      <td width="55" align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top">&nbsp;</td>
+      <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%">${escHtml(num)}</td>
+      <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%">${slugCell}</td>
+      <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%">${escHtml(item.sound||"")}</td>
+      <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;color:#0055a0;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%">${desc}</td>
+      <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:7%">&nbsp;</td>
     </tr>`;
   }).join('');
 
@@ -8423,55 +8424,54 @@ xmlns="http://www.w3.org/TR/REC-html40">
 <title>CB Studio Script ${escHtml(epLabel)}</title>
 <!--[if gte mso 9]><xml>
 <w:WordDocument>
-  <w:View>Print</w:View><w:Zoom>90</w:Zoom>
+  <w:View>Print</w:View><w:Zoom>100</w:Zoom>
   <w:DoNotOptimizeForBrowser/>
 </w:WordDocument>
 </xml><![endif]-->
 <style>
-  @page {
+  @page Section1 {
     size:841.9pt 595.3pt;
     mso-page-orientation:landscape;
-    margin:36pt 36pt 54pt 36pt;
+    margin:18pt 18pt 50pt 18pt;
     mso-footer:ftr1;
-    mso-footer-margin:30pt;
+    mso-footer-margin:32pt;
   }
+  div.Section1{page:Section1}
   body{font-family:Arial,sans-serif;font-size:11pt;margin:0;padding:0}
   p{margin:0;padding:0;font-family:Arial,sans-serif;font-size:11pt;line-height:1.15}
+  p.MsoFooter{margin:0;mso-pagination:widow-orphan;tab-stops:right 806pt;font-family:Arial,sans-serif;font-size:9pt;color:#333}
   table{border-collapse:collapse;width:100%;table-layout:fixed}
-  td,th{font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;word-wrap:break-word}
+  td,th{font-family:Arial,sans-serif;font-size:11pt;padding:3px 5px;border:1px solid #000;vertical-align:top;word-wrap:break-word}
 </style>
 </head>
 <body>
-<div style="mso-element:footer" id="ftr1">
-  <table width="100%" style="border:none;border-collapse:collapse">
-    <tr>
-      <td style="border:none;font-family:Arial,sans-serif;font-size:9pt;color:#333;text-align:left;padding:0 4pt 0 0">${escHtml(footerLeft)}</td>
-      <td style="border:none;font-family:Arial,sans-serif;font-size:9pt;color:#333;text-align:right;padding:0;white-space:nowrap"><!--[if supportFields]><span style="mso-element:field-begin"></span><span style="mso-spacerun:yes"> PAGE </span><span style="mso-element:field-end"></span><![endif]--><span style="mso-no-proof:yes"></span></td>
-    </tr>
-  </table>
-</div>
+<div class="Section1">
 <p style="font-size:14pt;font-weight:bold;color:#003366;margin-bottom:2pt;mso-line-height-rule:exactly;line-height:18pt">CARTE BLANCHE</p>
 <p style="margin-bottom:1pt;mso-line-height-rule:exactly;line-height:14pt"><b>Season ${currentSeason}, ${escHtml(epLabel.replace(`S${currentSeason} `,'Season '+currentSeason+', '))}</b></p>
 <p style="margin-bottom:8pt;mso-line-height-rule:exactly;line-height:14pt"><b>TX: ${escHtml(epDateFmt)}</b></p>
 <table border="1" cellpadding="3" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed">
   <colgroup>
-    <col width="28">
-    <col width="165">
-    <col width="120">
-    <col>
-    <col width="55">
+    <col style="width:4%">
+    <col style="width:22%">
+    <col style="width:11%">
+    <col style="width:56%">
+    <col style="width:7%">
   </colgroup>
   <thead>
     <tr>
-      <th width="28" style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center">ITEM</th>
-      <th width="165" style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center">PRODUCTION</th>
-      <th width="120" style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center">SOUND</th>
-      <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center">DESCRIPTION</th>
-      <th width="55" style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center">DUR</th>
+      <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:4%">ITEM</th>
+      <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:22%">PRODUCTION</th>
+      <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:11%">SOUND</th>
+      <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:56%">DESCRIPTION</th>
+      <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:7%">DUR</th>
     </tr>
   </thead>
   <tbody>${rows}</tbody>
 </table>
+</div>
+<div style="mso-element:footer" id="ftr1">
+  <p class="MsoFooter">${escHtml(footerLeft)}<span style="mso-tab-count:1">&nbsp;</span><!--[if supportFields]><span style="mso-element:field-begin"></span><span style="mso-spacerun:yes"> PAGE </span><span style="mso-element:field-separator"></span><![endif]--><span style="mso-no-proof:yes">1</span><!--[if supportFields]><span style="mso-element:field-end"></span><![endif]--></p>
+</div>
 </body></html>`;
 
   const blob=new Blob(['\ufeff',html],{type:'application/msword'});
