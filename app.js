@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.120';
+const BUILD_VERSION='3.10.121';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -5494,9 +5494,9 @@ function renderLineups(epNums){
         const c=getCommData(item.commNum);
         const dur=durForComm(c);
         const isDelivered=c&&!!c.deliveredDuration;
-        itemsHtml+=`<div style="${rowBg};padding:8px 12px;border-radius:4px;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <span style="font-size:11px;font-weight:900;color:${past?'#f85149':'#58a6ff'};width:50px;font-family:monospace;flex-shrink:0">${esc(String(item.commNum))}</span>
-          <span style="font-size:12px;font-weight:700;color:${past?'#f87171':'#eaf0ff'};flex:1;min-width:100px">${esc(c?.storyName||String(item.commNum))}${c?.isLicensed?'<span style="margin-left:5px;font-size:8px;font-weight:800;background:#1c2d1c;color:#3fb950;padding:1px 4px;border-radius:2px;vertical-align:middle">LIC</span>':''}${c?.isInHouse?'<span style="margin-left:5px;font-size:8px;font-weight:800;background:#1a1a2e;color:#7a8ba0;padding:1px 4px;border-radius:2px;vertical-align:middle">IH</span>':''}</span>
+        itemsHtml+=`<div style="${rowBg};padding:14px 18px;border-radius:6px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:14px;font-weight:900;color:${past?'#f85149':'#58a6ff'};width:60px;font-family:monospace;flex-shrink:0">${esc(String(item.commNum))}</span>
+          <span style="font-size:14px;font-weight:700;color:${past?'#f87171':'#eaf0ff'};flex:1;min-width:100px">${esc(c?.storyName||String(item.commNum))}${c?.isLicensed?'<span style="margin-left:5px;font-size:8px;font-weight:800;background:#1c2d1c;color:#3fb950;padding:1px 4px;border-radius:2px;vertical-align:middle">LIC</span>':''}${c?.isInHouse?'<span style="margin-left:5px;font-size:8px;font-weight:800;background:#1a1a2e;color:#7a8ba0;padding:1px 4px;border-radius:2px;vertical-align:middle">IH</span>':''}</span>
           <span style="font-size:11px;color:#8b949e;min-width:70px">${esc(c?.presenterVO||'')}</span>
           <span style="font-size:11px;color:#6e7681;min-width:70px">${esc(c?.producer||'')}</span>
           <span style="font-size:11px;font-family:monospace;color:${isDelivered?'#3fb950':'#8b949e'};min-width:50px;text-align:right" title="${isDelivered?'Delivered':'Commissioned'}">${decToMmSs(toDecimalMins(dur))}${isDelivered?' ✓':''}</span>
@@ -5510,36 +5510,36 @@ function renderLineups(epNums){
 
     let luAnc1='',luAnc2='';
     try{const _a=getStudioAnchors(ep);luAnc1=_a.anchor1||'';luAnc2=_a.anchor2||'';}catch(_e){}
-    epsHtml+=`<div data-lu-ep-block="${ep}" data-lu-past="${past?1:0}" style="${past?'background:#1a0a0a;border-color:#3d1f1f':'background:#0d1117;border-color:#21262d'};border:1px solid;border-radius:8px;margin-bottom:16px;overflow:hidden">
-      <div class="lu-ep-header" data-lu-ep="${ep}" style="${past?'background:#2d0f0f':'background:#161b22'};padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;cursor:pointer;user-select:none" title="${collapsed?'Click to expand':'Click to collapse'}">
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <span class="lu-chevron" style="font-size:13px;color:${epAccent};margin-right:2px">${collapsed?'▶':'▼'}</span>
-          <span style="font-size:14px;font-weight:900;color:${epAccent};font-family:monospace">2026 | ${epLabel}</span>
-          ${past?`<span style="background:#3d0000;color:#f85149;font-size:9px;font-weight:800;padding:2px 7px;border-radius:3px;border:1px solid #6b1111;letter-spacing:.5px">BROADCAST</span>`:''}
-          ${epDate?`<span style="font-size:11px;color:#6e7681">${fmtDate(epDate)}</span>`:''}
+    epsHtml+=`<div data-lu-ep-block="${ep}" data-lu-past="${past?1:0}" style="${past?'background:#1a0a0a;border-color:#3d1f1f':'background:#0d1117;border-color:#21262d'};border:1px solid;border-radius:10px;margin-bottom:20px;overflow:hidden">
+      <div class="lu-ep-header" data-lu-ep="${ep}" style="${past?'background:#2d0f0f':'background:#161b22'};padding:18px 22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;cursor:pointer;user-select:none" title="${collapsed?'Click to expand':'Click to collapse'}">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <span class="lu-chevron" style="font-size:16px;color:${epAccent};margin-right:2px">${collapsed?'▶':'▼'}</span>
+          <span style="font-size:20px;font-weight:900;color:${epAccent};font-family:monospace">2026 | ${epLabel}</span>
+          ${past?`<span style="background:#3d0000;color:#f85149;font-size:10px;font-weight:800;padding:3px 9px;border-radius:3px;border:1px solid #6b1111;letter-spacing:.5px">BROADCAST</span>`:''}
+          ${epDate?`<span style="font-size:13px;color:#6e7681">${fmtDate(epDate)}</span>`:''}
         </div>
-        <span style="font-size:12px;font-weight:800;color:${tot>0?(past?'#f85149':'#3fb950'):'#484f58'};font-family:monospace">Total: ${decToMmSs(tot)}</span>
+        <span style="font-size:16px;font-weight:800;color:${tot>0?(past?'#f85149':'#3fb950'):'#484f58'};font-family:monospace">Total: ${decToMmSs(tot)}</span>
       </div>
-      <div class="lu-ep-body" style="display:${collapsed?'none':'block'}"><div style="padding:10px 16px;border-bottom:1px solid ${past?'#3d1f1f':'#21262d'};display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div class="lu-ep-body" style="display:${collapsed?'none':'block'}"><div style="padding:16px 22px;border-bottom:1px solid ${past?'#3d1f1f':'#21262d'};display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
         <div>
-          <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:4px">Director</div>
+          <div style="font-size:11px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:6px">Director</div>
           ${canEdit
-            ?`<input class="lu-director" data-ep="${ep}" value="${esc(lu.director||'')}" placeholder="Director name" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:5px 8px;border-radius:4px;font-size:12px;box-sizing:border-box">`
-            :`<span style="font-size:12px;font-weight:700;color:#eaf0ff">${esc(lu.director||'—')}</span>`}
+            ?`<input class="lu-director" data-ep="${ep}" value="${esc(lu.director||'')}" placeholder="Director name" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 10px;border-radius:5px;font-size:14px;box-sizing:border-box">`
+            :`<span style="font-size:14px;font-weight:700;color:#eaf0ff">${esc(lu.director||'—')}</span>`}
         </div>
         <div>
-          <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:4px">Anchor 1</div>
-          <span style="font-size:12px;font-weight:700;color:#58a6ff">${esc(luAnc1||lu.presenter1||'—')}</span>
+          <div style="font-size:11px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:6px">Anchor 1</div>
+          <span style="font-size:14px;font-weight:700;color:#58a6ff">${esc(luAnc1||lu.presenter1||'—')}</span>
         </div>
         <div>
-          <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:4px">Anchor 2</div>
-          <span style="font-size:12px;font-weight:700;color:#58a6ff">${esc(luAnc2||lu.presenter2||'—')}</span>
+          <div style="font-size:11px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:6px">Anchor 2</div>
+          <span style="font-size:14px;font-weight:700;color:#58a6ff">${esc(luAnc2||lu.presenter2||'—')}</span>
         </div>
       </div>
-      <div style="padding:12px 16px">
-        ${itemsHtml||`<div style="font-size:12px;color:#484f58;font-style:italic;padding:4px 0">No content added yet.</div>`}
-        ${canEdit&&!past?`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
-          <select class="lu-add-comm" data-ep="${ep}" style="flex:1;min-width:180px;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:6px 10px;border-radius:4px;font-size:12px">
+      <div style="padding:16px 22px">
+        ${itemsHtml||`<div style="font-size:14px;color:#484f58;font-style:italic;padding:8px 0">No content added yet.</div>`}
+        ${canEdit&&!past?`<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center">
+          <select class="lu-add-comm" data-ep="${ep}" style="flex:1;min-width:220px;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 12px;border-radius:5px;font-size:13px">
             <option value="">+ Add commission…</option>
             ${availableComms.map(c=>`<option value="${esc(String(c.commNum))}">${esc(String(c.commNum))} | ${esc(c.storyName)} (${decToMmSs(toDecimalMins(durForComm(c)))})</option>`).join('')}
           </select>
@@ -5560,32 +5560,34 @@ function renderLineups(epNums){
                   isIH?'<span style="font-size:7px;font-weight:800;background:#1a1a2e;color:#7a8ba0;padding:1px 4px;border-radius:2px;margin-left:4px;vertical-align:middle">IH</span>':'';
     const delDate=c.deliveryDate?new Date(c.deliveryDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'2-digit'}):'';
     const dur=decToMmSs(toDecimalMins(c.deliveredDuration||c.commDuration));
-    return`<div style="background:${bgCol};border-left:3px solid ${borderCol};border-radius:3px;padding:7px 10px;margin-bottom:5px">
-      <div style="font-size:11px;font-weight:900;color:${commCol};font-family:monospace">${esc(String(c.commNum))}${typeTag}</div>
-      <div style="font-size:11px;font-weight:700;color:#eaf0ff;margin-top:1px">${esc(c.storyName)}</div>
-      <div style="display:flex;gap:6px;margin-top:3px;align-items:center;flex-wrap:wrap">
-        ${c.presenterVO?`<span style="font-size:10px;color:#8b949e">${esc(c.presenterVO)}</span>`:''}
-        ${c.producer?`<span style="font-size:10px;color:#6e7681">${esc(c.producer)}</span>`:''}
+    return`<div style="background:${bgCol};border-left:3px solid ${borderCol};border-radius:5px;padding:10px 12px;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:900;color:${commCol};font-family:monospace">${esc(String(c.commNum))}${typeTag}</div>
+      <div style="font-size:12px;font-weight:700;color:#eaf0ff;margin-top:2px">${esc(c.storyName)}</div>
+      <div style="display:flex;gap:6px;margin-top:4px;align-items:center;flex-wrap:wrap">
+        ${c.presenterVO?`<span style="font-size:11px;color:#8b949e">${esc(c.presenterVO)}</span>`:''}
+        ${c.producer?`<span style="font-size:11px;color:#6e7681">${esc(c.producer)}</span>`:''}
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px;flex-wrap:wrap;gap:4px">
-        ${delDate?`<span style="font-size:9px;color:#e3b341;font-weight:700">📅 ${delDate}</span>`:'<span style="font-size:9px;color:#484f58;font-style:italic">No delivery date</span>'}
-        <span style="font-size:10px;color:#7a8ba0;font-family:monospace">${dur}</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;flex-wrap:wrap;gap:4px">
+        ${delDate?`<span style="font-size:10px;color:#e3b341;font-weight:700">📅 ${delDate}</span>`:'<span style="font-size:10px;color:#484f58;font-style:italic">No delivery date</span>'}
+        <span style="font-size:11px;color:#7a8ba0;font-family:monospace">${dur}</span>
       </div>
     </div>`;
   }).join('');
   if(!sideHtml)sideHtml=`<div style="font-size:11px;color:#484f58;font-style:italic">No inserts in production.</div>`;
 
   return`<div style="display:flex;gap:0;height:100%;overflow:hidden">
-    <div style="flex:1;min-width:0;overflow-y:auto;padding:16px 8px 16px 16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <h2 style="font-size:16px;font-weight:900;color:#eaf0ff;margin:0">LINE-UPS · Season ${currentSeason}</h2>
-        <span style="font-size:10px;color:#484f58">Broadcast episodes shown in red · ✓ = delivered duration</span>
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:14px 24px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;flex-wrap:wrap;gap:10px">
+        <h2 style="font-size:22px;font-weight:900;color:#eaf0ff;margin:0">LINE-UPS · Season ${currentSeason}</h2>
+        <span style="font-size:11px;color:#484f58">Broadcast episodes shown in red · ✓ = delivered duration</span>
       </div>
-      ${epsHtml}
+      <div style="flex:1;overflow-y:auto;padding:16px 8px 16px 16px">
+        ${epsHtml}
+      </div>
     </div>
-    <div style="width:260px;flex-shrink:0;padding:16px 16px 16px 0;overflow-y:auto;height:100%">
-      <div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:14px">
-        <div style="font-size:10px;font-weight:800;color:#e3b341;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;border-bottom:1px solid #2e3a50;padding-bottom:8px">Inserts in Production</div>
+    <div style="width:280px;flex-shrink:0;padding:16px 16px 16px 0;overflow-y:auto;height:100%">
+      <div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:16px">
+        <div style="font-size:11px;font-weight:800;color:#e3b341;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;border-bottom:1px solid #2e3a50;padding-bottom:10px">Inserts in Production</div>
         ${sideHtml}
       </div>
     </div>
