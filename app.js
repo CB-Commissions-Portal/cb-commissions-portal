@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.110';
+const BUILD_VERSION='3.10.111';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -169,6 +169,7 @@ let mcImportCommNum='';          // tracks typed commission number in import mod
 let creditsExpandedEp=null;
 let expandedEps=new Set(); // Episode Register expanded episodes
 let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,tempDate='';
+let commEditModal=null; // commission id — edit crew/deliverables modal
 let addUserModal=false,newUserData={email:'',password:'',displayName:'',role:'editorial'},editUserModal=null,deleteUserModal=null;
 let toast=null,toastTimer=null,pendingFocusId=null;
 
@@ -1501,23 +1502,13 @@ function renderCommList(epNums,nextEp){
   <th class="st st-3" style="width:160px;min-width:160px">Short Name</th>
   <th data-sort="storyName" class="st st-4" style="width:320px;min-width:320px">Story Name</th>
   <th data-sort="deliveryDate" style="width:14ch;min-width:14ch">Del. Date</th>
-  <th data-sort="commDuration" style="width:18ch;min-width:18ch">Comm Dur</th>
-  <th data-sort="deliveredDuration" style="width:18ch;min-width:18ch">Del Dur</th>
-  <th data-sort="paidDuration" style="width:18ch;min-width:18ch">Paid Dur</th>
-  <th data-sort="isInHouse" style="width:70px;min-width:70px">In-House</th>
-  <th data-sort="isLicensed" style="width:70px;min-width:70px">Licensed</th>
-  <th data-sort="producer" style="width:400px;min-width:400px">Producer</th>
-  <th data-sort="presenterVO" style="width:160px;min-width:160px">Presenter / VO</th>
-  <th data-sort="dop" style="width:320px;min-width:320px">DOP</th>
-  <th data-sort="ca" style="width:160px;min-width:160px">Cam Asst</th>
-  <th data-sort="editor" style="width:160px;min-width:160px">Editor</th>
-  <th data-sort="afm" style="width:160px;min-width:160px">AFM Op</th>
-  ${DEL_LABELS.map(l=>`<th style="width:80px">${l}</th>`).join('')}
-  <th data-sort="approvedForPayment" style="width:80px">✓ Paid</th>
-  <th style="width:130px;white-space:nowrap">Insert Cost</th>
-  <th style="width:100px">Episode</th>
-  <th >Decom</th>
-  <th style="width:180px">Motivation</th>
+  <th data-sort="commDuration" style="width:14ch;min-width:14ch">Comm Dur</th>
+  <th data-sort="deliveredDuration" style="width:14ch;min-width:14ch">Del Dur</th>
+  <th data-sort="paidDuration" style="width:14ch;min-width:14ch">Paid Dur</th>
+  <th style="width:100px;min-width:100px">In-House / Licensed</th>
+  <th data-sort="producer" style="width:220px;min-width:180px">Producer</th>
+  <th data-sort="presenterVO" style="width:150px;min-width:120px">Presenter / VO</th>
+  <th style="width:160px;min-width:160px"></th>
 </tr></thead>
 <tbody>
 ${filtered.map(c=>{
@@ -1527,8 +1518,6 @@ ${filtered.map(c=>{
   const incomplete=!c.decommissioned&&!c.approvedForPayment&&!c.isInHouse&&c.storyName;
   const cls=c.decommissioned?'decom-row':c.approvedForPayment?'paid-row':incomplete?'yellow-row':'';
   const dup=isDup(c.id,c.shortName);
-  const epOpts=epNums.map(n=>`<option value="${n}"${c.broadcastEpisode==n?' selected':''}>Ep ${n}</option>`).join('');
-  const nextOpt=!epNums.includes(nextEp)?`<option value="${nextEp}">+ Ep ${nextEp}</option>`:'';
   function ci(field,w,ph=''){
     const role=getEffectiveRole();
     const dis=!canEdit(role,field);
@@ -1565,26 +1554,13 @@ ${filtered.map(c=>{
 <td>${ci('commDuration')}</td>
 <td>${ci('deliveredDuration')}</td>
 <td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}">${c.isInHouse?`<span class="badge ih" style="opacity:.5">N/A</span>`:ci('paidDuration',54)}</td>
-<td style="text-align:center"><input type="checkbox" class="cb" data-field="isInHouse" tabindex="-1" ${c.isInHouse?'checked':''} ${getEffectiveRole()!=='admin'?'disabled':''}></td>
-<td style="text-align:center"><input type="checkbox" class="cb${c.isLicensed?' g':''}" data-field="isLicensed" tabindex="-1" ${c.isLicensed?'checked':''} ${getEffectiveRole()!=='admin'?'disabled':''}></td>
+<td style="text-align:center;white-space:nowrap">
+  <label style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#58a6ff;cursor:pointer" title="In-House"><input type="checkbox" class="cb" data-field="isInHouse" tabindex="-1" ${c.isInHouse?'checked':''} ${getEffectiveRole()!=='admin'?'disabled':''}> IH</label>
+  <label style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#3fb950;cursor:pointer;margin-left:6px" title="Licensed"><input type="checkbox" class="cb${c.isLicensed?' g':''}" data-field="isLicensed" tabindex="-1" ${c.isLicensed?'checked':''} ${getEffectiveRole()!=='admin'?'disabled':''}> LIC</label>
+</td>
 <td>${ci('producer')}</td>
 <td>${ci('presenterVO')}</td>
-<td style="${c.isInHouse?'background:#1a1a1a;pointer-events:none':c.isLicensed?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'N/A — In-House':c.isLicensed?'Not applicable':''}">${c.isInHouse?'<span style="color:#484f58;font-size:11px;font-style:italic">In-House</span>':ci('dop')}</td>
-<td style="${c.isInHouse?'background:#1a1a1a;pointer-events:none':c.isLicensed?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'N/A — In-House':c.isLicensed?'Not applicable':''}">${c.isInHouse?'<span style="color:#484f58;font-size:11px;font-style:italic">In-House</span>':ci('ca')}</td>
-<td style="${c.isInHouse?'background:#1a1a1a;pointer-events:none':c.isLicensed?'opacity:.3;pointer-events:none':''}" title="${c.isInHouse?'N/A — In-House':c.isLicensed?'Not applicable':''}">${c.isInHouse?'<span style="color:#484f58;font-size:11px;font-style:italic">In-House</span>':ci('editor')}</td>
-<td style="${c.isLicensed&&!['admin','deputyadmin','operations','finance'].includes(getEffectiveRole())?'opacity:.3;pointer-events:none':''}">${ci('afm')}</td>
-${DEL_KEYS.map((k,ki)=>{
-  const isIHGrey = (c.isInHouse || c.isLicensed) && k === 'callSheets';
-  const role=getEffectiveRole();
-  const needsCbAttn=!!c.broadcastEpisode&&!c.decommissioned&&!c[k]&&canEdit(role,k)&&role==='production';
-  return `<td style="text-align:center${isIHGrey?';opacity:.3;pointer-events:none':''}${needsCbAttn?';background:rgba(245,166,35,.12)':''}"><input type="checkbox" class="cb${c[k]?' g':''}" data-field="${k}" tabindex="-1" ${c[k]?'checked':''} ${!canEdit(role,k)||isIHGrey?'disabled':''}></td>`;
-}).join('')}
-<td style="text-align:center;${c.isInHouse?'opacity:.3;pointer-events:none':''}">${canEdit(getEffectiveRole(),'approvedForPayment')&&!c.isInHouse?`<input type="checkbox" class="cb" data-field="approvedForPayment" tabindex="-1" ${c.approvedForPayment?'checked':''} style="${c.approvedForPayment?'accent-color:#388bfd':''}">`:c.approvedForPayment?`<span class="badge paid">✓ Paid</span>`:`<span style="color:#484f58">—</span>`}</td>
-<td>${['admin','deputyadmin'].includes(getEffectiveRole())?'<input class="ci" value="'+esc(c.totalInsertCost||'')+'" data-field="totalInsertCost" placeholder="R 0.00" style="width:120px;color:#3fb950;font-size:12px">':c.totalInsertCost?'<span style="color:#3fb950;font-size:12px;padding:2px 4px">'+esc(c.totalInsertCost)+'</span>':`<span style="color:#484f58">—</span>`}</td>
-<td><select class="ep-sel" data-field="broadcastEpisode" tabindex="-1" ${getEffectiveRole()!=='admin'?'disabled':''}><option value="">—</option>${epOpts}${nextOpt}</select></td>
-<td style="white-space:nowrap">${c.decommissioned?`${currentRole==='admin'?`<button class="undo-btn" data-undo="${c.id}">↩ Undo</button>`:''} <span class="badge decom">Decom</span>`:`<button class="decom-btn" data-decom="${c.id}" tabindex="-1" ${!canEdit(getEffectiveRole(),'decommissioned')&&getEffectiveRole()!=='admin'?'disabled':''}>Decommission</button>`}${currentRole==='admin'&&!previewRole?`<button class="decom-btn" data-delete-comm="${c.id}" tabindex="-1" style="margin-left:4px;border-color:#f85149;color:#f85149" title="Permanently delete">🗑</button>`:''}
-</td>
-<td style="min-width:200px;max-width:300px"><input class="ci" value="${esc(c.decommissionMotivation||'')}" data-field="decommissionMotivation" placeholder="Add notes…" style="width:100%;color:#a855f7;font-style:italic;font-size:12px" ${canEdit(getEffectiveRole(),'decommissionMotivation')?'':'disabled'}></td>
+<td style="text-align:right;padding-right:8px"><button class="comm-edit-btn btn" data-id="${c.id}" style="font-size:12px;padding:6px 12px;border-color:#388bfd;color:#58a6ff;font-weight:700;white-space:nowrap">✎ EDIT COMMISSION</button></td>
 </tr>`;}).join('')}
 </tbody>
 </table>
@@ -5620,6 +5596,134 @@ function renderModals(epNums,nextEp){
       </div>
     </div></div>`;
   }
+  // Edit Commission modal
+  if(commEditModal!==null){
+    const _c=comms.find(x=>x.id===commEditModal);
+    if(_c){
+      const _role=getEffectiveRole();
+      const _canAdmin=_role==='admin'||_role==='deputyadmin';
+      const _epNums2=getEpNums();
+      const _nextEp2=((_epNums2.length?Math.max(..._epNums2):0)+1);
+      const _epOpts=_epNums2.map(n=>`<option value="${n}"${_c.broadcastEpisode==n?' selected':''}>Ep ${n}</option>`).join('');
+      const _nextOpt=!_epNums2.includes(_nextEp2)?`<option value="${_nextEp2}">+ Ep ${_nextEp2}</option>`:'';
+      // Crew inputs (admin/deputyadmin/operations)
+      const _canCrew=_canAdmin||_role==='operations';
+      function _ci(id,field,ph,color){
+        const val=esc(_c[field]||'');
+        const disabled=!canEdit(_role,field);
+        return`<input id="${id}" value="${val}" placeholder="${ph}" ${disabled?'disabled':''} style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:${color||'#eaf0ff'};font-size:15px;padding:10px 12px;outline:none;font-family:inherit;box-sizing:border-box${disabled?';opacity:.45':''}">`;
+      }
+      // Deliverables
+      const _delHtml=DEL_KEYS.map((k,ki)=>{
+        const isIHGrey=((_c.isInHouse||_c.isLicensed)&&k==='callSheets');
+        const disabled=!canEdit(_role,k)||isIHGrey;
+        const checked=!!_c[k];
+        return`<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${checked?'rgba(56,139,253,.1)':'#161b22'};border:1px solid ${checked?'#388bfd':'#21262d'};border-radius:8px;cursor:${disabled?'default':'pointer'};opacity:${isIHGrey?'.35':'1'}">
+          <input type="checkbox" id="cem-del-${k}" ${checked?'checked':''} ${disabled?'disabled':''} style="width:18px;height:18px;cursor:${disabled?'default':'pointer'};accent-color:#388bfd;flex-shrink:0">
+          <span style="font-size:14px;color:${checked?'#58a6ff':'#8b949e'};font-weight:${checked?'700':'400'}">${DEL_LABELS[ki]}</span>
+        </label>`;
+      }).join('');
+      // Payment section
+      const _paidDisabled=!canEdit(_role,'approvedForPayment')||_c.isInHouse;
+      const _paidChecked=!!_c.approvedForPayment;
+      const _insertDisabled=!_canAdmin;
+      const _epDisabled=_role!=='admin';
+      // Decom section
+      const _decomSection=_c.decommissioned
+        ?`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            ${currentRole==='admin'?`<button id="cem-undo-decom" class="btn" style="border-color:#3fb950;color:#3fb950;font-size:14px;padding:8px 20px;font-weight:700">↩ Undo Decommission</button>`:''}
+            <span style="background:#3d1a1a;color:#f85149;font-size:12px;font-weight:800;padding:4px 12px;border-radius:4px;letter-spacing:.5px">DECOMMISSIONED</span>
+          </div>
+          <div style="margin-top:12px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8b949e;margin-bottom:6px">Motivation</div>
+            <input id="cem-motivation" value="${esc(_c.decommissionMotivation||'')}" placeholder="Decommission notes…" ${canEdit(_role,'decommissionMotivation')?'':'disabled'} style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#a855f7;font-size:15px;padding:10px 12px;outline:none;font-family:inherit;box-sizing:border-box;font-style:italic">
+          </div>`
+        :`<div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap">
+            ${canEdit(_role,'decommissioned')||_role==='admin'?`<button id="cem-decom-trigger" class="btn danger" style="font-size:14px;padding:8px 20px;font-weight:700;flex-shrink:0">Decommission</button>`:'<span style="font-size:13px;color:#484f58;padding:8px 0">No permission to decommission</span>'}
+            <div style="flex:1;min-width:200px">
+              <input id="cem-motivation" value="${esc(_c.decommissionMotivation||'')}" placeholder="Motivation / notes…" ${canEdit(_role,'decommissionMotivation')?'':'disabled'} style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#a855f7;font-size:15px;padding:10px 12px;outline:none;font-family:inherit;box-sizing:border-box;font-style:italic">
+            </div>
+          </div>
+          ${currentRole==='admin'&&!previewRole?`<div style="margin-top:10px"><button id="cem-delete-comm" class="btn" style="border-color:#f85149;color:#f85149;font-size:12px;padding:5px 14px" title="Permanently delete commission">🗑 Delete Commission</button></div>`:''}`;
+      out+=`<div class="modal-overlay" id="cem-overlay"><div class="modal" style="width:min(820px,96vw);max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+        <div style="padding:18px 24px;border-bottom:1px solid #2e3a50;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+          <div>
+            <span style="font-size:18px;font-weight:800;color:#e6edf3">${esc(String(_c.commNum||''))}</span>
+            ${_c.storyName?`<span style="font-size:14px;color:#8b949e;margin-left:12px">· ${esc(_c.storyName)}</span>`:''}
+            ${_c.decommissioned?'<span style="background:#3d1a1a;color:#f85149;font-size:10px;font-weight:800;padding:2px 8px;border-radius:3px;margin-left:10px;letter-spacing:.5px">DECOM</span>':''}
+          </div>
+          <button id="cem-close" class="btn" style="font-size:13px;padding:6px 16px;flex-shrink:0">✕ Close</button>
+        </div>
+        <div style="overflow-y:auto;flex:1;padding:24px;display:flex;flex-direction:column;gap:28px">
+
+          <!-- Crew -->
+          <div>
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:12px">Crew</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div>
+                <div style="font-size:11px;color:#8b949e;margin-bottom:5px;font-weight:600">DOP</div>
+                ${_ci('cem-dop','dop','Director of Photography')}
+              </div>
+              <div>
+                <div style="font-size:11px;color:#8b949e;margin-bottom:5px;font-weight:600">Camera Assistant</div>
+                ${_ci('cem-ca','ca','Camera Assistant')}
+              </div>
+              <div>
+                <div style="font-size:11px;color:#8b949e;margin-bottom:5px;font-weight:600">Editor</div>
+                ${_ci('cem-editor','editor','Editor')}
+              </div>
+              <div>
+                <div style="font-size:11px;color:#8b949e;margin-bottom:5px;font-weight:600">AFM Op</div>
+                ${_ci('cem-afm','afm','AFM Operator')}
+              </div>
+            </div>
+          </div>
+
+          <!-- Deliverables -->
+          <div>
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:12px">Deliverables</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
+              ${_delHtml}
+            </div>
+          </div>
+
+          <!-- Payment -->
+          <div>
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:12px">Payment</div>
+            <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+              <label style="display:flex;align-items:center;gap:10px;cursor:${_paidDisabled?'default':'pointer'}">
+                <input type="checkbox" id="cem-paid" ${_paidChecked?'checked':''} ${_paidDisabled?'disabled':''} style="width:18px;height:18px;accent-color:#388bfd;cursor:${_paidDisabled?'default':'pointer'}">
+                <span style="font-size:15px;color:${_paidChecked?'#58a6ff':'#8b949e'};font-weight:${_paidChecked?'700':'400'}">Approved for Payment</span>
+              </label>
+              <div style="display:flex;flex-direction:column;gap:5px">
+                <div style="font-size:11px;color:#8b949e;font-weight:600">Insert Cost</div>
+                <input id="cem-insert-cost" value="${esc(_c.totalInsertCost||'')}" placeholder="R 0.00" ${_insertDisabled?'disabled':''} style="width:140px;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#3fb950;font-size:15px;padding:10px 12px;outline:none;font-family:inherit${_insertDisabled?';opacity:.45':''}">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:5px">
+                <div style="font-size:11px;color:#8b949e;font-weight:600">Episode Allocation</div>
+                <select id="cem-episode" ${_epDisabled?'disabled':''} style="background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#e3b341;font-size:15px;padding:10px 12px;outline:none;font-family:inherit;cursor:${_epDisabled?'default':'pointer'}${_epDisabled?';opacity:.45':''}">
+                  <option value="">— None —</option>
+                  ${_epOpts}
+                  ${_nextOpt}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Decommission -->
+          <div>
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:12px">Decommission</div>
+            ${_decomSection}
+          </div>
+
+        </div>
+        <div style="padding:16px 24px;border-top:1px solid #2e3a50;display:flex;justify-content:flex-end;gap:12px;flex-shrink:0">
+          <button id="cem-close-2" class="btn" style="font-size:14px;padding:8px 22px">Close</button>
+          <button id="cem-save" class="btn primary" style="font-size:14px;padding:8px 28px;font-weight:800">💾 Save Changes</button>
+        </div>
+      </div></div>`;
+    }
+  }
   return out;
 }
 
@@ -6074,6 +6178,7 @@ function bindApp(){
     row.querySelector('[data-decom]')?.addEventListener('click',()=>{decomModal=id;decomText=comms.find(c=>c.id===id)?.decommissionMotivation||'';render();});
     row.querySelector('[data-delete-comm]')?.addEventListener('click',()=>deleteComm(id));
     row.querySelector('[data-undo]')?.addEventListener('click',()=>{updateComm(id,'decommissioned',false);updateComm(id,'decommissionMotivation','');});
+    row.querySelector('.comm-edit-btn')?.addEventListener('click',()=>{commEditModal=id;render();});
   });
 
   document.querySelectorAll('[data-ep-date]').forEach(el=>el.addEventListener('click',()=>{
@@ -6127,6 +6232,46 @@ function bindApp(){
   document.getElementById('decom-cancel')?.addEventListener('click',()=>{decomModal=null;render();});
   document.getElementById('decom-overlay')?.addEventListener('click',e=>{if(e.target.id==='decom-overlay'){decomModal=null;render();}});
   document.getElementById('decom-confirm')?.addEventListener('click',()=>{const txt=document.getElementById('decom-text').value.trim();if(!txt){showToast('A motivation is required.',true);return;}updateComm(decomModal,'decommissioned',true);updateComm(decomModal,'decommissionMotivation',txt);decomModal=null;render();});
+
+  // Edit Commission modal handlers
+  const _cemClose=()=>{commEditModal=null;render();};
+  document.getElementById('cem-close')?.addEventListener('click',_cemClose);
+  document.getElementById('cem-close-2')?.addEventListener('click',_cemClose);
+  document.getElementById('cem-overlay')?.addEventListener('click',e=>{if(e.target.id==='cem-overlay')_cemClose();});
+  document.getElementById('cem-decom-trigger')?.addEventListener('click',()=>{if(commEditModal===null)return;decomModal=commEditModal;decomText=comms.find(c=>c.id===commEditModal)?.decommissionMotivation||document.getElementById('cem-motivation')?.value||'';commEditModal=null;render();});
+  document.getElementById('cem-undo-decom')?.addEventListener('click',()=>{if(commEditModal===null)return;const id=commEditModal;updateComm(id,'decommissioned',false);updateComm(id,'decommissionMotivation','');commEditModal=null;render();});
+  document.getElementById('cem-delete-comm')?.addEventListener('click',()=>{if(commEditModal===null)return;const id=commEditModal;commEditModal=null;deleteComm(id);});
+  document.getElementById('cem-save')?.addEventListener('click',()=>{
+    if(commEditModal===null)return;
+    const id=commEditModal;
+    const c=comms.find(x=>x.id===id);
+    if(!c)return;
+    const role=getEffectiveRole();
+    // Crew
+    ['dop','ca','editor','afm'].forEach(f=>{
+      if(canEdit(role,f)){const el=document.getElementById('cem-'+f);if(el)updateComm(id,f,el.value.trim());}
+    });
+    // Deliverables
+    let anyDelChanged=false;
+    DEL_KEYS.forEach(k=>{
+      if(canEdit(role,k)){
+        const el=document.getElementById('cem-del-'+k);
+        if(el){const newVal=el.checked;if(newVal!==!!c[k]){updateComm(id,k,newVal);anyDelChanged=true;}}
+      }
+    });
+    // Payment
+    if(canEdit(role,'approvedForPayment')&&!c.isInHouse){const el=document.getElementById('cem-paid');if(el)updateComm(id,'approvedForPayment',el.checked);}
+    if(role==='admin'||role==='deputyadmin'){const el=document.getElementById('cem-insert-cost');if(el)updateComm(id,'totalInsertCost',el.value.trim());}
+    if(role==='admin'){const el=document.getElementById('cem-episode');if(el)assignEpisode(id,el.value);}
+    // Motivation (always editable per canEdit)
+    {const el=document.getElementById('cem-motivation');if(el&&canEdit(role,'decommissionMotivation'))updateComm(id,'decommissionMotivation',el.value.trim());}
+    // allDel notification for Super Admin
+    if(anyDelChanged&&currentRole==='admin'){
+      const updated=comms.find(x=>x.id===id);
+      if(updated&&allDel(updated)){showToast(`✓ All deliverables complete — ${updated.storyName||'Comm '+updated.commNum}`);}
+    }
+    commEditModal=null;render();
+  });
   document.getElementById('ep-cancel')?.addEventListener('click',()=>{addEpModal=false;render();});
   document.getElementById('ep-overlay')?.addEventListener('click',e=>{if(e.target.id==='ep-overlay'){addEpModal=false;render();}});
   document.getElementById('new-ep-num')?.addEventListener('input',e=>{newEpNum=e.target.value;render();});
