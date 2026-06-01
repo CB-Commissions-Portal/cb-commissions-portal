@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.104';
+const BUILD_VERSION='3.10.105';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1459,7 +1459,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='postprod'&&['admin','deputyadmin','operations'].includes(role))return renderPostProd();
   if(tab==='deliverables'&&['admin','deputyadmin'].includes(currentRole)&&!previewRole)return renderDeliverables(epNums);
   if(tab==='lineups'&&['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role))return renderLineups(epNums);
-  if(tab==='ros'&&['admin','deputyadmin','editorial'].includes(role))return renderRunOfShow();
+  if(tab==='ros'&&['admin','deputyadmin','editorial','content'].includes(role))return renderRunOfShow();
   if(tab==='broadcast'&&role!=='afm')return renderBroadcastList();
   if(tab==='contracts'&&currentRole==='admin'&&!previewRole)return renderContracts();
   if(tab==='admin'&&currentRole==='admin'&&!previewRole)return renderAdmin();
@@ -4113,6 +4113,7 @@ function rosNewItem(key){
 
 function renderRunOfShow(){
   const canEdit=['admin','deputyadmin','editorial'].includes(getEffectiveRole());
+  const canEditScriptOnly=getEffectiveRole()==='content';
   const epNums=getEpNums().sort((a,b)=>a-b);
 
   // Episode picker
@@ -4213,7 +4214,7 @@ function renderRunOfShow(){
         <span class="ros-epdur" data-idx="${i}" style="font-size:${i===0?'26px':'20px'};font-family:monospace;color:${i===0?'#c084fc':epDurSecs?'#79c0ff':'#333'};font-weight:${i===0?'900':'400'}">${epDurSecs?rosSecsToStr(epDurSecs):'—'}</span>
       </td>
       <td style="padding:18px 20px;vertical-align:middle;width:150px;text-align:center">
-        ${canEdit?`<button class="ros-edit-btn btn" data-idx="${i}" style="font-size:14px;padding:12px 18px;border-color:#388bfd;color:#58a6ff;width:100%;font-weight:700;letter-spacing:.3px">✎ EDIT ITEM</button>`:''}
+        ${(canEdit||canEditScriptOnly)?`<button class="ros-edit-btn btn" data-idx="${i}" style="font-size:14px;padding:12px 18px;border-color:#388bfd;color:#58a6ff;width:100%;font-weight:700;letter-spacing:.3px">✎ EDIT ITEM</button>`:''}
       </td>
     </tr>`;
   }).join('');
@@ -4267,7 +4268,7 @@ function renderRunOfShow(){
       </div>
     </div>
     <!-- Right sidebar: Add Item -->
-    ${canEdit?`<div style="width:280px;flex-shrink:0;background:#161b22;border-left:2px solid #21262d;display:flex;flex-direction:column;overflow-y:auto">
+    ${canEdit&&!canEditScriptOnly?`<div style="width:280px;flex-shrink:0;background:#161b22;border-left:2px solid #21262d;display:flex;flex-direction:column;overflow-y:auto">
       <div style="padding:18px 18px 10px;font-size:14px;font-weight:800;color:#eaf0ff;border-bottom:1px solid #21262d;letter-spacing:.3px">+ Add Item</div>
       <div style="padding:14px 18px;display:flex;flex-direction:column;gap:12px">
         <select id="ros-type-sel" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:12px 14px;border-radius:6px;font-size:14px">
@@ -5509,7 +5510,7 @@ function renderAdmin(){
   </div>
   <div class="admin-card">
     <h4>Role Permissions</h4>
-    ${Object.entries(ROLE_META).map(([k,v])=>`<div class="perm-row"><span class="u-role-badge" style="background:${v.bg};color:${v.color};padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700;white-space:nowrap">${v.label}</span><div class="perm-desc">${k==='admin'?'Full access — edit everything, create users, change roles.':k==='deputyadmin'?'Full edit access across all tabs. No Contracts. Cannot create users or change roles. Has ticker.':k==='editorial'?'Has ticker. Commission List: delivery date only. Full edit: Line-Ups, Run of Show, Presenter Calendar. View: Episode Register, Post Production, Promo Scheduling. Search: Broadcast List. No access: Deliverables, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script, Contracts.':k==='operations'?'Has ticker. Commission List: crew editing only. Full edit: Post Production, Call Sheet, End Credits, Studio Crew, Presenter Calendar. View: Line-Ups, Run of Show, Episode Register, Promo Scheduling, Music Cue Sheets. Search: Broadcast List. No access: Deliverables, Studio Script, Contracts.':k==='production'?'Has ticker. Commission List: deliverable checkboxes only. Full edit: Call Sheet, Studio Script, Presenter Calendar. View: Line-Ups, Episode Register, Post Production, Music Cue Sheets. Search: Broadcast List. No access: Run of Show, Deliverables, Promo Scheduling, End Credits, Studio Crew, Contracts.':k==='prodmgmt'?'Has ticker. Commission List: view only. Full edit: Call Sheet, Studio Script, Presenter Calendar. View: Line-Ups, Episode Register, Post Production. Promo Scheduling: pull promo tick only. Search: Broadcast List. No access: Run of Show, Deliverables, Music Cue Sheets, End Credits, Studio Crew, Contracts.':k==='afm'?'Music Cue Sheets only.':k==='capstaff'?'Has ticker. View only: Commission List, Line-Ups, Episode Register, Post Production. Search: Broadcast List. CAP Leave: full access. No access: Run of Show, Deliverables, Promo Scheduling, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script, Presenter Calendar, Contracts.':k==='content'?'Has ticker. View only: Commission List, Line-Ups, Run of Show, Episode Register, Post Production, Presenter Calendar. Search: Broadcast List. No access: Deliverables, Promo Scheduling, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script, Contracts.':k==='finance'?'Has ticker. View-only access to all tabs including Contracts. No edit rights.':''}</div></div>`).join('')}
+    ${Object.entries(ROLE_META).map(([k,v])=>`<div class="perm-row"><span class="u-role-badge" style="background:${v.bg};color:${v.color};padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700;white-space:nowrap">${v.label}</span><div class="perm-desc">${k==='admin'?'Full access — edit everything, create users, change roles.':k==='deputyadmin'?'Full edit access across all tabs. No Contracts. Cannot create users or change roles. Has ticker.':k==='editorial'?'Has ticker. Commission List: delivery date only. Full edit: Line-Ups, Run of Show, Presenter Calendar. View: Episode Register, Post Production, Promo Scheduling. Search: Broadcast List. No access: Deliverables, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script, Contracts.':k==='operations'?'Has ticker. Commission List: crew editing only. Full edit: Post Production, Call Sheet, End Credits, Studio Crew, Presenter Calendar. View: Line-Ups, Run of Show, Episode Register, Promo Scheduling, Music Cue Sheets. Search: Broadcast List. No access: Deliverables, Studio Script, Contracts.':k==='production'?'Has ticker. Commission List: deliverable checkboxes only. Full edit: Call Sheet, Studio Script, Presenter Calendar. View: Line-Ups, Episode Register, Post Production, Music Cue Sheets. Search: Broadcast List. No access: Run of Show, Deliverables, Promo Scheduling, End Credits, Studio Crew, Contracts.':k==='prodmgmt'?'Has ticker. Commission List: view only. Full edit: Call Sheet, Studio Script, Presenter Calendar. View: Line-Ups, Episode Register, Post Production. Promo Scheduling: pull promo tick only. Search: Broadcast List. No access: Run of Show, Deliverables, Music Cue Sheets, End Credits, Studio Crew, Contracts.':k==='afm'?'Music Cue Sheets only.':k==='capstaff'?'Has ticker. View only: Commission List, Line-Ups, Episode Register, Post Production. Search: Broadcast List. CAP Leave: full access. No access: Run of Show, Deliverables, Promo Scheduling, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script, Presenter Calendar, Contracts.':k==='content'?'Has ticker. View only: Commission List, Line-Ups, Episode Register, Post Production, Presenter Calendar. Search: Broadcast List. Run of Show: can open EDIT ITEM and edit scripts only — cannot change slugs, sound, out words, durations, or item order. No access: Deliverables, Promo Scheduling, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script, Contracts.':k==='finance'?'Has ticker. View-only access to all tabs including Contracts. No edit rights.':''}</div></div>`).join('')}
   </div>
   </div>
   ${deleteUserModal?`<div class="modal-overlay" id="delete-user-overlay"><div class="modal">
@@ -5550,6 +5551,7 @@ function renderModals(epNums,nextEp){
       </div>`;
     }).join('');
     const _soundOpts=["","A","B","C","D","COLD START","CLEAN","GENERIC","A+ COLD START CONT'D","B+ COLD START CONT'D","C+ COLD START CONT'D","D+ COLD START CONT'D","VOICE+ COLD START CONT'D"];
+    const _editFullAccess=getEffectiveRole()!=='content';
     out+=`<div class="modal-overlay" id="ros-edit-overlay"><div class="modal" style="width:min(860px,96vw);max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
       <div style="padding:20px 24px;border-bottom:1px solid #2e3a50;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
         <div>
@@ -5569,6 +5571,7 @@ function renderModals(epNums,nextEp){
             &nbsp;&nbsp;<span id="ros-edit-sc-d3" style="color:#56d364;font-weight:700">${_wc} ÷ 3 = ${_div3}</span>
           </div>
         </div>`:''}
+        ${_editFullAccess?`
         <div>
           <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:10px">Slugs</div>
           ${_slugRows}
@@ -5583,7 +5586,8 @@ function renderModals(epNums,nextEp){
         <div>
           <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#e3b341;margin-bottom:10px;text-decoration:underline">Out Words</div>
           <input id="ros-edit-out-words" value="${esc(_ei.outWords||'')}" placeholder="Enter out words…" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:16px;padding:10px 14px;outline:none;font-family:inherit;box-sizing:border-box">
-        </div>`:''}
+        </div>`:''}`:
+        `<div style="font-size:13px;color:#484f58;font-style:italic">Script editing only — other fields are managed by the editorial team.</div>`}
       </div>
       <div style="padding:16px 24px;border-top:1px solid #2e3a50;display:flex;justify-content:flex-end;flex-shrink:0">
         <button id="ros-edit-save" class="btn primary" style="font-size:15px;padding:12px 32px;font-weight:800">Save Changes</button>
@@ -8728,11 +8732,14 @@ document.addEventListener('click',function rosHandler(e){
       // script
       const _ta=document.getElementById('ros-edit-script-ta');
       if(_ta) it.script=_ta.value;
-      // slugs + sources
-      const _newSlugs=[];const _newSrcs=[];
-      document.querySelectorAll('.ros-edit-slug').forEach(inp=>{_newSlugs[Number(inp.dataset.sidx)]=inp.value.trim();});
-      document.querySelectorAll('.ros-edit-slug-source').forEach(sel=>{_newSrcs[Number(sel.dataset.sidx)]=sel.value;});
-      it.slugs=_newSlugs;it.slug=_newSlugs[0]||'';it.slugSources=_newSrcs;
+      // slugs + sources (only overwrite if slug inputs are actually rendered)
+      const _slugInps=document.querySelectorAll('.ros-edit-slug');
+      if(_slugInps.length>0){
+        const _newSlugs=[];const _newSrcs=[];
+        _slugInps.forEach(inp=>{_newSlugs[Number(inp.dataset.sidx)]=inp.value.trim();});
+        document.querySelectorAll('.ros-edit-slug-source').forEach(sel=>{_newSrcs[Number(sel.dataset.sidx)]=sel.value;});
+        it.slugs=_newSlugs;it.slug=_newSlugs[0]||'';it.slugSources=_newSrcs;
+      }
       // sound
       const _sd=document.getElementById('ros-edit-sound');
       if(_sd) it.sound=_sd.value;
