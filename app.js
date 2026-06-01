@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.121';
+const BUILD_VERSION='3.10.122';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1964,6 +1964,7 @@ const LEAVE_POLICY={
       'Leave pay is calculated at the employee\'s normal rate of remuneration.',
       'A minimum of 2 consecutive weeks must be granted on request.',
       'Annual leave may not be substituted for a cash payment, except upon termination of employment.',
+      'A period of 11 days\' forced annual leave shall be taken during the annual production shutdown in December. The specific dates of the shutdown period will be communicated to all staff in advance.',
     ]
   },
   sick:{
@@ -1974,6 +1975,7 @@ const LEAVE_POLICY={
       'A medical certificate is also required for absences on a Monday, Friday, or day adjacent to a public holiday.',
       'Unused sick leave does not accumulate or carry over beyond the 3-year cycle.',
       'Sick leave taken in the first 6 months is deducted from the full 30-day entitlement once it accrues.',
+      'The current 3-year sick leave cycle commenced on 1 January 2026.',
     ]
   },
   family:{
@@ -1987,13 +1989,12 @@ const LEAVE_POLICY={
     ]
   },
   editorial:{
-    entitlement:'As specified in the individual employment contract',
-    accrual:'Granted at management discretion, subject to operational requirements',
+    entitlement:'One day per calendar month — non-accumulative',
+    accrual:'One day credited at the start of each calendar month; unused days lapse at month end',
     notes:[
-      'Applicable to editorial and production staff for industry-specific activities.',
+      'Applicable to editorial staff only.',
+      'Editorial leave is limited to one day per calendar month and may not be carried over to the following month.',
       'Must be applied for at least 5 working days in advance.',
-      'Approval is subject to broadcast schedule and project deadlines.',
-      'Documentation of the activity may be required upon return.',
     ]
   },
   study:{
