@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.99';
+const BUILD_VERSION='3.10.100';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -5551,7 +5551,9 @@ function renderModals(epNums,nextEp){
   if(rosScriptModal){
     const {epNum,itemIdx}=rosScriptModal;
     const _item=(rosData[String(epNum)]?.items||[])[itemIdx]||{};
-    const _wc=_item.script&&_item.script.trim()?_item.script.trim().split(/\s+/).length:0;
+    const _isCue=l=>/^[^:]+:\s*$/.test(l.trim());
+    const _scriptWords=(_item.script||'').split('\n').filter(l=>!_isCue(l)).join(' ').trim();
+    const _wc=_scriptWords?_scriptWords.split(/\s+/).length:0;
     const _div3=(_wc/3).toFixed(1);
     out+=`<div class="modal-overlay" id="ros-script-overlay"><div class="modal" style="width:760px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;gap:0">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
@@ -5561,7 +5563,7 @@ function renderModals(epNums,nextEp){
         </div>
         <button id="ros-script-close" class="btn" style="font-size:12px;padding:4px 12px;flex-shrink:0;margin-left:16px">✕ Close</button>
       </div>
-      <textarea id="ros-script-ta" style="flex:1;min-height:340px;width:100%;background:#161b27;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:15px;line-height:1.75;padding:14px 16px;outline:none;resize:vertical;font-family:inherit" placeholder="Enter presenter script…" oninput="(function(ta){const w=ta.value.trim()===''?0:ta.value.trim().split(/\\s+/).length;document.getElementById('ros-sc-wc').textContent=w;document.getElementById('ros-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${esc(_item.script||'')}</textarea>
+      <textarea id="ros-script-ta" style="flex:1;min-height:340px;width:100%;background:#161b27;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:15px;line-height:1.75;padding:14px 16px;outline:none;resize:vertical;font-family:inherit" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*$/.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-sc-wc').textContent=w;document.getElementById('ros-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${esc(_item.script||'')}</textarea>
       <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div style="font-size:13px;color:#8b949e;line-height:1.8">
           <div>Total words: <strong id="ros-sc-wc" style="color:#79c0ff;font-size:15px">${_wc}</strong></div>
@@ -8407,7 +8409,13 @@ function rosExportWord(){
     if(item.content) desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
     if(item.type==='insert'&&item.outWords) desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
     if(['live','coldstart','upnext'].includes(item.type)&&item.script){
-      item.script.split('\n').forEach(line=>{desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');});
+      item.script.split('\n').forEach(line=>{
+        if(/^[^:]+:\s*$/.test(line.trim())){
+          desc+=_p(`<u><b>${escHtml(line.trim())}</b></u>`,'color:#000');
+        } else {
+          desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');
+        }
+      });
     }
     const _rowBg=['fixed','insert','coldstart','upnext','break'].includes(item.type)?'background:#D9D9D9;':'' ;
     return`<tr style="${_rowBg}">
