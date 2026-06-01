@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.115';
+const BUILD_VERSION='3.10.116';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -8641,7 +8641,8 @@ function rosExportWord(preview=false){
     const _br=_p('&nbsp;');
     return`<tr style="${_rowBg}">
       <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%;${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
-      <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;${_rowBg}">${_br}${slugCell}</td>
+      <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;${_rowBg}">${_br}${slugCell}${item.directorNotes?_p('&nbsp;')+_p('<u><b>DIRECTOR\'S NOTES:</b></u>','color:#000;font-size:9pt')+item.directorNotes.split('\n').map(l=>_p(escHtml(l)||'&nbsp;','font-weight:normal;color:#555;font-style:italic;font-size:9pt')).join(''):''}
+      </td>
       <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%;${_rowBg}">${_br}${_p(escHtml(item.sound||''),'font-weight:bold')}</td>
       <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%;${_rowBg}">${_br}${desc}</td>
       <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:7%;${_rowBg}">${_br}${_p(escHtml(_durMmSs(item.duration)),'font-family:monospace;text-align:center')}</td>
