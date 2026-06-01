@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.97';
+const BUILD_VERSION='3.10.98';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -8409,12 +8409,13 @@ function rosExportWord(){
     if(['live','coldstart','upnext'].includes(item.type)&&item.script){
       item.script.split('\n').forEach(line=>{desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');});
     }
-    return`<tr>
-      <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%">${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
-      <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%">${slugCell}</td>
-      <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%">${_p(escHtml(item.sound||''),'font-weight:bold')}</td>
-      <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%">${desc}</td>
-      <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:7%">${_p('&nbsp;')}</td>
+    const _rowBg=['fixed','insert','coldstart','upnext','break'].includes(item.type)?'background:#D9D9D9;':'' ;
+    return`<tr style="${_rowBg}">
+      <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%;${_rowBg}">${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
+      <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;${_rowBg}">${slugCell}</td>
+      <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%;${_rowBg}">${_p(escHtml(item.sound||''),'font-weight:bold')}</td>
+      <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%;${_rowBg}">${desc}</td>
+      <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:7%;${_rowBg}">${_p('&nbsp;')}</td>
     </tr>`;
   }).join('');
 
