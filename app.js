@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.118';
+const BUILD_VERSION='3.10.119';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1939,6 +1939,13 @@ function countWorkingDays(startStr,endStr){
   }
   return count;
 }
+function countCalendarDays(startStr,endStr){
+  if(!startStr||!endStr)return 0;
+  const start=new Date(startStr+'T00:00:00Z');
+  const end=new Date(endStr+'T00:00:00Z');
+  if(end<start)return 0;
+  return Math.floor((end-start)/(1000*60*60*24))+1;
+}
 
 const LEAVE_TYPES=[
   {key:'annual',    label:'Annual Leave',              color:'#388bfd', deductsBalance:true},
@@ -2036,7 +2043,7 @@ function renderLeave(){
     const myBal=leaveBalances[uid]||{};
     const balCards=LEAVE_TYPES.filter(t=>t.deductsBalance).map(t=>{
       const total=myBal[t.key]??21;
-      const used=myRequests.filter(([,r])=>r.leaveType===t.key&&r.status==='approved').reduce((s,[,r])=>s+countWorkingDays(r.startDate,r.endDate),0);
+      const used=myRequests.filter(([,r])=>r.leaveType===t.key&&r.status==='approved').reduce((s,[,r])=>s+countCalendarDays(r.startDate,r.endDate),0);
       const remaining=Math.max(0,total-used);
       const pct=total>0?Math.round((remaining/total)*100):0;
       return`<div style="background:#161b22;border:1px solid #21262d;border-radius:10px;padding:14px 16px;min-width:150px;flex:1">
@@ -2050,7 +2057,7 @@ function renderLeave(){
     }).join('');
     const showForm=leaveFormOpen;
     const fd=leaveDraft;
-    const days=fd.startDate&&fd.endDate?countWorkingDays(fd.startDate,fd.endDate):0;
+    const days=fd.startDate&&fd.endDate?countCalendarDays(fd.startDate,fd.endDate):0;
     const form=showForm?`<div class="ep-card" style="margin-bottom:16px">
       <div class="ep-head" style="display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:14px;font-weight:800;color:#eaf0ff">New Leave Application</span>
@@ -2092,7 +2099,7 @@ function renderLeave(){
     </div>`:'';
     const history=myRequests.map(([id,r])=>{
       const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5];
-      const d=countWorkingDays(r.startDate,r.endDate);
+      const d=countCalendarDays(r.startDate,r.endDate);
       const sc=r.status==='approved'?'#3fb950':r.status==='declined'?'#f85149':'#e3b341';
       return`<div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px 16px;margin-bottom:8px">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
@@ -2145,7 +2152,7 @@ function renderLeave(){
   const declined=Object.entries(leaveRequests).filter(([,r])=>r.status==='declined').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
   function reqCard([id,r],showActions){
     const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5];
-    const d=countWorkingDays(r.startDate,r.endDate);
+    const d=countCalendarDays(r.startDate,r.endDate);
     const sc=r.status==='approved'?'#3fb950':r.status==='declined'?'#f85149':'#e3b341';
     const nm=getLeaveName(r);
     return`<div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:14px 16px;margin-bottom:8px">
@@ -2154,7 +2161,7 @@ function renderLeave(){
           <div style="background:${lt.color}22;color:${lt.color};padding:3px 10px;border-radius:4px;font-size:10px;font-weight:800;text-transform:uppercase">${lt.label}</div>
           <div>
             <div style="font-size:13px;font-weight:700;color:#eaf0ff;text-align:left">${esc(nm)}</div>
-            <div style="font-size:11px;color:#6e7681;margin-top:1px;text-align:left">${r.startDate} → ${r.endDate} &nbsp;·&nbsp; <strong style="color:#eaf0ff">${d} working day${d!==1?'s':''}</strong></div>
+            <div style="font-size:11px;color:#6e7681;margin-top:1px;text-align:left">${r.startDate} → ${r.endDate} &nbsp;·&nbsp; <strong style="color:#eaf0ff">${d} day${d!==1?'s':''}</strong></div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -2230,7 +2237,7 @@ async function exportLeaveWeekXLSX(weekStart){
   overlapping.forEach(r=>{
     const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5];
     const nm=getLeaveName(r);
-    const wd=countWorkingDays(r.startDate,r.endDate);
+    const wd=countCalendarDays(r.startDate,r.endDate);
     const dayCells=weekDays.map(d=>(d>=r.startDate&&d<=r.endDate)?lt.label:'');
     rows.push([nm,lt.label,r.startDate,r.endDate,wd,r.status,...dayCells]);
   });
@@ -2266,7 +2273,7 @@ function renderLeaveReviewModal(){
   const r=leaveRequests[id];
   if(!r)return '';
   const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5];
-  const days=countWorkingDays(r.startDate,r.endDate);
+  const days=countCalendarDays(r.startDate,r.endDate);
   const nm=getLeaveName(r);
   return`<div class="modal-overlay" id="lv-review-overlay">
     <div class="modal" style="max-width:460px">
@@ -2274,7 +2281,7 @@ function renderLeaveReviewModal(){
         <div style="background:${lt.color}22;color:${lt.color};padding:4px 12px;border-radius:5px;font-size:11px;font-weight:800;text-transform:uppercase">${lt.label}</div>
         <div>
           <div style="font-size:15px;font-weight:800;color:#eaf0ff">${esc(nm)}</div>
-          <div style="font-size:11px;color:#6e7681;margin-top:2px">${r.startDate} → ${r.endDate} &nbsp;·&nbsp; <strong style="color:#eaf0ff">${days} working day${days!==1?'s':''}</strong></div>
+          <div style="font-size:11px;color:#6e7681;margin-top:2px">${r.startDate} → ${r.endDate} &nbsp;·&nbsp; <strong style="color:#eaf0ff">${days} day${days!==1?'s':''}</strong></div>
         </div>
       </div>
       ${r.reason?`<div style="background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:10px 12px;margin-bottom:16px">
@@ -6784,15 +6791,15 @@ function bindApp(){
     const reason=document.getElementById('leave-reason')?.value||leaveDraft.reason;
     if(!startDate||!endDate){showToast('Please select start and end dates.',true);return;}
     if(new Date(endDate)<new Date(startDate)){showToast('End date must be after start date.',true);return;}
-    const days=countWorkingDays(startDate,endDate);
-    if(days===0){showToast('No working days in selected range.',true);return;}
+    const days=countCalendarDays(startDate,endDate);
+    if(days===0){showToast('End date must be on or after start date.',true);return;}
     // Check balance
     const lt=LEAVE_TYPES.find(t=>t.key===leaveType);
     if(lt?.deductsBalance){
       const uid=currentUser.uid;
       const bal=leaveBalances[uid]||{};
       const total=bal[leaveType]??21;
-      const used=Object.values(leaveRequests).filter(r=>r.uid===uid&&r.leaveType===leaveType&&r.status==='approved').reduce((s,r)=>s+countWorkingDays(r.startDate,r.endDate),0);
+      const used=Object.values(leaveRequests).filter(r=>r.uid===uid&&r.leaveType===leaveType&&r.status==='approved').reduce((s,r)=>s+countCalendarDays(r.startDate,r.endDate),0);
       const remaining=total-used;
       if(days>remaining){
         if(!confirm(`You have ${remaining} days remaining for ${lt.label}. This request is for ${days} days. Submit anyway?`))return;
