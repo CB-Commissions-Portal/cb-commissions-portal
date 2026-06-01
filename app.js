@@ -7,7 +7,7 @@ const ADMIN_EMAIL='rudi@combinedartists.co.za';
 function getCfg(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||null;}catch{return null;}}
 function saveCfg(c){localStorage.setItem(STORAGE_KEY,JSON.stringify(c));}
 
-const ROLE_META={admin:{label:'Super Admin',color:'#58a6ff',bg:'rgba(88,166,255,.12)'},deputyadmin:{label:'Admin',color:'#a5b4fc',bg:'rgba(165,180,252,.12)'},editorial:{label:'Editorial',color:'#3fb950',bg:'rgba(63,185,80,.12)'},operations:{label:'Operations',color:'#d29922',bg:'rgba(210,153,34,.12)'},production:{label:'Production',color:'#bc8cff',bg:'rgba(188,140,255,.12)'},afm:{label:'AFM Operator',color:'#f7768e',bg:'rgba(247,118,142,.12)'},prodmgmt:{label:'Production Mgmt',color:'#fb923c',bg:'rgba(251,146,60,.12)'},capstaff:{label:'CAP Staff',color:'#34d399',bg:'rgba(52,211,153,.12)'},content:{label:'Content',color:'#67e8f9',bg:'rgba(103,232,249,.12)'},finance:{label:'Finance',color:'#a3e635',bg:'rgba(163,230,53,.12)'}};
+const ROLE_META={admin:{label:'Super Admin',color:'#58a6ff',bg:'rgba(88,166,255,.12)'},deputyadmin:{label:'Admin',color:'#a5b4fc',bg:'rgba(165,180,252,.12)'},editorial:{label:'Editorial',color:'#3fb950',bg:'rgba(63,185,80,.12)'},operations:{label:'Operations',color:'#d29922',bg:'rgba(210,153,34,.12)'},production:{label:'Production',color:'#bc8cff',bg:'rgba(188,140,255,.12)'},afm:{label:'AFM Operator',color:'#f7768e',bg:'rgba(247,118,142,.12)'},prodmgmt:{label:'Production Mgmt',color:'#fb923c',bg:'rgba(251,146,60,.12)'},capstaff:{label:'CAP Staff',color:'#34d399',bg:'rgba(52,211,153,.12)'},content:{label:'Content',color:'#67e8f9',bg:'rgba(103,232,249,.12)'},finance:{label:'Finance',color:'#a3e635',bg:'rgba(163,230,53,.12)'},director:{label:'Director',color:'#f97316',bg:'rgba(249,115,22,.12)'}};
 const DEL_KEYS=['callSheets','insertScripts','releaseForms','footageAgreement','musicCueSheet','footageDeclaration','carpUpload'];
 const DEL_LABELS=['Call Sheets','Insert Scripts','Release Forms','Footage Agr.','Music Cue','Footage Decl.','CARP Upload'];
 const OPS_ED=['dop','ca','editor','afm'];
@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.113';
+const BUILD_VERSION='3.10.114';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1105,7 +1105,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.5"/><circle cx="3" cy="12" r="1.5"/><circle cx="3" cy="18" r="1.5"/></svg>`,
       color:'#e3b341',
       bg:'rgba(227,179,65,.1)',
-      show: ['admin','deputyadmin','operations','production','prodmgmt','editorial','content','capstaff','finance'].includes(role),
+      show: ['admin','deputyadmin','operations','production','prodmgmt','editorial','content','capstaff','finance','director'].includes(role),
       desc:'Episode line-ups, directors and presenter assignments'
     },
     {
@@ -1115,7 +1115,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
       color:'#c084fc',
       bg:'rgba(192,132,252,.1)',
-      show: ['admin','deputyadmin','editorial','content','operations','finance'].includes(role),
+      show: ['admin','deputyadmin','editorial','content','operations','finance','director'].includes(role),
       desc:'Build the episode studio script with duration calculator'
     },
     {
@@ -1235,7 +1235,7 @@ function renderHome(){
       icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
       color:'#f472b6',
       bg:'rgba(244,114,182,.1)',
-      show:['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance'].includes(role),
+      show:['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance','director'].includes(role),
       desc:'Daily presenter scheduling from 25 May 2026'
     },
     {
@@ -1418,8 +1418,8 @@ function renderApp(){
   <div class="tabs no-print">
     <div class="tab-btn${tab==='home'?' active':''}" data-tab="home" style="font-size:16px;padding:4px 10px" title="Home">⌂</div>
     ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='commissions'?' active':''}" data-tab="commissions">Commission List ${currentSeason}</div>`:''}
-    ${['admin','deputyadmin','operations','production','prodmgmt','editorial','content','capstaff','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='lineups'?' active':''}" data-tab="lineups">Line-Ups</div>`:''}
-    ${['admin','deputyadmin','editorial','content','operations','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='ros'?' active':''}" data-tab="ros">Studio Script Build</div>`:''}
+    ${['admin','deputyadmin','operations','production','prodmgmt','editorial','content','capstaff','finance','director'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='lineups'?' active':''}" data-tab="lineups">Line-Ups</div>`:''}
+    ${['admin','deputyadmin','editorial','content','operations','finance','director'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='ros'?' active':''}" data-tab="ros">Studio Script Build</div>`:''}
     ${['admin','deputyadmin','production','prodmgmt','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='fcc'?' active':''}" data-tab="fcc">Studio Script Cover Page</div>`:''}
     ${getEffectiveRole()!=='afm'?`<div class="tab-btn${tab==='broadcast'?' active':''}" data-tab="broadcast">Broadcast List</div>`:''}
     ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='episodes'?' active':''}" data-tab="episodes">Episode Register</div>`:''}
@@ -1431,7 +1431,7 @@ function renderApp(){
     ${['admin','deputyadmin','operations','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='credits'?' active':''}" data-tab="credits">End Credits</div>`:''}
     ${['admin','deputyadmin','operations','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}
     ${['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studiosched'?' active':''}" data-tab="studiosched">Studio Schedule</div>`:''}
-    ${['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='prescal'?' active':''}" data-tab="prescal">Presenter Calendar</div>`:''}
+    ${['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance','director'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='prescal'?' active':''}" data-tab="prescal">Presenter Calendar</div>`:''}
     ${userHasLeaveAccess()?`<div class="tab-btn${tab==='leave'?' active':''}" data-tab="leave" style="position:relative">CAP Leave${(currentRole==='admin'||currentRole==='deputyadmin')&&!previewRole?(()=>{const n=Object.entries(leaveRequests).filter(([k,r])=>r.status==='pending'&&!seenLeaveIds.has(k)).length;return n>0?`<span style="display:inline-flex;align-items:center;justify-content:center;background:#f85149;color:#fff;border-radius:50%;width:15px;height:15px;font-size:9px;font-weight:900;margin-left:5px;vertical-align:middle">${n}</span>`:''})():''}</div>`:''}
     ${(currentRole==='admin'&&!previewRole)||currentRole==='finance'?`<div class="tab-btn${tab==='contracts'?' active':''}" data-tab="contracts">Contracts</div>`:''}
     ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
@@ -1455,12 +1455,12 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='promos'&&['admin','deputyadmin','operations','prodmgmt','editorial','finance'].includes(role))return renderPromoScheduling(epNums);
   if(tab==='musiccues'&&['admin','deputyadmin','operations','afm','production','finance'].includes(role))return renderMusicCues(epNums);
   if(tab==='fcc'&&['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role))return renderFCC(epNums);
-  if(tab==='prescal'&&['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role))return renderPresenterCalendar();
+  if(tab==='prescal'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','director'].includes(role))return renderPresenterCalendar();
   if(tab==='leave'&&userHasLeaveAccess())return renderLeave();
   if(tab==='postprod'&&['admin','deputyadmin','operations'].includes(role))return renderPostProd();
   if(tab==='deliverables'&&['admin','deputyadmin'].includes(currentRole)&&!previewRole)return renderDeliverables(epNums);
-  if(tab==='lineups'&&['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role))return renderLineups(epNums);
-  if(tab==='ros'&&['admin','deputyadmin','editorial','content'].includes(role))return renderRunOfShow();
+  if(tab==='lineups'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','director'].includes(role))return renderLineups(epNums);
+  if(tab==='ros'&&['admin','deputyadmin','editorial','content','director'].includes(role))return renderRunOfShow();
   if(tab==='broadcast'&&role!=='afm')return renderBroadcastList();
   if(tab==='contracts'&&currentRole==='admin'&&!previewRole)return renderContracts();
   if(tab==='admin'&&currentRole==='admin'&&!previewRole)return renderAdmin();
@@ -4098,6 +4098,7 @@ function rosNewItem(key){
 function renderRunOfShow(){
   const canEdit=['admin','deputyadmin','editorial'].includes(getEffectiveRole());
   const canEditScriptOnly=getEffectiveRole()==='content';
+  const canEditDirectorNotes=['admin','director'].includes(getEffectiveRole());
   const epNums=getEpNums().sort((a,b)=>a-b);
 
   // Episode picker
@@ -4198,7 +4199,7 @@ function renderRunOfShow(){
         <span class="ros-epdur" data-idx="${i}" style="font-size:${i===0?'26px':'20px'};font-family:monospace;color:${i===0?'#c084fc':epDurSecs?'#79c0ff':'#333'};font-weight:${i===0?'900':'400'}">${epDurSecs?rosSecsToStr(epDurSecs):'—'}</span>
       </td>
       <td style="padding:18px 20px;vertical-align:middle;width:150px;text-align:center">
-        ${(canEdit||canEditScriptOnly)?`<button class="ros-edit-btn btn" data-idx="${i}" style="font-size:14px;padding:12px 18px;border-color:#388bfd;color:#58a6ff;width:100%;font-weight:700;letter-spacing:.3px">✎ EDIT ITEM</button>`:''}
+        ${(canEdit||canEditScriptOnly||canEditDirectorNotes)?`<button class="ros-edit-btn btn" data-idx="${i}" style="font-size:14px;padding:12px 18px;border-color:#388bfd;color:#58a6ff;width:100%;font-weight:700;letter-spacing:.3px">✎ EDIT ITEM</button>`:''}
       </td>
     </tr>`;
   }).join('');
@@ -5495,7 +5496,7 @@ function renderAdmin(){
   </div>
   <div class="admin-card">
     <h4>Role Permissions</h4>
-    ${Object.entries(ROLE_META).map(([k,v])=>`<div class="perm-row"><span class="u-role-badge" style="background:${v.bg};color:${v.color};padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700;white-space:nowrap">${v.label}</span><div class="perm-desc">${k==='admin'?'Full access — edit everything, create users, change roles.':k==='deputyadmin'?'Full edit access across all tabs. No Contracts. Cannot create users or change roles. Has ticker.':k==='editorial'?'Has ticker. Commission List: delivery date only. Full edit: Line-Ups, Studio Script Build, Presenter Calendar. View: Episode Register, Post Production, Promo Scheduling. Search: Broadcast List. No access: Deliverables, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script Cover Page, Contracts.':k==='operations'?'Has ticker. Commission List: crew editing only. Full edit: Post Production, Call Sheet, End Credits, Studio Crew, Presenter Calendar. View: Line-Ups, Studio Script Build, Episode Register, Promo Scheduling, Music Cue Sheets. Search: Broadcast List. No access: Deliverables, Studio Script, Contracts.':k==='production'?'Has ticker. Commission List: deliverable checkboxes only. Full edit: Call Sheet, Studio Script Cover Page, Presenter Calendar. View: Line-Ups, Episode Register, Post Production, Music Cue Sheets. Search: Broadcast List. No access: Studio Script Build, Deliverables, Promo Scheduling, End Credits, Studio Crew, Contracts.':k==='prodmgmt'?'Has ticker. Commission List: view only. Full edit: Call Sheet, Studio Script Cover Page, Presenter Calendar. View: Line-Ups, Episode Register, Post Production. Promo Scheduling: pull promo tick only. Search: Broadcast List. No access: Studio Script Build, Deliverables, Music Cue Sheets, End Credits, Studio Crew, Contracts.':k==='afm'?'Music Cue Sheets only.':k==='capstaff'?'Has ticker. View only: Commission List, Line-Ups, Episode Register, Post Production. Search: Broadcast List. CAP Leave: full access. No access: Studio Script Build, Deliverables, Promo Scheduling, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script, Presenter Calendar, Contracts.':k==='content'?'Has ticker. View only: Commission List, Line-Ups, Episode Register, Post Production, Presenter Calendar. Search: Broadcast List. Studio Script Build: can open EDIT ITEM and edit scripts only — cannot change slugs, sound, out words, durations, or item order. No access: Deliverables, Promo Scheduling, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script, Contracts.':k==='finance'?'Has ticker. View-only access to all tabs including Contracts. No edit rights.':''}</div></div>`).join('')}
+    ${Object.entries(ROLE_META).map(([k,v])=>`<div class="perm-row"><span class="u-role-badge" style="background:${v.bg};color:${v.color};padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700;white-space:nowrap">${v.label}</span><div class="perm-desc">${k==='admin'?'Full access — edit everything, create users, change roles.':k==='deputyadmin'?'Full edit access across all tabs. No Contracts. Cannot create users or change roles. Has ticker.':k==='editorial'?'Has ticker. Commission List: delivery date only. Full edit: Line-Ups, Studio Script Build, Presenter Calendar. View: Episode Register, Post Production, Promo Scheduling. Search: Broadcast List. No access: Deliverables, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script Cover Page, Contracts.':k==='operations'?'Has ticker. Commission List: crew editing only. Full edit: Post Production, Call Sheet, End Credits, Studio Crew, Presenter Calendar. View: Line-Ups, Studio Script Build, Episode Register, Promo Scheduling, Music Cue Sheets. Search: Broadcast List. No access: Deliverables, Studio Script, Contracts.':k==='production'?'Has ticker. Commission List: deliverable checkboxes only. Full edit: Call Sheet, Studio Script Cover Page, Presenter Calendar. View: Line-Ups, Episode Register, Post Production, Music Cue Sheets. Search: Broadcast List. No access: Studio Script Build, Deliverables, Promo Scheduling, End Credits, Studio Crew, Contracts.':k==='prodmgmt'?'Has ticker. Commission List: view only. Full edit: Call Sheet, Studio Script Cover Page, Presenter Calendar. View: Line-Ups, Episode Register, Post Production. Promo Scheduling: pull promo tick only. Search: Broadcast List. No access: Studio Script Build, Deliverables, Music Cue Sheets, End Credits, Studio Crew, Contracts.':k==='afm'?'Music Cue Sheets only.':k==='capstaff'?'Has ticker. View only: Commission List, Line-Ups, Episode Register, Post Production. Search: Broadcast List. CAP Leave: full access. No access: Studio Script Build, Deliverables, Promo Scheduling, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script, Presenter Calendar, Contracts.':k==='content'?'Has ticker. View only: Commission List, Line-Ups, Episode Register, Post Production, Presenter Calendar. Search: Broadcast List. Studio Script Build: can open EDIT ITEM and edit scripts only — cannot change slugs, sound, out words, durations, or item order. No access: Deliverables, Promo Scheduling, Music Cue Sheets, Call Sheet, End Credits, Studio Crew, Studio Script, Contracts.':k==='finance'?'Has ticker. View-only access to all tabs including Contracts. No edit rights.':k==='director'?'Has ticker. Studio Script Build: can open EDIT ITEM and edit Director\'s Notes only. View: Line-Ups, Presenter Calendar, Broadcast List, Episode Register. No access to other tabs.':''}</div></div>`).join('')}
   </div>
   </div>
   ${deleteUserModal?`<div class="modal-overlay" id="delete-user-overlay"><div class="modal">
@@ -5536,8 +5537,9 @@ function renderModals(epNums,nextEp){
       </div>`;
     }).join('');
     const _soundOpts=["","A","B","C","D","COLD START","CLEAN","GENERIC","A+ COLD START CONT'D","B+ COLD START CONT'D","C+ COLD START CONT'D","D+ COLD START CONT'D","VOICE+ COLD START CONT'D"];
-    const _editFullAccess=getEffectiveRole()!=='content';
-    out+=`<div class="modal-overlay" id="ros-edit-overlay"><div class="modal" style="width:min(860px,96vw);max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+    const _editFullAccess=!['content','director'].includes(getEffectiveRole());
+    const _canDirectorNotes=['admin','director'].includes(getEffectiveRole());
+    out+=`<div class="modal-overlay" id="ros-edit-overlay"><div class="modal" style="width:min(960px,96vw);max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
       <div style="padding:20px 24px;border-bottom:1px solid #2e3a50;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
         <div>
           ${_ts.badge?`<span style="font-size:11px;font-weight:800;background:${_ts.badgeBg};color:${_ts.label};padding:3px 12px;border-radius:4px;margin-right:12px;letter-spacing:.8px">${_ts.badge}</span>`:''}
@@ -5572,9 +5574,20 @@ function renderModals(epNums,nextEp){
           <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#e3b341;margin-bottom:10px;text-decoration:underline">Out Words</div>
           <input id="ros-edit-out-words" value="${esc(_ei.outWords||'')}" placeholder="Enter out words…" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:16px;padding:10px 14px;outline:none;font-family:inherit;box-sizing:border-box">
         </div>`:''}`:
-        `<div style="font-size:13px;color:#484f58;font-style:italic">Script editing only — other fields are managed by the editorial team.</div>`}
+        `<div style="font-size:13px;color:#484f58;font-style:italic">${getEffectiveRole()==='director'?'Director view — only Director\'s Notes is editable.':'Script editing only — other fields are managed by the editorial team.'}</div>`}
+        <div style="border-top:2px solid #f97316;padding-top:24px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#f97316">Director's Notes</div>
+            ${!_canDirectorNotes?`<span style="font-size:10px;color:#484f58;font-style:italic">View only</span>`:''}
+          </div>
+          ${_canDirectorNotes
+            ?`<textarea id="ros-edit-director-notes" style="width:100%;min-height:200px;background:#1a1500;border:1px solid #f97316;border-radius:8px;color:#eaf0ff;font-size:16px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter director's blocking notes — no character limit…">${esc(_ei.directorNotes||'')}</textarea>`
+            :`<div style="background:#1a1500;border:1px solid #2e3a50;border-radius:8px;padding:16px 18px;font-size:15px;color:${_ei.directorNotes?'#eaf0ff':'#484f58'};font-style:${_ei.directorNotes?'normal':'italic'};min-height:80px;line-height:1.75;white-space:pre-wrap">${_ei.directorNotes?esc(_ei.directorNotes):'No director\'s notes yet.'}</div>`
+          }
+        </div>
       </div>
-      <div style="padding:16px 24px;border-top:1px solid #2e3a50;display:flex;justify-content:flex-end;flex-shrink:0">
+      <div style="padding:16px 24px;border-top:1px solid #2e3a50;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+        <button id="ros-edit-preview-script" class="btn" style="font-size:13px;padding:10px 20px;font-weight:700;border-color:#58a6ff;color:#58a6ff;border-style:dashed">👁 Preview Script</button>
         <button id="ros-edit-save" class="btn primary" style="font-size:15px;padding:12px 32px;font-weight:800">Save Changes</button>
       </div>
     </div></div>`;
@@ -8910,6 +8923,9 @@ document.addEventListener('click',function rosHandler(e){
       // out words
       const _ow=document.getElementById('ros-edit-out-words');
       if(_ow) it.outWords=_ow.value;
+      // director's notes (admin + director only)
+      const _dn=document.getElementById('ros-edit-director-notes');
+      if(_dn&&['admin','director'].includes(getEffectiveRole())) it.directorNotes=_dn.value;
       rosData[String(epNum)].items=items;
       saveROS(epNum,{items,epNum});
       showToast('Item saved ✓');
@@ -8919,6 +8935,7 @@ document.addEventListener('click',function rosHandler(e){
     return;
   }
   // Edit Item modal — close
+  if(e.target.id==='ros-edit-preview-script'){rosExportWord(true);return;}
   if(e.target.id==='ros-edit-close'||e.target.id==='ros-edit-overlay'){
     rosEditModal=null;
     render();
