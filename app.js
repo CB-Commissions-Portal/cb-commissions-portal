@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.86';
+const BUILD_VERSION='3.10.87';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -8353,9 +8353,15 @@ function rosExportWord(){
     const lbl=escHtml(item.label||'');
     const cnt=escHtml(item.content||'');
     const desc=lbl+(cnt?`<br><span style="font-weight:normal;color:#000">${cnt}</span>`:'');
+    const slugs=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean);
+    const sources=item.slugSources||[];
+    const slugCell=slugs.map((s,si)=>{
+      const src=sources[si]||'';
+      return escHtml(s)+(src?`<br><span style="font-weight:normal;font-size:9pt;color:#555">${escHtml(src)}</span>`:'');
+    }).join('<br>')||'';
     return`<tr>
       <td width="28" align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top">${escHtml(num)}</td>
-      <td width="165" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top">${(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean).map(s=>escHtml(s)).join('<br>')||''}</td>
+      <td width="165" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top">${slugCell}</td>
       <td width="120" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top">${escHtml(item.sound||"")}</td>
       <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;color:#0055a0;padding:3px 4px;border:1px solid #000;vertical-align:top">${desc}</td>
       <td width="55" align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top">&nbsp;</td>
