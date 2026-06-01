@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.103';
+const BUILD_VERSION='3.10.104';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -6003,10 +6003,16 @@ function bindApp(){
           if(field==='isInHouse' && inp.checked){
             const c=comms.find(x=>x.id===id);
             if(!c?.producer){
-              // Set producer field value in DOM and save
               const prodInp=row.querySelector('input[data-field="producer"]');
               if(prodInp){prodInp.value='Combined Artists Productions';}
               updateComm(id,'producer','Combined Artists Productions');
+            }
+          }
+          // Notify Super Admin when all deliverables complete
+          if(inp.checked && DEL_KEYS.includes(field) && currentRole==='admin'){
+            const c=comms.find(x=>x.id===id);
+            if(c && allDel(c)){
+              showToast(`✓ All deliverables complete — ${c.storyName||'Comm '+c.commNum}`);
             }
           }
         });
