@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.96';
+const BUILD_VERSION='3.10.97';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -8401,7 +8401,7 @@ function rosExportWord(){
     const slugCell=slugs.map((s,si)=>{
       const src=sources[si]||'';
       const txt=src?`${escHtml(src)} - ${escHtml(s)}`:escHtml(s);
-      return _p(`<span style="background:#00FF00;mso-highlight:green;font-weight:bold">${txt}</span>`);
+      return _p(`<span style="background:#39FF14;font-weight:bold">${txt}</span>`);
     }).join('')||'';
     let desc=_p(escHtml(item.label||''),'font-weight:bold;color:#0055a0');
     if(item.content) desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
