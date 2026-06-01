@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.105';
+const BUILD_VERSION='3.10.107';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4243,6 +4243,7 @@ function renderRunOfShow(){
         <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <span style="font-size:20px;font-weight:900;color:#c084fc;font-family:monospace" id="ros-total">Total: ${rosSecsToStr(totalSecs)}</span>
           <button class="btn" id="ros-export-pdf-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#56d364;color:#56d364">⬇ ROS PDF</button>
+          <button class="btn" id="ros-preview-word-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#58a6ff;color:#58a6ff;border-style:dashed">👁 Preview Script</button>
           <button class="btn" id="ros-export-word-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#388bfd;color:#58a6ff">⬇ Studio Script (Word)</button>
           <button class="btn" id="ros-export-vt-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#e3b341;color:#e3b341">⬇ VT List</button>
           ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#e3b341;color:#e3b341"># Numbers</button>`:''}
@@ -8432,7 +8433,7 @@ function rosExportVTList(){
   showToast('VT List ready to print/save as PDF ✓');
 }
 
-function rosExportWord(){
+function rosExportWord(preview=false){
   const ep=rosCurrentEp;
   if(!ep)return;
   const items=(rosData[String(ep)]?.items)||[];
@@ -8446,6 +8447,7 @@ function rosExportWord(){
   const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'}):'';
   const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
   const escHtml=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const _durMmSs=d=>{if(!d)return'';const p=String(d).split(':');if(p.length===3){const mm=Number(p[0])*60+Number(p[1]);return`${String(mm).padStart(2,'0')}:${p[2]}`;}return d;};
 
   const _p=(txt,style='')=>`<p style="margin:0;font-family:Arial,sans-serif;font-size:11pt;${style}">${txt}</p>`;
   const rows=items.map((item,i)=>{
@@ -8476,7 +8478,7 @@ function rosExportWord(){
       <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;${_rowBg}">${_br}${slugCell}</td>
       <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%;${_rowBg}">${_br}${_p(escHtml(item.sound||''),'font-weight:bold')}</td>
       <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%;${_rowBg}">${_br}${desc}</td>
-      <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:7%;${_rowBg}">${_br}${_p(escHtml(item.duration||''),'font-family:monospace;text-align:center')}</td>
+      <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:7%;${_rowBg}">${_br}${_p(escHtml(_durMmSs(item.duration)),'font-family:monospace;text-align:center')}</td>
     </tr>`;
   }).join('');
 
@@ -8538,14 +8540,22 @@ xmlns="http://www.w3.org/TR/REC-html40">
 </div>
 </body></html>`;
 
-  const blob=new Blob(['\ufeff',html],{type:'application/msword'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download=`CB-Studio-Script-${epLabel.replace(/ /g,'-')}.doc`;
-  document.body.appendChild(a);a.click();document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('Studio Script downloaded ✓');
+  if(preview){
+    const win=window.open('','_blank','width=900,height=1100');
+    if(!win){showToast('Pop-up blocked — please allow pop-ups and try again.',true);return;}
+    const previewHtml=html.replace('</body>',`<div style="position:fixed;bottom:0;left:0;right:0;background:#003366;color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;font-family:Arial,sans-serif;font-size:13px;z-index:9999;box-shadow:0 -2px 8px rgba(0,0,0,.3)"><span><strong>Preview</strong> — this is how the Studio Script will look in Word</span><button onclick="window.close()" style="background:#fff;color:#003366;border:none;padding:7px 18px;border-radius:4px;font-size:13px;font-weight:700;cursor:pointer">✕ Close Preview</button></div></body>`);
+    win.document.write(previewHtml);
+    win.document.close();
+  } else {
+    const blob=new Blob(['\ufeff',html],{type:'application/msword'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=`CB-Studio-Script-${epLabel.replace(/ /g,'-')}.doc`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Studio Script downloaded ✓');
+  }
 }
 
 function rosExportPDF(){
@@ -8682,6 +8692,7 @@ document.addEventListener('click',function rosHandler(e){
     rosData[String(rosCurrentEp)].items=items;render();return;
   }
   if(e.target.id==='ros-export-vt-btn'){rosExportVTList();return;}
+  if(e.target.id==='ros-preview-word-btn'){rosExportWord(true);return;}
   if(e.target.id==='ros-export-word-btn'){rosExportWord();return;}
   if(e.target.id==='ros-export-pdf-btn'){rosExportPDF();return;}
   // Script modal — open
