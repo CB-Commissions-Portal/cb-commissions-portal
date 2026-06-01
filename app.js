@@ -91,8 +91,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.85';
-const BUILD_DATE='31 May 2026';
+const BUILD_VERSION='3.10.86';
+const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -8988,24 +8988,25 @@ async function boot(){
       }
       try{subscribeData();}catch(e){console.error('Subscribe error:',e);}
       try{subscribeLeaveRequests();}catch(e){console.error('Leave subscribe error:',e);}
-      try{await loadUsers();}catch(e){console.error('Load users error:',e);}
-      try{await loadStudioCrew();}catch(e){console.error('Studio crew error:',e);}
-      try{await loadStudioSchedule();}catch(e){console.error('Studio schedule error:',e);}
-      try{await loadEndCredits();}catch(e){console.error('End credits error:',e);}
-      try{await loadPromoData();}catch(e){console.error('Promo data error:',e);}
-      try{await loadUIDPool();}catch(e){console.error('UID pool error:',e);}
-      try{await loadMusicCues();}catch(e){console.error('Music cues error:',e);}
-      try{await loadDeliverables();}catch(e){console.error('Deliverables error:',e);}
-      try{await loadDeliverables();}catch(e){console.error('Deliverables error:',e);}
-      try{await loadLeaveRequests();}catch(e){console.error('Leave requests error:',e);}
-      try{await loadPresCal();}catch(e){console.error('Presenter calendar error:',e);}
-      try{await loadLineups();}catch(e){console.error('Lineup load error:',e);}
-      try{await loadPostProd();}catch(e){console.error('Post prod load error:',e);}
-      try{await loadROS();}catch(e){console.error('ROS load error:',e);}
-      try{await loadCallSheets();}catch(e){console.error('Call sheets load error:',e);}
-      try{await loadFCCData();}catch(e){console.error('FCC data load error:',e);}
-      try{await loadContracts();}catch(e){console.error('Contracts load error:',e);}
-      try{await loadLeaveBalances();}catch(e){console.error('Leave balances error:',e);}
+      await Promise.all([
+        loadUsers().catch(e=>console.error('Load users error:',e)),
+        loadStudioCrew().catch(e=>console.error('Studio crew error:',e)),
+        loadStudioSchedule().catch(e=>console.error('Studio schedule error:',e)),
+        loadEndCredits().catch(e=>console.error('End credits error:',e)),
+        loadPromoData().catch(e=>console.error('Promo data error:',e)),
+        loadUIDPool().catch(e=>console.error('UID pool error:',e)),
+        loadMusicCues().catch(e=>console.error('Music cues error:',e)),
+        loadDeliverables().catch(e=>console.error('Deliverables error:',e)),
+        loadLeaveRequests().catch(e=>console.error('Leave requests error:',e)),
+        loadPresCal().catch(e=>console.error('Presenter calendar error:',e)),
+        loadLineups().catch(e=>console.error('Lineup load error:',e)),
+        loadPostProd().catch(e=>console.error('Post prod load error:',e)),
+        loadROS().catch(e=>console.error('ROS load error:',e)),
+        loadCallSheets().catch(e=>console.error('Call sheets load error:',e)),
+        loadFCCData().catch(e=>console.error('FCC data load error:',e)),
+        loadContracts().catch(e=>console.error('Contracts load error:',e)),
+        loadLeaveBalances().catch(e=>console.error('Leave balances error:',e)),
+      ]);
       render();
     } else {
       currentUser=null;currentRole=null;
