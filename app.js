@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.87';
+const BUILD_VERSION='3.10.89';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4209,7 +4209,7 @@ function renderRunOfShow(){
       <td style="padding:6px 16px;vertical-align:top;min-width:160px;max-width:220px">${_slugCell}</td>
       <td style="padding:6px 16px;vertical-align:middle;min-width:80px">
         ${item.type!=='break'&&canEdit
-          ?`<select class="ros-sound" data-idx="${i}" style="background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#58a6ff;font-size:13px;font-weight:700;padding:5px 8px;outline:none;font-family:inherit;cursor:pointer;width:100%"><option value="" ${item.sound===''?'selected':''}>— none —</option><option value="A" ${item.sound==='A'?'selected':''}>A</option><option value="B" ${item.sound==='B'?'selected':''}>B</option><option value="C" ${item.sound==='C'?'selected':''}>C</option><option value="D" ${item.sound==='D'?'selected':''}>D</option><option value="COLD START" ${item.sound==='COLD START'?'selected':''}>COLD START</option><option value="CLEAN" ${item.sound==='CLEAN'?'selected':''}>CLEAN</option><option value="GENERIC" ${item.sound==='GENERIC'?'selected':''}>GENERIC</option></select>`
+          ?`<select class="ros-sound" data-idx="${i}" style="background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#58a6ff;font-size:13px;font-weight:700;padding:5px 8px;outline:none;font-family:inherit;cursor:pointer;width:100%"><option value="" ${item.sound===''?'selected':''}>— none —</option><option value="A" ${item.sound==='A'?'selected':''}>A</option><option value="B" ${item.sound==='B'?'selected':''}>B</option><option value="C" ${item.sound==='C'?'selected':''}>C</option><option value="D" ${item.sound==='D'?'selected':''}>D</option><option value="COLD START" ${item.sound==='COLD START'?'selected':''}>COLD START</option><option value="CLEAN" ${item.sound==='CLEAN'?'selected':''}>CLEAN</option><option value="GENERIC" ${item.sound==='GENERIC'?'selected':''}>GENERIC</option><option value="A+ COLD START CONT'D" ${item.sound==="A+ COLD START CONT'D"?'selected':''}>A+ COLD START CONT'D</option><option value="B+ COLD START CONT'D" ${item.sound==="B+ COLD START CONT'D"?'selected':''}>B+ COLD START CONT'D</option><option value="C+ COLD START CONT'D" ${item.sound==="C+ COLD START CONT'D"?'selected':''}>C+ COLD START CONT'D</option><option value="D+ COLD START CONT'D" ${item.sound==="D+ COLD START CONT'D"?'selected':''}>D+ COLD START CONT'D</option><option value="VOICE+ COLD START CONT'D" ${item.sound==="VOICE+ COLD START CONT'D"?'selected':''}>VOICE+ COLD START CONT'D</option></select>`
           :`<span style="font-size:13px;font-weight:700;color:${item.sound?'#58a6ff':'#484f58'}">${esc(item.sound||'—')}</span>`}
       </td>
       <td style="padding:10px 16px;vertical-align:middle;min-width:280px">
@@ -8357,7 +8357,7 @@ function rosExportWord(){
     const sources=item.slugSources||[];
     const slugCell=slugs.map((s,si)=>{
       const src=sources[si]||'';
-      return escHtml(s)+(src?`<br><span style="font-weight:normal;font-size:9pt;color:#555">${escHtml(src)}</span>`:'');
+      return src?`${escHtml(src)} - ${escHtml(s)}`:escHtml(s);
     }).join('<br>')||'';
     return`<tr>
       <td width="28" align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top">${escHtml(num)}</td>
