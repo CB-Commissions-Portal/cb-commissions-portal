@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.116';
+const BUILD_VERSION='3.10.117';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1640,19 +1640,23 @@ function renderEpisodes(epNums,paid,remaining){
   const episodes=epNums.map(n=>({ep:n,date:resolveDate(n),stories:comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned)}));
 
   return`<div class="ep-wrap">
-${currentRole==='editorial'?`<div class="info-box"><strong>Editorial view</strong> — Contracted: <strong>${settings.contractedMinutes||438}</strong> · Paid: <strong>${paid.toFixed(1)}</strong> · Remaining: <strong>${remaining.toFixed(1)}</strong></div>`:''}
-<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap" class="no-print">
-  <button class="btn primary" id="export-pdf-btn">⬇ Export PDF</button>
-  ${currentRole==='admin'?`<select id="ep-export-sel" class="f-sel" tabindex="-1" style="font-size:12px">
-    <option value="all">All Episodes</option>
-    ${epNums.map(n=>`<option value="${n}">Episode ${n} only</option>`).join('')}
-  </select>`:''}
-  ${currentRole==='admin'?`<button class="btn" id="add-ep-btn2">+ Add Episode</button>`:''}
-  <button class="btn" id="ep-expand-all-btn" style="font-size:11px">${expandedEps.size===epNums.length?'Collapse All':'Expand All'}</button>
-  <button class="btn" id="ep-comm-export-btn" style="font-size:11px;border-color:#3fb950;color:#3fb950">⬇ Commission Export (Excel)</button>
-  ${currentRole==='admin'?`<button class="btn" id="fix-dates-btn" style="font-size:11px;border-color:#e3b341;color:#e3b341" title="Snap all episode dates to Sunday">🗓 Fix All Dates to Sunday</button>`:''}
-  <span class="count-lbl" style="margin-left:0">${episodes.length} episodes</span>
+<div class="ep-reg-header no-print">
+  <div style="font-size:20px;font-weight:900;color:#eaf0ff;margin-bottom:14px">Episode Register</div>
+  ${currentRole==='editorial'?`<div class="info-box" style="margin-bottom:14px"><strong>Editorial view</strong> — Contracted: <strong>${settings.contractedMinutes||438}</strong> · Paid: <strong>${paid.toFixed(1)}</strong> · Remaining: <strong>${remaining.toFixed(1)}</strong></div>`:''}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <button class="btn primary" id="export-pdf-btn" style="font-size:13px;padding:8px 16px">⬇ Export PDF</button>
+    ${currentRole==='admin'?`<select id="ep-export-sel" class="f-sel" tabindex="-1" style="font-size:13px">
+      <option value="all">All Episodes</option>
+      ${epNums.map(n=>`<option value="${n}">Episode ${n} only</option>`).join('')}
+    </select>`:''}
+    ${currentRole==='admin'?`<button class="btn" id="add-ep-btn2" style="font-size:13px;padding:8px 16px">+ Add Episode</button>`:''}
+    <button class="btn" id="ep-expand-all-btn" style="font-size:13px;padding:8px 16px">${expandedEps.size===epNums.length?'Collapse All':'Expand All'}</button>
+    <button class="btn" id="ep-comm-export-btn" style="font-size:13px;padding:8px 16px;border-color:#3fb950;color:#3fb950">⬇ Commission Export (Excel)</button>
+    ${currentRole==='admin'?`<button class="btn" id="fix-dates-btn" style="font-size:13px;padding:8px 16px;border-color:#e3b341;color:#e3b341" title="Snap all episode dates to Sunday">🗓 Fix All Dates to Sunday</button>`:''}
+    <span class="count-lbl" style="margin-left:0;font-size:13px">${episodes.length} episodes</span>
+  </div>
 </div>
+<div class="ep-reg-list">
 ${episodes.map(({ep,date,stories})=>{
   const k=String(ep),epType=(settings.epTypes||{})[k]||'normal';
   // Ep Content = sum of ALL delivered durations (paid + inhouse)
@@ -1668,20 +1672,20 @@ ${episodes.map(({ep,date,stories})=>{
   <span class="ep-num">EP ${ep}</span>
   ${ep===1?`<span style="color:#8b949e;font-size:12px">${fmtDate('2026-04-05')} <span style="color:#6e7681;font-size:10px">(fixed)</span></span>`:isEd?`<input type="date" class="ep-date-inp" id="ep-date-inp" value="${tempDate}">`:
   `<span class="ep-date-btn" data-ep-date="${ep}">${fmtDate(date)}${currentRole==='admin'?' ✎':''}</span>`}
-  <span style="font-size:13px;color:#7a8ba0;font-weight:500">${stories.length} ${stories.length===1?'story':'stories'}</span>
-  <span style="display:inline-flex;align-items:center;gap:14px;margin-left:12px;padding-left:12px;border-left:1px solid #2e3a50;font-size:12px;flex-wrap:wrap">
-    <span style="color:#7a8ba0">Allocated: <strong style="color:#58a6ff;font-family:'JetBrains Mono',monospace;font-size:13px">00:34:00</strong></span>
-    <span style="color:#7a8ba0">Ep Content: <strong style="color:#eaf0ff;font-family:'JetBrains Mono',monospace;font-size:13px">${fmtHMS(epContentMins)}</strong></span>
+  <span style="font-size:14px;color:#7a8ba0;font-weight:500">${stories.length} ${stories.length===1?'story':'stories'}</span>
+  <span style="display:inline-flex;align-items:center;gap:16px;margin-left:12px;padding-left:12px;border-left:1px solid #2e3a50;font-size:13px;flex-wrap:wrap">
+    <span style="color:#7a8ba0">Allocated: <strong style="color:#58a6ff;font-family:'JetBrains Mono',monospace;font-size:15px">00:34:00</strong></span>
+    <span style="color:#7a8ba0">Ep Content: <strong style="color:#eaf0ff;font-family:'JetBrains Mono',monospace;font-size:15px">${fmtHMS(epContentMins)}</strong></span>
     <span style="color:#7a8ba0">Insert Mins: ${insertMinsDisplay(insertMins)}</span>
-    <span style="color:#7a8ba0">Non-Insert: <strong style="color:#d29922;font-family:'JetBrains Mono',monospace;font-size:13px">${fmtHMS(nonMins)}</strong></span>
-    ${(settings.epOnAir||{})[k]?`<span style="color:#7a8ba0;border-left:1px solid #2e3a50;padding-left:12px">On-Air: <strong style="color:#3fb950;font-family:'JetBrains Mono',monospace;font-size:13px">${esc((settings.epOnAir||{})[k])}</strong></span>`:''}
+    <span style="color:#7a8ba0">Non-Insert: <strong style="color:#d29922;font-family:'JetBrains Mono',monospace;font-size:15px">${fmtHMS(nonMins)}</strong></span>
+    ${(settings.epOnAir||{})[k]?`<span style="color:#7a8ba0;border-left:1px solid #2e3a50;padding-left:12px">On-Air: <strong style="color:#3fb950;font-family:'JetBrains Mono',monospace;font-size:15px">${esc((settings.epOnAir||{})[k])}</strong></span>`:''}
   </span>
   <div class="type-toggle no-print" style="margin-left:auto" onclick="event.stopPropagation()">
     <button class="type-btn normal${epType==='normal'?' on':''}" data-eptype="${k}" data-val="normal">Normal</button>
     <button class="type-btn extended${epType==='extended'?' on':''}" data-eptype="${k}" data-val="extended">Extended</button>
   </div>
-  <span style="font-size:11px;font-weight:600;margin-left:4px;color:${epType==='extended'?'#d29922':'#3fb950'}">${epType==='extended'?'★ Extended':'Normal'}</span>
-  <span style="font-size:11px;color:#484f58;margin-left:8px" class="no-print">${isExpEp?'▲':'▼'}</span>
+  <span style="font-size:13px;font-weight:600;margin-left:4px;color:${epType==='extended'?'#d29922':'#3fb950'}">${epType==='extended'?'★ Extended':'Normal'}</span>
+  <span style="font-size:13px;color:#484f58;margin-left:8px" class="no-print">${isExpEp?'▲':'▼'}</span>
 </div>
 ${isExpEp?`<div style="overflow:hidden">`+'':(``)}${isExpEp&&stories.length>0?`<div class="ep-body"><table class="ep-tbl"><thead><tr>
 <th style="width:44px;text-align:center">#</th>
@@ -1728,8 +1732,8 @@ return`<tr data-ep-row="${s.id}">
   </div>
 </div>
 </div>`;}).join('')}
-${episodes.length===0?`<div style="color:#6e7681;padding:32px;text-align:center">No episodes yet. Assign a broadcast episode from the Comm List tab.</div>`:''}
-</div>`;}
+${episodes.length===0?`<div style="color:#6e7681;padding:32px;text-align:center;font-size:14px">No episodes yet. Assign a broadcast episode from the Comm List tab.</div>`:''}
+</div></div>`;}
 
 
 // END CREDITS STRUCTURE
