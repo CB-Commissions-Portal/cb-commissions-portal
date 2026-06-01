@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.90';
+const BUILD_VERSION='3.10.92';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -144,7 +144,8 @@ let callSheetData={}; // {epNum: {anchor1,anchor1Time,anchor2,anchor2Time,direct
 let appTheme=localStorage.getItem('cb_theme')||'dark'; // 'dark' or 'light'
 let rosData={}; // {epNum: {items:[{type,label,content,duration}]}}
 let rosEpModal=false; // show episode picker modal
-let rosCurrentEp=null; // currently viewed episode // {commNum: {deliveryDate:'', cells:{}, editComplete:false}}
+let rosCurrentEp=null; // currently viewed episode
+let rosScriptModal=null; // {epNum,itemIdx} — script editor modal // {commNum: {deliveryDate:'', cells:{}, editComplete:false}}
 let ppActiveComms=[]; // ordered list of commNums added to the post prod schedule
 let ppSortField='commNum';
 let ppSortDir='asc';
@@ -4210,6 +4211,7 @@ function renderRunOfShow(){
         ${item.itemNum?`<span style="font-size:13px;font-weight:900;color:#484f58;font-family:monospace;margin-right:10px;min-width:28px;display:inline-block;text-align:right">${item.itemNum}.</span>`:''}
         ${ts.badge?`<span style="font-size:9px;font-weight:800;background:${ts.badgeBg};color:${ts.label};padding:2px 7px;border-radius:3px;margin-right:8px;letter-spacing:.5px">${ts.badge}</span>`:''}
         <span style="font-size:16px;font-weight:${ts.weight};color:${ts.label}">${esc(item.label)}</span>
+        ${['live','coldstart','upnext'].includes(item.type)?`<button class="ros-script-btn btn" data-idx="${i}" style="font-size:10px;padding:2px 8px;margin-left:12px;border-color:#56d364;color:#56d364;vertical-align:middle;white-space:nowrap">${item.script?'✎ EDIT SCRIPT':'＋ ADD SCRIPT'}</button>`:''}
       </td>
       <td style="padding:6px 16px;vertical-align:top;min-width:160px;max-width:220px">${_slugCell}</td>
       <td style="padding:6px 16px;vertical-align:middle;min-width:80px">
@@ -5546,6 +5548,29 @@ function renderModals(epNums,nextEp){
   if(decomModal!==null){const c=comms.find(x=>x.id===decomModal);out+=`<div class="modal-overlay" id="decom-overlay"><div class="modal"><h3>Decommission Story</h3><p>A written motivation is required. Reversible only by Admin.</p><label>Story</label><div class="modal-story">${esc(c?.storyName||'')}</div><label>Motivation *</label><textarea id="decom-text" placeholder="Enter reason for decommissioning…">${esc(decomText)}</textarea><div class="modal-actions"><button class="btn" id="decom-cancel">Cancel</button><button class="btn danger" id="decom-confirm">Confirm Decommission</button></div></div></div>`;}
   if(addEpModal){const autoDate=resolveDate(parseInt(newEpNum)||nextEp);const exists=epNums.includes(parseInt(newEpNum));out+=`<div class="modal-overlay" id="ep-overlay"><div class="modal"><h3>Add Episode</h3><p>Creates a new episode slot. Date is auto-calculated (+7 days) and editable after creation.</p><label>Episode Number</label><input type="number" id="new-ep-num" value="${newEpNum}" min="1" placeholder="${nextEp}">${newEpNum&&!isNaN(parseInt(newEpNum))?`<div style="margin-top:8px;font-size:12px;color:#8b949e">Date: <strong style="color:#e6edf3">${fmtDate(autoDate)}</strong></div>`:''}${exists?`<div style="color:#f85149;font-size:12px;margin-top:6px">⚠ Episode ${newEpNum} already exists.</div>`:''}<div class="modal-actions"><button class="btn" id="ep-cancel">Cancel</button><button class="btn primary" id="ep-confirm">Create Episode ${newEpNum||nextEp}</button></div></div></div>`;}
   if(addUserModal){out+=`<div class="modal-overlay" id="user-overlay"><div class="modal"><h3>Create User Account</h3><p>The user can log in immediately with these credentials. Share them securely.</p><label>Full Name</label><input type="text" id="nu-name" value="${esc(newUserData.displayName)}" placeholder="e.g. Joy Summers"><label>Email</label><input type="email" id="nu-email" value="${esc(newUserData.email)}" placeholder="user@example.com"><label>Password</label><input type="text" id="nu-pass" value="${esc(newUserData.password)}" placeholder="Minimum 6 characters"><label>Role</label><select id="nu-role">${Object.entries(ROLE_META).map(([k,v])=>`<option value="${k}"${newUserData.role===k?' selected':''}>${v.label}</option>`).join('')}</select><div id="nu-err" style="color:#f85149;font-size:12px;margin-top:8px;display:none"></div><div class="modal-actions"><button class="btn" id="user-cancel">Cancel</button><button class="btn primary" id="user-confirm">Create Account</button></div></div></div>`;}
+  if(rosScriptModal){
+    const {epNum,itemIdx}=rosScriptModal;
+    const _item=(rosData[String(epNum)]?.items||[])[itemIdx]||{};
+    const _wc=_item.script&&_item.script.trim()?_item.script.trim().split(/\s+/).length:0;
+    const _div3=(_wc/3).toFixed(1);
+    out+=`<div class="modal-overlay" id="ros-script-overlay"><div class="modal" style="width:760px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;gap:0">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+        <div>
+          <div style="font-size:10px;color:#8b949e;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">Script — S${currentSeason} EP ${String(epNum).padStart(2,'0')}</div>
+          <div style="font-size:16px;font-weight:800;color:#eaf0ff">${esc(_item.label||'')}</div>
+        </div>
+        <button id="ros-script-close" class="btn" style="font-size:12px;padding:4px 12px;flex-shrink:0;margin-left:16px">✕ Close</button>
+      </div>
+      <textarea id="ros-script-ta" style="flex:1;min-height:340px;width:100%;background:#161b27;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:15px;line-height:1.75;padding:14px 16px;outline:none;resize:vertical;font-family:inherit" placeholder="Enter presenter script…" oninput="(function(ta){const w=ta.value.trim()===''?0:ta.value.trim().split(/\\s+/).length;document.getElementById('ros-sc-wc').textContent=w;document.getElementById('ros-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${esc(_item.script||'')}</textarea>
+      <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div style="font-size:13px;color:#8b949e;line-height:1.8">
+          <div>Total words: <strong id="ros-sc-wc" style="color:#79c0ff;font-size:15px">${_wc}</strong></div>
+          <div><span id="ros-sc-d3" style="color:#56d364;font-weight:700;font-size:13px">${_wc} ÷ 3 = ${_div3}</span></div>
+        </div>
+        <button id="ros-script-save" class="btn primary" style="font-size:13px;padding:8px 24px">Save Script</button>
+      </div>
+    </div></div>`;
+  }
   return out;
 }
 
@@ -8252,6 +8277,12 @@ function rosFlushAndSave(items){
     const idx=Number(inp.dataset.idx);
     if(items[idx]!==undefined)items[idx].duration=inp.value;
   });
+  // Preserve script field if script modal is open (don't overwrite with stale data)
+  const _sTA=document.getElementById('ros-script-ta');
+  if(_sTA&&rosScriptModal?.epNum===rosCurrentEp){
+    const si=rosScriptModal.itemIdx;
+    if(items[si]!==undefined)items[si].script=_sTA.value;
+  }
   if(!rosData[String(rosCurrentEp)])rosData[String(rosCurrentEp)]={};
   rosData[String(rosCurrentEp)].items=items;
   saveROS(rosCurrentEp,{items,epNum:rosCurrentEp});
@@ -8352,6 +8383,11 @@ function rosExportWord(){
   if(!ep)return;
   const items=(rosData[String(ep)]?.items)||[];
   if(!items.length){showToast('No items to export',true);return;}
+  // Flush script textarea if modal is open for this episode
+  const _sTA=document.getElementById('ros-script-ta');
+  if(_sTA&&rosScriptModal?.epNum===ep&&items[rosScriptModal.itemIdx]!==undefined){
+    items[rosScriptModal.itemIdx].script=_sTA.value;
+  }
   const epDate=resolveDate(ep);
   const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'}):'';
   const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
@@ -8362,7 +8398,8 @@ function rosExportWord(){
     const lbl=escHtml(item.label||'');
     const cnt=escHtml(item.content||'');
     const outWTxt=item.type==='insert'&&item.outWords?`<br><u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`:'';
-    const desc=lbl+(cnt?`<br><span style="font-weight:normal;color:#000">${cnt}</span>`:'')+outWTxt;
+    const scriptTxt=['live','coldstart','upnext'].includes(item.type)&&item.script?`<br><span style="font-weight:normal;color:#000">${escHtml(item.script).replace(/\n/g,'<br>')}</span>`:'';
+    const desc=lbl+(cnt?`<br><span style="font-weight:normal;color:#000">${cnt}</span>`:'')+outWTxt+scriptTxt;
     const slugs=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean);
     const sources=item.slugSources||[];
     const slugCell=slugs.map((s,si)=>{
@@ -8572,6 +8609,37 @@ document.addEventListener('click',function rosHandler(e){
   if(e.target.id==='ros-export-vt-btn'){rosExportVTList();return;}
   if(e.target.id==='ros-export-word-btn'){rosExportWord();return;}
   if(e.target.id==='ros-export-pdf-btn'){rosExportPDF();return;}
+  // Script modal — open
+  const scriptBtn=e.target.closest('.ros-script-btn');
+  if(scriptBtn){
+    const idx=Number(scriptBtn.dataset.idx);
+    rosScriptModal={epNum:rosCurrentEp,itemIdx:idx};
+    render();
+    return;
+  }
+  // Script modal — save
+  if(e.target.id==='ros-script-save'){
+    const ta=document.getElementById('ros-script-ta');
+    if(ta&&rosScriptModal){
+      const {epNum,itemIdx}=rosScriptModal;
+      const items=(rosData[String(epNum)]?.items)||[];
+      if(items[itemIdx]!==undefined){
+        items[itemIdx].script=ta.value;
+        rosData[String(epNum)].items=items;
+        saveROS(epNum,{items,epNum});
+        showToast('Script saved ✓');
+      }
+    }
+    rosScriptModal=null;
+    render();
+    return;
+  }
+  // Script modal — close (discard unsaved)
+  if(e.target.id==='ros-script-close'||e.target.id==='ros-script-overlay'){
+    rosScriptModal=null;
+    render();
+    return;
+  }
   if(e.target.id==='ros-pick-ep-btn'){rosEpModal=true;rosCurrentEp=null;render();return;}
   const pick=e.target.closest('.ros-ep-pick');
   if(pick){rosCurrentEp=Number(pick.dataset.ep);rosEpModal=false;render();return;}
