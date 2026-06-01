@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.114';
+const BUILD_VERSION='3.10.115';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4264,8 +4264,8 @@ function renderRunOfShow(){
         <button class="btn primary" id="ros-add-btn" style="width:100%;font-size:15px;padding:14px;font-weight:800">+ Add Item</button>
       </div>
       <div style="padding:14px 18px;border-top:1px solid #21262d;display:flex;flex-direction:column;gap:8px">
-        <div style="font-size:10px;font-weight:700;color:#484f58;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Colour Key</div>
-        ${[['#0d1e35','#79c0ff','Live / Link'],['#1a1200','#e3b341','Insert'],['#110d1f','#c084fc','Cold Start'],['#0d1f10','#56d364','UP NEXT'],['#16161f','#9ca3af','Fixed'],['#080808','#484f58','Break']].map(([bg,col,lbl])=>`<span style="display:flex;align-items:center;gap:8px"><span style="width:16px;height:16px;background:${bg};border:1px solid ${col}44;border-radius:3px;flex-shrink:0;display:inline-block"></span><span style="font-size:13px;color:#6e7681">${lbl}</span></span>`).join('')}
+        <div style="font-size:10px;font-weight:700;color:#6e7681;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Colour Key</div>
+        ${[['#1a3a5c','#79c0ff','LIVE / LINK'],['#2d2000','#e3b341','INSERT'],['#1f1040','#c084fc','COLD START'],['#142a16','#56d364','UP NEXT'],['#16161f','#9ca3af','FIXED'],['#111111','#484f58','BREAK']].map(([bg,col,lbl])=>`<div style="background:${bg};border:1px solid ${col}55;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:800;color:${col};letter-spacing:.8px;text-align:center">${lbl}</div>`).join('')}
       </div>
     </div>`:''}
   </div>`;
