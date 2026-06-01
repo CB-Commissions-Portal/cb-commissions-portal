@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.111';
+const BUILD_VERSION='3.10.112';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3651,6 +3651,7 @@ function renderPresenterCalendar(){
     if(idx>=0)presCalViewMonth=idx;
   }
   const dates=presCalDates();
+  const todayStr=new Date().toISOString().split('T')[0];
 
   // Group dates by month
   const months={};
@@ -3660,8 +3661,8 @@ function renderPresenterCalendar(){
     months[m].push(d);
   });
 
-  const thBase='padding:8px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#eaf0ff;background:#1a2035;text-align:center;white-space:nowrap;position:sticky;top:0;z-index:10;border-bottom:2px solid #2e3a50;min-width:150px;box-shadow:0 2px 4px rgba(0,0,0,.4)';
-  const dateThBase='padding:6px 4px;font-size:10px;font-weight:700;text-align:left;white-space:nowrap;position:sticky;left:0;z-index:4;border-bottom:1px solid #21262d;min-width:90px;background:#161b22';
+  const thBase='padding:12px 16px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#eaf0ff;background:#1a2035;text-align:center;white-space:nowrap;position:sticky;top:0;z-index:10;border-bottom:2px solid #2e3a50;min-width:200px;box-shadow:0 2px 4px rgba(0,0,0,.4)';
+  const dateThBase='padding:12px 14px;font-size:13px;font-weight:700;text-align:left;white-space:nowrap;position:sticky;left:0;z-index:4;border-bottom:1px solid #21262d;min-width:130px;background:#161b22';
 
   const monthEntries=Object.entries(months);
   // Clamp presCalViewMonth
@@ -3673,11 +3674,14 @@ function renderPresenterCalendar(){
     const rows=mDates.map(dateStr=>{
       const isWE=presCalIsWeekend(dateStr);
       const isHol=presCalIsHoliday(dateStr);
-      const isSpecial=isWE||isHol;
+      const isToday=dateStr===todayStr;
+      const isMon=new Date(dateStr+'T00:00:00Z').getUTCDay()===1;
       const dayName=presCalDayName(dateStr);
       const dateFmt=presCalFmt(dateStr);
-      const rowBg=isHol?'background:#2d1a00':isWE?'background:#1a1a2d':'';
-      const dayCol=isHol?'#e3b341':isWE?'#484f58':'#7a8ba0';
+      const rowBg=isHol?'background:#2d1a00':isWE?'background:#1a1a2d':isToday?'background:rgba(56,139,253,.07)':'';
+      const dayCol=isHol?'#e3b341':isWE?'#484f58':isMon?'#388bfd':'#7a8ba0';
+      const dateTxtCol=isHol?'#e3b341':isWE?'#484f58':isToday?'#79c0ff':'#eaf0ff';
+      const todayAccent=isToday?'border-left:3px solid #388bfd;padding-left:11px;':'';
 
       const cells=PRESENTERS.map(p=>{
         const dayData=presCalData[dateStr]||{};
@@ -3691,21 +3695,21 @@ function renderPresenterCalendar(){
         // All days are assignable (weekends and holidays too)
 
         const hasContent=isNA||cell.studio||cell.custom||!!commNum;
-        return`<td style="padding:8px 10px;border-bottom:1px solid #21262d;border-left:1px solid #21262d;vertical-align:top;${rowBg};min-width:160px;min-height:64px">
+        return`<td style="padding:16px 14px;border-bottom:1px solid #21262d;border-left:1px solid #21262d;vertical-align:top;${rowBg};min-width:200px">
           ${isNA
-            ?`<div style="background:#2d0a0a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#f85149;text-align:center;cursor:pointer" data-pres-badge="1" title="Click to edit or remove">NOT AVAILABLE</div>`
+            ?`<div style="background:#2d0a0a;border-radius:6px;padding:6px 14px;font-size:14px;font-weight:800;color:#f85149;text-align:center;cursor:pointer;letter-spacing:.3px" data-pres-badge="1" title="Click to edit or remove">NOT AVAILABLE</div>`
             :cell.studio
-            ?`<div style="background:#1a2d4a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#7a3fbf;text-align:center;cursor:pointer" data-pres-badge="1" title="Click to edit or remove">STUDIO</div>`
+            ?`<div style="background:#1a2d4a;border-radius:6px;padding:6px 14px;font-size:14px;font-weight:800;color:#c084fc;text-align:center;cursor:pointer;letter-spacing:.3px" data-pres-badge="1" title="Click to edit or remove">STUDIO</div>`
             :cell.custom
-            ?`<div style="background:#2d2a1a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#e3b341;word-break:break-word;cursor:pointer" data-pres-badge="1" title="Click to edit or remove">${esc(cell.customNote||'Note')}</div>`
+            ?`<div style="background:#2d2a1a;border-radius:6px;padding:6px 14px;font-size:14px;font-weight:700;color:#e3b341;word-break:break-word;cursor:pointer" data-pres-badge="1" title="Click to edit or remove">${esc(cell.customNote||'Note')}</div>`
             :commNum
-              ?`<div style="background:#1a2d4a;border-radius:4px;padding:5px 8px;cursor:pointer" data-pres-badge="1" title="Click to edit or remove">
-                  <div style="font-size:11px;font-weight:900;color:#58a6ff;font-family:monospace">${esc(commNum)}</div>
-                  ${storyName?`<div style="font-size:10px;color:#9aaabe;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px" title="${esc(storyName)}">${esc(storyName)}</div>`:''}
-                  ${producer?`<div style="font-size:10px;color:#6e7681;margin-top:2px">${esc(producer)}</div>`:''}
+              ?`<div style="background:#1a2d4a;border-radius:6px;padding:8px 12px;cursor:pointer;border:1px solid #2e4a70" data-pres-badge="1" title="Click to edit or remove">
+                  <div style="font-size:15px;font-weight:900;color:#58a6ff;font-family:monospace">${esc(commNum)}</div>
+                  ${storyName?`<div style="font-size:12px;color:#9aaabe;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:175px" title="${esc(storyName)}">${esc(storyName)}</div>`:''}
+                  ${producer?`<div style="font-size:11px;color:#6e7681;margin-top:3px">${esc(producer)}</div>`:''}
                 </div>`
               :''}
-          ${canEd&&!hasContent?`<select class="pres-cal-sel" data-date="${dateStr}" data-pres="${p.key}" style="width:100%;background:transparent;border:none;font-size:11px;color:#484f58;cursor:pointer;padding:2px 0">
+          ${canEd&&!hasContent?`<select class="pres-cal-sel" data-date="${dateStr}" data-pres="${p.key}" style="width:100%;background:transparent;border:none;font-size:12px;color:#3a4858;cursor:pointer;padding:2px 0;opacity:.7">
             <option value="">— assign —</option>
             <option value="na">Not Available</option>
             <option value="studio">Studio</option>
@@ -3717,17 +3721,18 @@ function renderPresenterCalendar(){
       }).join('');
 
       return`<tr style="${rowBg}">
-        <td style="${dateThBase};${rowBg}">
-          <span style="font-size:9px;font-weight:700;color:${dayCol}">${dayName}</span>
-          <span style="font-size:10px;font-weight:800;color:${isHol?'#e3b341':isWE?'#484f58':'#eaf0ff'};margin-left:4px">${dateFmt}</span>
-          ${isHol?`<span style="font-size:7px;color:#e3b341;display:block">${presCalHolidayName(dateStr)}</span>`:''}
+        <td style="${dateThBase};${rowBg};${todayAccent}">
+          <div style="font-size:12px;font-weight:700;color:${dayCol};text-transform:uppercase;letter-spacing:.5px">${dayName}</div>
+          <div style="font-size:15px;font-weight:800;color:${dateTxtCol};margin-top:2px">${dateFmt}</div>
+          ${isToday?`<div style="font-size:9px;font-weight:800;color:#388bfd;text-transform:uppercase;letter-spacing:.5px;margin-top:3px">TODAY</div>`:''}
+          ${isHol?`<div style="font-size:10px;color:#e3b341;margin-top:3px;white-space:normal;line-height:1.3">${presCalHolidayName(dateStr)}</div>`:''}
         </td>
         ${cells}
       </tr>`;
     }).join('');
 
     return`<div style="margin-bottom:4px">
-      <div style="padding:8px 12px;background:#252d3d;font-size:12px;font-weight:800;color:#eaf0ff;position:sticky;top:0;z-index:6;border-bottom:2px solid #388bfd">${month}</div>
+      <div style="padding:14px 20px;background:#161b22;font-size:18px;font-weight:900;color:#eaf0ff;position:sticky;top:0;z-index:6;border-left:4px solid #c084fc;border-bottom:2px solid #2e3a50">${month}</div>
       <table style="width:max-content;border-collapse:collapse;min-width:100%">
         <thead><tr>
           <th style="${dateThBase};background:#1a2035;top:0;left:0;position:sticky;z-index:12;box-shadow:2px 2px 4px rgba(0,0,0,.4)">Date</th>
@@ -3739,23 +3744,26 @@ function renderPresenterCalendar(){
   }).join('');
 
   return`<div class="ep-wrap" style="overflow-x:auto;overflow-y:hidden;padding:0;display:flex;flex-direction:column">
-    <div style="padding:12px 16px;background:#161b22;position:sticky;left:0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #2e3a50;z-index:8">
-      <div>
-        <span style="font-size:15px;font-weight:800;color:#eaf0ff">Presenter Calendar</span>
-        <span style="font-size:11px;color:#6e7681;margin-left:10px">18 Jan 2026 — ${presCalFmt(PRES_CAL_END)}</span>
+    <div style="padding:14px 20px;background:#161b22;position:sticky;left:0;border-bottom:1px solid #2e3a50;z-index:8;flex-shrink:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:20px;font-weight:900;color:#eaf0ff">Presenter Calendar</div>
+          <div style="font-size:11px;color:#6e7681;margin-top:2px">18 Jan 2026 — ${presCalFmt(PRES_CAL_END)}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button id="prescal-prev" class="btn" style="font-size:13px;padding:8px 16px" ${presCalViewMonth===0?'disabled':''}>◀ Prev</button>
+          <span style="font-size:16px;font-weight:800;color:#eaf0ff;min-width:160px;text-align:center">${Object.keys(months)[presCalViewMonth]}</span>
+          <button id="prescal-next" class="btn" style="font-size:13px;padding:8px 16px" ${presCalViewMonth>=Object.keys(months).length-1?'disabled':''}>Next ▶</button>
+          ${canEd?`<button id="prescal-extend" class="btn" style="font-size:13px;padding:8px 16px;margin-left:8px;border-color:#388bfd;color:#388bfd">+ 3 months</button>`:''}
+        </div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button id="prescal-prev" class="btn" style="font-size:11px;padding:4px 10px" ${presCalViewMonth===0?'disabled':''}>◀ Prev</button>
-        <span style="font-size:12px;font-weight:700;color:#eaf0ff;min-width:140px;text-align:center">${Object.keys(months)[presCalViewMonth]}</span>
-        <button id="prescal-next" class="btn" style="font-size:11px;padding:4px 10px" ${presCalViewMonth>=Object.keys(months).length-1?'disabled':''}>Next ▶</button>
-        ${canEd?`<button id="prescal-extend" class="btn" style="font-size:11px;padding:4px 10px;margin-left:8px;border-color:#388bfd;color:#388bfd">+ 3 months</button>`:''}
-      </div>
-      <div style="display:flex;gap:12px;align-items:center;font-size:10px;color:#6e7681">
-        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#1a1a2d;display:inline-block;border-radius:2px"></span>Weekend</span>
-        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#2d1a00;display:inline-block;border-radius:2px"></span>Public Holiday</span>
-        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#2d0a0a;display:inline-block;border-radius:2px"></span>Not Available</span>
-        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#1a2d4a;display:inline-block;border-radius:2px;border:1px solid #7a3fbf"></span>Studio</span>
-        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#2d2a1a;display:inline-block;border-radius:2px;border:1px solid #e3b341"></span>Custom Note</span>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
+        <span style="display:flex;align-items:center;gap:6px;background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:6px 12px;font-size:12px;color:#6e7681"><span style="width:12px;height:12px;background:#1a1a2d;display:inline-block;border-radius:3px;flex-shrink:0"></span>Weekend</span>
+        <span style="display:flex;align-items:center;gap:6px;background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:6px 12px;font-size:12px;color:#e3b341"><span style="width:12px;height:12px;background:#2d1a00;display:inline-block;border-radius:3px;flex-shrink:0"></span>Public Holiday</span>
+        <span style="display:flex;align-items:center;gap:6px;background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:6px 12px;font-size:12px;color:#f85149"><span style="width:12px;height:12px;background:#2d0a0a;display:inline-block;border-radius:3px;flex-shrink:0"></span>Not Available</span>
+        <span style="display:flex;align-items:center;gap:6px;background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:6px 12px;font-size:12px;color:#c084fc"><span style="width:12px;height:12px;background:#1a2d4a;display:inline-block;border-radius:3px;border:1px solid #7a3fbf;flex-shrink:0"></span>Studio</span>
+        <span style="display:flex;align-items:center;gap:6px;background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:6px 12px;font-size:12px;color:#e3b341"><span style="width:12px;height:12px;background:#2d2a1a;display:inline-block;border-radius:3px;border:1px solid #e3b341;flex-shrink:0"></span>Custom Note</span>
+        <span style="display:flex;align-items:center;gap:6px;background:#1c2433;border:1px solid rgba(56,139,253,.4);border-radius:6px;padding:6px 12px;font-size:12px;color:#388bfd"><span style="width:12px;height:12px;background:rgba(56,139,253,.07);display:inline-block;border-radius:3px;border-left:3px solid #388bfd;flex-shrink:0"></span>Today</span>
       </div>
     </div>
     <div style="overflow-x:auto;overflow-y:auto;flex:1;min-height:0">
