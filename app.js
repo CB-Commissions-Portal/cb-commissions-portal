@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.92';
+const BUILD_VERSION='3.10.93';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -8415,6 +8415,7 @@ function rosExportWord(){
     </tr>`;
   }).join('');
 
+  const footerLeft=`CARTE BLANCHE | SEASON ${currentSeason} | EPISODE ${String(ep).padStart(2,'0')} | TX: ${epDateFmt.toUpperCase()}`;
   const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office"
 xmlns:w="urn:schemas-microsoft-com:office:word"
 xmlns="http://www.w3.org/TR/REC-html40">
@@ -8430,7 +8431,9 @@ xmlns="http://www.w3.org/TR/REC-html40">
   @page {
     size:841.9pt 595.3pt;
     mso-page-orientation:landscape;
-    margin:36pt 36pt 36pt 36pt; /* Narrow: 1.27cm all sides */
+    margin:36pt 36pt 54pt 36pt;
+    mso-footer:ftr1;
+    mso-footer-margin:30pt;
   }
   body{font-family:Arial,sans-serif;font-size:11pt;margin:0;padding:0}
   p{margin:0;padding:0;font-family:Arial,sans-serif;font-size:11pt;line-height:1.15}
@@ -8439,8 +8442,16 @@ xmlns="http://www.w3.org/TR/REC-html40">
 </style>
 </head>
 <body>
+<div style="mso-element:footer" id="ftr1">
+  <table width="100%" style="border:none;border-collapse:collapse">
+    <tr>
+      <td style="border:none;font-family:Arial,sans-serif;font-size:9pt;color:#333;text-align:left;padding:0 4pt 0 0">${escHtml(footerLeft)}</td>
+      <td style="border:none;font-family:Arial,sans-serif;font-size:9pt;color:#333;text-align:right;padding:0;white-space:nowrap"><!--[if supportFields]><span style="mso-element:field-begin"></span><span style="mso-spacerun:yes"> PAGE </span><span style="mso-element:field-end"></span><![endif]--><span style="mso-no-proof:yes"></span></td>
+    </tr>
+  </table>
+</div>
 <p style="font-size:14pt;font-weight:bold;color:#003366;margin-bottom:2pt;mso-line-height-rule:exactly;line-height:18pt">CARTE BLANCHE</p>
-<p style="margin-bottom:1pt;mso-line-height-rule:exactly;line-height:14pt"><b>Season ${currentSeason}, ${escHtml(epLabel.replace('S39 ','Season 39, '))}</b></p>
+<p style="margin-bottom:1pt;mso-line-height-rule:exactly;line-height:14pt"><b>Season ${currentSeason}, ${escHtml(epLabel.replace(`S${currentSeason} `,'Season '+currentSeason+', '))}</b></p>
 <p style="margin-bottom:8pt;mso-line-height-rule:exactly;line-height:14pt"><b>TX: ${escHtml(epDateFmt)}</b></p>
 <table border="1" cellpadding="3" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed">
   <colgroup>
