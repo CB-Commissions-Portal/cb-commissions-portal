@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.95';
+const BUILD_VERSION='3.10.96';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -8393,26 +8393,28 @@ function rosExportWord(){
   const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
   const escHtml=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
+  const _p=(txt,style='')=>`<p style="margin:0;font-family:Arial,sans-serif;font-size:11pt;${style}">${txt}</p>`;
   const rows=items.map((item,i)=>{
     const num=item.itemNum||String(i+1);
-    const lbl=escHtml(item.label||'');
-    const cnt=escHtml(item.content||'');
-    const outWTxt=item.type==='insert'&&item.outWords?`<br><u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`:'';
-    const scriptTxt=['live','coldstart','upnext'].includes(item.type)&&item.script?`<br><span style="font-weight:normal;color:#000">${escHtml(item.script).replace(/\n/g,'<br>')}</span>`:'';
-    const desc=lbl+(cnt?`<br><span style="font-weight:normal;color:#000">${cnt}</span>`:'')+outWTxt+scriptTxt;
     const slugs=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean);
     const sources=item.slugSources||[];
     const slugCell=slugs.map((s,si)=>{
       const src=sources[si]||'';
       const txt=src?`${escHtml(src)} - ${escHtml(s)}`:escHtml(s);
-      return `<span style="background:#c6efce;mso-highlight:green">${txt}</span>`;
-    }).join('<br>')||'';
+      return _p(`<span style="background:#00FF00;mso-highlight:green;font-weight:bold">${txt}</span>`);
+    }).join('')||'';
+    let desc=_p(escHtml(item.label||''),'font-weight:bold;color:#0055a0');
+    if(item.content) desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
+    if(item.type==='insert'&&item.outWords) desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
+    if(['live','coldstart','upnext'].includes(item.type)&&item.script){
+      item.script.split('\n').forEach(line=>{desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');});
+    }
     return`<tr>
-      <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%">${escHtml(num)}</td>
-      <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%">${slugCell}</td>
-      <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%">${escHtml(item.sound||"")}</td>
-      <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;color:#0055a0;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%">${desc}</td>
-      <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:7%">&nbsp;</td>
+      <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%">${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
+      <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%">${slugCell}</td>
+      <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%">${_p(escHtml(item.sound||''),'font-weight:bold')}</td>
+      <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%">${desc}</td>
+      <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:7%">${_p('&nbsp;')}</td>
     </tr>`;
   }).join('');
 
@@ -8430,8 +8432,8 @@ xmlns="http://www.w3.org/TR/REC-html40">
 </xml><![endif]-->
 <style>
   @page Section1 {
-    size:841.9pt 595.3pt;
-    mso-page-orientation:landscape;
+    size:595.3pt 841.9pt;
+    mso-page-orientation:portrait;
     margin:18pt 18pt 50pt 18pt;
     mso-footer:ftr1;
     mso-footer-margin:32pt;
@@ -8439,7 +8441,7 @@ xmlns="http://www.w3.org/TR/REC-html40">
   div.Section1{page:Section1}
   body{font-family:Arial,sans-serif;font-size:11pt;margin:0;padding:0}
   p{margin:0;padding:0;font-family:Arial,sans-serif;font-size:11pt;line-height:1.15}
-  p.MsoFooter{margin:0;mso-pagination:widow-orphan;tab-stops:right 806pt;font-family:Arial,sans-serif;font-size:9pt;color:#333}
+  p.MsoFooter{margin:0;mso-pagination:widow-orphan;tab-stops:right 559pt;font-family:Arial,sans-serif;font-size:9pt;color:#333}
   table{border-collapse:collapse;width:100%;table-layout:fixed}
   td,th{font-family:Arial,sans-serif;font-size:11pt;padding:3px 5px;border:1px solid #000;vertical-align:top;word-wrap:break-word}
 </style>
