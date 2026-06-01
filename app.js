@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.100';
+const BUILD_VERSION='3.10.101';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -145,7 +145,8 @@ let appTheme=localStorage.getItem('cb_theme')||'dark'; // 'dark' or 'light'
 let rosData={}; // {epNum: {items:[{type,label,content,duration}]}}
 let rosEpModal=false; // show episode picker modal
 let rosCurrentEp=null; // currently viewed episode
-let rosScriptModal=null; // {epNum,itemIdx} — script editor modal // {commNum: {deliveryDate:'', cells:{}, editComplete:false}}
+let rosScriptModal=null; // {epNum,itemIdx} — script editor modal
+let rosEditModal=null;   // {epNum,itemIdx} — full item edit modal
 let ppActiveComms=[]; // ordered list of commNums added to the post prod schedule
 let ppSortField='commNum';
 let ppSortDir='asc';
@@ -4175,64 +4176,44 @@ function renderRunOfShow(){
     const durSecs=rosDurToSecs(item.duration);
     const epDurSecs=epDurs[i];
 
-    // Compute slug HTML outside template literal to avoid nesting issues
-    const _slugs=item.slugs||(item.slug?[item.slug]:['']);
-    const _slugDatalist='<datalist id="ros-slug-opts"><option value="CB2026 OPENING LOGO"><option value="CB2026 KEY BUMPER OUT"><option value="CB2026 KEY BUMPER IN"><option value="CB2026 CLOSING CREDITS"></datalist>';
-    const _slugSources=item.slugSources||[];
-    const _srcOpts=['','A','B','C','D','BLUE'];
-    const _slugInputs=_slugs.map((s,si)=>{
-      const curSrc=_slugSources[si]||'';
-      const rmBtn=_slugs.length>1?`<button class="ros-rm-slug btn" data-idx="${i}" data-sidx="${si}" style="font-size:9px;padding:1px 4px;border-color:#f85149;color:#f85149;flex-shrink:0">×</button>`:'';
-      const srcSel=canEdit
-        ?`<select class="ros-slug-source" data-idx="${i}" data-sidx="${si}" style="background:#1a2235;border:1px solid #2e3a50;border-radius:3px;color:#56d364;font-size:11px;font-weight:700;padding:2px 4px;outline:none;font-family:inherit;cursor:pointer;width:62px;flex-shrink:0">${_srcOpts.map(o=>`<option value="${o}" ${curSrc===o?'selected':''}>${o||'—'}</option>`).join('')}</select>`
-        :(curSrc?`<span style="font-size:11px;font-weight:700;color:#56d364;flex-shrink:0">${esc(curSrc)}</span>`:'');
-      return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px"><input class="ros-slug" data-idx="${i}" data-sidx="${si}" value="${esc(s||'')}" placeholder="Slug…" list="ros-slug-opts" style="flex:1;min-width:0;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#e3b341;font-size:13px;padding:4px 2px;outline:none;font-family:inherit;font-weight:700">${srcSel}${rmBtn}</div>`;
-    }).join('');
-    const _addBtn=canEdit?`<button class="ros-add-slug btn" data-idx="${i}" style="font-size:9px;padding:1px 6px;border-style:dashed;border-color:#e3b341;color:#e3b341;margin-top:2px">＋</button>`:'';
-    const _slugCell=canEdit
-      ?(_slugInputs+_slugDatalist+_addBtn)
-      :(_slugs.filter(Boolean).map(s=>'<div style="font-size:13px;color:#e3b341;font-weight:700">'+esc(s)+'</div>').join('')||'<span style="color:#484f58">—</span>');
-    const _outWordsHtml=item.type==='insert'
+    // Slug display (read-only in main view)
+    const slugDisplay=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean)
+      .map(s=>`<div style="font-size:18px;color:#e3b341;font-weight:700;margin-bottom:4px">${esc(s)}</div>`)
+      .join('')||'<span style="color:#484f58;font-size:16px">—</span>';
+
+    // Content (editable inline)
+    const contentCell=item.type!=='fixed'&&item.type!=='break'
       ?(canEdit&&!isLocked
-        ?`<div style="margin-top:8px"><div style="font-size:12px;font-weight:700;text-decoration:underline;color:#e3b341;margin-bottom:2px">OUT WORDS:</div><input class="ros-out-words" data-idx="${i}" value="${esc(item.outWords||'')}" placeholder="Enter out words…" style="width:100%;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#eaf0ff;font-size:14px;padding:4px 2px;outline:none;font-family:inherit"></div>`
-        :(item.outWords?`<div style="margin-top:6px"><span style="font-size:12px;font-weight:700;text-decoration:underline;color:#e3b341">OUT WORDS:</span> <span style="font-size:14px;color:#eaf0ff">${esc(item.outWords)}</span></div>`:''))
+        ?`<input class="ros-content" data-idx="${i}" value="${esc(item.content||'')}" placeholder="${esc(item.placeholder||'Add content…')}" style="width:100%;background:transparent;border:none;border-bottom:2px solid ${ts.border};color:#eaf0ff;font-size:18px;padding:8px 2px;outline:none;font-family:inherit">`
+        :`<span style="font-size:18px;color:${item.content?'#eaf0ff':'#484f58'};font-style:${item.content?'normal':'italic'}">${esc(item.content||'—')}</span>`)
       :'';
-    return`<tr data-ros-idx="${i}" style="background:${ts.bg};border-bottom:2px solid ${ts.border}">
-      <td style="padding:0;width:80px;text-align:center;vertical-align:middle">
-        ${canEdit?`<div style="display:flex;align-items:center;justify-content:center;gap:2px;padding:6px">
-          <div style="display:flex;flex-direction:column;gap:2px">
-            <button class="ros-up" data-idx="${i}" style="background:none;border:1px solid #2e3a50;border-radius:3px;color:#484f58;cursor:pointer;font-size:11px;line-height:1;padding:3px 6px" title="Move up" onmouseover="this.style.color='#eaf0ff';this.style.borderColor='#58a6ff'" onmouseout="this.style.color='#484f58';this.style.borderColor='#2e3a50'" ${i===0?'disabled style="opacity:0.2;cursor:default"':''}>▲</button>
-            <button class="ros-dn" data-idx="${i}" style="background:none;border:1px solid #2e3a50;border-radius:3px;color:#484f58;cursor:pointer;font-size:11px;line-height:1;padding:3px 6px" title="Move down" onmouseover="this.style.color='#eaf0ff';this.style.borderColor='#58a6ff'" onmouseout="this.style.color='#484f58';this.style.borderColor='#2e3a50'" ${i===items.length-1?'disabled style="opacity:0.2;cursor:default"':''}>▼</button>
-          </div>
-          <button class="ros-del" data-idx="${i}" style="background:none;border:1px solid #2e3a50;border-radius:3px;color:#484f58;cursor:pointer;font-size:13px;line-height:1;padding:4px 7px;margin-left:2px" title="Remove" onmouseover="this.style.color='#f85149';this.style.borderColor='#f85149'" onmouseout="this.style.color='#484f58';this.style.borderColor='#2e3a50'">✕</button>
+
+    // Duration (editable inline)
+    const durCell=canEdit&&!isLocked
+      ?`<input class="ros-dur" data-idx="${i}" value="${esc(item.duration||'')}" placeholder="0:00:00" style="width:120px;background:transparent;border:none;border-bottom:2px solid ${ts.border};color:#eaf0ff;font-size:20px;padding:8px 4px;outline:none;text-align:center;font-family:monospace">`
+      :`<span class="ros-dur-display" style="font-size:20px;font-family:monospace;color:${durSecs?'#eaf0ff':'#484f58'}">${item.duration||'—'}</span>`;
+
+    return`<tr data-ros-idx="${i}" style="background:${ts.bg};border-bottom:3px solid ${ts.border}">
+      <td style="padding:10px 8px;width:72px;text-align:center;vertical-align:middle">
+        ${canEdit?`<div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+          <button class="ros-up" data-idx="${i}" style="background:none;border:1px solid #2e3a50;border-radius:4px;color:#484f58;cursor:pointer;font-size:13px;line-height:1;padding:5px 8px" onmouseover="this.style.color='#eaf0ff';this.style.borderColor='#58a6ff'" onmouseout="this.style.color='#484f58';this.style.borderColor='#2e3a50'" ${i===0?'disabled':''}>▲</button>
+          <button class="ros-dn" data-idx="${i}" style="background:none;border:1px solid #2e3a50;border-radius:4px;color:#484f58;cursor:pointer;font-size:13px;line-height:1;padding:5px 8px" onmouseover="this.style.color='#eaf0ff';this.style.borderColor='#58a6ff'" onmouseout="this.style.color='#484f58';this.style.borderColor='#2e3a50'" ${i===items.length-1?'disabled':''}>▼</button>
+          <button class="ros-del" data-idx="${i}" style="background:none;border:1px solid #2e3a50;border-radius:4px;color:#484f58;cursor:pointer;font-size:14px;line-height:1;padding:5px 8px" onmouseover="this.style.color='#f85149';this.style.borderColor='#f85149'" onmouseout="this.style.color='#484f58';this.style.borderColor='#2e3a50'">✕</button>
         </div>`:''}
       </td>
-      <td style="padding:14px 16px;vertical-align:middle;white-space:nowrap">
-        ${item.itemNum?`<span style="font-size:13px;font-weight:900;color:#484f58;font-family:monospace;margin-right:10px;min-width:28px;display:inline-block;text-align:right">${item.itemNum}.</span>`:''}
-        ${ts.badge?`<span style="font-size:9px;font-weight:800;background:${ts.badgeBg};color:${ts.label};padding:2px 7px;border-radius:3px;margin-right:8px;letter-spacing:.5px">${ts.badge}</span>`:''}
-        <span style="font-size:16px;font-weight:${ts.weight};color:${ts.label}">${esc(item.label)}</span>
-        ${['live','coldstart','upnext'].includes(item.type)?`<button class="ros-script-btn btn" data-idx="${i}" style="font-size:10px;padding:2px 8px;margin-left:12px;border-color:#56d364;color:#56d364;vertical-align:middle;white-space:nowrap">${item.script?'✎ EDIT SCRIPT':'＋ ADD SCRIPT'}</button>`:''}
+      <td style="padding:22px 24px;vertical-align:middle;min-width:220px;max-width:260px">
+        ${item.itemNum?`<div style="font-size:14px;color:#484f58;font-family:monospace;margin-bottom:6px;font-weight:700">${item.itemNum}.</div>`:''}
+        ${ts.badge?`<div style="font-size:11px;font-weight:800;background:${ts.badgeBg};color:${ts.label};padding:4px 12px;border-radius:4px;margin-bottom:10px;display:inline-block;letter-spacing:.8px">${ts.badge}</div>`:''}
+        <div style="font-size:22px;font-weight:${ts.weight};color:${ts.label};line-height:1.2">${esc(item.label)}</div>
       </td>
-      <td style="padding:6px 16px;vertical-align:top;min-width:160px;max-width:220px">${_slugCell}</td>
-      <td style="padding:6px 16px;vertical-align:middle;min-width:80px">
-        ${item.type!=='break'&&canEdit
-          ?`<select class="ros-sound" data-idx="${i}" style="background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#58a6ff;font-size:13px;font-weight:700;padding:5px 8px;outline:none;font-family:inherit;cursor:pointer;width:100%"><option value="" ${item.sound===''?'selected':''}>— none —</option><option value="A" ${item.sound==='A'?'selected':''}>A</option><option value="B" ${item.sound==='B'?'selected':''}>B</option><option value="C" ${item.sound==='C'?'selected':''}>C</option><option value="D" ${item.sound==='D'?'selected':''}>D</option><option value="COLD START" ${item.sound==='COLD START'?'selected':''}>COLD START</option><option value="CLEAN" ${item.sound==='CLEAN'?'selected':''}>CLEAN</option><option value="GENERIC" ${item.sound==='GENERIC'?'selected':''}>GENERIC</option><option value="A+ COLD START CONT'D" ${item.sound==="A+ COLD START CONT'D"?'selected':''}>A+ COLD START CONT'D</option><option value="B+ COLD START CONT'D" ${item.sound==="B+ COLD START CONT'D"?'selected':''}>B+ COLD START CONT'D</option><option value="C+ COLD START CONT'D" ${item.sound==="C+ COLD START CONT'D"?'selected':''}>C+ COLD START CONT'D</option><option value="D+ COLD START CONT'D" ${item.sound==="D+ COLD START CONT'D"?'selected':''}>D+ COLD START CONT'D</option><option value="VOICE+ COLD START CONT'D" ${item.sound==="VOICE+ COLD START CONT'D"?'selected':''}>VOICE+ COLD START CONT'D</option></select>`
-          :`<span style="font-size:13px;font-weight:700;color:${item.sound?'#58a6ff':'#484f58'}">${esc(item.sound||'—')}</span>`}
+      <td style="padding:22px 24px;vertical-align:middle;min-width:200px;max-width:260px">${slugDisplay}</td>
+      <td style="padding:18px 24px;vertical-align:middle">${contentCell}</td>
+      <td style="padding:18px 24px;vertical-align:middle;width:160px;text-align:center">${durCell}</td>
+      <td style="padding:18px 24px;vertical-align:middle;width:160px;text-align:right">
+        <span class="ros-epdur" data-idx="${i}" style="font-size:${i===0?'26px':'20px'};font-family:monospace;color:${i===0?'#c084fc':epDurSecs?'#79c0ff':'#333'};font-weight:${i===0?'900':'400'}">${epDurSecs?rosSecsToStr(epDurSecs):'—'}</span>
       </td>
-      <td style="padding:10px 16px;vertical-align:middle;min-width:280px">
-        ${item.type!=='fixed'&&item.type!=='break'
-          ?(canEdit&&!isLocked
-            ?`<input class="ros-content" data-idx="${i}" value="${esc(item.content||'')}" placeholder="${esc(item.placeholder||'Add content…')}" style="width:100%;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#eaf0ff;font-size:16px;padding:6px 2px;outline:none;font-family:inherit">`
-            :`<span style="font-size:16px;color:${item.content?'#eaf0ff':'#484f58'};font-style:${item.content?'normal':'italic'}">${esc(item.content||'—')}</span>`)
-          :''}${_outWordsHtml}
-      </td>
-      <td style="padding:10px 16px;vertical-align:middle;width:130px;text-align:center">
-        ${canEdit&&!isLocked
-          ?`<input class="ros-dur" data-idx="${i}" value="${esc(item.duration||'')}" placeholder="0:00:00" style="width:110px;background:transparent;border:none;border-bottom:1px solid #2e3a50;color:#eaf0ff;font-size:16px;padding:6px 4px;outline:none;text-align:center;font-family:monospace">`
-          :`<span class="ros-dur-display" style="font-size:16px;font-family:monospace;color:${durSecs?'#eaf0ff':'#484f58'}">${item.duration||'—'}</span>`}
-      </td>
-      <td style="padding:14px 20px;vertical-align:middle;width:130px;text-align:right">
-        <span class="ros-epdur" data-idx="${i}" style="font-size:${i===0?'20px':'16px'};font-family:monospace;color:${i===0?'#c084fc':epDurSecs?'#7a8ba0':'#333'};font-weight:${i===0?'900':'400'}">${epDurSecs?rosSecsToStr(epDurSecs):'—'}</span>
+      <td style="padding:18px 20px;vertical-align:middle;width:150px;text-align:center">
+        ${canEdit?`<button class="ros-edit-btn btn" data-idx="${i}" style="font-size:14px;padding:12px 18px;border-color:#388bfd;color:#58a6ff;width:100%;font-weight:700;letter-spacing:.3px">✎ EDIT ITEM</button>`:''}
       </td>
     </tr>`;
   }).join('');
@@ -4244,61 +4225,60 @@ function renderRunOfShow(){
     return`<optgroup label="${g}">${groupItems.map(t=>`<option value="${t.key}">${t.label}</option>`).join('')}</optgroup>`;
   }).join('');
 
-  const emptyState=items.length===0?`<tr><td colspan="5" style="padding:60px;text-align:center;color:#484f58;font-size:16px">
+  const emptyState=items.length===0?`<tr><td colspan="7" style="padding:80px;text-align:center;color:#484f58;font-size:18px">
     No items yet — use "Add Item" below to start building the run of show.
   </td></tr>`:'';
 
   return`<div style="display:flex;height:100%;overflow:hidden">
-    <!-- Main content area -->
     <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
       <!-- Header bar -->
-      <div style="padding:12px 20px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:16px;flex-shrink:0;flex-wrap:wrap">
-        <button class="btn" id="ros-pick-ep-btn" style="font-size:12px;padding:6px 14px">◀ Episodes</button>
+      <div style="padding:14px 24px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:16px;flex-shrink:0;flex-wrap:wrap">
+        <button class="btn" id="ros-pick-ep-btn" style="font-size:13px;padding:8px 16px">◀ Episodes</button>
         <div>
-          <span style="font-size:18px;font-weight:900;color:#c084fc;font-family:monospace">${epLabel}</span>
-          <span style="font-size:13px;color:#6e7681;margin-left:12px">${epDateFmt}</span>
+          <span style="font-size:20px;font-weight:900;color:#c084fc;font-family:monospace">${epLabel}</span>
+          <span style="font-size:14px;color:#6e7681;margin-left:14px">${epDateFmt}</span>
         </div>
-        ${(()=>{const _ub=rosData[String(epNum)]?.updatedByName;const _ua=rosData[String(epNum)]?.updatedAtStr;return `<div style="font-size:11px;color:#6e7681;background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:4px 10px;line-height:1.5"><span style="color:#484f58;font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:9px">Last saved by</span><br><span style="color:${_ub?'#eaf0ff':'#484f58'};font-weight:700;font-style:${_ub?'normal':'italic'}">${esc(_ub||'Not yet saved')}</span>${_ua?`<span style="color:#484f58"> · ${esc(_ua)}</span>`:''}</div>`;})()}
+        ${(()=>{const _ub=rosData[String(epNum)]?.updatedByName;const _ua=rosData[String(epNum)]?.updatedAtStr;return `<div style="font-size:11px;color:#6e7681;background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:5px 12px;line-height:1.5"><span style="color:#484f58;font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:9px">Last saved by</span><br><span style="color:${_ub?'#eaf0ff':'#484f58'};font-weight:700;font-style:${_ub?'normal':'italic'}">${esc(_ub||'Not yet saved')}</span>${_ua?`<span style="color:#484f58"> · ${esc(_ua)}</span>`:''}</div>`;})()}
         <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <span style="font-size:18px;font-weight:900;color:#c084fc;font-family:monospace" id="ros-total">Total: ${rosSecsToStr(totalSecs)}</span>
-          <button class="btn" id="ros-export-pdf-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#56d364;color:#56d364">⬇ ROS PDF Export</button>
-          <button class="btn" id="ros-export-word-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#388bfd;color:#58a6ff">⬇ Studio Script (Word)</button>
-          <button class="btn" id="ros-export-vt-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#e3b341;color:#e3b341">⬇ VT List (PDF)</button>
-          ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:13px;padding:7px 20px;font-weight:700;border-color:#e3b341;color:#e3b341"># Generate Item Numbers</button>`:''}
-          ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:13px;padding:7px 20px;font-weight:800">💾 Save</button>`:''}
+          <span style="font-size:20px;font-weight:900;color:#c084fc;font-family:monospace" id="ros-total">Total: ${rosSecsToStr(totalSecs)}</span>
+          <button class="btn" id="ros-export-pdf-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#56d364;color:#56d364">⬇ ROS PDF</button>
+          <button class="btn" id="ros-export-word-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#388bfd;color:#58a6ff">⬇ Studio Script (Word)</button>
+          <button class="btn" id="ros-export-vt-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#e3b341;color:#e3b341">⬇ VT List</button>
+          ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#e3b341;color:#e3b341"># Numbers</button>`:''}
+          ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:14px;padding:8px 24px;font-weight:800">💾 Save</button>`:''}
         </div>
       </div>
-      <!-- Table scrolls here -->
+      <!-- Table -->
       <div style="flex:1;overflow-y:auto">
         <table style="border-collapse:collapse;width:100%">
           <thead style="position:sticky;top:0;z-index:5;background:#0d1117">
             <tr>
-              <th style="width:80px;padding:10px;border-bottom:2px solid #2e3a50"></th>
-              <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Item</th>
-              <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#e3b341;border-bottom:2px solid #2e3a50;text-align:left;min-width:160px">Slug</th>
-              <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#58a6ff;border-bottom:2px solid #2e3a50;text-align:left;min-width:80px">Sound</th>
-              <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Content</th>
-              <th style="padding:10px 16px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:center;width:130px">Item Dur</th>
-              <th style="padding:10px 20px;font-size:11px;font-weight:800;text-transform:uppercase;color:#c084fc;border-bottom:2px solid #2e3a50;text-align:right;width:130px">Ep Duration ↑</th>
+              <th style="width:72px;padding:12px 8px;border-bottom:2px solid #2e3a50"></th>
+              <th style="padding:12px 24px;font-size:12px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Item</th>
+              <th style="padding:12px 24px;font-size:12px;font-weight:800;text-transform:uppercase;color:#e3b341;border-bottom:2px solid #2e3a50;text-align:left;min-width:200px">Slug</th>
+              <th style="padding:12px 24px;font-size:12px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Content</th>
+              <th style="padding:12px 24px;font-size:12px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:center;width:160px">Item Dur</th>
+              <th style="padding:12px 24px;font-size:12px;font-weight:800;text-transform:uppercase;color:#c084fc;border-bottom:2px solid #2e3a50;text-align:right;width:160px">Ep Duration ↑</th>
+              <th style="padding:12px 20px;font-size:12px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:center;width:150px"></th>
             </tr>
           </thead>
           <tbody>${emptyState}${rows}</tbody>
         </table>
       </div>
     </div>
-    <!-- Right sidebar: Add Item panel -->
-    ${canEdit?`<div style="width:260px;flex-shrink:0;background:#161b22;border-left:2px solid #21262d;display:flex;flex-direction:column;overflow-y:auto">
-      <div style="padding:16px 16px 8px;font-size:13px;font-weight:800;color:#eaf0ff;border-bottom:1px solid #21262d;letter-spacing:.3px">+ Add Item</div>
-      <div style="padding:12px 16px;display:flex;flex-direction:column;gap:10px">
-        <select id="ros-type-sel" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:10px 12px;border-radius:6px;font-size:13px">
+    <!-- Right sidebar: Add Item -->
+    ${canEdit?`<div style="width:280px;flex-shrink:0;background:#161b22;border-left:2px solid #21262d;display:flex;flex-direction:column;overflow-y:auto">
+      <div style="padding:18px 18px 10px;font-size:14px;font-weight:800;color:#eaf0ff;border-bottom:1px solid #21262d;letter-spacing:.3px">+ Add Item</div>
+      <div style="padding:14px 18px;display:flex;flex-direction:column;gap:12px">
+        <select id="ros-type-sel" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:12px 14px;border-radius:6px;font-size:14px">
           <option value="">— choose item —</option>
           ${addOpts}
         </select>
-        <button class="btn primary" id="ros-add-btn" style="width:100%;font-size:14px;padding:12px;font-weight:800">+ Add Item</button>
+        <button class="btn primary" id="ros-add-btn" style="width:100%;font-size:15px;padding:14px;font-weight:800">+ Add Item</button>
       </div>
-      <div style="padding:12px 16px;border-top:1px solid #21262d;display:flex;flex-direction:column;gap:6px">
+      <div style="padding:14px 18px;border-top:1px solid #21262d;display:flex;flex-direction:column;gap:8px">
         <div style="font-size:10px;font-weight:700;color:#484f58;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Colour Key</div>
-        ${[['#0d1e35','#79c0ff','Live / Link'],['#1a1200','#e3b341','Insert'],['#110d1f','#c084fc','Cold Start'],['#0d1f10','#56d364','UP NEXT'],['#16161f','#9ca3af','Fixed'],['#080808','#484f58','Break']].map(([bg,col,lbl])=>`<span style="display:flex;align-items:center;gap:8px"><span style="width:14px;height:14px;background:${bg};border:1px solid ${col}44;border-radius:3px;flex-shrink:0;display:inline-block"></span><span style="font-size:12px;color:#6e7681">${lbl}</span></span>`).join('')}
+        ${[['#0d1e35','#79c0ff','Live / Link'],['#1a1200','#e3b341','Insert'],['#110d1f','#c084fc','Cold Start'],['#0d1f10','#56d364','UP NEXT'],['#16161f','#9ca3af','Fixed'],['#080808','#484f58','Break']].map(([bg,col,lbl])=>`<span style="display:flex;align-items:center;gap:8px"><span style="width:16px;height:16px;background:${bg};border:1px solid ${col}44;border-radius:3px;flex-shrink:0;display:inline-block"></span><span style="font-size:13px;color:#6e7681">${lbl}</span></span>`).join('')}
       </div>
     </div>`:''}
   </div>`;
@@ -5548,6 +5528,68 @@ function renderModals(epNums,nextEp){
   if(decomModal!==null){const c=comms.find(x=>x.id===decomModal);out+=`<div class="modal-overlay" id="decom-overlay"><div class="modal"><h3>Decommission Story</h3><p>A written motivation is required. Reversible only by Admin.</p><label>Story</label><div class="modal-story">${esc(c?.storyName||'')}</div><label>Motivation *</label><textarea id="decom-text" placeholder="Enter reason for decommissioning…">${esc(decomText)}</textarea><div class="modal-actions"><button class="btn" id="decom-cancel">Cancel</button><button class="btn danger" id="decom-confirm">Confirm Decommission</button></div></div></div>`;}
   if(addEpModal){const autoDate=resolveDate(parseInt(newEpNum)||nextEp);const exists=epNums.includes(parseInt(newEpNum));out+=`<div class="modal-overlay" id="ep-overlay"><div class="modal"><h3>Add Episode</h3><p>Creates a new episode slot. Date is auto-calculated (+7 days) and editable after creation.</p><label>Episode Number</label><input type="number" id="new-ep-num" value="${newEpNum}" min="1" placeholder="${nextEp}">${newEpNum&&!isNaN(parseInt(newEpNum))?`<div style="margin-top:8px;font-size:12px;color:#8b949e">Date: <strong style="color:#e6edf3">${fmtDate(autoDate)}</strong></div>`:''}${exists?`<div style="color:#f85149;font-size:12px;margin-top:6px">⚠ Episode ${newEpNum} already exists.</div>`:''}<div class="modal-actions"><button class="btn" id="ep-cancel">Cancel</button><button class="btn primary" id="ep-confirm">Create Episode ${newEpNum||nextEp}</button></div></div></div>`;}
   if(addUserModal){out+=`<div class="modal-overlay" id="user-overlay"><div class="modal"><h3>Create User Account</h3><p>The user can log in immediately with these credentials. Share them securely.</p><label>Full Name</label><input type="text" id="nu-name" value="${esc(newUserData.displayName)}" placeholder="e.g. Joy Summers"><label>Email</label><input type="email" id="nu-email" value="${esc(newUserData.email)}" placeholder="user@example.com"><label>Password</label><input type="text" id="nu-pass" value="${esc(newUserData.password)}" placeholder="Minimum 6 characters"><label>Role</label><select id="nu-role">${Object.entries(ROLE_META).map(([k,v])=>`<option value="${k}"${newUserData.role===k?' selected':''}>${v.label}</option>`).join('')}</select><div id="nu-err" style="color:#f85149;font-size:12px;margin-top:8px;display:none"></div><div class="modal-actions"><button class="btn" id="user-cancel">Cancel</button><button class="btn primary" id="user-confirm">Create Account</button></div></div></div>`;}
+  if(rosEditModal){
+    const {epNum,itemIdx}=rosEditModal;
+    const _ei=(rosData[String(epNum)]?.items||[])[itemIdx]||{};
+    const _eTS={fixed:{label:'#9ca3af',badge:'',badgeBg:''},live:{label:'#79c0ff',badge:'LIVE',badgeBg:'#1a3a5c'},insert:{label:'#e3b341',badge:'INSERT',badgeBg:'#2d2000'},coldstart:{label:'#c084fc',badge:'COLD START',badgeBg:'#1f1040'},upnext:{label:'#56d364',badge:'UP NEXT',badgeBg:'#142a16'},break:{label:'#484f58',badge:'BREAK',badgeBg:'#111'}};
+    const _ts=_eTS[_ei.type]||_eTS.live;
+    const _srcOpts=['','A','B','C','D','BLUE'];
+    const _slugs=_ei.slugs||(_ei.slug?[_ei.slug]:['']);
+    const _sources=_ei.slugSources||[];
+    const _isCue=l=>/^[^:]+:\s*$/.test(l.trim());
+    const _sw=(_ei.script||'').split('\n').filter(l=>!_isCue(l)).join(' ').trim();
+    const _wc=_sw?_sw.split(/\s+/).length:0;
+    const _div3=(_wc/3).toFixed(1);
+    const _slugRows=_slugs.map((s,si)=>{
+      const curSrc=_sources[si]||'';
+      const rmBtn=_slugs.length>1?`<button class="ros-edit-rm-slug btn" data-itemidx="${itemIdx}" data-sidx="${si}" style="font-size:12px;padding:4px 10px;border-color:#f85149;color:#f85149;flex-shrink:0">Remove</button>`:'';
+      return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <input class="ros-edit-slug" data-sidx="${si}" value="${esc(s||'')}" placeholder="Slug…" style="flex:1;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#e3b341;font-size:16px;font-weight:700;padding:10px 12px;outline:none;font-family:inherit">
+        <select class="ros-edit-slug-source" data-sidx="${si}" style="background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#56d364;font-size:14px;font-weight:700;padding:10px 12px;outline:none;font-family:inherit;cursor:pointer;width:90px;flex-shrink:0">${_srcOpts.map(o=>`<option value="${o}" ${curSrc===o?'selected':''}>${o||'— none —'}</option>`).join('')}</select>
+        ${rmBtn}
+      </div>`;
+    }).join('');
+    const _soundOpts=["","A","B","C","D","COLD START","CLEAN","GENERIC","A+ COLD START CONT'D","B+ COLD START CONT'D","C+ COLD START CONT'D","D+ COLD START CONT'D","VOICE+ COLD START CONT'D"];
+    out+=`<div class="modal-overlay" id="ros-edit-overlay"><div class="modal" style="width:min(860px,96vw);max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+      <div style="padding:20px 24px;border-bottom:1px solid #2e3a50;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+        <div>
+          ${_ts.badge?`<span style="font-size:11px;font-weight:800;background:${_ts.badgeBg};color:${_ts.label};padding:3px 12px;border-radius:4px;margin-right:12px;letter-spacing:.8px">${_ts.badge}</span>`:''}
+          <span style="font-size:20px;font-weight:800;color:${_ts.label}">${esc(_ei.label||'')}</span>
+          <span style="font-size:13px;color:#484f58;margin-left:12px">S${currentSeason} EP ${String(epNum).padStart(2,'0')}</span>
+        </div>
+        <button id="ros-edit-close" class="btn" style="font-size:13px;padding:6px 16px;flex-shrink:0">✕ Close</button>
+      </div>
+      <div style="overflow-y:auto;flex:1;padding:24px;display:flex;flex-direction:column;gap:28px">
+        ${['live','coldstart','upnext'].includes(_ei.type)?`
+        <div>
+          <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:10px">Script</div>
+          <textarea id="ros-edit-script-ta" style="width:100%;min-height:260px;background:#161b27;border:1px solid #2e3a50;border-radius:8px;color:#eaf0ff;font-size:16px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*$/.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-edit-sc-wc').textContent=w;document.getElementById('ros-edit-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${esc(_ei.script||'')}</textarea>
+          <div style="margin-top:10px;font-size:13px;color:#8b949e;line-height:1.8">
+            Total words: <strong id="ros-edit-sc-wc" style="color:#79c0ff;font-size:16px">${_wc}</strong>
+            &nbsp;&nbsp;<span id="ros-edit-sc-d3" style="color:#56d364;font-weight:700">${_wc} ÷ 3 = ${_div3}</span>
+          </div>
+        </div>`:''}
+        <div>
+          <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:10px">Slugs</div>
+          ${_slugRows}
+          <button class="ros-edit-add-slug btn" data-itemidx="${itemIdx}" style="font-size:13px;padding:8px 16px;border-style:dashed;border-color:#e3b341;color:#e3b341;margin-top:4px">＋ Add Slug</button>
+        </div>
+        ${_ei.type!=='break'?`
+        <div>
+          <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:10px">Sound</div>
+          <select id="ros-edit-sound" style="background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#58a6ff;font-size:16px;font-weight:700;padding:10px 14px;outline:none;font-family:inherit;cursor:pointer;min-width:280px">${_soundOpts.map(o=>`<option value="${o}" ${_ei.sound===o?'selected':''}>${o||'— none —'}</option>`).join('')}</select>
+        </div>`:''}
+        ${_ei.type==='insert'?`
+        <div>
+          <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#e3b341;margin-bottom:10px;text-decoration:underline">Out Words</div>
+          <input id="ros-edit-out-words" value="${esc(_ei.outWords||'')}" placeholder="Enter out words…" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:16px;padding:10px 14px;outline:none;font-family:inherit;box-sizing:border-box">
+        </div>`:''}
+      </div>
+      <div style="padding:16px 24px;border-top:1px solid #2e3a50;display:flex;justify-content:flex-end;flex-shrink:0">
+        <button id="ros-edit-save" class="btn primary" style="font-size:15px;padding:12px 32px;font-weight:800">Save Changes</button>
+      </div>
+    </div></div>`;
+  }
   if(rosScriptModal){
     const {epNum,itemIdx}=rosScriptModal;
     const _item=(rosData[String(epNum)]?.items||[])[itemIdx]||{};
@@ -8659,6 +8701,81 @@ document.addEventListener('click',function rosHandler(e){
   // Script modal — close (discard unsaved)
   if(e.target.id==='ros-script-close'||e.target.id==='ros-script-overlay'){
     rosScriptModal=null;
+    render();
+    return;
+  }
+  // Edit Item modal — open
+  const editBtn=e.target.closest('.ros-edit-btn');
+  if(editBtn){
+    const idx=Number(editBtn.dataset.idx);
+    rosEditModal={epNum:rosCurrentEp,itemIdx:idx};
+    render();
+    return;
+  }
+  // Edit Item modal — save
+  if(e.target.id==='ros-edit-save'&&rosEditModal){
+    const {epNum,itemIdx}=rosEditModal;
+    const items=(rosData[String(epNum)]?.items)||[];
+    if(items[itemIdx]!==undefined){
+      const it=items[itemIdx];
+      // script
+      const _ta=document.getElementById('ros-edit-script-ta');
+      if(_ta) it.script=_ta.value;
+      // slugs + sources
+      const _newSlugs=[];const _newSrcs=[];
+      document.querySelectorAll('.ros-edit-slug').forEach(inp=>{_newSlugs[Number(inp.dataset.sidx)]=inp.value.trim();});
+      document.querySelectorAll('.ros-edit-slug-source').forEach(sel=>{_newSrcs[Number(sel.dataset.sidx)]=sel.value;});
+      it.slugs=_newSlugs;it.slug=_newSlugs[0]||'';it.slugSources=_newSrcs;
+      // sound
+      const _sd=document.getElementById('ros-edit-sound');
+      if(_sd) it.sound=_sd.value;
+      // out words
+      const _ow=document.getElementById('ros-edit-out-words');
+      if(_ow) it.outWords=_ow.value;
+      rosData[String(epNum)].items=items;
+      saveROS(epNum,{items,epNum});
+      showToast('Item saved ✓');
+    }
+    rosEditModal=null;
+    render();
+    return;
+  }
+  // Edit Item modal — close
+  if(e.target.id==='ros-edit-close'||e.target.id==='ros-edit-overlay'){
+    rosEditModal=null;
+    render();
+    return;
+  }
+  // Edit Item modal — add slug
+  const addSlugEditBtn=e.target.closest('.ros-edit-add-slug');
+  if(addSlugEditBtn&&rosEditModal){
+    const {epNum,itemIdx}=rosEditModal;
+    const items=(rosData[String(epNum)]?.items)||[];
+    if(items[itemIdx]!==undefined){
+      // flush current slugs first
+      const _ns=[];const _nr=[];
+      document.querySelectorAll('.ros-edit-slug').forEach(inp=>{_ns[Number(inp.dataset.sidx)]=inp.value.trim();});
+      document.querySelectorAll('.ros-edit-slug-source').forEach(sel=>{_nr[Number(sel.dataset.sidx)]=sel.value;});
+      items[itemIdx].slugs=[..._ns,''];items[itemIdx].slugSources=_nr;
+      rosData[String(epNum)].items=items;
+    }
+    render();
+    return;
+  }
+  // Edit Item modal — remove slug
+  const rmSlugEditBtn=e.target.closest('.ros-edit-rm-slug');
+  if(rmSlugEditBtn&&rosEditModal){
+    const si=Number(rmSlugEditBtn.dataset.sidx);
+    const {epNum,itemIdx}=rosEditModal;
+    const items=(rosData[String(epNum)]?.items)||[];
+    if(items[itemIdx]!==undefined){
+      const _ns=[];const _nr=[];
+      document.querySelectorAll('.ros-edit-slug').forEach(inp=>{_ns[Number(inp.dataset.sidx)]=inp.value.trim();});
+      document.querySelectorAll('.ros-edit-slug-source').forEach(sel=>{_nr[Number(sel.dataset.sidx)]=sel.value;});
+      _ns.splice(si,1);_nr.splice(si,1);
+      items[itemIdx].slugs=_ns.length?_ns:[''];items[itemIdx].slugSources=_nr;
+      rosData[String(epNum)].items=items;
+    }
     render();
     return;
   }
