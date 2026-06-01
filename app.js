@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.112';
+const BUILD_VERSION='3.10.113';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3307,14 +3307,14 @@ function renderMusicCues(epNums){
 
 
 const PRESENTERS = [
-  {key:'claire',     label:'Claire'},
-  {key:'masa',       label:'Masa'},
-  {key:'govan',      label:'Govan'},
-  {key:'erin',       label:'Erin'},
-  {key:'lourensa',   label:'Lourensa'},
-  {key:'macfarlane', label:'Macfarlane'},
-  {key:'catherine',  label:'Catherine'},
-  {key:'xola',       label:'Xola (VO)'},
+  {key:'claire',     label:'Claire',     color:'#58a6ff', bg:'rgba(88,166,255,.12)',  lane:'rgba(88,166,255,.3)'},
+  {key:'masa',       label:'Masa',       color:'#3fb950', bg:'rgba(63,185,80,.12)',   lane:'rgba(63,185,80,.3)'},
+  {key:'govan',      label:'Govan',      color:'#e3b341', bg:'rgba(227,179,65,.12)',  lane:'rgba(227,179,65,.3)'},
+  {key:'erin',       label:'Erin',       color:'#f78166', bg:'rgba(247,129,102,.12)', lane:'rgba(247,129,102,.3)'},
+  {key:'lourensa',   label:'Lourensa',   color:'#c084fc', bg:'rgba(192,132,252,.12)', lane:'rgba(192,132,252,.3)'},
+  {key:'macfarlane', label:'Macfarlane', color:'#79c0ff', bg:'rgba(121,192,255,.12)', lane:'rgba(121,192,255,.3)'},
+  {key:'catherine',  label:'Catherine',  color:'#ffa657', bg:'rgba(255,166,87,.12)',  lane:'rgba(255,166,87,.3)'},
+  {key:'xola',       label:'Xola (VO)', color:'#56d364', bg:'rgba(86,211,100,.12)',  lane:'rgba(86,211,100,.3)'},
 ];
 
 const PRES_CAL_START = '2026-01-18';
@@ -3695,7 +3695,7 @@ function renderPresenterCalendar(){
         // All days are assignable (weekends and holidays too)
 
         const hasContent=isNA||cell.studio||cell.custom||!!commNum;
-        return`<td style="padding:16px 14px;border-bottom:1px solid #21262d;border-left:1px solid #21262d;vertical-align:top;${rowBg};min-width:200px">
+        return`<td style="padding:16px 14px;border-bottom:1px solid #21262d;border-left:2px solid ${p.lane};vertical-align:top;${rowBg};min-width:200px">
           ${isNA
             ?`<div style="background:#2d0a0a;border-radius:6px;padding:6px 14px;font-size:14px;font-weight:800;color:#f85149;text-align:center;cursor:pointer;letter-spacing:.3px" data-pres-badge="1" title="Click to edit or remove">NOT AVAILABLE</div>`
             :cell.studio
@@ -3736,7 +3736,7 @@ function renderPresenterCalendar(){
       <table style="width:max-content;border-collapse:collapse;min-width:100%">
         <thead><tr>
           <th style="${dateThBase};background:#1a2035;top:0;left:0;position:sticky;z-index:12;box-shadow:2px 2px 4px rgba(0,0,0,.4)">Date</th>
-          ${PRESENTERS.map(p=>`<th style="${thBase}">${p.label}</th>`).join('')}
+          ${PRESENTERS.map(p=>`<th style="${thBase};color:${p.color};background:${p.bg};border-bottom:3px solid ${p.color}">${p.label}</th>`).join('')}
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
