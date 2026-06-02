@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studio Script Build — User Guide</title>
+<style>
+  :root{
+    --bg:#0d1117;--surface:#161b22;--surface2:#1c2433;--border:#2e3a50;
+    --text:#eaf0ff;--muted:#8b949e;--dim:#484f58;
+    --blue:#58a6ff;--purple:#c084fc;--green:#3fb950;--orange:#e3b341;
+    --red:#f85149;--teal:#7ae8f5;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.7}
+  a{color:var(--blue);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* Layout */
+  .page{display:flex;min-height:100vh}
+  .sidebar{width:260px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:24px 0;position:sticky;top:0;height:100vh;overflow-y:auto}
+  .sidebar-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);padding:0 20px 10px}
+  .sidebar nav a{display:block;padding:7px 20px;font-size:13px;color:var(--muted);border-left:3px solid transparent;transition:all .15s}
+  .sidebar nav a:hover{color:var(--text);background:var(--surface2);text-decoration:none}
+  .sidebar nav a.active{color:var(--purple);border-left-color:var(--purple);background:rgba(192,132,252,.08);font-weight:700}
+  .sidebar nav .section-head{padding:14px 20px 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--dim)}
+  .main{flex:1;padding:48px 56px;max-width:900px}
+
+  /* Typography */
+  h1{font-size:28px;font-weight:900;color:var(--text);margin-bottom:6px}
+  h1 span{color:var(--purple)}
+  .subtitle{font-size:15px;color:var(--muted);margin-bottom:40px}
+  h2{font-size:20px;font-weight:800;color:var(--text);margin:48px 0 14px;padding-top:48px;border-top:1px solid var(--border)}
+  h2:first-of-type{border-top:none;padding-top:0;margin-top:0}
+  h3{font-size:15px;font-weight:800;color:var(--purple);margin:24px 0 10px}
+  p{margin-bottom:14px;color:#cdd9e5}
+  strong{color:var(--text);font-weight:700}
+  code{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-family:'Courier New',monospace;font-size:12px;color:var(--orange)}
+  pre{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px 20px;margin:14px 0 18px;overflow-x:auto}
+  pre code{background:none;border:none;padding:0;font-size:13px;color:#cdd9e5;line-height:1.8}
+
+  /* Tables */
+  table{width:100%;border-collapse:collapse;margin:14px 0 24px;font-size:13px}
+  th{background:var(--surface2);color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:10px 14px;text-align:left;border-bottom:2px solid var(--border)}
+  td{padding:10px 14px;border-bottom:1px solid #21262d;vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td:first-child{font-weight:700;white-space:nowrap;color:var(--text)}
+
+  /* Callouts */
+  .callout{border-radius:8px;padding:14px 18px;margin:18px 0;border-left:4px solid}
+  .callout.tip{background:rgba(63,185,80,.08);border-color:var(--green)}
+  .callout.warn{background:rgba(227,179,65,.08);border-color:var(--orange)}
+  .callout.info{background:rgba(88,166,255,.08);border-color:var(--blue)}
+  .callout p{margin:0;font-size:13px}
+  .callout strong{color:inherit}
+  .callout.tip strong{color:var(--green)}
+  .callout.warn strong{color:var(--orange)}
+  .callout.info strong{color:var(--blue)}
+
+  /* Colour chips */
+  .chip{display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:800;letter-spacing:.4px;color:#fff;margin-right:4px;vertical-align:middle}
+  .chip-blue{background:#0066cc}
+  .chip-orange{background:#e3b341;color:#000}
+  .chip-purple{background:#6b21a8}
+  .chip-green{background:#1a6b35}
+  .chip-grey{background:#484f58}
+  .chip-dark{background:#111}
+  .chip-teal{background:#0e7490}
+  .chip-red{background:#b91c1c}
+  .chip-amber{background:#9a4f00}
+
+  /* Role matrix */
+  .check{color:var(--green);font-weight:900}
+  .cross{color:var(--dim)}
+  .partial{color:var(--orange);font-weight:700}
+
+  /* Step list */
+  ol.steps{padding-left:22px;margin:10px 0 18px}
+  ol.steps li{margin-bottom:8px;color:#cdd9e5}
+
+  /* TOC (in sidebar) is handled by nav */
+
+  /* Responsive */
+  @media(max-width:740px){
+    .sidebar{display:none}
+    .main{padding:24px 20px}
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- Sidebar nav -->
+  <aside class="sidebar">
+    <div class="sidebar-title">Studio Script Build</div>
+    <div class="sidebar-title" style="font-size:9px;margin-top:0;padding-top:0">User Guide</div>
+    <nav>
+      <a href="#overview">Overview</a>
+      <a href="#access">Who Has Access</a>
+      <a href="#episodes">Selecting an Episode</a>
+      <a href="#main-view">The Main View</a>
+      <div class="section-head">Item Types</div>
+      <a href="#item-types">Colour Coding</a>
+      <div class="section-head">Working with Items</div>
+      <a href="#adding">Adding Items</a>
+      <a href="#inline-editing">Inline Editing</a>
+      <a href="#edit-modal">EDIT ITEM Modal</a>
+      <a href="#script">Writing Scripts</a>
+      <a href="#slugs">Slugs &amp; Sources</a>
+      <a href="#director-notes">Director's Notes</a>
+      <a href="#reorder">Reordering &amp; Deleting</a>
+      <a href="#numbers">Item Numbers</a>
+      <div class="section-head">Exports</div>
+      <a href="#exports">Export Options</a>
+      <a href="#word">Studio Script (Word)</a>
+      <a href="#pdf">ROS PDF</a>
+      <a href="#vtlist">VT List</a>
+      <div class="section-head">Reference</div>
+      <a href="#role-matrix">Role Matrix</a>
+      <a href="#tips">Tips &amp; Shortcuts</a>
+    </nav>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <h1><span>Studio Script Build</span> — User Guide</h1>
+    <p class="subtitle">Carte Blanche Production Portal &nbsp;·&nbsp; Season 39</p>
+
+    <!-- OVERVIEW -->
+    <h2 id="overview">Overview</h2>
+    <p>The <strong>Studio Script Build</strong> tab is where you construct, manage, and export the complete studio running order for each episode. It replaces the traditional paper-based run of show with a live, collaborative document that feeds directly into the Word studio script, the ROS PDF, and the VT list.</p>
+    <p>All changes are stored in real time to the cloud. Multiple users can view the same episode simultaneously, and the <strong>Last saved by</strong> indicator always shows who made the most recent save.</p>
+
+    <!-- ACCESS -->
+    <h2 id="access">Who Has Access</h2>
+    <table>
+      <thead><tr><th>Role</th><th>What they can do</th></tr></thead>
+      <tbody>
+        <tr><td>Admin / Deputy Admin / Editorial</td><td>Full access — add, edit, delete, reorder, number, and save items</td></tr>
+        <tr><td>Content</td><td>Script text only — can open EDIT ITEM and edit script fields; cannot change slugs, sound, duration, or item order</td></tr>
+        <tr><td>Director</td><td>Director's Notes only — can open EDIT ITEM and edit the Director's Notes block; cannot change anything else</td></tr>
+        <tr><td>Finance / Operations</td><td>View only</td></tr>
+      </tbody>
+    </table>
+
+    <!-- EPISODES -->
+    <h2 id="episodes">Selecting an Episode</h2>
+    <p>When you open the Studio Script Build tab you land on the <strong>episode picker</strong>. Each tile shows the episode code, broadcast date, and a <strong>HAS RUN OF SHOW</strong> badge if a script has already been saved. Past broadcast episodes appear in red.</p>
+    <p>Click any tile to open that episode. Once inside, the <strong>◀ Episodes</strong> button in the top-left takes you back to the picker at any time.</p>
+
+    <!-- MAIN VIEW -->
+    <h2 id="main-view">The Main View</h2>
+
+    <h3>Header Bar</h3>
+    <table>
+      <thead><tr><th>Element</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>◀ Episodes</td><td>Return to the episode picker</td></tr>
+        <tr><td>Episode code (e.g. S39 EP 09)</td><td>Confirms which episode you are editing</td></tr>
+        <tr><td>Broadcast date</td><td>Pulled from the Episode Register</td></tr>
+        <tr><td>Last saved by</td><td>Shows who saved and when. Displays "Not yet saved" if no save has been made</td></tr>
+        <tr><td>Total Duration (magenta, top right)</td><td>Running total of all item durations in the episode</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Export &amp; Action Buttons (top right)</h3>
+    <table>
+      <thead><tr><th>Button</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td>⬇ ROS PDF</td><td>A4 landscape printable running order — item label, content, item duration, cumulative episode duration. Colour-coded rows.</td></tr>
+        <tr><td>👁 Preview Script</td><td>Opens a browser preview showing exactly how the Word studio script will look — useful for checking before downloading</td></tr>
+        <tr><td>⬇ Studio Script (Word)</td><td>Downloads a <code>.doc</code> Word file of the full studio script</td></tr>
+        <tr><td>⬇ VT List</td><td>Prints a slug sheet listing every assigned slug and its source channel (A/B/C/D/BLUE)</td></tr>
+        <tr><td># Numbers</td><td>Assigns sequential item numbers. Re-run after adding, deleting, or reordering items. Skips Commercial Breaks.</td></tr>
+        <tr><td>💾 Save</td><td>Commits all changes to the database and updates the timestamp</td></tr>
+        <tr><td>? Guide</td><td>Opens this user guide</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout warn">
+      <p><strong>Important:</strong> Inline edits to Content and Duration fields are held in memory until you click <strong>💾 Save</strong>. Do not close the tab without saving.</p>
+    </div>
+
+    <h3>Running Order Table Columns</h3>
+    <table>
+      <thead><tr><th>Column</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>▲ ▼ ✕</td><td>Move item up, move item down, delete item. Only shown with edit access.</td></tr>
+        <tr><td>Item</td><td>Item number (if generated), type badge, and item label</td></tr>
+        <tr><td>Slug</td><td>All slugs assigned to this item, shown in gold</td></tr>
+        <tr><td>Content</td><td>Editable text field — click and type directly in the table</td></tr>
+        <tr><td>Duration</td><td>Editable time field — enter as <code>M:SS</code> or <code>H:MM:SS</code></td></tr>
+        <tr><td>Ep Duration ↑</td><td>Cumulative duration from this item to the end of the episode. The top row = total episode duration.</td></tr>
+        <tr><td>✎ EDIT ITEM</td><td>Opens the full edit modal for script, slugs, sound, out words, and director's notes</td></tr>
+      </tbody>
+    </table>
+
+    <!-- ITEM TYPES -->
+    <h2 id="item-types">Item Types &amp; Colour Coding</h2>
+    <p>Every item has a type which determines its colour throughout the table and all exports. The type also controls which fields are available in the EDIT ITEM modal.</p>
+
+    <table>
+      <thead><tr><th>Colour</th><th>Type</th><th>Items</th><th>Special fields</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="chip chip-blue">LIVE</span></td>
+          <td>Live / Link</td>
+          <td>Opening Link, Link to Insert 1–8, Link to Break, Link to Interview, Studio Interview, Closing Link, Cold Start 2</td>
+          <td>Script, Slugs, Sound</td>
+        </tr>
+        <tr>
+          <td><span class="chip chip-orange">INSERT</span></td>
+          <td>Insert</td>
+          <td>Insert 1–8</td>
+          <td>Slugs, Sound, <strong>Out Words</strong></td>
+        </tr>
+        <tr>
+          <td><span class="chip chip-purple">COLD START</span></td>
+          <td>Cold Start</td>
+          <td>Cold Start Clip 1–8</td>
+          <td>Script, Slugs, Sound</td>
+        </tr>
+        <tr>
+          <td><span class="chip chip-green">UP NEXT</span></td>
+          <td>Up Next</td>
+          <td>Up Next Visual 1–8, Up Next Upsound 1–8</td>
+          <td>Script, Slugs, Sound</td>
+        </tr>
+        <tr>
+          <td><span class="chip chip-grey">FIXED</span></td>
+          <td>Fixed</td>
+          <td>Carte Blanche Opening Logo, Bumper In, Bumper Out, Closing Credits</td>
+          <td>Pre-assigned slug, source &amp; sound. Locked — duration cannot be changed.</td>
+        </tr>
+        <tr>
+          <td><span class="chip chip-dark">BREAK</span></td>
+          <td>Break</td>
+          <td>Commercial Break 1–6</td>
+          <td>Locked. Never receive item numbers.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ADDING ITEMS -->
+    <h2 id="adding">Adding Items</h2>
+    <p>The <strong>Add Item</strong> panel sits on the right side of the screen (visible to Admin / Editorial only).</p>
+    <ol class="steps">
+      <li>Select an item type from the dropdown. Items are grouped by category (Fixed, Live, Insert, Cold Start, Up Next, Break).</li>
+      <li>Click <strong>+ Add Item</strong>. The item is appended to the bottom of the running order.</li>
+    </ol>
+    <p><strong>Fixed items</strong> (Opening Logo, Bumper In, Bumper Out) are pre-loaded with their slug, source, and sound already set — you do not need to edit these unless something changes for the season.</p>
+
+    <!-- INLINE EDITING -->
+    <h2 id="inline-editing">Inline Editing</h2>
+    <p>The <strong>Content</strong> and <strong>Duration</strong> fields can be edited directly in the table without opening the modal — click into any field and start typing.</p>
+    <ul style="padding-left:20px;margin-bottom:14px;color:#cdd9e5">
+      <li style="margin-bottom:6px"><strong>Content</strong> — free text describing the item (e.g. story name, insert title)</li>
+      <li style="margin-bottom:6px"><strong>Duration</strong> — enter as <code>M:SS</code> (e.g. <code>3:45</code>) or <code>H:MM:SS</code> (e.g. <code>1:02:30</code>). The cumulative episode duration column updates immediately.</li>
+    </ul>
+    <div class="callout info">
+      <p><strong>Note:</strong> Inline changes are not saved to the database until you click <strong>💾 Save</strong>.</p>
+    </div>
+
+    <!-- EDIT ITEM MODAL -->
+    <h2 id="edit-modal">The EDIT ITEM Modal</h2>
+    <p>Click <strong>✎ EDIT ITEM</strong> on any row to open the full edit modal. It is split into two panels:</p>
+
+    <h3>Left Panel — Live Preview</h3>
+    <p>Shows the item exactly as it will appear in the exported Word document, scaled to fit. The active item is highlighted with a blue outline so you can see it in context of the full script above and below.</p>
+    <p>Click <strong>▶ EXECUTE</strong> to refresh the preview with your current unsaved edits. You can keep editing and keep clicking EXECUTE until you are satisfied, then click <strong>Save Changes</strong>.</p>
+
+    <div class="callout tip">
+      <p><strong>EXECUTE does not save.</strong> It only updates the preview. You must click <strong>Save Changes</strong> to commit edits to the database.</p>
+    </div>
+
+    <h3>Right Panel — Edit Fields</h3>
+    <p>Fields shown depend on the item type and your role:</p>
+    <table>
+      <thead><tr><th>Field</th><th>Item types</th><th>Roles</th></tr></thead>
+      <tbody>
+        <tr><td>Script</td><td>Live, Cold Start, Up Next</td><td>Admin, Editorial, Content</td></tr>
+        <tr><td>Slugs &amp; Sources</td><td>All except Break</td><td>Admin, Editorial</td></tr>
+        <tr><td>Sound</td><td>All except Break</td><td>Admin, Editorial</td></tr>
+        <tr><td>Out Words</td><td>Insert only</td><td>Admin, Editorial</td></tr>
+        <tr><td>Director's Notes</td><td>All</td><td>View: all · Edit: Admin, Director</td></tr>
+      </tbody>
+    </table>
+
+    <!-- SCRIPT -->
+    <h2 id="script">Writing Scripts</h2>
+    <p>The script field supports a simple markup for cue lines. Any line ending with a colon (<code>:</code>) is treated as a speaker cue — it appears <strong>bold and underlined</strong> in the Word export and is <strong>excluded from the word count</strong>.</p>
+
+    <pre><code>PRESENTER A:
+Good evening and welcome to Carte Blanche.
+
+PRESENTER B:
+Tonight we investigate a story that has gripped the nation…</code></pre>
+
+    <p>Below the script textarea, two figures update live as you type:</p>
+    <ul style="padding-left:20px;margin-bottom:14px;color:#cdd9e5">
+      <li style="margin-bottom:6px"><strong>Total words</strong> — count of all non-cue words</li>
+      <li style="margin-bottom:6px"><strong>÷ 3</strong> — a rough timing estimate (words ÷ 3 = approximate seconds at broadcast pace)</li>
+    </ul>
+
+    <!-- SLUGS -->
+    <h2 id="slugs">Slugs &amp; Sources</h2>
+    <p>A slug is the technical identifier for a piece of media (e.g. <code>CB2026_OPENING_LINK</code>). Each item can carry one or more slugs, each with an optional source channel.</p>
+
+    <h3>Source channels</h3>
+    <table>
+      <thead><tr><th>Source</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td>A</td><td>Primary playout channel</td></tr>
+        <tr><td>B</td><td>Secondary channel</td></tr>
+        <tr><td>C</td><td>Tertiary channel</td></tr>
+        <tr><td>D</td><td>Fourth channel</td></tr>
+        <tr><td>BLUE</td><td>Live/Blue channel</td></tr>
+      </tbody>
+    </table>
+
+    <p>To manage slugs in the Edit modal:</p>
+    <ul style="padding-left:20px;margin-bottom:14px;color:#cdd9e5">
+      <li style="margin-bottom:6px">Click <strong>＋ Add Slug</strong> to add a second slug to the same item</li>
+      <li style="margin-bottom:6px">Click <strong>Remove</strong> next to any slug row to delete it</li>
+      <li style="margin-bottom:6px">The first slug is used in the VT List export</li>
+    </ul>
+
+    <p>Slugs appear highlighted in <strong style="background:#39FF14;color:#000;padding:1px 6px;border-radius:3px">lumo green</strong> in the Word studio script export.</p>
+
+    <!-- DIRECTOR'S NOTES -->
+    <h2 id="director-notes">Director's Notes</h2>
+    <p>The Director's Notes section (separated by an orange border at the bottom of the EDIT ITEM modal) is for blocking notes, camera calls, staging directions, and any technical cues for the studio director.</p>
+    <ul style="padding-left:20px;margin-bottom:14px;color:#cdd9e5">
+      <li style="margin-bottom:6px">Visible to all roles</li>
+      <li style="margin-bottom:6px">Editable by <strong>Admin</strong> and <strong>Director</strong> roles only</li>
+      <li style="margin-bottom:6px">Appears in the PRODUCTION column of the Word export in grey italic text below the slug</li>
+      <li style="margin-bottom:6px">No character limit</li>
+    </ul>
+
+    <!-- REORDER & DELETE -->
+    <h2 id="reorder">Reordering &amp; Deleting Items</h2>
+
+    <h3>Reordering</h3>
+    <p>Use the <strong>▲</strong> and <strong>▼</strong> buttons on the left of each row to move items up or down. The buttons are disabled when an item is at the top or bottom of the list.</p>
+    <div class="callout warn">
+      <p><strong>After reordering, regenerate item numbers</strong> using the <strong># Numbers</strong> button — numbers do not update automatically when you move items.</p>
+    </div>
+
+    <h3>Deleting</h3>
+    <p>Click the <strong>✕</strong> button on any row to remove the item. Item numbers are cleared on deletion — regenerate them with <strong># Numbers</strong> afterwards.</p>
+
+    <!-- NUMBERS -->
+    <h2 id="numbers">Item Numbers</h2>
+    <p>Click <strong># Numbers</strong> in the header bar to assign sequential numbers (1, 2, 3…) to all items. Commercial Breaks are always excluded from numbering.</p>
+    <p>Regenerate item numbers after:</p>
+    <ul style="padding-left:20px;margin-bottom:14px;color:#cdd9e5">
+      <li style="margin-bottom:6px">Adding new items</li>
+      <li style="margin-bottom:6px">Deleting items</li>
+      <li style="margin-bottom:6px">Reordering items</li>
+    </ul>
+
+    <!-- EXPORTS -->
+    <h2 id="exports">Export Options</h2>
+    <p>All exports automatically flush any unsaved inline edits before generating the document, so the output always reflects the current state of the screen.</p>
+
+    <h2 id="word">Studio Script (Word)</h2>
+    <p>The primary studio document, downloaded as a <code>.doc</code> file (opens in Microsoft Word).</p>
+    <table>
+      <thead><tr><th>Column</th><th>Contents</th></tr></thead>
+      <tbody>
+        <tr><td>ITEM</td><td>Sequential item number</td></tr>
+        <tr><td>PRODUCTION</td><td>Slug(s) in lumo green, Director's Notes in grey italic below</td></tr>
+        <tr><td>SOUND</td><td>Assigned sound feed (A, B, COLD START, etc.)</td></tr>
+        <tr><td>DESCRIPTION</td><td>Item label, content, Out Words (inserts), full script with cue lines as bold headings</td></tr>
+        <tr><td>DUR</td><td>Item duration in MM:SS format</td></tr>
+      </tbody>
+    </table>
+    <p>Use <strong>👁 Preview Script</strong> to see the Word layout in the browser before downloading.</p>
+
+    <h2 id="pdf">ROS PDF</h2>
+    <p>A condensed A4 landscape overview — designed for the control room and director's desk. Contains item label, content, item duration, and cumulative episode duration. Row colours match the type colour coding (blue for live, orange for inserts, etc.).</p>
+
+    <h2 id="vtlist">VT List</h2>
+    <p>A slug sheet for the edit suite. Lists only items that have slugs assigned — items without any slugs are skipped.</p>
+    <table>
+      <thead><tr><th>Column</th><th>Contents</th></tr></thead>
+      <tbody>
+        <tr><td>Item #</td><td>Item number</td></tr>
+        <tr><td>Slug</td><td>Slug name in orange/gold</td></tr>
+        <tr><td>Source</td><td>Source channel (A/B/C/D/BLUE) in green, or — if not set</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn">
+      <p><strong>If an item has no slug, it will not appear on the VT List.</strong> Check that all playout items have slugs and sources assigned before exporting.</p>
+    </div>
+
+    <!-- ROLE MATRIX -->
+    <h2 id="role-matrix">Role Matrix</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Admin</th>
+          <th>Dep Admin</th>
+          <th>Editorial</th>
+          <th>Content</th>
+          <th>Director</th>
+          <th>Finance</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>View tab</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+        <tr><td>Add items</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>Delete items</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>Edit content / duration</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>Reorder items</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>Generate item numbers</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>Edit scripts</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>Edit slugs &amp; sources</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>Edit sound</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>Edit out words</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>Edit Director's Notes</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">✓</td><td class="cross">—</td></tr>
+        <tr><td>View Director's Notes</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+        <tr><td>Save</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+        <tr><td>Export (all formats)</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+      </tbody>
+    </table>
+
+    <!-- TIPS -->
+    <h2 id="tips">Tips &amp; Shortcuts</h2>
+    <ul style="padding-left:20px;color:#cdd9e5">
+      <li style="margin-bottom:10px"><strong>Fixed items</strong> (Opening Logo, Bumper In/Out, Closing Credits) have slugs, source, and sound pre-assigned for the season. They are locked — you do not need to edit them unless the season slug changes.</li>
+      <li style="margin-bottom:10px"><strong>Cue lines</strong> — any script line ending with <code>:</code> — are formatted as bold underlined speaker headings in the Word export and are excluded from the word count.</li>
+      <li style="margin-bottom:10px">The <strong>÷ 3</strong> figure is a rough timing guide: total words divided by 3 gives an approximate read time in seconds at broadcast pace.</li>
+      <li style="margin-bottom:10px"><strong>▶ EXECUTE</strong> in the Edit modal only refreshes the preview — it does not save. Always click <strong>Save Changes</strong> to commit.</li>
+      <li style="margin-bottom:10px">Always regenerate <strong># Numbers</strong> after any structural change (add, delete, reorder). Numbers do not update automatically.</li>
+      <li style="margin-bottom:10px">The <strong>VT List</strong> only includes items that have at least one slug. If an item is missing from the VT List, check that it has a slug assigned in EDIT ITEM.</li>
+      <li style="margin-bottom:10px">The <strong>Ep Duration ↑</strong> column counts from each item <em>down to the end</em> of the episode — the top row shows the full episode total. This helps identify where time can be trimmed.</li>
+      <li style="margin-bottom:10px">Click <strong>👁 Preview Script</strong> before downloading the Word file to do a final check without generating a download.</li>
+    </ul>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:48px 0 24px">
+    <p style="font-size:11px;color:var(--dim);text-align:center">Carte Blanche Production Portal &nbsp;·&nbsp; Studio Script Build User Guide &nbsp;·&nbsp; Season 39</p>
+
+  </main>
+</div>
+
+<script>
+  // Highlight active sidebar link on scroll
+  const sections=document.querySelectorAll('h2[id],h3[id]');
+  const links=document.querySelectorAll('.sidebar nav a');
+  function onScroll(){
+    let current='';
+    sections.forEach(s=>{if(s.getBoundingClientRect().top<=120)current=s.id;});
+    links.forEach(l=>{
+      l.classList.toggle('active',l.getAttribute('href')==='#'+current);
+    });
+  }
+  window.addEventListener('scroll',onScroll,{passive:true});
+  onScroll();
+</script>
+</body>
+</html>

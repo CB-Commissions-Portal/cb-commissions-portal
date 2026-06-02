@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.133';
+const BUILD_VERSION='3.10.134';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4443,6 +4443,7 @@ function renderRunOfShow(){
           <button class="btn" id="ros-export-vt-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#e3b341;color:#e3b341">⬇ VT List</button>
           ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#e3b341;color:#e3b341"># Numbers</button>`:''}
           ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:14px;padding:8px 24px;font-weight:800">💾 Save</button>`:''}
+          <a href="studio-script-build-guide.html" target="_blank" class="btn" style="font-size:13px;padding:8px 16px;font-weight:700;border-color:#484f58;color:#8b949e;text-decoration:none">? Guide</a>
         </div>
       </div>
       <!-- Table -->
