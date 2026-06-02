@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.128';
+const BUILD_VERSION='3.10.129';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -8924,7 +8924,7 @@ function updateRosEditPreview(){
   const html=buildRosWordHtml(epNum,items,itemIdx);
   // Render in a scaled iframe — exact match to the Word export
   pane.innerHTML='';
-  pane.style.cssText='border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.3);overflow:hidden;background:#f0f0f0;';
+  pane.style.cssText='border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.3);overflow:hidden;background:#f0f0f0;flex-shrink:0;';
   const WORD_W=820;
   const availW=Math.max(pane.clientWidth||420,200);
   const scale=availW/WORD_W;
