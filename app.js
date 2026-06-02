@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.132';
+const BUILD_VERSION='3.10.133';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2661,8 +2661,6 @@ function renderPostProd(){
   function cellBg(val){
     if(!val)return'';
     const v=val.toLowerCase();
-    if(v.includes('view 1'))return'background:#003d82;color:#ffffff';
-    if(v.includes('view 2'))return'background:#1556a6;color:#ffffff';
     if(v.includes('view'))return'background:#0066cc;color:#ffffff';
     if(v.includes('shoot'))return'background:#1a6b35;color:#ffffff';
     if(v.includes('edit'))return'background:#6b21a8;color:#ffffff';
@@ -2851,9 +2849,8 @@ function renderPostProd(){
 
   const weekLabel=`Week of ${new Date(monStr+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'})}`;
   const legend=[
-    ['#003d82','VIEW 1'],['#1556a6','VIEW 2'],['#0066cc','VIEW'],
-    ['#1a6b35','SHOOT'],['#6b21a8','EDIT'],['#9a4f00','MIX'],
-    ['#0e7490','VO'],['#b91c1c','AFM'],
+    ['#0066cc','VIEW'],['#1a6b35','SHOOT'],['#6b21a8','EDIT'],
+    ['#9a4f00','MIX'],['#0e7490','VO'],['#b91c1c','AFM'],
   ].map(([bg,lbl])=>`<span style="display:inline-flex;align-items:center;background:${bg};color:#fff;font-size:10px;font-weight:800;letter-spacing:.5px;padding:4px 10px;border-radius:4px;margin-right:6px;white-space:nowrap">${lbl}</span>`).join('');
 
   return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
@@ -2894,8 +2891,6 @@ function renderPPCalendar(){
   // Extract activity type from cell value
   function getActivity(val){
     const v=val.toLowerCase();
-    if(v.includes('view 1'))return{label:'View 1',bg:'#003d82',tc:'#fff'};
-    if(v.includes('view 2'))return{label:'View 2',bg:'#1556a6',tc:'#fff'};
     if(v.includes('view'))return{label:'View',bg:'#0066cc',tc:'#fff'};
     if(v.includes('shoot'))return{label:'Shoot',bg:'#1a6b35',tc:'#fff'};
     if(v.includes('edit'))return{label:'Edit',bg:'#6b21a8',tc:'#fff'};
