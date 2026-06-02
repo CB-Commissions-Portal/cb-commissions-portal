@@ -152,7 +152,7 @@ td.needs-attention-cb{background:rgba(245,166,35,.08)!important}
 .ep-reg-header{padding:14px 20px;background:#161b22;border-bottom:1px solid #2e3a50;flex-shrink:0}
 .ep-reg-list{overflow-y:auto;overflow-x:hidden;flex:1;min-height:0;padding:16px 20px}
 .info-box{background:#0d1b2a;border:1px solid #1f4b7a;border-radius:6px;padding:10px 14px;margin-bottom:14px;color:#79c0ff;font-size:13px}
-.ep-card{background:#1e2535;border:1px solid #2e3a50;border-radius:10px;margin-bottom:16px;overflow:hidden}
+.ep-card{background:#1e2535;border:1px solid #2e3a50;border-radius:10px;margin-bottom:16px;overflow:hidden;flex-shrink:0}
 .ep-head{background:#252d3d;padding:18px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .ep-num{background:#1f4023;color:#3fb950;font-size:16px;font-weight:800;padding:7px 16px;border-radius:6px;font-family:'JetBrains Mono',monospace;letter-spacing:.5px}
 .ep-date-btn{background:#252d3d;border:1px solid #2e3a50;color:#9aaabe;font-size:14px;padding:6px 12px;border-radius:5px;cursor:pointer;transition:all .15s}
