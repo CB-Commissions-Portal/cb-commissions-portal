@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.124';
+const BUILD_VERSION='3.10.125';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -1043,6 +1043,7 @@ function render(){
       pendingFocusId=null;
     }
   }
+  if(rosEditModal) setTimeout(updateRosEditPreview,0);
 }
 
 function renderSetup(){return`<div class="setup-wrap"><div class="setup-inner">
@@ -4232,9 +4233,9 @@ function rosSecsToStr(secs){
 // Available item types for the "Add Item" menu
 const ROS_ITEM_TYPES=[
   // Fixed (locked, grey)
-  {key:'fixed_logo',     label:'CARTE BLANCHE OPENING LOGO', type:'fixed',  defaultDur:'0:00:30', locked:true, group:'Fixed'},
-  {key:'fixed_bumperout',label:'BUMPER OUT',                  type:'fixed',  defaultDur:'0:00:03', locked:true, group:'Fixed'},
-  {key:'fixed_bumperin', label:'BUMPER IN',                   type:'fixed',  defaultDur:'0:00:03', locked:true, group:'Fixed'},
+  {key:'fixed_logo',     label:'CARTE BLANCHE OPENING LOGO', type:'fixed',  defaultDur:'0:00:30', locked:true, group:'Fixed', defaultSlug:'CB2026_OPENING_LOGO', defaultSource:'A', defaultSound:'A'},
+  {key:'fixed_bumperout',label:'BUMPER OUT',                  type:'fixed',  defaultDur:'0:00:03', locked:true, group:'Fixed', defaultSlug:'CB2026_BUMPER_OUT', defaultSource:'A', defaultSound:'A'},
+  {key:'fixed_bumperin', label:'BUMPER IN',                   type:'fixed',  defaultDur:'0:00:03', locked:true, group:'Fixed', defaultSlug:'CB2026_BUMPER_IN', defaultSource:'A', defaultSound:'A'},
   {key:'fixed_credits',  label:'CLOSING CREDITS',             type:'fixed',  defaultDur:'0:00:30', locked:true, group:'Fixed'},
   // Live / Links (blue)
   {key:'live_opening',   label:'OPENING LINK (WITH SHOW OPENER)', type:'live', defaultDur:'', group:'Live'},
@@ -4278,6 +4279,14 @@ const ROS_ITEM_TYPES=[
   {key:'upups2', label:'UP NEXT UPSOUND 2',  type:'upnext', defaultDur:'', group:'UP NEXT'},
   {key:'upups3', label:'UP NEXT UPSOUND 3',  type:'upnext', defaultDur:'', group:'UP NEXT'},
   {key:'upups4', label:'UP NEXT UPSOUND 4',  type:'upnext', defaultDur:'', group:'UP NEXT'},
+  {key:'upvis5', label:'UP NEXT VISUAL 5',   type:'upnext', defaultDur:'', group:'UP NEXT'},
+  {key:'upvis6', label:'UP NEXT VISUAL 6',   type:'upnext', defaultDur:'', group:'UP NEXT'},
+  {key:'upvis7', label:'UP NEXT VISUAL 7',   type:'upnext', defaultDur:'', group:'UP NEXT'},
+  {key:'upvis8', label:'UP NEXT VISUAL 8',   type:'upnext', defaultDur:'', group:'UP NEXT'},
+  {key:'upups5', label:'UP NEXT UPSOUND 5',  type:'upnext', defaultDur:'', group:'UP NEXT'},
+  {key:'upups6', label:'UP NEXT UPSOUND 6',  type:'upnext', defaultDur:'', group:'UP NEXT'},
+  {key:'upups7', label:'UP NEXT UPSOUND 7',  type:'upnext', defaultDur:'', group:'UP NEXT'},
+  {key:'upups8', label:'UP NEXT UPSOUND 8',  type:'upnext', defaultDur:'', group:'UP NEXT'},
   // Commercial Breaks (dark, no item number)
   {key:'break1', label:'COMMERCIAL BREAK 1', type:'break', defaultDur:'0:00:00', locked:true, group:'Break'},
   {key:'break2', label:'COMMERCIAL BREAK 2', type:'break', defaultDur:'0:00:00', locked:true, group:'Break'},
@@ -4289,7 +4298,11 @@ const ROS_ITEM_TYPES=[
 
 function rosNewItem(key){
   const def=ROS_ITEM_TYPES.find(t=>t.key===key)||{label:key,type:'live',defaultDur:''};
-  return{key,type:def.type,label:def.label,content:'',duration:def.defaultDur||'',locked:!!def.locked};
+  const item={key,type:def.type,label:def.label,content:'',duration:def.defaultDur||'',locked:!!def.locked};
+  if(def.defaultSlug){item.slug=def.defaultSlug;item.slugs=[def.defaultSlug];}
+  if(def.defaultSource){item.slugSources=[def.defaultSource];}
+  if(def.defaultSound){item.sound=def.defaultSound;}
+  return item;
 }
 
 function renderRunOfShow(){
@@ -5738,7 +5751,7 @@ function renderModals(epNums,nextEp){
     const _soundOpts=["","A","B","C","D","COLD START","CLEAN","GENERIC","A+ COLD START CONT'D","B+ COLD START CONT'D","C+ COLD START CONT'D","D+ COLD START CONT'D","VOICE+ COLD START CONT'D"];
     const _editFullAccess=!['content','director'].includes(getEffectiveRole());
     const _canDirectorNotes=['admin','director'].includes(getEffectiveRole());
-    out+=`<div class="modal-overlay" id="ros-edit-overlay"><div class="modal" style="width:min(960px,96vw);max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+    out+=`<div class="modal-overlay" id="ros-edit-overlay"><div class="modal" style="width:min(1280px,98vw);max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
       <div style="padding:20px 24px;border-bottom:1px solid #2e3a50;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
         <div>
           ${_ts.badge?`<span style="font-size:11px;font-weight:800;background:${_ts.badgeBg};color:${_ts.label};padding:3px 12px;border-radius:4px;margin-right:12px;letter-spacing:.8px">${_ts.badge}</span>`:''}
@@ -5747,46 +5760,56 @@ function renderModals(epNums,nextEp){
         </div>
         <button id="ros-edit-close" class="btn" style="font-size:13px;padding:6px 16px;flex-shrink:0">✕ Close</button>
       </div>
-      <div style="overflow-y:auto;flex:1;padding:24px;display:flex;flex-direction:column;gap:28px">
-        ${['live','coldstart','upnext'].includes(_ei.type)?`
-        <div>
-          <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:10px">Script</div>
-          <textarea id="ros-edit-script-ta" style="width:100%;min-height:260px;background:#161b27;border:1px solid #2e3a50;border-radius:8px;color:#eaf0ff;font-size:16px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*$/.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-edit-sc-wc').textContent=w;document.getElementById('ros-edit-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${esc(_ei.script||'')}</textarea>
-          <div style="margin-top:10px;font-size:13px;color:#8b949e;line-height:1.8">
-            Total words: <strong id="ros-edit-sc-wc" style="color:#79c0ff;font-size:16px">${_wc}</strong>
-            &nbsp;&nbsp;<span id="ros-edit-sc-d3" style="color:#56d364;font-weight:700">${_wc} ÷ 3 = ${_div3}</span>
+      <div style="display:flex;flex:1;overflow:hidden">
+        <div style="width:360px;flex-shrink:0;background:#c8d0d8;border-right:1px solid #2e3a50;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#4a5568">Live Preview</div>
+          <div id="ros-edit-preview-pane" style="background:#fff;padding:14px;border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.3);font-family:Arial,sans-serif;min-height:300px">
+            <div style="font-size:11px;color:#aaa;text-align:center;padding:48px 0;font-family:Arial,sans-serif">Click EXECUTE to preview</div>
           </div>
-        </div>`:''}
-        ${_editFullAccess?`
-        <div>
-          <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:10px">Slugs</div>
-          ${_slugRows}
-          <button class="ros-edit-add-slug btn" data-itemidx="${itemIdx}" style="font-size:13px;padding:8px 16px;border-style:dashed;border-color:#e3b341;color:#e3b341;margin-top:4px">＋ Add Slug</button>
         </div>
-        ${_ei.type!=='break'?`
-        <div>
-          <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:10px">Sound</div>
-          <select id="ros-edit-sound" style="background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#58a6ff;font-size:16px;font-weight:700;padding:10px 14px;outline:none;font-family:inherit;cursor:pointer;min-width:280px">${_soundOpts.map(o=>`<option value="${o}" ${_ei.sound===o?'selected':''}>${o||'— none —'}</option>`).join('')}</select>
-        </div>`:''}
-        ${_ei.type==='insert'?`
-        <div>
-          <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#e3b341;margin-bottom:10px;text-decoration:underline">Out Words</div>
-          <input id="ros-edit-out-words" value="${esc(_ei.outWords||'')}" placeholder="Enter out words…" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:16px;padding:10px 14px;outline:none;font-family:inherit;box-sizing:border-box">
-        </div>`:''}`:
-        `<div style="font-size:13px;color:#484f58;font-style:italic">${getEffectiveRole()==='director'?'Director view — only Director\'s Notes is editable.':'Script editing only — other fields are managed by the editorial team.'}</div>`}
-        <div style="border-top:2px solid #f97316;padding-top:24px">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#f97316">Director's Notes</div>
-            ${!_canDirectorNotes?`<span style="font-size:10px;color:#484f58;font-style:italic">View only</span>`:''}
+        <div style="flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:28px">
+          ${['live','coldstart','upnext'].includes(_ei.type)?`
+          <div>
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:10px">Script</div>
+            <textarea id="ros-edit-script-ta" style="width:100%;min-height:260px;background:#161b27;border:1px solid #2e3a50;border-radius:8px;color:#eaf0ff;font-size:16px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*$/.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-edit-sc-wc').textContent=w;document.getElementById('ros-edit-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${esc(_ei.script||'')}</textarea>
+            <div style="margin-top:10px;font-size:13px;color:#8b949e;line-height:1.8">
+              Total words: <strong id="ros-edit-sc-wc" style="color:#79c0ff;font-size:16px">${_wc}</strong>
+              &nbsp;&nbsp;<span id="ros-edit-sc-d3" style="color:#56d364;font-weight:700">${_wc} ÷ 3 = ${_div3}</span>
+            </div>
+          </div>`:''}
+          ${_editFullAccess?`
+          <div>
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:10px">Slugs</div>
+            ${_slugRows}
+            <button class="ros-edit-add-slug btn" data-itemidx="${itemIdx}" style="font-size:13px;padding:8px 16px;border-style:dashed;border-color:#e3b341;color:#e3b341;margin-top:4px">＋ Add Slug</button>
           </div>
-          ${_canDirectorNotes
-            ?`<textarea id="ros-edit-director-notes" style="width:100%;min-height:200px;background:#1a1500;border:1px solid #f97316;border-radius:8px;color:#eaf0ff;font-size:16px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter director's blocking notes — no character limit…">${esc(_ei.directorNotes||'')}</textarea>`
-            :`<div style="background:#1a1500;border:1px solid #2e3a50;border-radius:8px;padding:16px 18px;font-size:15px;color:${_ei.directorNotes?'#eaf0ff':'#484f58'};font-style:${_ei.directorNotes?'normal':'italic'};min-height:80px;line-height:1.75;white-space:pre-wrap">${_ei.directorNotes?esc(_ei.directorNotes):'No director\'s notes yet.'}</div>`
-          }
+          ${_ei.type!=='break'?`
+          <div>
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:10px">Sound</div>
+            <select id="ros-edit-sound" style="background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#58a6ff;font-size:16px;font-weight:700;padding:10px 14px;outline:none;font-family:inherit;cursor:pointer;min-width:280px">${_soundOpts.map(o=>`<option value="${o}" ${_ei.sound===o?'selected':''}>${o||'— none —'}</option>`).join('')}</select>
+          </div>`:''}
+          ${_ei.type==='insert'?`
+          <div>
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#e3b341;margin-bottom:10px;text-decoration:underline">Out Words</div>
+            <input id="ros-edit-out-words" value="${esc(_ei.outWords||'')}" placeholder="Enter out words…" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:16px;padding:10px 14px;outline:none;font-family:inherit;box-sizing:border-box">
+          </div>`:''}`:
+          `<div style="font-size:13px;color:#484f58;font-style:italic">${getEffectiveRole()==='director'?'Director view — only Director\'s Notes is editable.':'Script editing only — other fields are managed by the editorial team.'}</div>`}
+          <div style="border-top:2px solid #f97316;padding-top:24px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#f97316">Director's Notes</div>
+              ${!_canDirectorNotes?`<span style="font-size:10px;color:#484f58;font-style:italic">View only</span>`:''}
+            </div>
+            ${_canDirectorNotes
+              ?`<textarea id="ros-edit-director-notes" style="width:100%;min-height:200px;background:#1a1500;border:1px solid #f97316;border-radius:8px;color:#eaf0ff;font-size:16px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter director's blocking notes — no character limit…">${esc(_ei.directorNotes||'')}</textarea>`
+              :`<div style="background:#1a1500;border:1px solid #2e3a50;border-radius:8px;padding:16px 18px;font-size:15px;color:${_ei.directorNotes?'#eaf0ff':'#484f58'};font-style:${_ei.directorNotes?'normal':'italic'};min-height:80px;line-height:1.75;white-space:pre-wrap">${_ei.directorNotes?esc(_ei.directorNotes):'No director\'s notes yet.'}</div>`
+            }
+          </div>
+          <div style="display:flex;justify-content:flex-end;padding-top:4px">
+            <button id="ros-edit-execute" class="btn" style="font-size:14px;padding:12px 36px;font-weight:800;border-color:#3fb950;color:#3fb950;letter-spacing:.5px">▶ EXECUTE</button>
+          </div>
         </div>
       </div>
-      <div style="padding:16px 24px;border-top:1px solid #2e3a50;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-        <button id="ros-edit-preview-script" class="btn" style="font-size:13px;padding:10px 20px;font-weight:700;border-color:#58a6ff;color:#58a6ff;border-style:dashed">👁 Preview Script</button>
+      <div style="padding:16px 24px;border-top:1px solid #2e3a50;display:flex;align-items:center;justify-content:flex-end;flex-shrink:0">
         <button id="ros-edit-save" class="btn primary" style="font-size:15px;padding:12px 32px;font-weight:800">Save Changes</button>
       </div>
     </div></div>`;
@@ -8799,6 +8822,68 @@ function rosExportVTList(){
   showToast('VT List ready to print/save as PDF ✓');
 }
 
+function updateRosEditPreview(){
+  const pane=document.getElementById('ros-edit-preview-pane');
+  if(!pane||!rosEditModal)return;
+  const {epNum,itemIdx}=rosEditModal;
+  const items=(rosData[String(epNum)]?.items)||[];
+  const _ei=items[itemIdx]||{};
+  const _ta=document.getElementById('ros-edit-script-ta');
+  const script=_ta?_ta.value:(_ei.script||'');
+  const _slugInps=[...document.querySelectorAll('.ros-edit-slug')];
+  const _srcInps=[...document.querySelectorAll('.ros-edit-slug-source')];
+  const slugs=_slugInps.length?_slugInps.map(i=>i.value.trim()):(_ei.slugs||(_ei.slug?[_ei.slug]:[]));
+  const sources=_srcInps.length?_srcInps.map(i=>i.value):(_ei.slugSources||[]);
+  const _sd=document.getElementById('ros-edit-sound');
+  const sound=_sd?_sd.value:(_ei.sound||'');
+  const _ow=document.getElementById('ros-edit-out-words');
+  const outWords=_ow?_ow.value:(_ei.outWords||'');
+  const _dn=document.getElementById('ros-edit-director-notes');
+  const directorNotes=_dn?_dn.value:(_ei.directorNotes||'');
+  const _eh=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const _p=(txt,style='')=>`<p style="margin:0;padding:0;font-family:Arial,sans-serif;font-size:9pt;line-height:1.3;${style}">${txt}</p>`;
+  const slugCell=slugs.filter(Boolean).map((s,si)=>{
+    const src=sources[si]||'';
+    const txt=src?`${_eh(src)} - ${_eh(s)}`:_eh(s);
+    return _p(`<span style="background:#39FF14;font-weight:bold">${txt}</span>`);
+  }).join('');
+  let desc=_p(`<u>${_eh(_ei.label||'')}</u>`,'font-weight:bold;color:#000');
+  if(_ei.content)desc+=_p(_eh(_ei.content),'font-weight:normal;color:#000');
+  if(_ei.type==='insert'&&outWords)desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${_eh(outWords)}</span>`);
+  if(['live','coldstart','upnext'].includes(_ei.type)&&script){
+    script.split('\n').forEach(line=>{
+      if(/^[^:]+:\s*$/.test(line.trim())){desc+=_p(`<u><b>${_eh(line.trim())}</b></u>`,'color:#000');}
+      else{desc+=_p(_eh(line)||'&nbsp;','font-weight:normal;color:#000');}
+    });
+  }
+  const _rowBg=['fixed','insert','coldstart','upnext','break'].includes(_ei.type)?'background:#D9D9D9;':'';
+  const num=_ei.itemNum||String(itemIdx+1);
+  const _isCue=l=>/^[^:]+:\s*$/.test(l.trim());
+  const _sw=script.split('\n').filter(l=>!_isCue(l)).join(' ').trim();
+  const _wc=_sw?_sw.split(/\s+/).length:0;
+  pane.innerHTML=`
+    <div style="font-size:8pt;color:#003366;font-weight:800;font-family:Arial,sans-serif;margin-bottom:8px;letter-spacing:.4px">PREVIEW — S${currentSeason} EP ${String(epNum).padStart(2,'0')}</div>
+    <table border="1" cellpadding="2" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed;font-family:Arial,sans-serif;font-size:9pt">
+      <colgroup><col style="width:8%"><col style="width:22%"><col style="width:12%"><col style="width:50%"><col style="width:8%"></colgroup>
+      <thead><tr>
+        <th style="background:#003366;color:#fff;font-size:8pt;font-weight:bold;padding:3px 2px;border:1px solid #000;text-align:center">ITEM</th>
+        <th style="background:#003366;color:#fff;font-size:8pt;font-weight:bold;padding:3px 2px;border:1px solid #000;text-align:center">PRODUCTION</th>
+        <th style="background:#003366;color:#fff;font-size:8pt;font-weight:bold;padding:3px 2px;border:1px solid #000;text-align:center">SOUND</th>
+        <th style="background:#003366;color:#fff;font-size:8pt;font-weight:bold;padding:3px 2px;border:1px solid #000;text-align:center">DESCRIPTION</th>
+        <th style="background:#003366;color:#fff;font-size:8pt;font-weight:bold;padding:3px 2px;border:1px solid #000;text-align:center">DUR</th>
+      </tr></thead>
+      <tbody><tr style="${_rowBg}">
+        <td align="center" style="font-size:9pt;font-weight:bold;padding:3px 2px;border:1px solid #000;vertical-align:top;${_rowBg}">${_p(_eh(num),'font-weight:bold;text-align:center')}</td>
+        <td style="font-size:9pt;padding:3px 2px;border:1px solid #000;vertical-align:top;${_rowBg}">${slugCell}${directorNotes?_p('&nbsp;')+_p('<u><b>DIRECTOR\'S NOTES:</b></u>','color:#000;font-size:8pt')+directorNotes.split('\n').map(l=>_p(_eh(l)||'&nbsp;','font-weight:normal;color:#555;font-style:italic;font-size:8pt')).join(''):''}</td>
+        <td style="font-size:9pt;font-weight:bold;padding:3px 2px;border:1px solid #000;vertical-align:top;${_rowBg}">${_p(_eh(sound),'font-weight:bold')}</td>
+        <td style="font-size:9pt;padding:3px 2px;border:1px solid #000;vertical-align:top;${_rowBg}">${desc}</td>
+        <td align="center" style="font-size:9pt;padding:3px 2px;border:1px solid #000;vertical-align:top;${_rowBg}">${_p(_eh(_ei.duration||''),'font-family:monospace;text-align:center')}</td>
+      </tr></tbody>
+    </table>
+    ${['live','coldstart','upnext'].includes(_ei.type)?`<div style="margin-top:8px;font-size:8pt;font-family:Arial,sans-serif;color:#444">Words: <strong style="color:#003366">${_wc}</strong> &nbsp; ${_wc} ÷ 3 = <strong style="color:#006600">${(_wc/3).toFixed(1)}</strong></div>`:''}
+  `;
+}
+
 function rosExportWord(preview=false){
   const ep=rosCurrentEp;
   if(!ep)return;
@@ -9136,7 +9221,7 @@ document.addEventListener('click',function rosHandler(e){
     return;
   }
   // Edit Item modal — close
-  if(e.target.id==='ros-edit-preview-script'){rosExportWord(true);return;}
+  if(e.target.id==='ros-edit-execute'){updateRosEditPreview();return;}
   if(e.target.id==='ros-edit-close'||e.target.id==='ros-edit-overlay'){
     rosEditModal=null;
     render();
