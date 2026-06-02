@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.126';
+const BUILD_VERSION='3.10.127';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -5761,7 +5761,7 @@ function renderModals(epNums,nextEp){
         <button id="ros-edit-close" class="btn" style="font-size:13px;padding:6px 16px;flex-shrink:0">✕ Close</button>
       </div>
       <div style="display:flex;flex:1;overflow:hidden">
-        <div style="width:360px;flex-shrink:0;background:#c8d0d8;border-right:1px solid #2e3a50;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <div style="width:460px;flex-shrink:0;background:#c8d0d8;border-right:1px solid #2e3a50;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px">
           <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#4a5568">Live Preview</div>
           <div id="ros-edit-preview-pane" style="background:#fff;padding:14px;border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.3);font-family:Arial,sans-serif;min-height:300px">
             <div style="font-size:11px;color:#aaa;text-align:center;padding:48px 0;font-family:Arial,sans-serif">Click EXECUTE to preview</div>
@@ -8822,94 +8822,12 @@ function rosExportVTList(){
   showToast('VT List ready to print/save as PDF ✓');
 }
 
-function updateRosEditPreview(){
-  const pane=document.getElementById('ros-edit-preview-pane');
-  if(!pane||!rosEditModal)return;
-  const {epNum,itemIdx}=rosEditModal;
-  const items=(rosData[String(epNum)]?.items)||[];
-  const _ei=items[itemIdx]||{};
-  const _ta=document.getElementById('ros-edit-script-ta');
-  const script=_ta?_ta.value:(_ei.script||'');
-  const _slugInps=[...document.querySelectorAll('.ros-edit-slug')];
-  const _srcInps=[...document.querySelectorAll('.ros-edit-slug-source')];
-  const slugs=_slugInps.length?_slugInps.map(i=>i.value.trim()):(_ei.slugs||(_ei.slug?[_ei.slug]:[]));
-  const sources=_srcInps.length?_srcInps.map(i=>i.value):(_ei.slugSources||[]);
-  const _sd=document.getElementById('ros-edit-sound');
-  const sound=_sd?_sd.value:(_ei.sound||'');
-  const _ow=document.getElementById('ros-edit-out-words');
-  const outWords=_ow?_ow.value:(_ei.outWords||'');
-  const _dn=document.getElementById('ros-edit-director-notes');
-  const directorNotes=_dn?_dn.value:(_ei.directorNotes||'');
-  const _eh=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const num=_ei.itemNum||String(itemIdx+1);
-  const _isCue=l=>/^[^:]+:\s*$/.test(l.trim());
-  const _sw=script.split('\n').filter(l=>!_isCue(l)).join(' ').trim();
-  const _wc=_sw?_sw.split(/\s+/).length:0;
-  const _eTS={fixed:'#9ca3af',live:'#79c0ff',insert:'#e3b341',coldstart:'#c084fc',upnext:'#56d364',break:'#484f58'};
-  const typeColour=_eTS[_ei.type]||'#79c0ff';
-  const _sec=(label,content)=>`<div style="padding:10px 12px;border-bottom:1px solid #e2e8f0"><div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#718096;margin-bottom:5px;font-family:Arial,sans-serif">${label}</div>${content}</div>`;
-  // Slugs block
-  const slugsHtml=slugs.filter(Boolean).length
-    ?slugs.filter(Boolean).map((s,si)=>{const src=sources[si]||'';const txt=src?`${_eh(src)} — ${_eh(s)}`:_eh(s);return`<div style="background:#39FF14;color:#000;font-weight:800;font-size:10pt;padding:4px 8px;border-radius:3px;margin-bottom:4px;font-family:Arial,sans-serif;word-break:break-all">${txt}</div>`;}).join('')
-    :`<div style="color:#aaa;font-size:10pt;font-family:Arial,sans-serif;font-style:italic">No slug</div>`;
-  // Script block
-  let scriptHtml='';
-  if(['live','coldstart','upnext'].includes(_ei.type)){
-    if(script){
-      script.split('\n').forEach(line=>{
-        if(/^[^:]+:\s*$/.test(line.trim())){
-          scriptHtml+=`<p style="margin:6px 0 2px;font-weight:800;text-decoration:underline;font-size:10pt;font-family:Arial,sans-serif;color:#000">${_eh(line.trim())}</p>`;
-        } else {
-          scriptHtml+=`<p style="margin:0 0 2px;font-size:10pt;font-family:Arial,sans-serif;color:#000;line-height:1.5">${_eh(line)||'&nbsp;'}</p>`;
-        }
-      });
-    } else {
-      scriptHtml=`<span style="color:#aaa;font-style:italic;font-family:Arial,sans-serif;font-size:10pt">No script yet</span>`;
-    }
-  }
-  // Out words block (inserts)
-  const outWordsHtml=_ei.type==='insert'
-    ?_sec('Out Words',outWords?`<p style="margin:0;font-size:10pt;font-family:Arial,sans-serif;font-weight:700;color:#000">${_eh(outWords)}</p>`:`<span style="color:#aaa;font-style:italic;font-family:Arial,sans-serif;font-size:10pt">None</span>`):'';
-  // Director's notes block
-  const dirNotesHtml=directorNotes
-    ?directorNotes.split('\n').map(l=>`<p style="margin:0 0 2px;font-size:10pt;font-family:Arial,sans-serif;color:#7c3a00;font-style:italic;line-height:1.5">${_eh(l)||'&nbsp;'}</p>`).join('')
-    :`<span style="color:#aaa;font-style:italic;font-family:Arial,sans-serif;font-size:10pt">None</span>`;
-
-  pane.innerHTML=`<div style="font-family:Arial,sans-serif;font-size:10pt;color:#000;background:#fff">
-    <div style="background:#003366;color:#fff;padding:10px 12px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
-      <div>
-        <div style="font-size:9px;font-weight:700;color:#a0b8d8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">ITEM ${_eh(num)} · S${currentSeason} EP ${String(epNum).padStart(2,'0')}</div>
-        <div style="font-size:11pt;font-weight:800;color:${typeColour};line-height:1.3">${_eh(_ei.label||'')}</div>
-      </div>
-      ${_ei.duration?`<div style="font-family:monospace;font-size:10pt;color:#fff;white-space:nowrap;padding-top:16px">${_eh(_ei.duration)}</div>`:''}
-    </div>
-    ${_sec('Slug / Production',slugsHtml)}
-    ${_ei.type!=='break'?_sec('Sound',`<div style="font-size:11pt;font-weight:800;color:#003366;font-family:Arial,sans-serif">${_eh(sound)||'<span style="color:#aaa;font-weight:400;font-style:italic">None</span>'}</div>`):''}
-    ${outWordsHtml}
-    ${['live','coldstart','upnext'].includes(_ei.type)?_sec(`Script · <span style="color:#003366">${_wc} words</span> &nbsp;÷ 3 = <span style="color:#006600">${(_wc/3).toFixed(1)}</span>`,scriptHtml):''}
-    <div style="padding:10px 12px;border-top:2px solid #f97316">
-      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#f97316;margin-bottom:5px">Director's Notes</div>
-      ${dirNotesHtml}
-    </div>
-  </div>`;
-}
-
-function rosExportWord(preview=false){
-  const ep=rosCurrentEp;
-  if(!ep)return;
-  const items=(rosData[String(ep)]?.items)||[];
-  if(!items.length){showToast('No items to export',true);return;}
-  // Flush script textarea if modal is open for this episode
-  const _sTA=document.getElementById('ros-script-ta');
-  if(_sTA&&rosScriptModal?.epNum===ep&&items[rosScriptModal.itemIdx]!==undefined){
-    items[rosScriptModal.itemIdx].script=_sTA.value;
-  }
+function buildRosWordHtml(ep,items,highlightIdx=-1){
   const epDate=resolveDate(ep);
   const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'}):'';
   const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
   const escHtml=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const _durMmSs=d=>{if(!d)return'';const p=String(d).split(':');if(p.length===3){const mm=Number(p[0])*60+Number(p[1]);return`${String(mm).padStart(2,'0')}:${p[2]}`;}return d;};
-
   const _p=(txt,style='')=>`<p style="margin:0;font-family:Arial,sans-serif;font-size:11pt;${style}">${txt}</p>`;
   const rows=items.map((item,i)=>{
     const num=item.itemNum||String(i+1);
@@ -8921,20 +8839,18 @@ function rosExportWord(preview=false){
       return _p(`<span style="background:#39FF14;font-weight:bold">${txt}</span>`);
     }).join('')||'';
     let desc=_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
-    if(item.content) desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
-    if(item.type==='insert'&&item.outWords) desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
+    if(item.content)desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
+    if(item.type==='insert'&&item.outWords)desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
     if(['live','coldstart','upnext'].includes(item.type)&&item.script){
       item.script.split('\n').forEach(line=>{
-        if(/^[^:]+:\s*$/.test(line.trim())){
-          desc+=_p(`<u><b>${escHtml(line.trim())}</b></u>`,'color:#000');
-        } else {
-          desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');
-        }
+        if(/^[^:]+:\s*$/.test(line.trim())){desc+=_p(`<u><b>${escHtml(line.trim())}</b></u>`,'color:#000');}
+        else{desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');}
       });
     }
-    const _rowBg=['fixed','insert','coldstart','upnext','break'].includes(item.type)?'background:#D9D9D9;':'' ;
+    const _rowBg=['fixed','insert','coldstart','upnext','break'].includes(item.type)?'background:#D9D9D9;':'';
+    const _isHL=i===highlightIdx;
     const _br=_p('&nbsp;');
-    return`<tr style="${_rowBg}">
+    return`<tr${_isHL?' id="preview-current-item" style="'+_rowBg+'outline:3px solid #003366;outline-offset:-3px;"':' style="'+_rowBg+'"'}>
       <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%;${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
       <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;${_rowBg}">${_br}${slugCell}${item.directorNotes?_p('&nbsp;')+_p('<u><b>DIRECTOR\'S NOTES:</b></u>','color:#000;font-size:9pt')+item.directorNotes.split('\n').map(l=>_p(escHtml(l)||'&nbsp;','font-weight:normal;color:#555;font-style:italic;font-size:9pt')).join(''):''}
       </td>
@@ -8943,57 +8859,33 @@ function rosExportWord(preview=false){
       <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:7%;${_rowBg}">${_br}${_p(escHtml(_durMmSs(item.duration)),'font-family:monospace;text-align:center')}</td>
     </tr>`;
   }).join('');
-
   const footerLeft=`CARTE BLANCHE | SEASON ${currentSeason} | EPISODE ${String(ep).padStart(2,'0')} | TX: ${epDateFmt.toUpperCase()}`;
-  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office"
-xmlns:w="urn:schemas-microsoft-com:office:word"
-xmlns="http://www.w3.org/TR/REC-html40">
-<head><meta charset="utf-8">
-<title>CB Studio Script ${escHtml(epLabel)}</title>
-<!--[if gte mso 9]><xml>
-<w:WordDocument>
-  <w:View>Print</w:View><w:Zoom>100</w:Zoom>
-  <w:DoNotOptimizeForBrowser/>
-</w:WordDocument>
-</xml><![endif]-->
+  const bodyMargin=highlightIdx>=0?'16px':'0';
+  return`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>CB Studio Script ${escHtml(epLabel)}</title>
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-->
 <style>
-  @page Section1 {
-    size:595.3pt 841.9pt;
-    mso-page-orientation:portrait;
-    margin:18pt 18pt 50pt 18pt;
-    mso-footer:ftr1;
-    mso-footer-margin:32pt;
-  }
+  @page Section1{size:595.3pt 841.9pt;mso-page-orientation:portrait;margin:18pt 18pt 50pt 18pt;mso-footer:ftr1;mso-footer-margin:32pt;}
   div.Section1{page:Section1}
-  body{font-family:Arial,sans-serif;font-size:11pt;margin:0;padding:0}
+  body{font-family:Arial,sans-serif;font-size:11pt;margin:${bodyMargin};padding:0}
   p{margin:0;padding:0;font-family:Arial,sans-serif;font-size:11pt;line-height:1.15}
   p.MsoFooter{margin:0;mso-pagination:widow-orphan;tab-stops:right 559pt;font-family:Arial,sans-serif;font-size:9pt;color:#333}
   table{border-collapse:collapse;width:100%;table-layout:fixed}
   td,th{font-family:Arial,sans-serif;font-size:11pt;padding:3px 5px;border:1px solid #000;vertical-align:top;word-wrap:break-word}
-</style>
-</head>
-<body>
-<div class="Section1">
-<p style="font-size:14pt;font-weight:bold;color:#000;margin-bottom:2pt;mso-line-height-rule:exactly;line-height:18pt">CARTE BLANCHE</p>
-<p style="margin-bottom:1pt;mso-line-height-rule:exactly;line-height:14pt"><b>Season ${currentSeason}, ${escHtml(epLabel.replace(`S${currentSeason} `,'Season '+currentSeason+', '))}</b></p>
-<p style="margin-bottom:8pt;mso-line-height-rule:exactly;line-height:14pt"><b>TX: ${escHtml(epDateFmt)}</b></p>
+</style></head>
+<body><div class="Section1">
+<p style="font-size:14pt;font-weight:bold;color:#000;margin-bottom:2pt;line-height:18pt">CARTE BLANCHE</p>
+<p style="margin-bottom:1pt;line-height:14pt"><b>Season ${currentSeason}, ${escHtml(epLabel.replace(`S${currentSeason} `,'Season '+currentSeason+', '))}</b></p>
+<p style="margin-bottom:8pt;line-height:14pt"><b>TX: ${escHtml(epDateFmt)}</b></p>
 <table border="1" cellpadding="3" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed">
-  <colgroup>
-    <col style="width:4%">
-    <col style="width:22%">
-    <col style="width:11%">
-    <col style="width:56%">
-    <col style="width:7%">
-  </colgroup>
-  <thead>
-    <tr>
-      <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:4%">ITEM</th>
-      <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:22%">PRODUCTION</th>
-      <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:11%">SOUND</th>
-      <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:56%">DESCRIPTION</th>
-      <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:7%">DUR</th>
-    </tr>
-  </thead>
+  <colgroup><col style="width:4%"><col style="width:22%"><col style="width:11%"><col style="width:56%"><col style="width:7%"></colgroup>
+  <thead><tr>
+    <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:4%">ITEM</th>
+    <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:22%">PRODUCTION</th>
+    <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:11%">SOUND</th>
+    <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:56%">DESCRIPTION</th>
+    <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:7%">DUR</th>
+  </tr></thead>
   <tbody>${rows}</tbody>
 </table>
 </div>
@@ -9001,7 +8893,78 @@ xmlns="http://www.w3.org/TR/REC-html40">
   <p class="MsoFooter">${escHtml(footerLeft)}<span style="mso-tab-count:1">&nbsp;</span><!--[if supportFields]><span style="mso-element:field-begin"></span><span style="mso-spacerun:yes"> PAGE </span><span style="mso-element:field-separator"></span><![endif]--><span style="mso-no-proof:yes">1</span><!--[if supportFields]><span style="mso-element:field-end"></span><![endif]--></p>
 </div>
 </body></html>`;
+}
 
+function updateRosEditPreview(){
+  const pane=document.getElementById('ros-edit-preview-pane');
+  if(!pane||!rosEditModal)return;
+  const {epNum,itemIdx}=rosEditModal;
+  // Deep-clone so unsaved edits don't corrupt stored data
+  const items=JSON.parse(JSON.stringify((rosData[String(epNum)]?.items)||[]));
+  if(!items.length){
+    pane.innerHTML='<div style="color:#aaa;font-size:12px;text-align:center;padding:40px;font-family:Arial,sans-serif">No items in this episode</div>';
+    return;
+  }
+  // Overlay current form values onto the item being edited
+  if(items[itemIdx]!==undefined){
+    const it=items[itemIdx];
+    const _ta=document.getElementById('ros-edit-script-ta');
+    if(_ta)it.script=_ta.value;
+    const _slugInps=[...document.querySelectorAll('.ros-edit-slug')];
+    const _srcInps=[...document.querySelectorAll('.ros-edit-slug-source')];
+    if(_slugInps.length){it.slugs=_slugInps.map(i=>i.value.trim());it.slug=it.slugs[0]||'';it.slugSources=_srcInps.map(i=>i.value);}
+    const _sd=document.getElementById('ros-edit-sound');
+    if(_sd)it.sound=_sd.value;
+    const _ow=document.getElementById('ros-edit-out-words');
+    if(_ow)it.outWords=_ow.value;
+    const _dn=document.getElementById('ros-edit-director-notes');
+    if(_dn)it.directorNotes=_dn.value;
+  }
+  // Build the full Word-export HTML with the active item highlighted
+  const html=buildRosWordHtml(epNum,items,itemIdx);
+  // Render in a scaled iframe — exact match to the Word export
+  pane.innerHTML='';
+  pane.style.cssText='border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.3);overflow:hidden;background:#f0f0f0;';
+  const WORD_W=820;
+  const availW=Math.max(pane.clientWidth||360,200);
+  const scale=availW/WORD_W;
+  const wrapper=document.createElement('div');
+  wrapper.style.cssText=`width:${WORD_W}px;transform:scale(${scale});transform-origin:top left;line-height:0;`;
+  const iframe=document.createElement('iframe');
+  iframe.id='ros-preview-iframe';
+  iframe.style.cssText=`border:none;width:${WORD_W}px;height:600px;display:block;background:#fff;`;
+  iframe.onload=()=>{
+    try{
+      const doc=iframe.contentDocument||iframe.contentWindow.document;
+      const h=Math.max(doc.body.scrollHeight,doc.documentElement.scrollHeight,200)+40;
+      iframe.style.height=h+'px';
+      wrapper.style.height=h+'px';
+      pane.style.height=Math.round(h*scale)+'px';
+      // Scroll left panel to show the highlighted item
+      const el=doc.getElementById('preview-current-item');
+      if(el){
+        const rowTop=el.offsetTop||0;
+        const leftPanel=pane.parentElement;
+        if(leftPanel)leftPanel.scrollTop=Math.max(0,Math.round(rowTop*scale)-60);
+      }
+    }catch(e){}
+  };
+  wrapper.appendChild(iframe);
+  pane.appendChild(wrapper);
+  iframe.srcdoc=html;
+}
+
+function rosExportWord(preview=false){
+  const ep=rosCurrentEp;
+  if(!ep)return;
+  const items=(rosData[String(ep)]?.items)||[];
+  if(!items.length){showToast('No items to export',true);return;}
+  const _sTA=document.getElementById('ros-script-ta');
+  if(_sTA&&rosScriptModal?.epNum===ep&&items[rosScriptModal.itemIdx]!==undefined){
+    items[rosScriptModal.itemIdx].script=_sTA.value;
+  }
+  const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
+  const html=buildRosWordHtml(ep,items);
   if(preview){
     const win=window.open('','_blank','width=900,height=1100');
     if(!win){showToast('Pop-up blocked — please allow pop-ups and try again.',true);return;}
@@ -9009,7 +8972,7 @@ xmlns="http://www.w3.org/TR/REC-html40">
     win.document.write(previewHtml);
     win.document.close();
   } else {
-    const blob=new Blob(['\ufeff',html],{type:'application/msword'});
+    const blob=new Blob(['﻿',html],{type:'application/msword'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;
