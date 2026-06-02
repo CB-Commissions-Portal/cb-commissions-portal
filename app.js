@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.127';
+const BUILD_VERSION='3.10.128';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -5751,7 +5751,7 @@ function renderModals(epNums,nextEp){
     const _soundOpts=["","A","B","C","D","COLD START","CLEAN","GENERIC","A+ COLD START CONT'D","B+ COLD START CONT'D","C+ COLD START CONT'D","D+ COLD START CONT'D","VOICE+ COLD START CONT'D"];
     const _editFullAccess=!['content','director'].includes(getEffectiveRole());
     const _canDirectorNotes=['admin','director'].includes(getEffectiveRole());
-    out+=`<div class="modal-overlay" id="ros-edit-overlay"><div class="modal" style="width:min(1280px,98vw);max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+    out+=`<div class="modal-overlay" id="ros-edit-overlay"><div class="modal" style="width:min(1600px,99vw);max-height:97vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
       <div style="padding:20px 24px;border-bottom:1px solid #2e3a50;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
         <div>
           ${_ts.badge?`<span style="font-size:11px;font-weight:800;background:${_ts.badgeBg};color:${_ts.label};padding:3px 12px;border-radius:4px;margin-right:12px;letter-spacing:.8px">${_ts.badge}</span>`:''}
@@ -8926,10 +8926,13 @@ function updateRosEditPreview(){
   pane.innerHTML='';
   pane.style.cssText='border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.3);overflow:hidden;background:#f0f0f0;';
   const WORD_W=820;
-  const availW=Math.max(pane.clientWidth||360,200);
+  const availW=Math.max(pane.clientWidth||420,200);
   const scale=availW/WORD_W;
   const wrapper=document.createElement('div');
-  wrapper.style.cssText=`width:${WORD_W}px;transform:scale(${scale});transform-origin:top left;line-height:0;`;
+  // transform:scale keeps the element's layout size at the UNSCALED dimensions.
+  // We apply a negative margin-bottom after load to collapse the excess layout height
+  // so the parent panel scrolls by the visual (scaled) height, not the raw height.
+  wrapper.style.cssText=`width:${WORD_W}px;transform:scale(${scale});transform-origin:top left;line-height:0;display:block;`;
   const iframe=document.createElement('iframe');
   iframe.id='ros-preview-iframe';
   iframe.style.cssText=`border:none;width:${WORD_W}px;height:600px;display:block;background:#fff;`;
@@ -8938,9 +8941,12 @@ function updateRosEditPreview(){
       const doc=iframe.contentDocument||iframe.contentWindow.document;
       const h=Math.max(doc.body.scrollHeight,doc.documentElement.scrollHeight,200)+40;
       iframe.style.height=h+'px';
+      const scaledH=Math.round(h*scale);
       wrapper.style.height=h+'px';
-      pane.style.height=Math.round(h*scale)+'px';
-      // Scroll left panel to show the highlighted item
+      // Collapse the unused layout height so the panel scrolls by the visual height
+      wrapper.style.marginBottom=(scaledH-h)+'px';
+      pane.style.height=scaledH+'px';
+      // Scroll left panel to keep the active item visible
       const el=doc.getElementById('preview-current-item');
       if(el){
         const rowTop=el.offsetTop||0;
