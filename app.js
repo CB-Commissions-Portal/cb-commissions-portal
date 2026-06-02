@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.125';
+const BUILD_VERSION='3.10.126';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -8841,47 +8841,57 @@ function updateRosEditPreview(){
   const _dn=document.getElementById('ros-edit-director-notes');
   const directorNotes=_dn?_dn.value:(_ei.directorNotes||'');
   const _eh=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const _p=(txt,style='')=>`<p style="margin:0;padding:0;font-family:Arial,sans-serif;font-size:9pt;line-height:1.3;${style}">${txt}</p>`;
-  const slugCell=slugs.filter(Boolean).map((s,si)=>{
-    const src=sources[si]||'';
-    const txt=src?`${_eh(src)} - ${_eh(s)}`:_eh(s);
-    return _p(`<span style="background:#39FF14;font-weight:bold">${txt}</span>`);
-  }).join('');
-  let desc=_p(`<u>${_eh(_ei.label||'')}</u>`,'font-weight:bold;color:#000');
-  if(_ei.content)desc+=_p(_eh(_ei.content),'font-weight:normal;color:#000');
-  if(_ei.type==='insert'&&outWords)desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${_eh(outWords)}</span>`);
-  if(['live','coldstart','upnext'].includes(_ei.type)&&script){
-    script.split('\n').forEach(line=>{
-      if(/^[^:]+:\s*$/.test(line.trim())){desc+=_p(`<u><b>${_eh(line.trim())}</b></u>`,'color:#000');}
-      else{desc+=_p(_eh(line)||'&nbsp;','font-weight:normal;color:#000');}
-    });
-  }
-  const _rowBg=['fixed','insert','coldstart','upnext','break'].includes(_ei.type)?'background:#D9D9D9;':'';
   const num=_ei.itemNum||String(itemIdx+1);
   const _isCue=l=>/^[^:]+:\s*$/.test(l.trim());
   const _sw=script.split('\n').filter(l=>!_isCue(l)).join(' ').trim();
   const _wc=_sw?_sw.split(/\s+/).length:0;
-  pane.innerHTML=`
-    <div style="font-size:8pt;color:#003366;font-weight:800;font-family:Arial,sans-serif;margin-bottom:8px;letter-spacing:.4px">PREVIEW — S${currentSeason} EP ${String(epNum).padStart(2,'0')}</div>
-    <table border="1" cellpadding="2" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed;font-family:Arial,sans-serif;font-size:9pt">
-      <colgroup><col style="width:8%"><col style="width:22%"><col style="width:12%"><col style="width:50%"><col style="width:8%"></colgroup>
-      <thead><tr>
-        <th style="background:#003366;color:#fff;font-size:8pt;font-weight:bold;padding:3px 2px;border:1px solid #000;text-align:center">ITEM</th>
-        <th style="background:#003366;color:#fff;font-size:8pt;font-weight:bold;padding:3px 2px;border:1px solid #000;text-align:center">PRODUCTION</th>
-        <th style="background:#003366;color:#fff;font-size:8pt;font-weight:bold;padding:3px 2px;border:1px solid #000;text-align:center">SOUND</th>
-        <th style="background:#003366;color:#fff;font-size:8pt;font-weight:bold;padding:3px 2px;border:1px solid #000;text-align:center">DESCRIPTION</th>
-        <th style="background:#003366;color:#fff;font-size:8pt;font-weight:bold;padding:3px 2px;border:1px solid #000;text-align:center">DUR</th>
-      </tr></thead>
-      <tbody><tr style="${_rowBg}">
-        <td align="center" style="font-size:9pt;font-weight:bold;padding:3px 2px;border:1px solid #000;vertical-align:top;${_rowBg}">${_p(_eh(num),'font-weight:bold;text-align:center')}</td>
-        <td style="font-size:9pt;padding:3px 2px;border:1px solid #000;vertical-align:top;${_rowBg}">${slugCell}${directorNotes?_p('&nbsp;')+_p('<u><b>DIRECTOR\'S NOTES:</b></u>','color:#000;font-size:8pt')+directorNotes.split('\n').map(l=>_p(_eh(l)||'&nbsp;','font-weight:normal;color:#555;font-style:italic;font-size:8pt')).join(''):''}</td>
-        <td style="font-size:9pt;font-weight:bold;padding:3px 2px;border:1px solid #000;vertical-align:top;${_rowBg}">${_p(_eh(sound),'font-weight:bold')}</td>
-        <td style="font-size:9pt;padding:3px 2px;border:1px solid #000;vertical-align:top;${_rowBg}">${desc}</td>
-        <td align="center" style="font-size:9pt;padding:3px 2px;border:1px solid #000;vertical-align:top;${_rowBg}">${_p(_eh(_ei.duration||''),'font-family:monospace;text-align:center')}</td>
-      </tr></tbody>
-    </table>
-    ${['live','coldstart','upnext'].includes(_ei.type)?`<div style="margin-top:8px;font-size:8pt;font-family:Arial,sans-serif;color:#444">Words: <strong style="color:#003366">${_wc}</strong> &nbsp; ${_wc} ÷ 3 = <strong style="color:#006600">${(_wc/3).toFixed(1)}</strong></div>`:''}
-  `;
+  const _eTS={fixed:'#9ca3af',live:'#79c0ff',insert:'#e3b341',coldstart:'#c084fc',upnext:'#56d364',break:'#484f58'};
+  const typeColour=_eTS[_ei.type]||'#79c0ff';
+  const _sec=(label,content)=>`<div style="padding:10px 12px;border-bottom:1px solid #e2e8f0"><div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#718096;margin-bottom:5px;font-family:Arial,sans-serif">${label}</div>${content}</div>`;
+  // Slugs block
+  const slugsHtml=slugs.filter(Boolean).length
+    ?slugs.filter(Boolean).map((s,si)=>{const src=sources[si]||'';const txt=src?`${_eh(src)} — ${_eh(s)}`:_eh(s);return`<div style="background:#39FF14;color:#000;font-weight:800;font-size:10pt;padding:4px 8px;border-radius:3px;margin-bottom:4px;font-family:Arial,sans-serif;word-break:break-all">${txt}</div>`;}).join('')
+    :`<div style="color:#aaa;font-size:10pt;font-family:Arial,sans-serif;font-style:italic">No slug</div>`;
+  // Script block
+  let scriptHtml='';
+  if(['live','coldstart','upnext'].includes(_ei.type)){
+    if(script){
+      script.split('\n').forEach(line=>{
+        if(/^[^:]+:\s*$/.test(line.trim())){
+          scriptHtml+=`<p style="margin:6px 0 2px;font-weight:800;text-decoration:underline;font-size:10pt;font-family:Arial,sans-serif;color:#000">${_eh(line.trim())}</p>`;
+        } else {
+          scriptHtml+=`<p style="margin:0 0 2px;font-size:10pt;font-family:Arial,sans-serif;color:#000;line-height:1.5">${_eh(line)||'&nbsp;'}</p>`;
+        }
+      });
+    } else {
+      scriptHtml=`<span style="color:#aaa;font-style:italic;font-family:Arial,sans-serif;font-size:10pt">No script yet</span>`;
+    }
+  }
+  // Out words block (inserts)
+  const outWordsHtml=_ei.type==='insert'
+    ?_sec('Out Words',outWords?`<p style="margin:0;font-size:10pt;font-family:Arial,sans-serif;font-weight:700;color:#000">${_eh(outWords)}</p>`:`<span style="color:#aaa;font-style:italic;font-family:Arial,sans-serif;font-size:10pt">None</span>`):'';
+  // Director's notes block
+  const dirNotesHtml=directorNotes
+    ?directorNotes.split('\n').map(l=>`<p style="margin:0 0 2px;font-size:10pt;font-family:Arial,sans-serif;color:#7c3a00;font-style:italic;line-height:1.5">${_eh(l)||'&nbsp;'}</p>`).join('')
+    :`<span style="color:#aaa;font-style:italic;font-family:Arial,sans-serif;font-size:10pt">None</span>`;
+
+  pane.innerHTML=`<div style="font-family:Arial,sans-serif;font-size:10pt;color:#000;background:#fff">
+    <div style="background:#003366;color:#fff;padding:10px 12px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+      <div>
+        <div style="font-size:9px;font-weight:700;color:#a0b8d8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">ITEM ${_eh(num)} · S${currentSeason} EP ${String(epNum).padStart(2,'0')}</div>
+        <div style="font-size:11pt;font-weight:800;color:${typeColour};line-height:1.3">${_eh(_ei.label||'')}</div>
+      </div>
+      ${_ei.duration?`<div style="font-family:monospace;font-size:10pt;color:#fff;white-space:nowrap;padding-top:16px">${_eh(_ei.duration)}</div>`:''}
+    </div>
+    ${_sec('Slug / Production',slugsHtml)}
+    ${_ei.type!=='break'?_sec('Sound',`<div style="font-size:11pt;font-weight:800;color:#003366;font-family:Arial,sans-serif">${_eh(sound)||'<span style="color:#aaa;font-weight:400;font-style:italic">None</span>'}</div>`):''}
+    ${outWordsHtml}
+    ${['live','coldstart','upnext'].includes(_ei.type)?_sec(`Script · <span style="color:#003366">${_wc} words</span> &nbsp;÷ 3 = <span style="color:#006600">${(_wc/3).toFixed(1)}</span>`,scriptHtml):''}
+    <div style="padding:10px 12px;border-top:2px solid #f97316">
+      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#f97316;margin-bottom:5px">Director's Notes</div>
+      ${dirNotesHtml}
+    </div>
+  </div>`;
 }
 
 function rosExportWord(preview=false){
