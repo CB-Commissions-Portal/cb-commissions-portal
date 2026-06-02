@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.131';
+const BUILD_VERSION='3.10.132';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -2661,14 +2661,14 @@ function renderPostProd(){
   function cellBg(val){
     if(!val)return'';
     const v=val.toLowerCase();
-    if(v.includes('view 1')||v==='view 1')return'background:#003d82;color:#ffffff';
-    if(v.includes('view 2')||v==='view 2')return'background:#005c1a;color:#ffffff';
-    if(v.includes('view'))return'background:#0057b8;color:#ffffff';
-    if(v.includes('shoot'))return'background:#006622;color:#ffffff';
-    if(v.includes('edit'))return'background:#4a0080;color:#ffffff';
-    if(v.includes('mix'))return'background:#804000;color:#ffffff';
-    if(v.includes('vo'))return'background:#005566;color:#ffffff';
-    if(v.includes('amf')||v.includes('afm'))return'background:#8b0000;color:#ffffff';
+    if(v.includes('view 1'))return'background:#003d82;color:#ffffff';
+    if(v.includes('view 2'))return'background:#1556a6;color:#ffffff';
+    if(v.includes('view'))return'background:#0066cc;color:#ffffff';
+    if(v.includes('shoot'))return'background:#1a6b35;color:#ffffff';
+    if(v.includes('edit'))return'background:#6b21a8;color:#ffffff';
+    if(v.includes('mix'))return'background:#9a4f00;color:#ffffff';
+    if(v.includes('vo'))return'background:#0e7490;color:#ffffff';
+    if(v.includes('amf')||v.includes('afm'))return'background:#b91c1c;color:#ffffff';
     return'background:#1c2433;color:#cdd9e5';
   }
 
@@ -2851,9 +2851,10 @@ function renderPostProd(){
 
   const weekLabel=`Week of ${new Date(monStr+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'})}`;
   const legend=[
-    ['#003d82','View'],['#006622','Shoot'],['#4a0080','Edit'],
-    ['#005566','VO'],['#804000','Mix'],['#8b0000','AFM'],
-  ].map(([bg,lbl])=>`<span style="display:inline-flex;align-items:center;gap:4px;margin-right:8px"><span style="display:inline-block;width:12px;height:8px;background:${bg};border-radius:2px"></span><span style="font-size:9px;color:#cdd9e5">${lbl}</span></span>`).join('');
+    ['#003d82','VIEW 1'],['#1556a6','VIEW 2'],['#0066cc','VIEW'],
+    ['#1a6b35','SHOOT'],['#6b21a8','EDIT'],['#9a4f00','MIX'],
+    ['#0e7490','VO'],['#b91c1c','AFM'],
+  ].map(([bg,lbl])=>`<span style="display:inline-flex;align-items:center;background:${bg};color:#fff;font-size:10px;font-weight:800;letter-spacing:.5px;padding:4px 10px;border-radius:4px;margin-right:6px;white-space:nowrap">${lbl}</span>`).join('');
 
   return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
     ${addModalHtml}
@@ -2869,7 +2870,11 @@ function renderPostProd(){
       <span style="font-size:13px;font-weight:800;color:#eaf0ff;min-width:220px;text-align:center">${weekLabel}</span>
       <button class="btn" id="pp-next-week" style="font-size:11px;padding:4px 10px">Next ▶</button>
       <button class="btn" id="pp-today-week" style="font-size:11px;padding:4px 10px">Today</button>
-      <span style="margin-left:auto;display:flex;align-items:center;flex-wrap:wrap">${legend}</span>
+    </div>
+    <div style="padding:6px 14px;background:#0d1117;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap">
+      <span style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#484f58;margin-right:4px">Colour key:</span>
+      ${legend}
+      <span style="font-size:9px;color:#484f58;margin-left:6px;font-style:italic">Type keyword first, then name — e.g. EDIT: John</span>
     </div>
     <div style="flex:1;overflow:auto">
       <table style="border-collapse:collapse;white-space:nowrap;table-layout:auto">
@@ -2890,13 +2895,13 @@ function renderPPCalendar(){
   function getActivity(val){
     const v=val.toLowerCase();
     if(v.includes('view 1'))return{label:'View 1',bg:'#003d82',tc:'#fff'};
-    if(v.includes('view 2'))return{label:'View 2',bg:'#005c1a',tc:'#fff'};
-    if(v.includes('view'))return{label:'View',bg:'#0057b8',tc:'#fff'};
-    if(v.includes('shoot'))return{label:'Shoot',bg:'#006622',tc:'#fff'};
-    if(v.includes('edit'))return{label:'Edit',bg:'#4a0080',tc:'#fff'};
-    if(v.includes('mix'))return{label:'Mix',bg:'#804000',tc:'#fff'};
-    if(v.includes('vo'))return{label:'VO',bg:'#005566',tc:'#fff'};
-    if(v.includes('afm')||v.includes('amf'))return{label:'AFM',bg:'#8b0000',tc:'#fff'};
+    if(v.includes('view 2'))return{label:'View 2',bg:'#1556a6',tc:'#fff'};
+    if(v.includes('view'))return{label:'View',bg:'#0066cc',tc:'#fff'};
+    if(v.includes('shoot'))return{label:'Shoot',bg:'#1a6b35',tc:'#fff'};
+    if(v.includes('edit'))return{label:'Edit',bg:'#6b21a8',tc:'#fff'};
+    if(v.includes('mix'))return{label:'Mix',bg:'#9a4f00',tc:'#fff'};
+    if(v.includes('vo'))return{label:'VO',bg:'#0e7490',tc:'#fff'};
+    if(v.includes('afm')||v.includes('amf'))return{label:'AFM',bg:'#b91c1c',tc:'#fff'};
     return{label:val.slice(0,6),bg:'#253045',tc:'#cdd9e5'};
   }
 
