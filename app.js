@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.139';
+const BUILD_VERSION='3.10.140';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4986,8 +4986,14 @@ function renderContractForm(){
       ${fld('employeeName','Employee Full Name','e.g. Laura Byrne')}
       ${fld('employeeID','Employee ID Number','e.g. 8909230029088','320px')}
       ${sec('Confirmation Details')}
-      ${fld('docDate','Document Date','YYYY-MM-DD','200px')}
-      ${_pending}`;
+      ${fld('docDate','Document Date','e.g. 1 April 2026','220px')}
+      ${fld('projectName','Project & Season Number','e.g. Carte Blanche, Season 39')}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        ${fld('projectStart','Project Start Date','e.g. 1 April 2026','100%')}
+        ${fld('projectEnd','Project End Date','e.g. 31 March 2027','100%')}
+      </div>
+      ${fld('position','Position / Job Title','e.g. Content Editor')}
+      ${fld('grossMonthlyRate','Gross Monthly Rate','e.g. R 60 000-00','280px')}`;
   }
 
   return`<div class="ep-wrap" style="padding:0">
@@ -5431,12 +5437,40 @@ function ctContractorPDF(f,logo){
 
 function ctRatePDF(f,logo){
   const en=f.employeeName||'',eid=f.employeeID||'',dd=f.docDate||'';
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Staff Rate Confirmation</title><style>${_CT_CSS}</style></head><body>
+  const pn=f.projectName||'',ps=f.projectStart||'',pe=f.projectEnd||'',pos=f.position||'',rate=f.grossMonthlyRate||'';
+  const bld='font-weight:700;font-size:10.5pt;font-family:Calibri,Arial,sans-serif';
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Staff Rate Confirmation</title><style>${_CT_CSS}
+  .rt td{padding:9px 0;vertical-align:top;font-size:10.5pt}
+  .rl{width:200px;${bld}}
+  </style></head><body>
   ${_ctLH(logo)}
-  <h1>Staff Rate Confirmation</h1>
-  <p style="margin:20px 0"><strong>Employee:</strong> ${en}${eid?' &nbsp;·&nbsp; ID: '+eid:''}</p>
-  ${dd?`<p><strong>Date:</strong> ${dd}</p>`:''}
-  <p style="margin-top:40px;color:#888;font-style:italic">Contract text to be configured — Phase 2.</p>
+  <p style="text-align:right;margin-bottom:24px;font-size:10.5pt">${dd}</p>
+  <h1>Carte Blanche: Confirmation of Position &amp; Monthly Rate</h1>
+  <p style="margin:18px 0;font-size:10.5pt">I, <strong style="${bld}">${en}</strong> (ID: <strong style="${bld}">${eid}</strong>), an employee of Combined Artistic Productions PTY (Ltd), hereby confirm the following employment on Carte Blanche to be true:</p>
+  <table class="rt" style="width:100%;border-collapse:collapse;margin:16px 0 22px">
+    <tr><td class="rl">Project:</td><td style="${bld}">${pn}</td></tr>
+    <tr><td class="rl">Project Dates:</td><td style="${bld}">${ps} through ${pe}</td></tr>
+    <tr><td class="rl">Position:</td><td style="${bld}">${pos}</td></tr>
+    <tr><td class="rl">Gross Monthly Rate:</td><td style="${bld};font-size:12pt">${rate}</td></tr>
+  </table>
+  <p style="font-size:10.5pt;text-align:justify">I acknowledge and agree that the gross monthly rate includes all duties relating to the project and that overtime and additional fees do not apply.</p>
+  <div style="margin-top:48px;page-break-inside:avoid">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:4px">
+      <div style="font-weight:700;font-size:11pt;font-family:Calibri,Arial,sans-serif">${en}</div>
+      <div style="font-size:10.5pt">${dd}</div>
+    </div>
+    <div style="font-size:9.5pt;color:#555;margin-bottom:40px">The Employee</div>
+    <div style="display:grid;grid-template-columns:3fr 1fr;gap:24px;align-items:end">
+      <div>
+        <div class="sig-line"></div>
+        <div style="font-size:10pt;font-weight:700;font-family:Calibri,Arial,sans-serif;margin-top:5px">For COMBINED ARTISTIC PRODUCTIONS PTY (LTD)</div>
+      </div>
+      <div>
+        <div class="sig-line"></div>
+        <div style="font-size:9.5pt;margin-top:5px">DATE: ${dd||'_______________'}</div>
+      </div>
+    </div>
+  </div>
   ${_ctFoot(logo)}
   </body></html>`;
 }
