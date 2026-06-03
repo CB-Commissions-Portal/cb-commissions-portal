@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.148';
+const BUILD_VERSION='3.10.149';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -5087,7 +5087,7 @@ function renderContractForm(){
 function _ctRenderHtmlInPane(pane,html){
   pane.innerHTML='';
   const wrap=document.createElement('div');
-  wrap.style.cssText='max-width:794px;margin:0 auto;box-shadow:0 4px 24px rgba(0,0,0,.5);border-radius:4px;overflow:hidden;background:#fff;';
+  wrap.style.cssText='max-width:794px;margin:0 auto;box-shadow:0 4px 24px rgba(0,0,0,.5);background:#fff;';
   const iframe=document.createElement('iframe');
   iframe.style.cssText='border:none;width:100%;height:600px;display:block;background:#fff;';
   wrap.appendChild(iframe);
@@ -5096,6 +5096,8 @@ function _ctRenderHtmlInPane(pane,html){
   idoc.open();
   idoc.write(html);
   idoc.close();
+  // Apply @page margins to body so preview matches printed output
+  if(idoc.body) idoc.body.style.padding='14mm 16mm';
   // Size iframe to full document height after layout
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     try{
