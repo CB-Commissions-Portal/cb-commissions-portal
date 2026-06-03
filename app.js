@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.142';
+const BUILD_VERSION='3.10.143';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3124,6 +3124,7 @@ function renderPromoScheduling(epNums){
         <td style="${tdB};font-family:monospace;font-size:11px;font-weight:700;color:#3fb950;letter-spacing:.5px">
           ${isPulled?'<span style="color:#f85149;font-size:10px">PULLED</span>':combined?esc(combined):'<span style="color:#484f58">—</span>'}
         </td>
+        <td style="${tdB};min-width:180px"><input class="ci promo-content-inp" value="${esc(pd['content_'+pt.key]||'')}" data-ep="${n}" data-key="${pt.key}" placeholder="Enter content…" style="font-size:12px;width:100%;color:#e3b341" ${!canEd?'disabled':''}></td>
       </tr>`;
     }).join('');
 
@@ -3151,7 +3152,7 @@ function renderPromoScheduling(epNums){
       <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
         <thead><tr>
           <th style="${thS}">Type</th><th style="${thS}">TX From</th><th style="${thS}">TX To</th>
-          <th style="${thS}">UID</th><th style="${thS}">Pulled?</th><th style="${thS}">Promo Scheduling Code</th>
+          <th style="${thS}">UID</th><th style="${thS}">Pulled?</th><th style="${thS}">Promo Scheduling Code</th><th style="${thS}">Content</th>
         </tr></thead><tbody>${rows}</tbody>
       </table></div>`:''}
     </div>`;
@@ -7025,6 +7026,17 @@ function bindApp(){
       const ep=inp.dataset.ep;
       if(!promoData[ep])promoData[ep]={};
       promoData[ep].liveUID=e.target.value.trim().toUpperCase();
+      savePromoData(ep,promoData[ep]);
+    });
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}});
+  });
+
+  // Promo content inputs (not exported to PDF or Excel)
+  document.querySelectorAll('input.promo-content-inp').forEach(inp=>{
+    inp.addEventListener('blur',e=>{
+      const ep=inp.dataset.ep;
+      if(!promoData[ep])promoData[ep]={};
+      promoData[ep]['content_'+inp.dataset.key]=e.target.value;
       savePromoData(ep,promoData[ep]);
     });
     inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}});
