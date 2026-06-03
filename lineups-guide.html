@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Line-Ups — User Guide</title>
+<style>
+  :root{
+    --bg:#0d1117;--surface:#161b22;--surface2:#1c2433;--border:#2e3a50;
+    --text:#eaf0ff;--muted:#8b949e;--dim:#484f58;
+    --blue:#58a6ff;--purple:#c084fc;--green:#3fb950;--orange:#e3b341;
+    --red:#f85149;--teal:#7ae8f5;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.7}
+  a{color:var(--blue);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* Layout */
+  .page{display:flex;min-height:100vh}
+  .sidebar{width:260px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:24px 0;position:sticky;top:0;height:100vh;overflow-y:auto}
+  .sidebar-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);padding:0 20px 10px}
+  .sidebar nav a{display:block;padding:7px 20px;font-size:13px;color:var(--muted);border-left:3px solid transparent;transition:all .15s}
+  .sidebar nav a:hover{color:var(--text);background:var(--surface2);text-decoration:none}
+  .sidebar nav a.active{color:var(--blue);border-left-color:var(--blue);background:rgba(88,166,255,.08);font-weight:700}
+  .sidebar nav .section-head{padding:14px 20px 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--dim)}
+  .main{flex:1;padding:48px 56px;max-width:900px}
+
+  /* Typography */
+  h1{font-size:28px;font-weight:900;color:var(--text);margin-bottom:6px}
+  h1 span{color:var(--blue)}
+  .subtitle{font-size:15px;color:var(--muted);margin-bottom:40px}
+  h2{font-size:20px;font-weight:800;color:var(--text);margin:48px 0 14px;padding-top:48px;border-top:1px solid var(--border)}
+  h2:first-of-type{border-top:none;padding-top:0;margin-top:0}
+  h3{font-size:15px;font-weight:800;color:var(--blue);margin:24px 0 10px}
+  p{margin-bottom:14px;color:#cdd9e5}
+  strong{color:var(--text);font-weight:700}
+  code{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-family:'Courier New',monospace;font-size:12px;color:var(--orange)}
+
+  /* Tables */
+  table{width:100%;border-collapse:collapse;margin:14px 0 24px;font-size:13px}
+  th{background:var(--surface2);color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:10px 14px;text-align:left;border-bottom:2px solid var(--border)}
+  td{padding:10px 14px;border-bottom:1px solid #21262d;vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td:first-child{font-weight:700;white-space:nowrap;color:var(--text)}
+
+  /* Callouts */
+  .callout{border-radius:8px;padding:14px 18px;margin:18px 0;border-left:4px solid}
+  .callout.tip{background:rgba(63,185,80,.08);border-color:var(--green)}
+  .callout.warn{background:rgba(227,179,65,.08);border-color:var(--orange)}
+  .callout.info{background:rgba(88,166,255,.08);border-color:var(--blue)}
+  .callout p{margin:0;font-size:13px}
+  .callout strong{color:inherit}
+  .callout.tip strong{color:var(--green)}
+  .callout.warn strong{color:var(--orange)}
+  .callout.info strong{color:var(--blue)}
+
+  /* Colour chips */
+  .chip{display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:800;letter-spacing:.4px;margin-right:4px;vertical-align:middle}
+  .chip-blue{background:#0d2d5e;color:#58a6ff;border:1px solid #1e3a5f}
+  .chip-red{background:#3d0000;color:#f85149;border:1px solid #6b1111}
+  .chip-green{background:#1c2d1c;color:#3fb950;border:1px solid #2a4a2a}
+  .chip-grey{background:#1a1a2e;color:#7a8ba0;border:1px solid #2a2a40}
+  .chip-gold{background:#2d2000;color:#e3b341;border:1px solid #4a3800}
+
+  /* Role matrix */
+  .check{color:var(--green);font-weight:900}
+  .cross{color:var(--dim)}
+
+  /* Step list */
+  ol.steps{padding-left:22px;margin:10px 0 18px}
+  ol.steps li{margin-bottom:8px;color:#cdd9e5}
+
+  ul.bullets{padding-left:20px;margin-bottom:14px;color:#cdd9e5}
+  ul.bullets li{margin-bottom:6px}
+
+  /* Responsive */
+  @media(max-width:740px){
+    .sidebar{display:none}
+    .main{padding:24px 20px}
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- Sidebar nav -->
+  <aside class="sidebar">
+    <div class="sidebar-title">Line-Ups</div>
+    <div class="sidebar-title" style="font-size:9px;margin-top:0;padding-top:0">User Guide</div>
+    <nav>
+      <a href="#overview">Overview</a>
+      <a href="#access">Who Has Access</a>
+      <a href="#layout">Tab Layout</a>
+      <div class="section-head">Episode Cards</div>
+      <a href="#episode-header">Episode Header</a>
+      <a href="#crew">Director &amp; Anchors</a>
+      <a href="#items">Content Items</a>
+      <a href="#past">Past Episodes</a>
+      <div class="section-head">Building a Line-Up</div>
+      <a href="#auto-populate">Auto-Population</a>
+      <a href="#add-commission">Adding a Commission</a>
+      <a href="#remove-commission">Removing a Commission</a>
+      <a href="#director-field">Editing the Director</a>
+      <div class="section-head">Reference</div>
+      <a href="#sidebar">Inserts in Production</a>
+      <a href="#role-matrix">Role Matrix</a>
+      <a href="#tips">Tips</a>
+    </nav>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <h1><span>Line-Ups</span> — User Guide</h1>
+    <p class="subtitle">Carte Blanche Production Portal &nbsp;·&nbsp; Season 39</p>
+
+    <!-- OVERVIEW -->
+    <h2 id="overview">Overview</h2>
+    <p>The <strong>Line-Ups</strong> tab shows the planned broadcast content for every episode of the season. Each episode has its own card listing the assigned Director, on-air Anchors, and all commission inserts that are scheduled for that episode — along with each insert's duration, presenter VO, and producer.</p>
+    <p>The tab gives the whole production team a single, always-current view of what is going to air in each episode. Content is pulled automatically from the Commission List, so there is no manual data entry required to see the planned schedule — you only need to actively manage the line-up when you want to add, remove, or reorder items.</p>
+    <p>All changes are stored in real time to the cloud.</p>
+
+    <!-- ACCESS -->
+    <h2 id="access">Who Has Access</h2>
+    <table>
+      <thead><tr><th>Role</th><th>What they can do</th></tr></thead>
+      <tbody>
+        <tr><td>Admin / Deputy Admin / Editorial</td><td>Full edit access — add commissions, remove commissions, edit Director name, and manage all line-up data</td></tr>
+        <tr><td>Operations / Production / Prod Mgmt</td><td>Full edit access — same as above</td></tr>
+        <tr><td>Director</td><td>View only — can see all episode line-ups but cannot edit anything</td></tr>
+      </tbody>
+    </table>
+
+    <!-- LAYOUT -->
+    <h2 id="layout">Tab Layout</h2>
+    <p>The tab is divided into two panels side by side:</p>
+    <ul class="bullets">
+      <li><strong>Main panel (left)</strong> — the list of episode cards, one per episode in the season, sorted by episode number.</li>
+      <li><strong>Inserts in Production panel (right, 280px)</strong> — a reference list of all active commissions that have not yet been broadcast. Use it as a quick reference when building line-ups.</li>
+    </ul>
+    <p>At the top of the main panel the heading <strong>LINE-UPS · Season 39</strong> is shown alongside a reminder that broadcast episodes appear in red and that a <strong>✓</strong> next to a duration means the insert has been delivered.</p>
+
+    <!-- EPISODE HEADER -->
+    <h2 id="episode-header">Episode Header</h2>
+    <p>Every episode card starts with a clickable header bar. Click anywhere on the header to <strong>expand</strong> or <strong>collapse</strong> that episode's details.</p>
+    <p>All episodes are <strong>collapsed by default</strong> when you first open the tab. Click an episode header to open it.</p>
+
+    <table>
+      <thead><tr><th>Element</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>▶ / ▼ chevron</td><td>Indicates whether the episode is collapsed (▶) or expanded (▼)</td></tr>
+        <tr><td>Episode label</td><td>e.g. <code>2026 | S39 EP 07</code> — the season year, season number, and zero-padded episode number</td></tr>
+        <tr><td><span class="chip chip-red">BROADCAST</span> badge</td><td>Shown on past episodes whose broadcast date has already passed</td></tr>
+        <tr><td>Broadcast date</td><td>The scheduled on-air date for this episode</td></tr>
+        <tr><td>Total</td><td>The combined duration of all content in this episode (MM:SS). Shown in green for upcoming episodes, red for past ones. Shows <code>0:00</code> in grey if no items have durations yet.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout info">
+      <p><strong>Duration totals</strong> are calculated from the delivered duration of each insert if available, falling back to the commissioned duration. A <strong>✓</strong> next to an item's duration means the delivered duration is being used.</p>
+    </div>
+
+    <!-- CREW -->
+    <h2 id="crew">Director &amp; Anchors</h2>
+    <p>When an episode card is expanded, a three-column crew section appears at the top of the card body.</p>
+
+    <table>
+      <thead><tr><th>Field</th><th>Source</th><th>Editable?</th></tr></thead>
+      <tbody>
+        <tr><td>Director</td><td>Entered manually in the Line-Ups tab</td><td>Yes — by roles with edit access</td></tr>
+        <tr><td>Anchor 1</td><td>Pulled from Studio Script Build crew assignments (Anchor 1 field), or from the saved presenter 1 field if no crew data exists</td><td>No — edit in Studio Script Build</td></tr>
+        <tr><td>Anchor 2</td><td>Pulled from Studio Script Build crew assignments (Anchor 2 field), or from the saved presenter 2 field if no crew data exists</td><td>No — edit in Studio Script Build</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout tip">
+      <p><strong>Anchor names</strong> are controlled by the Studio Script Build tab, not here. If the Anchor fields show <strong>—</strong>, the episode's studio crew has not yet been set up in Studio Script Build.</p>
+    </div>
+
+    <!-- ITEMS -->
+    <h2 id="items">Content Items</h2>
+    <p>Below the crew section, each commission assigned to the episode is shown as a content row. The columns are:</p>
+
+    <table>
+      <thead><tr><th>Column</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>Comm #</td><td>The commission number, shown in monospace. Blue for upcoming episodes, red for broadcast episodes.</td></tr>
+        <tr><td>Story Name</td><td>The story name from the Commission List. Includes a <span class="chip chip-green">LIC</span> badge for licensed stories and a <span class="chip chip-grey">IH</span> badge for in-house productions.</td></tr>
+        <tr><td>Presenter VO</td><td>The voice-over presenter, as entered in the Commission List.</td></tr>
+        <tr><td>Producer</td><td>The producer assigned to the commission.</td></tr>
+        <tr><td>Duration</td><td>The duration of the insert. Shows in green with a <strong>✓</strong> if the delivered duration has been captured; grey if only the commissioned duration is available.</td></tr>
+        <tr><td>✕ button</td><td>Remove this commission from the line-up (edit roles only, non-broadcast episodes only).</td></tr>
+      </tbody>
+    </table>
+
+    <p>If no commissions have been assigned to an episode yet, the card body shows <em>"No content added yet."</em></p>
+
+    <!-- PAST EPISODES -->
+    <h2 id="past">Past Episodes</h2>
+    <p>Episodes whose broadcast date has already passed are shown in a <strong>red theme</strong> throughout — the card background, header, text, and commission numbers all use red tones. The <span class="chip chip-red">BROADCAST</span> badge appears in the episode header.</p>
+    <p>Past episodes are <strong>locked</strong> — you cannot add or remove commissions, and the Director field becomes read-only. The line-up is preserved as a permanent record of what aired.</p>
+
+    <!-- AUTO-POPULATION -->
+    <h2 id="auto-populate">Auto-Population</h2>
+    <p>The Line-Ups tab automatically pulls commissions into each episode based on the <strong>Broadcast Episode</strong> field set in the Commission List. You do not need to manually add commissions that have already been assigned an episode there — they will appear automatically.</p>
+
+    <p>The auto-population logic works as follows:</p>
+    <ol class="steps">
+      <li>Any active commission (not decommissioned) that has a story name and a broadcast episode number matching the current episode is included automatically.</li>
+      <li>Items are ordered by the <strong>Broadcast Order</strong> field from the Commission List.</li>
+      <li>If a commission was previously <em>manually removed</em> from a line-up, it is added to an exclusion list and will <strong>not</strong> be re-added automatically, even if it still has the episode number set in the Commission List.</li>
+    </ol>
+
+    <div class="callout warn">
+      <p><strong>Removed items stay removed.</strong> When you remove a commission from a line-up using the ✕ button, it is added to the exclusion list for that episode. It will not auto-reappear. If you want it back, use the <strong>Add Commission</strong> dropdown to re-add it manually.</p>
+    </div>
+
+    <!-- ADD COMMISSION -->
+    <h2 id="add-commission">Adding a Commission</h2>
+    <p>Roles with edit access can manually add any active commission to any upcoming episode's line-up.</p>
+    <ol class="steps">
+      <li>Expand the episode card you want to edit.</li>
+      <li>At the bottom of the content area, find the <strong>+ Add commission…</strong> dropdown.</li>
+      <li>The dropdown lists all active commissions that are not already in this episode, sorted by commission number. Each option shows the commission number, story name, and current duration.</li>
+      <li>Select the commission you want to add. It is added to the line-up immediately and saved to the database.</li>
+    </ol>
+
+    <div class="callout info">
+      <p><strong>Note:</strong> Adding a commission here does not change its Broadcast Episode in the Commission List. The line-up is managed independently. If the commission is assigned to a different episode in the Commission List, it may appear in both places.</p>
+    </div>
+
+    <!-- REMOVE COMMISSION -->
+    <h2 id="remove-commission">Removing a Commission</h2>
+    <p>To remove a commission from a line-up, click the <strong>✕</strong> button on the right side of that commission's row. The item is removed immediately and saved.</p>
+    <p>The removed commission is added to the episode's <strong>exclusion list</strong> so that auto-population does not add it back. If you later want it back in the episode, use the <strong>+ Add commission…</strong> dropdown to re-add it manually.</p>
+
+    <div class="callout warn">
+      <p><strong>The ✕ button is not available on broadcast episodes.</strong> Past line-ups are locked and cannot be edited.</p>
+    </div>
+
+    <!-- DIRECTOR FIELD -->
+    <h2 id="director-field">Editing the Director</h2>
+    <p>The Director field in each episode is a free-text input. Click into it and type the director's name. The field saves automatically after a short pause (800ms debounce) — there is no separate Save button required.</p>
+
+    <h3>Autocomplete</h3>
+    <p>As you type, the Director field offers autocomplete suggestions drawn from:</p>
+    <ul class="bullets">
+      <li>Director names already saved in other episodes</li>
+      <li>Studio crew assignments from the Studio Script Build tab</li>
+      <li>Registered user display names</li>
+      <li>Commission list personnel (presenter VO, DOP, CA, editor fields)</li>
+    </ul>
+    <p>Up to 8 suggestions are shown in a dropdown. Use the <strong>arrow keys</strong> to navigate, <strong>Enter</strong> to select, or <strong>Escape</strong> to close without selecting.</p>
+
+    <!-- INSERTS IN PRODUCTION -->
+    <h2 id="sidebar">Inserts in Production Panel</h2>
+    <p>The right-hand panel shows a reference list of all <strong>active commissions that have not yet been broadcast</strong>. This gives you a quick overview of what content is in the pipeline when you are building or reviewing line-ups.</p>
+
+    <p>Each entry shows:</p>
+    <ul class="bullets">
+      <li><strong>Commission number</strong> — with a <span class="chip chip-green">LIC</span> or <span class="chip chip-grey">IH</span> badge where applicable</li>
+      <li><strong>Story name</strong></li>
+      <li><strong>Presenter VO</strong> and <strong>Producer</strong></li>
+      <li><strong>Delivery date</strong> (in gold) — or "No delivery date" if not yet set</li>
+      <li><strong>Duration</strong> — delivered duration if available, otherwise commissioned duration</li>
+    </ul>
+
+    <p>Entries are colour-coded by type:</p>
+    <table>
+      <thead><tr><th>Border colour</th><th>Type</th></tr></thead>
+      <tbody>
+        <tr><td><span style="color:#3fb950;font-weight:800">Green</span></td><td>Licensed (<span class="chip chip-green">LIC</span>)</td></tr>
+        <tr><td><span style="color:#7a8ba0;font-weight:800">Grey</span></td><td>In-House (<span class="chip chip-grey">IH</span>)</td></tr>
+        <tr><td><span style="color:#e3b341;font-weight:800">Gold</span></td><td>Original / commissioned</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout tip">
+      <p><strong>The Inserts in Production panel is read-only.</strong> It is a reference tool — use it to quickly check what content is available when deciding what to add to an episode. To act on a commission, use the episode card's <strong>+ Add commission…</strong> dropdown.</p>
+    </div>
+
+    <!-- ROLE MATRIX -->
+    <h2 id="role-matrix">Role Matrix</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Admin</th>
+          <th>Dep Admin</th>
+          <th>Editorial</th>
+          <th>Operations</th>
+          <th>Production</th>
+          <th>Prod Mgmt</th>
+          <th>Director</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>View tab</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+        <tr><td>View episode line-ups</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+        <tr><td>Edit Director field</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td></tr>
+        <tr><td>Add commission to line-up</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td></tr>
+        <tr><td>Remove commission from line-up</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td></tr>
+        <tr><td>Edit past (broadcast) episodes</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
+      </tbody>
+    </table>
+
+    <!-- TIPS -->
+    <h2 id="tips">Tips</h2>
+    <ul class="bullets">
+      <li><strong>All episodes collapse by default</strong> when you open the tab. Click a header to expand the episode you want to work on — this keeps the screen uncluttered when you have a full season loaded.</li>
+      <li>The <strong>Total duration</strong> in the episode header is the sum of all insert durations. Use it as a quick sanity check against your target episode length before broadcast.</li>
+      <li>A <strong>✓</strong> next to a duration means the delivered duration has been captured in Post Production. An item without ✓ is using the original commissioned duration — it may change once delivered.</li>
+      <li><strong>Anchor names</strong> come from the Studio Script Build tab. If they show <strong>—</strong>, open the relevant Studio Script Build episode and enter the anchor/host names there.</li>
+      <li>The <strong>Inserts in Production</strong> sidebar never shows commissions that have already been broadcast — it is filtered to upcoming content only. Use it to see what is still available to schedule.</li>
+      <li>If a commission disappears from a line-up unexpectedly after you removed it, check that it was not also removed from the episode's exclusion list. Use the <strong>+ Add commission…</strong> dropdown to re-add it if needed.</li>
+      <li><strong>Past episodes are fully locked.</strong> No edits are possible once a broadcast date has passed. The line-up at that point is a permanent record.</li>
+    </ul>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:48px 0 24px">
+    <p style="font-size:11px;color:var(--dim);text-align:center">Carte Blanche Production Portal &nbsp;·&nbsp; Line-Ups User Guide &nbsp;·&nbsp; Season 39</p>
+
+  </main>
+</div>
+
+<script>
+  // Highlight active sidebar link on scroll
+  const sections=document.querySelectorAll('h2[id],h3[id]');
+  const links=document.querySelectorAll('.sidebar nav a');
+  function onScroll(){
+    let current='';
+    sections.forEach(s=>{if(s.getBoundingClientRect().top<=120)current=s.id;});
+    links.forEach(l=>{
+      l.classList.toggle('active',l.getAttribute('href')==='#'+current);
+    });
+  }
+  window.addEventListener('scroll',onScroll,{passive:true});
+  onScroll();
+</script>
+</body>
+</html>
