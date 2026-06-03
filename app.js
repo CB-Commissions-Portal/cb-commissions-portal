@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.146';
+const BUILD_VERSION='3.10.147';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -136,12 +136,13 @@ let luCollapsed=new Set();
 let studioCollapsed=new Set();
 let ppData={};
 let broadcastSearch='';
-let ctView='list'; // 'list','form'
+let ctView='list'; // 'list','pick','form','preview'
 let ctEditId=null;
 let ctEditType=null;
 let ctEditFields={};
 let ctContractsData={}; // Firebase loaded contracts
 let ctShowArchived=false;
+let ctPreviewId=null;
 let callSheetData={}; // {epNum: {anchor1,anchor1Time,anchor2,anchor2Time,director,floorMgr,autocue,makeup,vt,engineer,prod,prodTime,studioFacs,items:[{time,description,responsible}]}}
 let appTheme=localStorage.getItem('cb_theme')||'dark'; // 'dark' or 'light'
 let rosData={}; // {epNum: {items:[{type,label,content,duration}]}}
@@ -1047,6 +1048,7 @@ function render(){
   }
   if(rosEditModal) setTimeout(updateRosEditPreview,0);
   if(ctView==='form') setTimeout(updateContractPreview,0);
+  if(ctView==='preview') setTimeout(updateContractStaticPreview,0);
 }
 
 function renderSetup(){return`<div class="setup-wrap"><div class="setup-inner">
@@ -4844,6 +4846,7 @@ function renderCallSheet(epNums){
 function renderContracts(){
   if(ctView==='form')return renderContractForm();
   if(ctView==='pick')return renderContractPicker();
+  if(ctView==='preview')return renderContractPreview();
   return renderContractList();
 }
 
@@ -4869,6 +4872,30 @@ function renderContractPicker(){
 function ctNextId(){
   const ids=Object.keys(ctContractsData).map(Number).filter(n=>!isNaN(n));
   return ids.length?Math.max(...ids)+1:1;
+}
+
+function renderContractPreview(){
+  const c=ctContractsData[ctPreviewId];
+  if(!c){ctView='list';return renderContractList();}
+  const name=esc(c.fields?.contractorName||c.fields?.performerName||c.fields?.employeeName||'Contract');
+  return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
+    <div style="padding:12px 20px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:12px;flex-shrink:0">
+      <button class="btn" id="ct-preview-back-btn" style="font-size:12px;padding:6px 14px">◀ Contracts</button>
+      <div>
+        <span style="font-size:16px;font-weight:900;color:#eaf0ff">${name}</span>
+        <span style="font-size:12px;color:#6e7681;margin-left:8px">— ${ctTypeLabel(c.type)}</span>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn" id="ct-preview-edit-btn" data-id="${ctPreviewId}" style="font-size:12px;padding:6px 16px">✏ Edit</button>
+        <button class="btn primary" id="ct-preview-export-btn" data-id="${ctPreviewId}" style="font-size:12px;padding:6px 16px">⬇ Export PDF</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:32px 0;background:#0d1117;display:flex;justify-content:center">
+      <div style="width:860px">
+        <div id="ct-static-preview-pane"></div>
+      </div>
+    </div>
+  </div>`;
 }
 
 function ctTypeLabel(t){
@@ -4899,11 +4926,13 @@ function renderContractList(){
       </td>
       <td style="padding:10px 14px;font-size:11px;color:#484f58">${c.createdAt?new Date(c.createdAt.seconds*1000).toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}):''}</td>
       <td style="padding:10px 14px">
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           ${!isArchived?`<button class="btn ct-edit-btn" data-id="${id}" style="font-size:11px;padding:3px 10px">✏ Edit</button>`:''}
+          <button class="btn ct-preview-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#58a6ff;color:#58a6ff">👁 Preview</button>
           <button class="btn ct-pdf-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#388bfd;color:#58a6ff">⬇ PDF</button>
           <button class="btn ct-duplicate-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#56d364;color:#56d364">⧉ Duplicate</button>
           <button class="btn ct-archive-btn" data-id="${id}" data-archived="${isArchived?'1':'0'}" style="font-size:11px;padding:3px 10px;border-color:${isArchived?'#e3b341':'#484f58'};color:${isArchived?'#e3b341':'#484f58'}">${isArchived?'Unarchive':'Archive'}</button>
+          <span style="width:1px;height:18px;background:#2e3a50;display:inline-block;flex-shrink:0;margin:0 4px"></span>
           <button class="btn ct-del-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#484f58;color:#484f58">✕</button>
         </div>
       </td>
@@ -5057,30 +5086,23 @@ function renderContractForm(){
 }
 
 
-function updateContractPreview(){
-  const pane=document.getElementById('ct-preview-pane');
-  if(!pane||ctView!=='form')return;
-  const fields={};
-  document.querySelectorAll('.ct-field').forEach(el=>{fields[el.dataset.field]=el.value;});
-  const logo=BAKED_CB_LOGO;
-  let html='';
-  if(ctEditType==='presenter')html=ctPresenterPDF(fields,logo);
-  else if(ctEditType==='contractor')html=ctContractorPDF(fields,logo);
-  else html=ctRatePDF(fields,logo);
+function _ctRenderHtmlInPane(pane,html,scale){
   pane.innerHTML='';
   const A4_W=794;
-  const availW=Math.max(pane.clientWidth||400,200);
-  const scale=availW/A4_W;
+  const s=scale||(Math.max(pane.clientWidth||400,200)/A4_W);
   const wrapper=document.createElement('div');
-  wrapper.style.cssText=`width:${A4_W}px;transform:scale(${scale});transform-origin:top left;display:block;`;
+  wrapper.style.cssText=`width:${A4_W}px;transform:scale(${s});transform-origin:top left;display:block;`;
   const iframe=document.createElement('iframe');
   iframe.style.cssText=`border:none;width:${A4_W}px;height:800px;display:block;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.5);`;
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const blobUrl=URL.createObjectURL(blob);
   iframe.onload=()=>{
+    URL.revokeObjectURL(blobUrl);
     try{
       const doc=iframe.contentDocument||iframe.contentWindow.document;
       const h=Math.max(doc.body.scrollHeight,doc.documentElement.scrollHeight,400)+40;
       iframe.style.height=h+'px';
-      const scaledH=Math.round(h*scale);
+      const scaledH=Math.round(h*s);
       wrapper.style.height=h+'px';
       wrapper.style.marginBottom=(scaledH-h)+'px';
       pane.style.height=scaledH+'px';
@@ -5088,7 +5110,30 @@ function updateContractPreview(){
   };
   wrapper.appendChild(iframe);
   pane.appendChild(wrapper);
-  iframe.srcdoc=html;
+  iframe.src=blobUrl;
+}
+
+function _ctBuildHtml(type,fields){
+  const logo=BAKED_CB_LOGO;
+  if(type==='presenter')return ctPresenterPDF(fields,logo);
+  if(type==='contractor')return ctContractorPDF(fields,logo);
+  return ctRatePDF(fields,logo);
+}
+
+function updateContractPreview(){
+  const pane=document.getElementById('ct-preview-pane');
+  if(!pane||ctView!=='form')return;
+  const fields={};
+  document.querySelectorAll('.ct-field').forEach(el=>{fields[el.dataset.field]=el.value;});
+  _ctRenderHtmlInPane(pane,_ctBuildHtml(ctEditType,fields));
+}
+
+function updateContractStaticPreview(){
+  const pane=document.getElementById('ct-static-preview-pane');
+  if(!pane||ctView!=='preview'||!ctPreviewId)return;
+  const c=ctContractsData[ctPreviewId];
+  if(!c)return;
+  _ctRenderHtmlInPane(pane,_ctBuildHtml(c.type,c.fields||{}));
 }
 
 // ── CONTRACT PDF GENERATORS ────────────────────────────────────────
@@ -9897,6 +9942,20 @@ document.addEventListener('click',function contractsHandler(e){
     if(!c)return;
     ctEditId=id;ctEditType=c.type;ctEditFields={...c.fields};ctView='form';render();return;
   }
+  // Preview from list
+  const previewBtn=e.target.closest('.ct-preview-btn');
+  if(previewBtn){ctPreviewId=previewBtn.dataset.id;ctView='preview';render();return;}
+  // Back from preview view
+  if(e.target.id==='ct-preview-back-btn'){ctView='list';ctPreviewId=null;render();return;}
+  // Edit from preview view
+  if(e.target.id==='ct-preview-edit-btn'){
+    const id=e.target.dataset.id;
+    const c=ctContractsData[id];
+    if(!c)return;
+    ctEditId=id;ctEditType=c.type;ctEditFields={...c.fields};ctPreviewId=null;ctView='form';render();return;
+  }
+  // Export PDF from preview view
+  if(e.target.id==='ct-preview-export-btn'){ctExportPDF(e.target.dataset.id);return;}
   // PDF from list
   const pdfBtn=e.target.closest('.ct-pdf-btn');
   if(pdfBtn){ctExportPDF(pdfBtn.dataset.id);return;}
