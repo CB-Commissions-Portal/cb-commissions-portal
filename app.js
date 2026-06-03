@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.140';
+const BUILD_VERSION='3.10.141';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -141,6 +141,7 @@ let ctEditId=null;
 let ctEditType=null;
 let ctEditFields={};
 let ctContractsData={}; // Firebase loaded contracts
+let ctShowArchived=false;
 let callSheetData={}; // {epNum: {anchor1,anchor1Time,anchor2,anchor2Time,director,floorMgr,autocue,makeup,vt,engineer,prod,prodTime,studioFacs,items:[{time,description,responsible}]}}
 let appTheme=localStorage.getItem('cb_theme')||'dark'; // 'dark' or 'light'
 let rosData={}; // {epNum: {items:[{type,label,content,duration}]}}
@@ -4872,22 +4873,54 @@ function ctTypeLabel(t){
 }
 
 function renderContractList(){
-  const contracts=Object.entries(ctContractsData).sort((a,b)=>((b[1].createdAt?.seconds||0)-(a[1].createdAt?.seconds||0)));
-  const rows=contracts.map(([id,c])=>`
-    <tr style="border-bottom:1px solid #21262d">
+  const all=Object.entries(ctContractsData).sort((a,b)=>((b[1].createdAt?.seconds||0)-(a[1].createdAt?.seconds||0)));
+  const active=all.filter(([,c])=>!c.archived);
+  const archived=all.filter(([,c])=>!!c.archived);
+
+  const thS='padding:8px 14px;font-size:10px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left;border-bottom:2px solid #2e3a50';
+
+  const makeRow=([id,c],isArchived)=>{
+    const name=esc(c.fields?.contractorName||c.fields?.performerName||c.fields?.employeeName||'—');
+    const statusBg=isArchived?'#1a1a1a':c.status==='exported'?'#0d2a0d':'#1a1a0d';
+    const statusCol=isArchived?'#484f58':c.status==='exported'?'#3fb950':'#e3b341';
+    const statusBorder=isArchived?'#2e3a50':c.status==='exported'?'#2d6a2d':'#4a3300';
+    const statusLabel=isArchived?'ARCHIVED':c.status==='exported'?'EXPORTED':'DRAFT';
+    return`<tr style="border-bottom:1px solid #21262d;${isArchived?'opacity:.6':''}">
       <td style="padding:10px 14px;font-size:12px;color:#7a8ba0;font-family:monospace">CB-S${currentSeason}-${id}</td>
-      <td style="padding:10px 14px;font-size:13px;font-weight:700;color:#eaf0ff">${esc(c.fields?.contractorName||c.fields?.performerName||c.fields?.employeeName||'—')}</td>
+      <td style="padding:10px 14px;font-size:13px;font-weight:700;color:${isArchived?'#7a8ba0':'#eaf0ff'}">${name}</td>
       <td style="padding:10px 14px;font-size:12px;color:#7a8ba0">${ctTypeLabel(c.type)}</td>
       <td style="padding:10px 14px">
-        <span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:3px;background:${c.status==='exported'?'#0d2a0d':'#1a1a0d'};color:${c.status==='exported'?'#3fb950':'#e3b341'};border:1px solid ${c.status==='exported'?'#2d6a2d':'#4a3300'}">${c.status==='exported'?'EXPORTED':'DRAFT'}</span>
+        <span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:3px;background:${statusBg};color:${statusCol};border:1px solid ${statusBorder}">${statusLabel}</span>
       </td>
       <td style="padding:10px 14px;font-size:11px;color:#484f58">${c.createdAt?new Date(c.createdAt.seconds*1000).toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}):''}</td>
-      <td style="padding:10px 14px;display:flex;gap:8px">
-        <button class="btn ct-edit-btn" data-id="${id}" style="font-size:11px;padding:3px 10px">✏ Edit</button>
-        <button class="btn ct-pdf-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#388bfd;color:#58a6ff">⬇ PDF</button>
-        <button class="btn ct-del-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#484f58;color:#484f58">✕</button>
+      <td style="padding:10px 14px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${!isArchived?`<button class="btn ct-edit-btn" data-id="${id}" style="font-size:11px;padding:3px 10px">✏ Edit</button>`:''}
+          <button class="btn ct-pdf-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#388bfd;color:#58a6ff">⬇ PDF</button>
+          <button class="btn ct-duplicate-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#56d364;color:#56d364">⧉ Duplicate</button>
+          <button class="btn ct-archive-btn" data-id="${id}" data-archived="${isArchived?'1':'0'}" style="font-size:11px;padding:3px 10px;border-color:${isArchived?'#e3b341':'#484f58'};color:${isArchived?'#e3b341':'#484f58'}">${isArchived?'Unarchive':'Archive'}</button>
+          <button class="btn ct-del-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#484f58;color:#484f58">✕</button>
+        </div>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  };
+
+  const thead=`<thead><tr style="background:#161b22">
+    <th style="${thS}">Ref</th><th style="${thS}">Name</th><th style="${thS}">Type</th>
+    <th style="${thS}">Status</th><th style="${thS}">Created</th><th style="${thS}">Actions</th>
+  </tr></thead>`;
+
+  const activeTable=active.length===0
+    ?`<div style="text-align:center;padding:60px;color:#484f58;font-size:14px">No active contracts. Click <strong>+ New Contract</strong> to create one.</div>`
+    :`<table style="width:100%;border-collapse:collapse">${thead}<tbody>${active.map(e=>makeRow(e,false)).join('')}</tbody></table>`;
+
+  const archivedSection=archived.length===0?'':`
+    <div style="margin-top:20px;border-top:1px solid #2e3a50;padding-top:16px">
+      <button id="ct-show-archived-btn" class="btn" style="font-size:11px;padding:4px 14px;border-color:#484f58;color:#484f58">
+        ${ctShowArchived?'▲ Hide':'▼ Show'} Archived (${archived.length})
+      </button>
+      ${ctShowArchived?`<div style="margin-top:14px;opacity:.85"><table style="width:100%;border-collapse:collapse">${thead}<tbody>${archived.map(e=>makeRow(e,true)).join('')}</tbody></table></div>`:''}
+    </div>`;
 
   return`<div class="ep-wrap" style="padding:0">
     <div style="padding:12px 20px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:12px">
@@ -4897,18 +4930,8 @@ function renderContractList(){
       </div>
     </div>
     <div style="padding:20px">
-      ${contracts.length===0?`<div style="text-align:center;padding:60px;color:#484f58;font-size:14px">No contracts yet. Click <strong>+ New Contract</strong> to create one.</div>`:`
-      <table style="width:100%;border-collapse:collapse">
-        <thead><tr style="background:#161b22">
-          <th style="padding:8px 14px;font-size:10px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left;border-bottom:2px solid #2e3a50">Ref</th>
-          <th style="padding:8px 14px;font-size:10px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left;border-bottom:2px solid #2e3a50">Name</th>
-          <th style="padding:8px 14px;font-size:10px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left;border-bottom:2px solid #2e3a50">Type</th>
-          <th style="padding:8px 14px;font-size:10px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left;border-bottom:2px solid #2e3a50">Status</th>
-          <th style="padding:8px 14px;font-size:10px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left;border-bottom:2px solid #2e3a50">Created</th>
-          <th style="padding:8px 14px;font-size:10px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left;border-bottom:2px solid #2e3a50">Actions</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>`}
+      ${activeTable}
+      ${archivedSection}
     </div>
   </div>`;
 }
@@ -5108,7 +5131,7 @@ function _ctFoot(logo){
 function ctPresenterPDF(f,logo){
   const n=(f.performerName||'').toUpperCase(),pid=f.performerID||'',period=f.contractPeriod||'',sn=f.seasonNumber||'',ep=f.numEpisodes||'';
   const r1=f.rateMonthlyRetainer||'',r2=f.rateFieldPerCall||'',r3=f.rateFieldTravelDay||'',r4=f.rateStudioAnchor||'';
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Presenter Contract</title><style>${_CT_CSS}</style></head><body>
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Presenter - ${n}</title><style>${_CT_CSS}</style></head><body>
   ${_ctLH(logo)}
   <h1>Principal Performer&#8217;s Acknowledgement<br>and Undertaking</h1>
 
@@ -5222,7 +5245,7 @@ function ctContractorPDF(f,logo){
   const caddr=f.contractorAddress||'',cemail=f.contractorEmail||'',duty=(f.duty||'').toUpperCase();
   const rto=f.reportsTo||'',rate=f.compensationRate||'',unit=f.compensationUnit||'';
   const sn=f.seasonNumber||'',sd=f.signDate||'',sp=f.signPlace||'';
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Independent Contractor Contract</title><style>${_CT_CSS}
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Independent Contractor - ${cn}</title><style>${_CT_CSS}
   ul.inv{list-style:none;padding:0;margin:10px 0}ul.inv li{padding:5px 0;padding-left:20px;text-indent:-20px;font-size:10.5pt;border-bottom:1px solid #f0f0f0}
   </style></head><body>
   ${_ctLH(logo)}
@@ -5439,7 +5462,7 @@ function ctRatePDF(f,logo){
   const en=f.employeeName||'',eid=f.employeeID||'',dd=f.docDate||'';
   const pn=f.projectName||'',ps=f.projectStart||'',pe=f.projectEnd||'',pos=f.position||'',rate=f.grossMonthlyRate||'';
   const bld='font-weight:700;font-size:10.5pt;font-family:Calibri,Arial,sans-serif';
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Staff Rate Confirmation</title><style>${_CT_CSS}
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Staff Rate Confirmation - ${en}</title><style>${_CT_CSS}
   .rt td{padding:9px 0;vertical-align:top;font-size:10.5pt}
   .rl{width:200px;${bld}}
   </style></head><body>
@@ -9820,6 +9843,31 @@ document.addEventListener('click',function contractsHandler(e){
   // PDF from list
   const pdfBtn=e.target.closest('.ct-pdf-btn');
   if(pdfBtn){ctExportPDF(pdfBtn.dataset.id);return;}
+  // Archive / Unarchive
+  const archBtn=e.target.closest('.ct-archive-btn');
+  if(archBtn){
+    const id=archBtn.dataset.id;
+    const c=ctContractsData[id];
+    if(!c)return;
+    const nowArchived=archBtn.dataset.archived==='1';
+    c.archived=!nowArchived;
+    saveContractDoc(id,c);
+    render();return;
+  }
+  // Duplicate
+  const dupBtn=e.target.closest('.ct-duplicate-btn');
+  if(dupBtn){
+    const src=ctContractsData[dupBtn.dataset.id];
+    if(!src)return;
+    const newId=ctNextId();
+    const copy={type:src.type,fields:{...src.fields},status:'draft',archived:false,createdAt:{seconds:Math.floor(Date.now()/1000)}};
+    ctContractsData[newId]=copy;
+    saveContractDoc(newId,copy);
+    ctEditId=newId;ctEditType=src.type;ctEditFields={...src.fields};ctView='form';
+    render();return;
+  }
+  // Show/hide archived
+  if(e.target.id==='ct-show-archived-btn'){ctShowArchived=!ctShowArchived;render();return;}
   // Delete
   const delBtn=e.target.closest('.ct-del-btn');
   if(delBtn){
