@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.147';
+const BUILD_VERSION='3.10.148';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4878,7 +4878,7 @@ function renderContractPreview(){
   const c=ctContractsData[ctPreviewId];
   if(!c){ctView='list';return renderContractList();}
   const name=esc(c.fields?.contractorName||c.fields?.performerName||c.fields?.employeeName||'Contract');
-  return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
+  return`<div class="ep-wrap" style="padding:0;overflow:hidden">
     <div style="padding:12px 20px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:12px;flex-shrink:0">
       <button class="btn" id="ct-preview-back-btn" style="font-size:12px;padding:6px 14px">◀ Contracts</button>
       <div>
@@ -4890,10 +4890,8 @@ function renderContractPreview(){
         <button class="btn primary" id="ct-preview-export-btn" data-id="${ctPreviewId}" style="font-size:12px;padding:6px 16px">⬇ Export PDF</button>
       </div>
     </div>
-    <div style="flex:1;overflow-y:auto;padding:32px 0;background:#0d1117;display:flex;justify-content:center">
-      <div style="width:860px">
-        <div id="ct-static-preview-pane"></div>
-      </div>
+    <div style="flex:1;min-height:0;overflow-y:auto;padding:32px 20px;background:#0d1117">
+      <div id="ct-static-preview-pane"></div>
     </div>
   </div>`;
 }
@@ -5053,8 +5051,8 @@ function renderContractForm(){
       ${fld('grossMonthlyRate','Gross Monthly Rate','e.g. R 60 000-00','280px')}`;
   }
 
-  return`<div class="ep-wrap" style="padding:0">
-    <div style="padding:12px 20px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+  return`<div class="ep-wrap" style="padding:0;overflow:hidden">
+    <div style="padding:12px 20px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0">
       <button class="btn" id="ct-back-btn" style="font-size:12px;padding:6px 14px">◀ Contracts</button>
       <div>
         <span style="font-size:16px;font-weight:900;color:#eaf0ff">${isEdit?'Edit Contract':'New Contract'}</span>
@@ -5065,7 +5063,7 @@ function renderContractForm(){
         <button class="btn primary" id="ct-export-pdf-btn" style="font-size:12px;padding:6px 16px">⬇ Export PDF</button>
       </div>
     </div>
-    <div style="display:flex;height:calc(100vh - 60px);overflow:hidden">
+    <div style="display:flex;flex:1;min-height:0;overflow:hidden">
       <div style="width:520px;flex-shrink:0;overflow-y:auto;padding:24px;border-right:1px solid #21262d">
         <!-- Pre-filled company info -->
         <div style="background:#161b22;border:1px solid #2e3a50;border-radius:8px;padding:14px 18px;margin-bottom:20px">
@@ -5077,7 +5075,7 @@ function renderContractForm(){
         </div>
         ${formBody}
       </div>
-      <div style="flex:1;overflow-y:auto;padding:20px;background:#0d1117">
+      <div style="flex:1;overflow-y:auto;padding:20px;background:#0d1117;min-width:0">
         <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#484f58;margin-bottom:12px">Live Preview</div>
         <div id="ct-preview-pane"></div>
       </div>
@@ -5086,31 +5084,25 @@ function renderContractForm(){
 }
 
 
-function _ctRenderHtmlInPane(pane,html,scale){
+function _ctRenderHtmlInPane(pane,html){
   pane.innerHTML='';
-  const A4_W=794;
-  const s=scale||(Math.max(pane.clientWidth||400,200)/A4_W);
-  const wrapper=document.createElement('div');
-  wrapper.style.cssText=`width:${A4_W}px;transform:scale(${s});transform-origin:top left;display:block;`;
+  const wrap=document.createElement('div');
+  wrap.style.cssText='max-width:794px;margin:0 auto;box-shadow:0 4px 24px rgba(0,0,0,.5);border-radius:4px;overflow:hidden;background:#fff;';
   const iframe=document.createElement('iframe');
-  iframe.style.cssText=`border:none;width:${A4_W}px;height:800px;display:block;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.5);`;
-  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
-  const blobUrl=URL.createObjectURL(blob);
-  iframe.onload=()=>{
-    URL.revokeObjectURL(blobUrl);
+  iframe.style.cssText='border:none;width:100%;height:600px;display:block;background:#fff;';
+  wrap.appendChild(iframe);
+  pane.appendChild(wrap);
+  const idoc=iframe.contentDocument||iframe.contentWindow.document;
+  idoc.open();
+  idoc.write(html);
+  idoc.close();
+  // Size iframe to full document height after layout
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
     try{
-      const doc=iframe.contentDocument||iframe.contentWindow.document;
-      const h=Math.max(doc.body.scrollHeight,doc.documentElement.scrollHeight,400)+40;
+      const h=Math.max(idoc.body.scrollHeight,idoc.documentElement.scrollHeight,400)+20;
       iframe.style.height=h+'px';
-      const scaledH=Math.round(h*s);
-      wrapper.style.height=h+'px';
-      wrapper.style.marginBottom=(scaledH-h)+'px';
-      pane.style.height=scaledH+'px';
     }catch(e){}
-  };
-  wrapper.appendChild(iframe);
-  pane.appendChild(wrapper);
-  iframe.src=blobUrl;
+  }));
 }
 
 function _ctBuildHtml(type,fields){
