@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.136';
+const BUILD_VERSION='3.10.137';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4855,9 +4855,9 @@ function renderContractPicker(){
       <span style="font-size:17px;font-weight:900;color:#eaf0ff">New Contract — Select Type</span>
     </div>
     <div style="padding:40px;display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:860px">
-      ${card('ct-pick-presenter','🎙','Presenter Contract','Principal Performer&#39;s Acknowledgement & Undertaking')}
-      ${card('ct-pick-contractor','📋','Independent Contractor','Full contractor agreement with duties & compensation')}
-      ${card('ct-pick-rate','💰','Rate Confirmation','Confirmation of position & monthly rate')}
+      ${card('ct-pick-presenter','🎙','Presenters','Presenter agreement & acknowledgement')}
+      ${card('ct-pick-contractor','📋','Independent Contractors','Contractor agreement with duties & compensation')}
+      ${card('ct-pick-rate','📄','Staff Rate Confirmations','Staff rate and position confirmation letter')}
     </div>
   </div>`;
 }
@@ -4868,7 +4868,7 @@ function ctNextId(){
 }
 
 function ctTypeLabel(t){
-  return t==='presenter'?'Presenter Contract':t==='contractor'?'Independent Contractor Contract':'Rate Confirmation';
+  return t==='presenter'?'Presenter':t==='contractor'?'Independent Contractor':'Staff Rate Confirmation';
 }
 
 function renderContractList(){
@@ -4936,6 +4936,7 @@ function renderContractForm(){
     <span style="font-size:13px;color:#6e7681">${val}</span>
   </div>`;
 
+  const _pending=`<div style="margin-top:16px;padding:14px 16px;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;font-size:12px;color:#484f58;line-height:1.6">Contract text and full field set will be configured in Phase 2. Save as draft to hold your data.</div>`;
   let formBody='';
   if(type==='presenter'){
     formBody=`
@@ -4947,35 +4948,18 @@ function renderContractForm(){
         ${fld('agreementStart','Start Date','YYYY-MM-DD')}
         ${fld('agreementEnd','End Date','YYYY-MM-DD')}
       </div>
-      ${sec('Programme Details')}
-      ${fld('seasonName','Season / Quarter Name','e.g. Carte Blanche, Season 39 Q1')}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        ${fld('numEpisodes','Number of Episodes','e.g. 13','100%')}
-        ${fld('episodeDuration','Episode Duration (mins)','e.g. 46','100%')}
-      </div>
-      ${sec('Schedule A — The Role & Rates')}
-      <div style="font-size:12px;color:#484f58;margin-bottom:10px">Enter each rate on a new line, e.g.:<br>Monthly Retainer: R 35 500-00<br>Field Presenter: R 6 000-00 per call</div>
-      ${fta('scheduleA','Rates','Monthly Retainer: R...\nField Presenter: R...',6)}`;
+      ${_pending}`;
   } else if(type==='contractor'){
     formBody=`
       ${sec('Contractor Details')}
       ${fld('contractorName','Contractor Full Name (CAPS)','e.g. JANA PIENAAR')}
       ${fld('contractorID','Contractor ID Number','e.g. 8105200016086','320px')}
-      ${fld('contractorAddress','Contractor Address','e.g. 1338 Giant\'s Castle Avenue, Bergbron')}
-      ${fld('contractorEmail','Contractor Email','e.g. contractor@email.com')}
       ${sec('Contract Dates')}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         ${fld('contractStart','Start Date','YYYY-MM-DD')}
         ${fld('contractEnd','End Date','YYYY-MM-DD')}
       </div>
-      ${sec('Role & Duties')}
-      ${fld('position','Position / Role Title (CAPS)','e.g. ASSISTANT STUDIO DIRECTOR')}
-      ${fld('reportsTo','Reports To','e.g. RUDI BOTHA')}
-      ${fld('reportsToTitle','Reports To Title','e.g. RESIDENT STUDIO DIRECTOR')}
-      ${fld('seasonName','Season Name (CAPS)','e.g. CARTE BLANCHE SEASON 39 Q1')}
-      ${sec('Compensation')}
-      <div style="font-size:12px;color:#484f58;margin-bottom:10px">Enter the rate, e.g. "R 3 850-00 – Sunday Live TX"</div>
-      ${fta('compensation','Rate / Compensation','e.g. R 3 850-00 – Sunday Live TX',3)}`;
+      ${_pending}`;
   } else if(type==='rate'){
     formBody=`
       ${sec('Employee Details')}
@@ -4983,13 +4967,7 @@ function renderContractForm(){
       ${fld('employeeID','Employee ID Number','e.g. 8909230029088','320px')}
       ${sec('Confirmation Details')}
       ${fld('docDate','Document Date','YYYY-MM-DD','200px')}
-      ${fld('seasonName','Project / Season Name','e.g. Carte Blanche, Season 39 Q1')}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        ${fld('projectStart','Project Start Date','YYYY-MM-DD')}
-        ${fld('projectEnd','Project End Date','YYYY-MM-DD')}
-      </div>
-      ${fld('position','Position / Role','e.g. Content Editor')}
-      ${fld('grossMonthlyRate','Gross Monthly Rate','e.g. R60 000-00','280px')}`;
+      ${_pending}`;
   }
 
   return`<div class="ep-wrap" style="padding:0">
@@ -5102,187 +5080,41 @@ function _ctFoot(logo){
 }
 
 function ctPresenterPDF(f,logo){
-  const n=(f.performerName||'').toUpperCase(),id=f.performerID||'',s=f.agreementStart||'',e=f.agreementEnd||'',sn=f.seasonName||'',ep=f.numEpisodes||'',dur=f.episodeDuration||'';
-  const rates=(f.scheduleA||'').split('\n').filter(Boolean).map(l=>`<li>${l.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</li>`).join('');
+  const n=(f.performerName||'').toUpperCase(),id=f.performerID||'',s=f.agreementStart||'',e=f.agreementEnd||'';
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Presenter Contract</title><style>${_CT_CSS}</style></head><body>
   ${_ctLH(logo)}
-  <h1>Principal Performer&#8217;s Acknowledgement and Undertaking</h1>
-  <h3>1. Definitions</h3>
-  <p>For the purpose of this principal performer&#8217;s acknowledgement and undertaking, the following terms shall bear the following meanings:</p>
-  <p class="cl">1.1. ${_CT_MNET} (&#8220;M-Net&#8221;) is a company incorporated in accordance with the laws of the Republic of South Africa with registration number ${_CT_MNET_REG}, and a broadcaster in South Africa and through its affiliates broadcasts, exhibits, transmits, makes available and/or communicates material to the public in various areas of the world by various manners and media whether now known or hereinafter invented, including, without limitation, the Internet, satellite broadcast and other technology (&#8220;the M-Net Services&#8221;);</p>
-  <p class="cl">1.2. &#8220;the Copyright Act&#8221; means the Copyright Act 98 of 1978, as amended;</p>
-  <p class="cl">1.3. &#8220;the Performer&#8221; means the principal performer, <span class="v">${n}</span> with ID number <span class="v">${id}</span>;</p>
-  <p class="cl">1.4. &#8220;the Performer Agreement&#8221; means the performer agreement entered into between the Producer and the Performer, dated <span class="v">${s} through ${e}</span>;</p>
-  <p class="cl">1.5. &#8220;the Performers&#8217; Protection Act&#8221; means the Performers&#8217; Protection Act 11 of 1967, as amended;</p>
-  <p class="cl">1.6. &#8220;the Producer&#8221; means ${_CT_CO_NAME} with registration number ${_CT_CO_REG};</p>
-  <p class="cl">1.7. &#8220;the Production Agreement&#8221; means the production agreement entered into between M-Net and the Producer, dated <span class="v">${s} through ${e}</span>;</p>
-  <p class="cl">1.8. &#8220;the Role&#8221; means the role to be portrayed and performed by the Performer in the Programme as specified in Schedule &#8220;A&#8221; to this acknowledgement and undertaking;</p>
-  <p class="cl">1.9. &#8220;Script&#8221; means the original literary work, being a television Programme script entitled <span class="v">${sn}</span>; and</p>
-  <p class="cl">1.10. &#8220;the Programme&#8221; means the television programme provisionally entitled <span class="v">${sn}</span>, to be produced by the Producer, pursuant to having been commissioned to do so by M-Net in terms of the Production Agreement which will consist of <span class="v">${ep} episodes</span>, each of <span class="v">${dur} minutes</span> in duration.</p>
-  <h3>2. Introduction</h3>
-  <p class="cl">2.1. M-Net and the Producer have entered into a Production Agreement in terms of which M-Net has commissioned the Producer to produce the Programme.</p>
-  <p class="cl">2.2. The Producer and the Performer have entered into the Performer Agreement in terms of which the Performer will portray and perform the Role in the Programme.</p>
-  <p class="cl">2.3. The Performer provides the acknowledgements and undertakings in favour of M-Net and/or the Producer, as stated hereunder.</p>
-  <h3>3. Complete Consideration / Buy-out</h3>
-  <p class="cl">3.1. The Performer acknowledges and agrees that the consideration payable to the Performer by the Producer in terms of the Performer Agreement constitutes the full, complete and sufficient consideration in respect of the rendering of the services by the Performer and the grant of any and all rights by the Performer under the Performer Agreement, and includes: the Performer&#8217;s participation in any money received by M-Net or profits related to the Programme; any repeat or residual fees of any nature whatsoever; and any and all royalties as may be contemplated under section 5 of the Performers&#8217; Protection Act.</p>
-  <p class="cl">3.2. The Performer accordingly agrees that M-Net shall not pay the Performer any further fees or royalties in connection with the services rendered under the Performer Agreement or the Performer&#8217;s contribution to the Programme including, without limitation, when the Programme is rebroadcast or exploited in any other form of media. Notwithstanding the foregoing, if parliament passes legislation that provides for mandatory payment to performers of further fees or royalties by broadcasters in respect of repeat broadcasts, then M-Net shall pay the Performer any such further fees or royalties as may be required by legislation.</p>
-  <h3>4. Intellectual Property</h3>
-  <p class="cl">4.1. All copyright, intellectual property rights and performance rights of whatsoever nature arising out of the performance by the Performer are, to the extent that they do not vest automatically in the Producer, hereby irrevocably ceded and assigned, in perpetuity, to the Producer. The Producer in turn assigns all such rights to M-Net, worldwide and in perpetuity, without limitation.</p>
-  <p class="cl">4.2. M-Net shall own all right, title and interest in and to the Programme and any portion thereof, all works and materials underlying the Programme, all drafts of the Script, and all off-cuts and unused footage, worldwide and in perpetuity.</p>
-  <p class="cl">4.3. M-Net shall be entitled to exploit and/or dispose of all copyright and intellectual property rights in and to the Programme and all formats, ideas and concepts arising out of the Programme, in its sole discretion, anywhere in the world without any further payment to the Performer.</p>
-  <p>The Performer hereby: (4.4.1) irrevocably and unconditionally grants to M-Net and the Producer the right to photograph, portray, make recordings of and/or film the Performer and his/her performance of the Role; (4.4.2) grants to M-Net the exclusive right to reproduce, use, rebroadcast, exhibit, transmit, communicate or make available to the public, distribute or make an adaptation of, and otherwise exploit the Programme incorporating the Performance, in any manner and all media worldwide and in perpetuity; (4.4.3) waives in favour of each of M-Net and the Producer any moral rights which may vest in the Performer in respect of any part of the Programme; and (4.4.4) grants to each of M-Net and the Producer an exclusive transferable licence to use the Performer&#8217;s name, profile, photograph, likeness, biographical material, voice and similar items for advertising and publicity purposes in respect of the Programme and the M-Net Services only.</p>
-  <h3>5. The Performer&#8217;s Obligations</h3>
-  <p>The Performer undertakes to make himself/herself available for reasonable publicity work related to the Programme as requested by M-Net&#8217;s Public Relations Department and/or the Producer, and not to include in any of his/her public appearances any matter that may be obscene, racially offensive, pornographic, abusive or embarrassing to M-Net.</p>
-  <h3>6. Confidentiality</h3>
-  <p>The Performer shall not disclose to any third party any information relating to the terms and conditions of this acknowledgement, any information relating to M-Net or its business or trade secrets, or release any statement to the press regarding this acknowledgement or any other matters concerning M-Net, without M-Net&#8217;s prior written authority to do so.</p>
-  <h3>7. Further Assurances</h3>
-  <p>To the extent necessary, the Performer undertakes, when called upon to do so by M-Net and/or the Producer, to sign any documentation or enter into any agreement to give effect to the rights granted to M-Net and/or the Producer in terms of this acknowledgement and undertaking.</p>
-  <h3>8. Acknowledgement Given Freely and Voluntarily</h3>
-  <p>The Performer confirms that this acknowledgement has been made freely and voluntarily.</p>
-  <p>I confirm that I undertake to familiarise myself with the Multichoice group code of ethics available at <em>https://investors.multichoice.com/governance.php</em></p>
-  <p style="margin-top:14px">Signed at and accepted by <strong>${n}</strong> on _____________________</p>
-  <div class="sig-grid" style="margin-top:20px">
-    <div><div class="sig-line"></div><div class="sig-name">${n}</div></div>
-    <div></div>
-    <div><div class="sig-line"></div><div class="sig-name">${_CT_SIG1}</div></div>
-    <div><div class="sig-line"></div><div class="sig-name">${_CT_SIG2}</div></div>
-  </div>
-  <div class="new-page" style="page-break-inside:avoid">
-  <h2>Schedule &#8220;A&#8221; &#8212; The Role &amp; Rates</h2>
-  <ul class="rates">${rates||'<li>(rates to be completed)</li>'}</ul>
-  <div class="sig-grid" style="margin-top:20px">
-    <div><div class="sig-line"></div><div class="sig-name">${n}</div></div>
-    <div></div>
-    <div><div class="sig-line"></div><div class="sig-name">${_CT_SIG1}</div></div>
-    <div><div class="sig-line"></div><div class="sig-name">${_CT_SIG2}</div></div>
-  </div>
+  <h1>Presenter Contract</h1>
+  <p style="margin:20px 0"><strong>Performer:</strong> ${n}${id?' &nbsp;·&nbsp; ID: '+id:''}</p>
+  <p><strong>Period:</strong> ${s} through ${e}</p>
+  <p style="margin-top:40px;color:#888;font-style:italic">Contract text to be configured — Phase 2.</p>
   ${_ctFoot(logo)}
   </body></html>`;
 }
 
 function ctContractorPDF(f,logo){
   const cn=(f.contractorName||'').toUpperCase(),cid=f.contractorID||'',s=f.contractStart||'',e=f.contractEnd||'';
-  const pos=(f.position||'').toUpperCase(),rt=(f.reportsTo||'').toUpperCase(),rtt=(f.reportsToTitle||'').toUpperCase();
-  const sn=(f.seasonName||'').toUpperCase(),addr=f.contractorAddress||'',email=f.contractorEmail||'',comp=f.compensation||'';
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Independent Contractor Contract</title><style>${_CT_CSS}</style></head><body>
   ${_ctLH(logo)}
-  <h1>Independent Contractor Contract<br>Between</h1>
-  <p class="center"><strong>${_CT_CO_NAME}</strong><br>${_CT_CO_REG}<br>(&#8220;The Company&#8221;)</p>
-  <p class="center"><strong>AND</strong></p>
-  <p class="center"><strong>Contractor: ${cn}</strong><br>ID: ${cid}<br>(&#8220;The Contractor&#8221;)</p>
-  <p>This Contract will commence on <strong>${s}</strong> and will terminate on <strong>${e}</strong>.</p>
-  <h3>1. Independent Contractor</h3>
-  <p class="cl">1.1. Subject to the terms and conditions of this Contract, the Company hereby engages the Contractor as an independent Contractor to perform the services set forth herein, and the Contractor hereby accepts such engagement.</p>
-  <p class="cl">1.2. This Contract shall not render the Contractor an employee, partner, agent of, or joint venture with the Company for any purpose. The Contractor is, and will remain, an independent Contractor in their relationship to the Company.</p>
-  <p class="cl">1.3. The Company will withhold any relevant taxes which it is obliged to pay with respect to the Contractor&#8217;s compensation hereunder if applicable.</p>
-  <h3>2. Duties, Term, and Compensation</h3>
-  <p class="cl">2.1. The Contractor&#8217;s performance duties, term of engagement, fee and provisions for payment are attached hereto and marked annexure &#8220;A&#8221;.</p>
-  <p class="cl">2.2. This Contract, together with its Annexure/s, may be amended in writing from time to time by the parties. Such written amendments shall be signed by the parties.</p>
-  <p class="cl">2.3. Once this contract terminates, and should the parties wish to extend the duration of this agreement, they shall be obliged to renegotiate and confirm their agreement in writing signed by both parties.</p>
-  <p class="cl">2.4. It is specifically recorded that the Contractor has no expectation that this agreement will be renewed, renegotiated or extended beyond the termination date.</p>
-  <p class="cl">2.5. The Contractor agrees to the principle of &#8220;no work no pay&#8221; which applies to all sick leave.</p>
-  <h3>3. Contractor&#8217;s Obligations</h3>
-  <p class="cl">3.1. The Contractor is required to behave in a professional manner at all times and perform their duties to the best of their ability.</p>
-  <p class="cl">3.2. The Contractor shall take all responsible precautions to ensure that the Contractor remains in good health for the duration of this agreement.</p>
-  <p class="cl">3.3. During the term of this Contract, the Contractor shall bill the Company and the Company shall reimburse the Contractor for all reasonable and approved out-of-pocket expenses incurred in connection with the performance of the Contractor&#8217;s duties hereunder, subject to supporting documentation.</p>
-  <p class="cl">3.4. The Contractor agrees to maintain the standards of behaviour and decorum set by the Company and must not do or say anything that may embarrass or adversely affect the goodwill, reputation, and integrity of the Company, its partners, clients or affiliates.</p>
-  <p class="cl">3.5. While driving any vehicle belonging to the Company, the Contractor must adhere to all laws, rules and regulations at all times.</p>
-  <h3>4. Confidentiality and Intellectual Property</h3>
-  <p class="cl">4.1. All inventions and works connected with the business of the Company that are developed whilst performing any duties in terms of this Contract will belong to the Company. The Contractor hereby cedes, assigns and transfers all rights, title and interest in and to such inventions and works to the Company, free of consideration.</p>
-  <p class="cl">4.2. The Contractor acknowledges that during the engagement he/she will have access to and become acquainted with various formats, trade secrets, inventions, innovations, processes, information, records and specifications owned or licensed by the Company.</p>
-  <p class="cl">4.3. The Contractor agrees that he/she will not disclose any of the aforesaid, directly or indirectly, or use any of them in any manner, either during the term of this Contract or at any time thereafter, except as required in the course of this engagement with the Company.</p>
-  <p class="cl">4.4. Upon the expiration or earlier termination of this Contract, the Contractor shall immediately deliver to the Company all files, records, documents, specifications and other items in his/her possession and shall delete any such items stored on any electronic device.</p>
-  <h3>5. Drugs and Alcohol</h3>
-  <p>The use or possession of any alcohol or illegal narcotics or dependence producing substances is strictly prohibited at the Company&#8217;s premises and at any locations where the Contractor renders services. Breach of this provision may result in summary termination.</p>
-  <h3>6. Harassment and Discrimination</h3>
-  <p>The Company regards sexual harassment and any other forms of harassment or discrimination as unacceptable forms of conduct. Such forms of conduct are strictly prohibited. Any act of sexual harassment may result in summary termination.</p>
-  <h3>7. Warranties, Disclaimers and Indemnities</h3>
-  <p class="cl">7.1. The Contractor warrants that he/she is free to enter into this Contract and that this engagement does not breach the terms of any other Contract with any other third party.</p>
-  <p class="cl">7.2. The Contractor warrants that he/she has never been convicted of a schedule one criminal offence as contained in the Criminal Procedure Act No. 51/77.</p>
-  <p class="cl">7.3. The Contractor will have no claim against the Company for leave pay, sick leave, retirement benefits, worker&#8217;s compensation, health or disability benefits, unemployment insurance benefits, or employee benefits of any kind.</p>
-  <p class="cl">7.4. The Contractor hereby indemnifies the Company, its subsidiary and affiliated companies, its officers, agents, directors and employees against any claim for direct, indirect or consequential loss or damages that may be incurred by the Contractor in performing his/her duties hereunder.</p>
-  <h3>8. Termination</h3>
-  <p class="cl">8.1. The Company may terminate this Contract at any time by giving 4 weeks&#8217; written notice to the Contractor.</p>
-  <p class="cl">8.2. The Company may terminate this Contract immediately and without prior written notice if the Contractor is convicted of any crime, fails or refuses to comply with written policies, is guilty of serious misconduct, or materially breaches provisions of this Contract.</p>
-  <h3>9. General Provisions</h3>
-  <p>This agreement shall be interpreted in accordance with and governed by the laws of the Republic of South Africa. The parties consent to the jurisdiction of the High Court of South Africa, Gauteng Division, Johannesburg. This document constitutes the entire Contract of the parties. No addition to, or variation of, or mutually agreed cancellation of, or novation of this Contract shall be of any force or effect unless reduced to writing and signed by or on behalf of both parties.</p>
-  <p class="cl">If to the Contractor: <strong>${cn}</strong>, Address: ${addr}, Email: ${email}</p>
-  <p class="cl">If to the Company: <strong>${_CT_CO_NAME}</strong>, ${_CT_CO_ADDR}, Email: ${_CT_CO_EMAIL}</p>
-  <p style="margin-top:14px">IN WITNESS HEREOF the undersigned have entered into this Contract as of the aforementioned date.</p>
-  <div class="sig-grid" style="margin-top:20px">
-    <div><div class="sig-line"></div><div class="sig-name">${_CT_SIG2}</div><div class="sig-title-sm">For Combined Artistic Productions (Pty) Ltd</div><p style="margin-top:8px;font-size:9.5pt">Date: _______________<br>Place: Randburg, Johannesburg</p></div>
-    <div><div class="sig-line"></div><div class="sig-name">${cn}</div><div class="sig-title">Contractor</div><p style="margin-top:8px;font-size:9.5pt">Date: _______________<br>Place: _______________</p></div>
-  </div>
-  <div class="new-page">
-  <div class="annex">Annexure A — Duties, Term of Engagement &amp; Compensation</div>
-  <h3>Duties:</h3>
-  <p>The Contractor will perform the duties of <strong>${pos}</strong>.</p>
-  <p>The Contractor will report directly to the <strong>${rtt ? rtt + "," : ""} ${rt}</strong> or any other party designated by the aforementioned individuals.</p>
-  <h3>Term:</h3>
-  <p>This exact engagement date is <strong>${s}</strong>, and unless terminated earlier, shall continue in full force and effect until <strong>${e}</strong>.</p>
-  <h3>Compensation:</h3>
-  <p>As full compensation for the services rendered pursuant to this Contract, the Company shall pay the Contractor as follows:</p>
-  <p><strong>${comp}</strong></p>
-  <ul style="margin:8px 0 12px 22px;font-size:10pt;line-height:1.9">
-    <li>Each invoice to have a date, unique invoice number and description for each line/amount.</li>
-    <li>Invoices to be submitted no later than the 20th of each month.</li>
-    <li>Invoice submission: <strong>${_CT_INV_EMAIL}</strong></li>
-    <li>Payment will be made on the last day of every month.</li>
-    <li>The Contractor will be taxed at 25%, unless a letter from your tax practitioner is provided.</li>
-  </ul>
-  <p>These amounts shall be excluding VAT and subject to deduction of any relevant income tax amounts due to SARS if applicable.</p>
-  <div class="sig-grid" style="margin-top:20px">
-    <div><div class="sig-line"></div><div class="sig-name">${cn}</div><div class="sig-title">Contractor</div><p style="margin-top:8px;font-size:9.5pt">Date: _______________<br>Place: _______________</p></div>
-    <div><div class="sig-line"></div><div class="sig-name">${_CT_SIG2}</div><div class="sig-title-sm">For Combined Artistic Productions (Pty) Ltd</div><p style="margin-top:8px;font-size:9.5pt">Date: _______________<br>Place: Randburg, Johannesburg</p></div>
-  </div>
+  <h1>Independent Contractor Contract</h1>
+  <p style="margin:20px 0"><strong>Contractor:</strong> ${cn}${cid?' &nbsp;·&nbsp; ID: '+cid:''}</p>
+  <p><strong>Period:</strong> ${s} through ${e}</p>
+  <p style="margin-top:40px;color:#888;font-style:italic">Contract text to be configured — Phase 2.</p>
   ${_ctFoot(logo)}
   </body></html>`;
 }
 
 function ctRatePDF(f,logo){
-  const en=f.employeeName||'',eid=f.employeeID||'',dd=f.docDate||'',ps=f.projectStart||'',pe=f.projectEnd||'',pos=f.position||'',rate=f.grossMonthlyRate||'',sn=f.seasonName||'';
-  const bld='font-weight:700;font-family:Calibri,\'Calibri\',Arial,sans-serif';
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Rate Confirmation</title><style>${_CT_CSS}
-    .rt td{padding:9px 0;vertical-align:top;font-size:10.5pt}
-    .rl{width:190px;${bld}}
-  </style></head><body>
+  const en=f.employeeName||'',eid=f.employeeID||'',dd=f.docDate||'';
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Staff Rate Confirmation</title><style>${_CT_CSS}</style></head><body>
   ${_ctLH(logo)}
-  <p style="text-align:right;margin-bottom:22px;font-size:10.5pt">${dd}</p>
-  <h1>Carte Blanche: Confirmation of Position &amp; Monthly Rate</h1>
-  <p style="margin:16px 0;font-size:10.5pt">I, <strong style="${bld}">${en}</strong> (ID: <strong style="${bld}">${eid}</strong>), an employee of ${_CT_CO_NAME}, hereby confirm the following employment on Carte Blanche to be true:</p>
-  <table class="rt" style="width:100%;border-collapse:collapse;margin:14px 0 20px">
-    <tr><td class="rl">Project:</td><td style="${bld}">${sn}</td></tr>
-    <tr><td class="rl">Project Dates:</td><td style="${bld}">${ps} through ${pe}</td></tr>
-    <tr><td class="rl">Position:</td><td style="${bld}">${pos}</td></tr>
-    <tr><td class="rl">Gross Monthly Rate:</td><td style="${bld};font-size:12pt">${rate}</td></tr>
-  </table>
-  <p style="font-size:10.5pt;text-align:justify">I acknowledge and agree that the gross monthly rate includes all duties relating to the project and that overtime and additional fees do not apply.</p>
-  <div style="page-break-inside:avoid;margin-top:32px">
-    <div style="max-width:320px;margin-bottom:30px">
-      <div class="sig-line"></div>
-      <div class="sig-name">${en}</div>
-      <div class="sig-title">The Employee</div>
-      <p style="margin-top:10px;font-size:9.5pt">Date: _______________</p>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px">
-      <div>
-        <div class="sig-line"></div>
-        <div class="sig-name">${_CT_SIG1}</div>
-        <div style="font-size:9pt;color:#555">For Combined Artistic Productions (Pty) Ltd</div>
-        <p style="margin-top:10px;font-size:9.5pt">Date: _______________</p>
-      </div>
-      <div>
-        <div class="sig-line"></div>
-        <div class="sig-name">${_CT_SIG2}</div>
-        <div style="font-size:9pt;color:#555">For Combined Artistic Productions (Pty) Ltd</div>
-        <p style="margin-top:10px;font-size:9.5pt">Date: _______________</p>
-      </div>
-    </div>
-  </div>
-  <div class="popia" style="margin-top:24px"><strong>${_CT_CO_NAME}</strong> is committed to the provisions of the Protection of Personal Information (POPIA) Act, No 4 of 2013. We ensure protection of Personal Information through safeguarding processes, protocols, and systems. In terms of section 19 to 21 of the POPI Act you as the recipient of information must ensure the integrity and confidentiality of the Personal Information in your possession.</div>
-  </div>${_ctFoot(logo)}
+  <h1>Staff Rate Confirmation</h1>
+  <p style="margin:20px 0"><strong>Employee:</strong> ${en}${eid?' &nbsp;·&nbsp; ID: '+eid:''}</p>
+  ${dd?`<p><strong>Date:</strong> ${dd}</p>`:''}
+  <p style="margin-top:40px;color:#888;font-style:italic">Contract text to be configured — Phase 2.</p>
+  ${_ctFoot(logo)}
   </body></html>`;
 }
+
 
 function ctExportPDF(id){
   const c=ctContractsData[id];
