@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.134';
+const BUILD_VERSION='3.10.135';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -110,6 +110,7 @@ let pullReplaceModal=null;
 let musicCues={};
 let leaveRequests={};
 let deliverables={}; // {epNum: {task_key: bool}}
+let delivEditEp=null; // null = landing page, number = episode detail open
 let leaveBalances={};
 let leaveFormOpen=false;
 let leaveCancelModal=null;
@@ -2978,87 +2979,91 @@ function renderPPCalendar(){
 function renderDeliverables(epNums){
   if(!epNums.length) return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet.</div></div>`;
 
-  const thBase='position:sticky;top:0;z-index:2;background:#1a2035;padding:8px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#7a8ba0;white-space:nowrap;text-align:center;border-bottom:2px solid #2e3a50;min-width:80px';
-  const tdBase='padding:6px 8px;text-align:center;border-bottom:1px solid #1a2035;vertical-align:middle';
-
-  // Episode headers
-  const epHeaders=epNums.map(n=>{
-    const date=new Date(resolveDate(n)).toLocaleDateString('en-ZA',{day:'2-digit',month:'short'});
-    const finalised=isEpFinalised(n);
-    return`<th style="${thBase}">
-      <div style="font-size:11px;font-weight:900;color:${finalised?'#4ade80':'#eaf0ff'}">EP ${String(n).padStart(2,'0')}</div>
-      <div style="font-size:9px;color:#6e7681;font-weight:600;margin-top:2px">${date}</div>
-      ${finalised?`<div style="font-size:8px;color:#4ade80;margin-top:2px">✓ DONE</div>`:''}
-    </th>`;
-  }).join('');
-
-  // Task rows
-  const taskRows=DELIVERABLE_TASKS.map((task,ti)=>{
-    const rowBg=ti%2===0?'':'background:#1a2035';
-    const cells=epNums.map(n=>{
-      const d=deliverables[String(n)]||{};
-      const checked=!!d[task.key];
-      const finalised=isEpFinalised(n);
-      return`<td style="${tdBase};${rowBg}">
-        <input type="checkbox" class="deliv-cb"
-          data-ep="${n}" data-key="${task.key}"
-          ${checked?'checked':''}
-          style="width:16px;height:16px;cursor:pointer;accent-color:${finalised?'#4ade80':'#58a6ff'}">
-      </td>`;
-    }).join('');
-
-    // Count how many episodes have this task done
-    const doneCount=epNums.filter(n=>deliverables[String(n)]?.[task.key]).length;
-    const pct=epNums.length?Math.round(doneCount/epNums.length*100):0;
-
-    return`<tr style="${rowBg}">
-      <td style="padding:7px 12px;font-size:12px;font-weight:600;color:#eaf0ff;white-space:nowrap;position:sticky;left:0;background:${ti%2===0?'#161b22':'#1a2035'};z-index:1;border-bottom:1px solid #1a2035;min-width:260px">
-        ${task.label}
-        <span style="margin-left:8px;font-size:10px;color:#484f58">${doneCount}/${epNums.length}</span>
-      </td>
-      ${cells}
-    </tr>`;
-  }).join('');
-
-  // Completion row
-  const completionCells=epNums.map(n=>{
+  // ── DETAIL VIEW ────────────────────────────────────────────────
+  if(delivEditEp!==null){
+    const n=delivEditEp;
     const d=deliverables[String(n)]||{};
     const done=DELIVERABLE_TASKS.filter(t=>d[t.key]).length;
     const total=DELIVERABLE_TASKS.length;
     const pct=Math.round(done/total*100);
-    const col=pct===100?'#4ade80':pct>=50?'#e3b341':'#f85149';
-    return`<td style="${tdBase};border-top:2px solid #2e3a50">
-      <div style="font-size:11px;font-weight:900;color:${col}">${pct}%</div>
-      <div style="font-size:9px;color:#6e7681">${done}/${total}</div>
-    </td>`;
+    const pctCol=pct===100?'#4ade80':pct>=50?'#e3b341':'#f85149';
+    const dateStr=new Date(resolveDate(n)).toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+    const finalised=isEpFinalised(n);
+
+    const taskList=DELIVERABLE_TASKS.map((task,ti)=>{
+      const checked=!!d[task.key];
+      const bg=ti%2===0?'#1e2535':'#1a2035';
+      return`<label style="display:flex;align-items:center;gap:14px;padding:12px 16px;background:${bg};cursor:pointer;border-bottom:1px solid #161b22;user-select:none">
+        <input type="checkbox" class="deliv-cb" data-ep="${n}" data-key="${task.key}" ${checked?'checked':''}
+          style="width:18px;height:18px;flex-shrink:0;cursor:pointer;accent-color:${finalised?'#4ade80':'#58a6ff'}">
+        <span style="font-size:13px;font-weight:600;color:${checked?'#eaf0ff':'#7a8ba0'}">${task.label}</span>
+        ${checked?`<span style="margin-left:auto;font-size:10px;font-weight:800;color:#4ade80">✓</span>`:''}
+      </label>`;
+    }).join('');
+
+    return`<div class="ep-wrap" style="padding-bottom:40px">
+      <div style="padding:16px 20px 0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <button class="btn" id="deliv-back-btn" style="font-size:11px;padding:4px 10px">← Back</button>
+            <div>
+              <div style="font-size:16px;font-weight:900;color:#eaf0ff">EP ${String(n).padStart(2,'0')} — Deliverables</div>
+              <div style="font-size:11px;color:#6e7681;margin-top:2px">${dateStr}</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="text-align:right">
+              <div style="font-size:18px;font-weight:900;color:${pctCol}">${pct}%</div>
+              <div style="font-size:10px;color:#6e7681">${done} / ${total} done</div>
+            </div>
+            <button class="btn" id="deliv-reset-btn" style="font-size:11px;border-color:#f85149;color:#f85149">Reset</button>
+          </div>
+        </div>
+        ${pct>0?`<div style="height:4px;background:#2e3a50;border-radius:2px;margin:10px 0 14px"><div style="height:4px;background:${pctCol};border-radius:2px;width:${pct}%;transition:width .3s"></div></div>`:'<div style="margin-bottom:14px"></div>'}
+      </div>
+      <div class="ep-card" style="margin:0 20px;overflow:hidden">
+        ${taskList}
+      </div>
+    </div>`;
+  }
+
+  // ── LANDING PAGE ───────────────────────────────────────────────
+  const cards=epNums.map(n=>{
+    const d=deliverables[String(n)]||{};
+    const done=DELIVERABLE_TASKS.filter(t=>d[t.key]).length;
+    const total=DELIVERABLE_TASKS.length;
+    const pct=Math.round(done/total*100);
+    const pctCol=pct===100?'#4ade80':pct>=50?'#e3b341':'#f85149';
+    const dateStr=new Date(resolveDate(n)).toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'});
+    const finalised=isEpFinalised(n);
+    return`<div class="ep-card" style="padding:16px 18px;display:flex;align-items:center;gap:16px">
+      <div style="min-width:56px;text-align:center">
+        <div style="font-size:22px;font-weight:900;color:${finalised?'#4ade80':'#eaf0ff'};line-height:1">EP ${String(n).padStart(2,'0')}</div>
+        ${finalised?`<div style="font-size:9px;font-weight:800;color:#4ade80;margin-top:3px;letter-spacing:.5px">DONE</div>`:''}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;color:#9aaabe;margin-bottom:6px">${dateStr}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:6px;background:#2e3a50;border-radius:3px;overflow:hidden">
+            <div style="height:6px;background:${pctCol};border-radius:3px;width:${pct}%"></div>
+          </div>
+          <span style="font-size:11px;font-weight:800;color:${pctCol};min-width:36px;text-align:right">${pct}%</span>
+        </div>
+        <div style="font-size:10px;color:#484f58;margin-top:4px">${done} of ${total} deliverables complete</div>
+      </div>
+      <button class="btn deliv-edit-btn" data-ep="${n}" style="font-size:11px;white-space:nowrap;flex-shrink:0">EDIT EPISODE</button>
+    </div>`;
   }).join('');
 
   return`<div class="ep-wrap" style="padding-bottom:40px">
-    <div style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
+    <div style="padding:16px 20px 14px;display:flex;align-items:center;justify-content:space-between">
       <div>
         <div style="font-size:15px;font-weight:800;color:#eaf0ff">Deliverables</div>
         <div style="font-size:11px;color:#6e7681;margin-top:2px">Track completion of all episode deliverables · Admin only</div>
       </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn" id="deliv-reset-btn" style="font-size:11px;border-color:#f85149;color:#f85149">Reset Episode…</button>
-      </div>
     </div>
-    <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 180px)">
-      <table style="border-collapse:collapse;min-width:max-content">
-        <thead>
-          <tr>
-            <th style="${thBase};text-align:left;position:sticky;left:0;z-index:3;min-width:260px;background:#1a2035">Deliverable</th>
-            ${epHeaders}
-          </tr>
-        </thead>
-        <tbody>
-          ${taskRows}
-          <tr>
-            <td style="padding:7px 12px;font-size:11px;font-weight:800;color:#7a8ba0;text-transform:uppercase;letter-spacing:.5px;position:sticky;left:0;background:#161b22;z-index:1;border-top:2px solid #2e3a50">Completion</td>
-            ${completionCells}
-          </tr>
-        </tbody>
-      </table>
+    <div style="padding:0 20px;display:flex;flex-direction:column;gap:10px">
+      ${cards}
     </div>
   </div>`;
 }
@@ -6935,19 +6940,22 @@ function bindApp(){
       if(!deliverables[ep])deliverables[ep]={};
       deliverables[ep][key]=cb.checked;
       await saveDeliverables(ep,deliverables[ep]);
-      // Re-render to update FINALISED badges and completion row
       render();
     });
   });
 
-  // Reset episode deliverables
+  // Landing → detail
+  document.querySelectorAll('.deliv-edit-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{delivEditEp=Number(btn.dataset.ep);render();});
+  });
+
+  // Detail → landing
+  document.getElementById('deliv-back-btn')?.addEventListener('click',()=>{delivEditEp=null;render();});
+
+  // Reset episode deliverables (detail view)
   document.getElementById('deliv-reset-btn')?.addEventListener('click',async()=>{
-    const epNums=getEpNums();
-    if(!epNums.length)return;
-    const sel=prompt('Reset all deliverables for which episode?\nEnter episode number: '+epNums.join(', '));
-    if(!sel)return;
-    const ep=String(Number(sel));
-    if(!epNums.map(String).includes(ep)){showToast('Episode not found',true);return;}
+    if(delivEditEp===null)return;
+    const ep=String(delivEditEp);
     if(!confirm('Reset ALL deliverables for Episode '+ep+'? This cannot be undone.'))return;
     deliverables[ep]={};
     await saveDeliverables(ep,{});
