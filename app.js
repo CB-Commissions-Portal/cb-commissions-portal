@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.144';
+const BUILD_VERSION='3.10.145';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -5770,7 +5770,10 @@ function renderLineups(epNums){
     <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
       <div style="padding:14px 24px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;flex-wrap:wrap;gap:10px">
         <h2 style="font-size:22px;font-weight:900;color:#eaf0ff;margin:0">LINE-UPS · Season ${currentSeason}</h2>
-        <span style="font-size:11px;color:#484f58">Broadcast episodes shown in red · ✓ = delivered duration</span>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:11px;color:#484f58">Broadcast episodes shown in red · ✓ = delivered duration</span>
+          <a href="lineups-guide.html" target="_blank" class="btn" style="font-size:13px;padding:8px 16px;font-weight:700;border-color:#484f58;color:#8b949e;text-decoration:none">? Guide</a>
+        </div>
       </div>
       <div style="flex:1;overflow-y:auto;padding:16px 8px 16px 16px">
         ${epsHtml}
