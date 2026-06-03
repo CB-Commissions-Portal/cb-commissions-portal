@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.143';
+const BUILD_VERSION='3.10.144';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -3024,6 +3024,7 @@ function renderDeliverables(epNums){
 function renderPromoScheduling(epNums){
   if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet.</div></div>`;
   const canEd=getEffectiveRole()==='admin'||getEffectiveRole()==='operations';
+  const canEditContent=['admin','operations','editorial'].includes(getEffectiveRole());
   const assigned=getAllAssignedUIDs();
   const avail=getAvailablePoolUIDs();
 
@@ -3124,7 +3125,7 @@ function renderPromoScheduling(epNums){
         <td style="${tdB};font-family:monospace;font-size:11px;font-weight:700;color:#3fb950;letter-spacing:.5px">
           ${isPulled?'<span style="color:#f85149;font-size:10px">PULLED</span>':combined?esc(combined):'<span style="color:#484f58">—</span>'}
         </td>
-        <td style="${tdB};min-width:180px"><input class="ci promo-content-inp" value="${esc(pd['content_'+pt.key]||'')}" data-ep="${n}" data-key="${pt.key}" placeholder="Enter content…" style="font-size:12px;width:100%;color:#e3b341" ${!canEd?'disabled':''}></td>
+        <td style="${tdB};min-width:180px"><input class="ci promo-content-inp" value="${esc(pd['content_'+pt.key]||'')}" data-ep="${n}" data-key="${pt.key}" placeholder="Enter content…" style="font-size:12px;width:100%;color:#e3b341" ${!canEditContent?'disabled':''}></td>
       </tr>`;
     }).join('');
 
