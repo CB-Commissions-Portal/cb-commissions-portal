@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.141';
+const BUILD_VERSION='3.10.142';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4881,6 +4881,7 @@ function renderContractList(){
 
   const makeRow=([id,c],isArchived)=>{
     const name=esc(c.fields?.contractorName||c.fields?.performerName||c.fields?.employeeName||'—');
+    const dutyPos=esc(c.fields?.duty||c.fields?.position||'—');
     const statusBg=isArchived?'#1a1a1a':c.status==='exported'?'#0d2a0d':'#1a1a0d';
     const statusCol=isArchived?'#484f58':c.status==='exported'?'#3fb950':'#e3b341';
     const statusBorder=isArchived?'#2e3a50':c.status==='exported'?'#2d6a2d':'#4a3300';
@@ -4888,6 +4889,7 @@ function renderContractList(){
     return`<tr style="border-bottom:1px solid #21262d;${isArchived?'opacity:.6':''}">
       <td style="padding:10px 14px;font-size:12px;color:#7a8ba0;font-family:monospace">CB-S${currentSeason}-${id}</td>
       <td style="padding:10px 14px;font-size:13px;font-weight:700;color:${isArchived?'#7a8ba0':'#eaf0ff'}">${name}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#9aaabe">${dutyPos}</td>
       <td style="padding:10px 14px;font-size:12px;color:#7a8ba0">${ctTypeLabel(c.type)}</td>
       <td style="padding:10px 14px">
         <span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:3px;background:${statusBg};color:${statusCol};border:1px solid ${statusBorder}">${statusLabel}</span>
@@ -4906,7 +4908,7 @@ function renderContractList(){
   };
 
   const thead=`<thead><tr style="background:#161b22">
-    <th style="${thS}">Ref</th><th style="${thS}">Name</th><th style="${thS}">Type</th>
+    <th style="${thS}">Ref</th><th style="${thS}">Name</th><th style="${thS}">Duty / Position</th><th style="${thS}">Type</th>
     <th style="${thS}">Status</th><th style="${thS}">Created</th><th style="${thS}">Actions</th>
   </tr></thead>`;
 
@@ -9799,11 +9801,11 @@ document.addEventListener('click',function contractsHandler(e){
   if(e.target.id==='ct-new-btn'){
     ctEditType=null;ctEditId=null;ctEditFields={};ctView='pick';render();return;
   }
-  // Type picker buttons
-  if(e.target.id==='ct-pick-presenter'){ctEditType='presenter';ctView='form';render();return;}
-  if(e.target.id==='ct-pick-contractor'){ctEditType='contractor';ctView='form';render();return;}
-  if(e.target.id==='ct-pick-rate'){ctEditType='rate';ctView='form';render();return;}
-  if(e.target.id==='ct-pick-cancel'){ctView='list';render();return;}
+  // Type picker buttons (use closest — cards have inner child divs that intercept clicks)
+  if(e.target.closest('#ct-pick-presenter')){ctEditType='presenter';ctView='form';render();return;}
+  if(e.target.closest('#ct-pick-contractor')){ctEditType='contractor';ctView='form';render();return;}
+  if(e.target.closest('#ct-pick-rate')){ctEditType='rate';ctView='form';render();return;}
+  if(e.target.closest('#ct-pick-cancel')){ctView='list';render();return;}
   // Back
   if(e.target.id==='ct-back-btn'){ctView='list';ctEditId=null;ctEditFields={};render();return;}
   // Save draft
