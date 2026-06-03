@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.138';
+const BUILD_VERSION='3.10.139';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4957,14 +4957,29 @@ function renderContractForm(){
   } else if(type==='contractor'){
     formBody=`
       ${sec('Contractor Details')}
-      ${fld('contractorName','Contractor Full Name (CAPS)','e.g. JANA PIENAAR')}
-      ${fld('contractorID','Contractor ID Number','e.g. 8105200016086','320px')}
+      ${fld('contractorName','Contractor Name (CAPS) — Person or Company','e.g. JANA PIENAAR or PIENAAR PRODUCTIONS (PTY) LTD')}
+      ${fld('contractorRegID','ID Number or Company Registration Number','e.g. 8105200016086 or 2019/123456/07','400px')}
+      ${fld('contractorAddress','Contractor Address','e.g. 1338 Giants Castle Avenue, Bergbron')}
+      ${fld('contractorEmail','Contractor Email','e.g. contractor@email.com')}
       ${sec('Contract Dates')}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        ${fld('contractStart','Start Date','YYYY-MM-DD')}
-        ${fld('contractEnd','End Date','YYYY-MM-DD')}
+        ${fld('contractStart','Start Date','e.g. 1 April 2026','100%')}
+        ${fld('contractEnd','End Date','e.g. 31 March 2027','100%')}
       </div>
-      ${_pending}`;
+      ${sec('Annexure A — Duties & Compensation')}
+      ${fld('duty','Position / Duty (CAPS)','e.g. ASSISTANT STUDIO DIRECTOR')}
+      ${fld('reportsTo','Reports To','e.g. RUDI BOTHA')}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        ${fld('compensationRate','Rate','e.g. R 3 850-00','100%')}
+        ${fld('compensationUnit','Per Unit','e.g. Sunday Live TX','100%')}
+      </div>
+      ${sec('Annexure B')}
+      ${fld('seasonNumber','Season Number','e.g. 39','200px')}
+      ${sec('Signatures')}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        ${fld('signDate','Date of Signing','e.g. 1 April 2026','100%')}
+        ${fld('signPlace','Place of Signing','e.g. Johannesburg','100%')}
+      </div>`;
   } else if(type==='rate'){
     formBody=`
       ${sec('Employee Details')}
@@ -5197,13 +5212,219 @@ function ctPresenterPDF(f,logo){
 }
 
 function ctContractorPDF(f,logo){
-  const cn=(f.contractorName||'').toUpperCase(),cid=f.contractorID||'',s=f.contractStart||'',e=f.contractEnd||'';
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Independent Contractor Contract</title><style>${_CT_CSS}</style></head><body>
+  const cn=(f.contractorName||'').toUpperCase(),crid=f.contractorRegID||'',cs=f.contractStart||'',ce=f.contractEnd||'';
+  const caddr=f.contractorAddress||'',cemail=f.contractorEmail||'',duty=(f.duty||'').toUpperCase();
+  const rto=f.reportsTo||'',rate=f.compensationRate||'',unit=f.compensationUnit||'';
+  const sn=f.seasonNumber||'',sd=f.signDate||'',sp=f.signPlace||'';
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Independent Contractor Contract</title><style>${_CT_CSS}
+  ul.inv{list-style:none;padding:0;margin:10px 0}ul.inv li{padding:5px 0;padding-left:20px;text-indent:-20px;font-size:10.5pt;border-bottom:1px solid #f0f0f0}
+  </style></head><body>
   ${_ctLH(logo)}
-  <h1>Independent Contractor Contract</h1>
-  <p style="margin:20px 0"><strong>Contractor:</strong> ${cn}${cid?' &nbsp;·&nbsp; ID: '+cid:''}</p>
-  <p><strong>Period:</strong> ${s} through ${e}</p>
-  <p style="margin-top:40px;color:#888;font-style:italic">Contract text to be configured — Phase 2.</p>
+  <h1>Independent Contractor Contract<br>Between</h1>
+  <p class="center"><strong>COMBINED ARTISTIC PRODUCTIONS (PTY) LTD</strong><br>2019/196874/07<br>(&#8220;The Company&#8221;)</p>
+  <p class="center" style="margin:10px 0"><strong>AND</strong></p>
+  <p class="center"><strong>Contractor: ${cn}</strong><br>${crid}<br>(&#8220;The Contractor&#8221;)</p>
+  <p style="margin:16px 0">This Contract will commence on <span class="v">${cs}</span> and will terminate on <span class="v">${ce}</span>.</p>
+
+  <h3>1. Independent Contractor</h3>
+  <p class="cl">1.1. Subject to the terms and conditions of this Contract, the Company hereby engages the Contractor as an independent Contractor to perform the services set forth herein, and the Contractor hereby accepts such engagement.</p>
+  <p class="cl">1.2. This Contract shall not render the Contractor an employee, partner, agent of, or joint venture with the Company for any purpose. The Contractor is, and will remain, an independent Contractor in their relationship to the Company.</p>
+  <p class="cl">1.3. The Company will withhold any relevant taxes which it is obliged to pay with respect to the Contractor&#8217;s compensation hereunder if applicable.</p>
+
+  <h3>2. Duties, Term, and Compensation</h3>
+  <p class="cl">2.1. The Contractor&#8217;s performance duties, term of engagement, fee and provisions for payment are attached hereto and marked annexure &#8220;A&#8221;.</p>
+  <p class="cl">2.2. This Contract, together with its Annexure/s, may be amended in writing from time to time by the parties in respect of services/performances to be rendered by the Contractor and agreed to by the Company. Such written amendments shall be signed by the parties.</p>
+  <p class="cl">2.3. In circumstances where the Contractor is contracted as a performer who renders any performance or who makes any appearance in the series as defined in annexure &#8220;B&#8221; hereto, then the provisions set out in annexure &#8220;B&#8221; shall, in addition to the terms set out herein, be binding on the Contractor.</p>
+  <p class="cl">2.4. Once this contract terminates, and should the parties wish to extend the duration of this agreement or enter into a further contract, they shall be obliged to renegotiate the terms of any such future contract and confirm their agreement in writing in a document to be signed by or on behalf of each of the parties.</p>
+  <p class="cl">2.5. It is specifically recorded that the Contractor has no expectation that this agreement will be renewed, renegotiated or extended beyond the termination date in annexure &#8220;A&#8221; even in circumstances where, subsequent to the parties entering into this agreement, the parties agree to extend or renegotiate this agreement on one or more occasions.</p>
+  <p class="cl">2.6. The Contractor agrees to the principle of &#8220;no work no pay&#8221; which applies to all sick leave including sick leave as a result of Covid-19 isolation requirements or as a result of a positive test result.</p>
+
+  <h3>3. Contractor&#8217;s Obligations</h3>
+  <p class="cl">3.1. The Contractor is required to behave in a professional manner at all times and perform their duties to the best of their ability.</p>
+  <p class="cl">3.2. The Contractor shall take all responsible precautions to ensure that the Contractor remains in good health for the duration of this agreement.</p>
+  <p class="cl">3.3. During the term of this Contract, the Contractor shall bill the Company and the Company shall reimburse the Contractor for all reasonable and approved out-of-pocket expenses which are incurred in connection with the performance of the Contractor&#8217;s duties hereunder. The reimbursement of such expenses to the Contractor shall be contingent on the Company reconciling the amount claimed by the Contractor against the supporting documentation rendered by the Contractor to the Company. The Contractor shall be obliged to provide supporting documentation to the Company whenever a reimbursement is sought. Notwithstanding the aforegoing, expenses for and the time spent by Contractor in traveling to and from Company facilities shall not be reimbursable.</p>
+  <p class="cl">3.4. If any expenses are incurred by the Contractor without conforming to the procedure set out in clause 3.3 above, or in circumstances where the Contractor is unable to present supporting documents in relation to such expenses, the Contractor shall be personally responsible for payment thereof.</p>
+  <p class="cl">3.5. The Contractor agrees to maintain the standards of behaviour and decorum set by the Company and must not do or say anything that may embarrass or adversely affect the goodwill, reputation, and integrity of the Company, its partners, clients or affiliates.</p>
+  <p class="cl">3.6. While driving any vehicle belonging to the Company, the Contractor must adhere to all laws, rules and regulations at all times. This includes but is not limited to ensuring that the Contractor carries a valid driver&#8217;s license on their person at all material times.</p>
+  <p class="cl">3.7. The Contractor shall adequately complete a log book while driving any vehicle belonging to the Company.</p>
+
+  <h3>4. Confidentiality and Intellectual Property</h3>
+  <p class="cl">4.1. All inventions (which include, but are not limited to methodologies, designs and products) connected with, or applicable to, or in the business of, the Company that are developed whilst performing any duties in terms of this Contract will belong to the Company. To the extent that it is required, the Contractor hereby cedes, assigns and transfers all of the Contractor&#8217;s right, title and interest in and to such inventions to the Company. Upon the invention coming into existence, no further documentation need be executed to give effect to the cession, assignment, or transfer as referred to herein.</p>
+  <p class="cl">4.2. The Contractor hereby irrevocably:</p>
+  <p class="cl2">4.2.1. cedes, assigns, and transfers to the Company all of the Contractor&#8217;s rights, title and interest in and to any and all copyright in all works which are or may become eligible for copyright under the laws of the Republic of South Africa and which relate to the business of Company or which arise directly or indirectly from or incidental to the services provided by the Contractor in terms of this agreement. This cession, assignment and transfer is granted free of consideration;</p>
+  <p class="cl2">4.2.2. grants to the Company the sole and exclusive right to alter and adapt the work; and assigns to the Company the rights conferred upon it as author by section 20(1) of the Copyright Act No. 98 of 1978, as amended or any other such legislation.</p>
+  <p class="cl2">4.2.3. The provisions above shall only apply to such inventions and works that are made during the term of this Contract. Should the invention or work exist before the commencement of this Contract, such invention and / or work shall remain the property of the inventor or author.</p>
+  <p class="cl">4.3. The Contractor acknowledges that during the engagement he will have access to and become acquainted with various formats, trade secrets, inventions, innovations, processes, information, records and specifications owned or licensed by the Company and/or used by the Company in connection with the operation of its business including, without limitation, the Company&#8217;s business and product processes, methods, customer lists, accounts and procedures.</p>
+  <p class="cl">4.4. The Contractor agrees that he will not disclose any of the aforesaid, directly or indirectly, or use any of them in any manner, either during the term of this Contract or at any time thereafter, except as required in the course of this engagement with the Company.</p>
+  <p class="cl">4.5. All files, records, documents, blueprints, specifications, information, letters, notes, media lists, original artwork/creative, notebooks, and similar items relating to the business of the Company, whether prepared by the Contractor or otherwise coming into his possession, shall remain the exclusive property of the Company. The Contractor shall not retain any copies of the foregoing without the Company&#8217;s prior written permission.</p>
+  <p class="cl">4.6. Upon the expiration or earlier termination of this Contract, or whenever requested by the Company, the Contractor shall immediately deliver to the Company all such files, records, documents, specifications, information, and other items in his possession or under his control and shall delete any such items which are stored on any electronic device.</p>
+  <p class="cl">4.7. The Contractor further agrees that he will not disclose his retention as an independent Contractor or the terms of this Contract to any person without the prior written consent of the Company and shall at all times preserve the confidential nature of his relationship to the Company and of the services hereunder.</p>
+
+  <h3>5. Drugs and Alcohol</h3>
+  <p class="cl">5.1. The use or possession of any alcohol or illegal narcotics or dependence producing substances is strictly prohibited at the Company&#8217;s office, the Company&#8217;s clients, partners or affiliates and at any locations where the Contractor renders services to the Company in terms of this agreement.</p>
+  <p class="cl">5.2. Should the Contractor breach the provisions set out in clause 5.1, then this may result in this Contract being summarily terminated.</p>
+
+  <h3>6. Harassment and Discrimination</h3>
+  <p class="cl">6.1. For the purpose of this section &#8220;sexual harassment&#8221; shall have the meaning as ascribed in the law of the Republic of South Africa but shall also include, without limitation, the following:</p>
+  <p class="cl2">6.1.1. unwelcome sexual attention from a person who knows or ought reasonably to know that such attention is unwelcome;</p>
+  <p class="cl2">6.1.2. unwelcome explicit or implicit behaviour, suggestions, messages or remarks of a sexual nature that have the effect of offending, intimidating or humiliating the complainant or related person in circumstances which a reasonable person having regard to all the circumstances would have anticipated that the complainant or related person would be offended, humiliated or intimidated;</p>
+  <p class="cl2">6.1.3. any implied or expressed promise of a reward for complying with a sexually-oriented request; or</p>
+  <p class="cl2">6.1.4. any implied or expressed threat of reprisal or actual reprisal for refusal to comply with a sexually oriented request.</p>
+  <p class="cl2">6.1.5. The Company regards sexual harassment and any other forms of harassment or discrimination as unacceptable forms of conduct. Such forms of conduct are strictly prohibited. If the Contractor is the victim of any of the aforesaid acts, the Contractor is implored to report such conduct to the designated responsible person at the Company. The complaint will be handled in compliance with the appropriate legislation.</p>
+  <p class="cl">6.2. Should the Contractor commit any act of sexual harassment, then this may result in this Contract being summarily terminated.</p>
+
+  <h3>7. Warranties, Disclaimers and Indemnities</h3>
+  <p class="cl">7.1. The Contractor warrants that he is free to enter into this Contract and that this engagement does not breach the terms of any other Contract between the Contractor and any other third party. Further, the Contractor, in rendering his duties shall not utilise any invention, discovery, development, improvement, innovation, or trade secret in which he does not have a proprietary interest.</p>
+  <p class="cl">7.2. The Contractor warrants that he has never been convicted of a schedule one criminal offence as contained in the Criminal Procedure Act No. 51/77, such offences including but not being limited to murder, robbery, theft, fraud, assault, rape and arson.</p>
+  <p class="cl">7.3. During the term of this Contract, the Contractor shall devote as much of his productive time, energy and abilities to the performance of their duties hereunder as is necessary to perform the required duties in a timely and productive manner.</p>
+  <p class="cl">7.4. The Company will not be held liable for any parking or traffic fines incurred by the Contractor. These shall be for the account of the Contractor.</p>
+  <p class="cl">7.5. When driving the Company&#8217;s vehicle or a vehicle on hire to the Company (as the case may be}, insurance excesses applicable for loss or damage will be the personal responsibility of the Contractor, in circumstances where such loss or damage is caused as a result of the Contractor&#8217;s negligent, grossly negligent or intentional conduct.</p>
+  <p class="cl">7.6. The Contractor is expressly free to perform services for other parties while performing services for the Company, provided there is no conflict of interest in performing such services.</p>
+  <p class="cl">7.7. The Contractor hereby indemnifies the Company, its subsidiary and affiliated companies, its officers, agents, directors and employees against any claim for direct, indirect or consequential loss or damages that may be incurred by the Contractor in performing his duties hereunder.</p>
+  <p class="cl">7.8. The Contractor will have no claim against the Company hereunder or otherwise for leave pay, sick leave, retirement benefits, worker&#8217;s compensation, health or disability benefits, unemployment insurance benefits, or employee benefits of any kind.</p>
+  <p class="cl">7.9. With specific reference to COVID-19 pandemic: The Contractor undertakes not to hold The Company responsible in the event of a positive Covid-19 test result.</p>
+
+  <h3>8. Termination</h3>
+  <p class="cl">8.1. The Company may terminate this Contract at any time by giving 4 weeks&#8217; written notice to the Contractor.</p>
+  <p class="cl">8.2. In addition, if the Contractor is convicted of any crime or offense, fails or refuses to comply with the written policies or reasonable performance directive of the Company, is guilty of serious conduct contrary to this contract or any of the Company&#8217;s policies in connection with his performance hereunder, fraternizes with any contestant, fellow performer, or crew member, or materially breaches provisions of this Contract, the Company may at any time terminate the engagement of the Contractor immediately and without prior written notice to the Contractor.</p>
+  <p class="cl">8.3. Further, the Company shall have the right to terminate this agreement for any reason recognized in law.</p>
+
+  <h3>9. Insurance</h3>
+  <p>The Contractor will carry his own liability insurance, if applicable, in respect of any service that he performs for the Company.</p>
+
+  <h3>Headings and Interpretation</h3>
+  <p class="cl">9.1. Section headings are not to be considered a part of this Contract and are not intended to be a full and accurate description of the contents hereof.</p>
+  <p class="cl">9.2. Unless the context clearly indicates a contrary intention, words connoting:</p>
+  <p class="cl2">9.2.1. any gender includes the other genders;</p>
+  <p class="cl2">9.2.2. the singular include the plural;</p>
+  <p class="cl2">9.2.3. natural persons include artificial persons and vice versa.</p>
+
+  <h3>10. Waiver</h3>
+  <p>No indulgence, extension of time, relaxation or latitude which any party may show, grant or allow shall constitute a waiver by the grantor of any of the rights hereunder.</p>
+
+  <h3>11. Assignment</h3>
+  <p>The Contractor shall not assign any of his rights under this Contract, or delegate the performance of any of his duties hereunder, without the prior written consent of the Company.</p>
+
+  <h3>12. Severability</h3>
+  <p>Save to the extent contemplated herein, the parties hereto acknowledge and agree that each phrase, sentence, paragraph and clause of the contract is severable, the one from the other, notwithstanding the manner in which they may be linked together or grouped automatically and if in terms of any judgement or order, any phrase, sentence, paragraph or clause is found to be defective or unenforceable for any reason, the remaining phrases, sentences, paragraphs and clauses, as the case may be, shall nevertheless continue to be of full force and effect.</p>
+
+  <h3>13. Good Faith</h3>
+  <p>The parties undertake to observe the utmost good faith in their dealing with one another, and will not act in any manner that might prejudice or detract from the rights, assets or interests of the other.</p>
+
+  <h3>14. Applicable Law</h3>
+  <p>This agreement shall be interpreted in accordance with and governed by the laws of the Republic of South Africa.</p>
+
+  <h3>15. Jurisdiction</h3>
+  <p>The parties consent to the jurisdiction of High Court of South Africa, Gauteng Division, Johannesburg with regard to any claim resulting or arising from this Contract.</p>
+
+  <h3>16. Notices</h3>
+  <p>All notices given by either party to the other in terms of this contract shall be valid if given by pre-paid post, delivered by hand or sent by email. In the case of pre-paid post, receipt of the notice will be deemed to be three days after posting and in the other case of delivery, on the date of signature of receipt.</p>
+  <p>Notice by email shall be deemed to be received on the date of sending. Notice, demand or other communication is to be given as follows:</p>
+  <p style="margin-top:12px"><strong>If to the Contractor:</strong></p>
+  <p>${cn}<br>Address: ${caddr||'(address not provided)'}<br>Email: ${cemail||'(email not provided)'}</p>
+  <p style="margin-top:12px"><strong>If to the Company:</strong></p>
+  <p>COMBINED ARTISTIC PRODUCTIONS (PTY) LTD<br>306 Surrey Avenue, Ferndale, 2194<br>Email: rudi@combinedartists.co.za</p>
+  <p style="margin-top:10px">Any party hereto may change its address for purposes of this paragraph by written notice given in the manner provided above, provided that such address is in the Republic of South Africa.</p>
+
+  <h3>Entire Contract</h3>
+  <p>This document and any annexure attached hereto constitutes the entire Contract of the parties, and any and all prior Contracts, understandings, and representations are hereby terminated and cancelled in their entirety and are of no further force and effect.</p>
+
+  <h3>17. Unenforceability of Provisions</h3>
+  <p>If any provision of this Contract, or any portion thereof, is held to be invalid and unenforceable, then the remainder of this Contract shall nevertheless remain in full force and effect.</p>
+
+  <h3>18. Conflicts</h3>
+  <p>Should there be any conflict or inconsistencies in relation to the provisions of this agreement and/or the provisions of annexure &#8220;A&#8221; or annexure &#8220;B&#8221; where applicable, then the interpretation that affords the Company greater rights shall apply.</p>
+
+  <h3>19. Variation</h3>
+  <p>No addition to, or variation of, or mutually agreed cancellation of, or novation of this Contract and no waiver of any right arising from this Contract or its breach or termination shall be of any force or effect unless reduced to writing and signed by or on behalf of both parties.</p>
+
+  <p style="margin-top:20px">In witness hereof the undersigned have entered into this Contract as of the aforementioned date. The parties hereto agree that an electronically scanned and sent copy of the duly signed agreement shall be as effective as if the original has been hand delivered to the Company.</p>
+
+  <div style="margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:40px;page-break-inside:avoid">
+    <div>
+      <div class="sig-line"></div>
+      <div class="sig-name">${_CT_SIG2}</div>
+      <div class="sig-title">For: Combined Artistic Productions (Pty) Ltd</div>
+      <div class="sig-title-sm">The signatory who by this signature hereto declares that he/she is duly authorized to sign for on behalf of the Company.</div>
+      <p style="margin-top:10px;font-size:9.5pt">Date: ${sd||'_______________'}</p>
+      <p style="font-size:9.5pt">Place: ${sp||'_______________'}</p>
+    </div>
+    <div>
+      <div class="sig-line"></div>
+      <div class="sig-name">${cn}</div>
+      <div class="sig-title">Contractor</div>
+      <p style="margin-top:10px;font-size:9.5pt">Date: ${sd||'_______________'}</p>
+      <p style="font-size:9.5pt">Place: ${sp||'_______________'}</p>
+    </div>
+  </div>
+
+  <div class="new-page">
+    <h2>Annexure A</h2>
+    <p style="font-weight:700;text-align:center;margin-bottom:16px;font-size:10.5pt">Duties, Term of Engagement, Compensation, Performer&#8217;s Acknowledgement and Undertakings by the Contractor in respect of the Contractor&#8217;s Services and Performance</p>
+
+    <h3>Duties</h3>
+    <p>The Contractor will perform the duties of <span class="v">${duty||'(to be specified)'}</span> which duties are set out below and in annexure &#8220;B&#8221; (when applicable).</p>
+    <p>The Contractor will report directly to <span class="v">${rto||'(to be specified)'}</span> or any other party designated by the aforementioned individuals in connection with the performance of the duties under this Contract and shall fulfil any other duties reasonably requested by the Company and agreed to by the Contractor.</p>
+
+    <h3>Term</h3>
+    <p>This exact engagement date is <span class="v">${cs}</span> and unless terminated in accordance with clause 9 herein, shall continue in full force and effect until <span class="v">${ce}</span> when it shall terminate automatically or shall terminate earlier upon completion of the Contractor&#8217;s duties under this Contract.</p>
+    <p>The Contract may only be extended beyond the aforesaid dates by mutual agreement, unless terminated earlier by operational requirements or in accordance with this Contract.</p>
+
+    <h3>Compensation</h3>
+    <p>As full compensation for the services rendered pursuant to this Contract, the Company shall pay the Contractor as follows:</p>
+    <ul class="inv">
+      <li>&#8226;&nbsp; <span class="v">${rate||'(rate to be specified)'}</span>&nbsp;&nbsp;&#8212;&nbsp;&nbsp;${unit||'(unit to be specified)'}</li>
+      <li>&#8226;&nbsp; EACH INVOICE TO HAVE A DATE, UNIQUE INVOICE NUMBER AND DESCRIPTION FOR EACH LINE/AMOUNT.</li>
+      <li>&#8226;&nbsp; INVOICES TO BE SUBMITTED NO LATER THAN THE 20TH OF EACH MONTH.</li>
+      <li>&#8226;&nbsp; INVOICE SUBMISSION: CAP PAYMENT PORTAL</li>
+      <li>&#8226;&nbsp; PAYMENT WILL BE MADE ON THE LAST DAY OF EVERY MONTH.</li>
+      <li>&#8226;&nbsp; THE CONTRACTOR WILL BE TAXED AT 25%, UNLESS A LETTER FROM YOUR TAX PRACTITIONER IS PROVIDED, OR VAT, IF INVOICING THROUGH A COMPANY.</li>
+    </ul>
+    <p>For the purpose of clarity, the Company shall be entitled to withhold making payment of any amount until such time as the Contractor has fulfilled all obligations and duties to the Company&#8217;s satisfaction.</p>
+    <p>These amounts shall be excluding VAT and subject to deduction of any relevant income tax amounts due to SARS if applicable. The Company shall make payment in respect of all duly issued invoices received by the 20th day of any given month, during the duration of the Contract, no later than the 30th day of such month. All payments will be made by means of an electronic funds transfer to the nominated bank account of the Contractor as indicated on the invoice.</p>
+  </div>
+
+  <div class="new-page">
+    <h2>Annexure &#8220;B&#8221;</h2>
+    <h2>Acknowledgement and Undertaking</h2>
+
+    <h3>1. Definitions</h3>
+    <p>For this Contractor&#8217;s acknowledgement and undertaking, the following terms shall bear the following meanings:</p>
+    <p class="cl">1.1. Electronic Media Network (Pty) Limited (&#8220;M-Net&#8221;) is:</p>
+    <p class="cl2">1.1.1. a public company incorporated in accordance with the laws of the Republic of South Africa with registration number 1985/002853/06; and</p>
+    <p class="cl2">1.1.2. the owner of a pay television network, which broadcasts, exhibits, transmits, makes available and/or communicates material to the public, in various areas of the world by various manners and media whether of a traditional, new or convergent nature and whether now known or hereinafter invented, including, without limitation, the Internet, satellite broadcast and other technology (&#8220;the M-Net Services&#8221;);</p>
+    <p class="cl">1.2. &#8220;The Copyright Act&#8221; means the Copyright Act 98 of 1978, as amended;</p>
+    <p class="cl">1.3. &#8220;The Producer&#8221; means the Company COMBINED ARTISTIC PRODUCTIONS (PTY) LTD;</p>
+    <p class="cl">1.4. &#8220;The Production Contract&#8221; means the independent production Contract entered into between M-Net and the Producer, to which the Contractor is not a party;</p>
+    <p class="cl">1.5. &#8220;The Role&#8221; means the role to be portrayed and performed by the Performer in the Series known as CARTE BLANCHE <span class="v">${sn}</span>;</p>
+    <p class="cl">1.6. &#8220;Script&#8221; means the original literary work, being a television series script;</p>
+    <p class="cl">1.7. &#8220;The Series&#8221; means the television programme CARTE BLANCHE <span class="v">${sn}</span> to be produced by the Producer, pursuant to having been commissioned to do so by M-Net in terms of the Production Contract.</p>
+
+    <h3>2. Introduction</h3>
+    <p class="cl">2.1. M-Net and the Producer have entered a Production Contract in terms of which M-Net has commissioned the Producer to produce the Series.</p>
+    <p class="cl">2.2. The Producer and the Contractor have entered this Performer Contract in terms of which the Contractor will portray and perform the stipulated duties in the Series.</p>
+    <p class="cl">2.3. The Contractor provides the acknowledgements and undertakings in favour of M-Net and/or the Producer.</p>
+
+    <h3>3. Confidentiality</h3>
+    <p class="cl">3.1. The Contractor shall not disclose to any third party, any information relating to the terms and conditions of this acknowledgement, except to the extent necessary to comply with any law or valid court order.</p>
+    <p class="cl">3.2. The Contractor shall not at any time, disclose to any person whatsoever, any information relating to M-Net, the Producer or any of their business or trade secrets, of which the Contractor has or may come into possession.</p>
+    <p class="cl">3.3. The Contractor shall not at any time release any statement to the press or make any other public statement of any nature which could reasonably be expected to be published in the media regarding this acknowledgement or any other matters concerning M-Net or the Producer.</p>
+
+    <h3>4. Further Assurances</h3>
+    <p>To the extent necessary, the Performer undertakes, when called upon to do so by M-Net and/or the Producer, to sign any documentation or enter into any Contract to give effect to the rights granted to M-Net and/or the Producer in terms of this acknowledgement and undertaking.</p>
+    <p>I confirm that I undertake to familiarise myself with the Multichoice group code of ethics available at <em>https://investors.multichoice.com/governance.php</em></p>
+
+    <h3>5. Acknowledgement Given Freely and Voluntarily</h3>
+    <p>The Contractor confirms that this acknowledgement has been made freely and voluntarily.</p>
+
+    <div style="margin-top:28px;max-width:340px">
+      <div class="sig-line"></div>
+      <div class="sig-name">${cn}</div>
+      <div class="sig-title">Contractor</div>
+      <p style="margin-top:10px;font-size:9.5pt">Date: ${sd||'_______________'}</p>
+      <p style="font-size:9.5pt">Place: ${sp||'_______________'}</p>
+    </div>
+  </div>
   ${_ctFoot(logo)}
   </body></html>`;
 }
