@@ -91,7 +91,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.137';
+const BUILD_VERSION='3.10.138';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -4943,12 +4943,17 @@ function renderContractForm(){
       ${sec('Performer Details')}
       ${fld('performerName','Performer Full Name (CAPS)','e.g. MASA CLAIRE KEKANA')}
       ${fld('performerID','Performer ID Number','e.g. 8610010742086','320px')}
-      ${sec('Agreement Dates')}
+      ${sec('Agreement Details')}
+      ${fld('contractPeriod','Contract Period','e.g. 1 April 2026 to 31 March 2027')}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        ${fld('agreementStart','Start Date','YYYY-MM-DD')}
-        ${fld('agreementEnd','End Date','YYYY-MM-DD')}
+        ${fld('seasonNumber','Season Number','e.g. 39','100%')}
+        ${fld('numEpisodes','Number of Episodes','e.g. 13','100%')}
       </div>
-      ${_pending}`;
+      ${sec('Schedule A — Rates')}
+      ${fld('rateMonthlyRetainer','Monthly Retainer','e.g. R 35 500-00')}
+      ${fld('rateFieldPerCall','Field Presenter — per call','e.g. R 6 000-00')}
+      ${fld('rateFieldTravelDay','Field Presenter — per travel day / half day','e.g. R 3 000-00')}
+      ${fld('rateStudioAnchor','Studio Anchor — per live transmission','e.g. R 8 000-00')}`;
   } else if(type==='contractor'){
     formBody=`
       ${sec('Contractor Details')}
@@ -5080,13 +5085,113 @@ function _ctFoot(logo){
 }
 
 function ctPresenterPDF(f,logo){
-  const n=(f.performerName||'').toUpperCase(),id=f.performerID||'',s=f.agreementStart||'',e=f.agreementEnd||'';
+  const n=(f.performerName||'').toUpperCase(),pid=f.performerID||'',period=f.contractPeriod||'',sn=f.seasonNumber||'',ep=f.numEpisodes||'';
+  const r1=f.rateMonthlyRetainer||'',r2=f.rateFieldPerCall||'',r3=f.rateFieldTravelDay||'',r4=f.rateStudioAnchor||'';
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Presenter Contract</title><style>${_CT_CSS}</style></head><body>
   ${_ctLH(logo)}
-  <h1>Presenter Contract</h1>
-  <p style="margin:20px 0"><strong>Performer:</strong> ${n}${id?' &nbsp;·&nbsp; ID: '+id:''}</p>
-  <p><strong>Period:</strong> ${s} through ${e}</p>
-  <p style="margin-top:40px;color:#888;font-style:italic">Contract text to be configured — Phase 2.</p>
+  <h1>Principal Performer&#8217;s Acknowledgement<br>and Undertaking</h1>
+
+  <h3>1. Definitions</h3>
+  <p>For the purpose of this principal performer&#8217;s acknowledgement and undertaking, the following terms shall bear the following meanings:</p>
+  <p class="cl">1.1. Electronic Media Network Proprietary Limited (&#8220;M-Net&#8221;) is &#8212;</p>
+  <p class="cl2">(i) a company incorporated in accordance with the laws of the Republic of South Africa with registration number 1985/002853/07; and</p>
+  <p class="cl2">(ii) a broadcaster in South Africa and through its affiliates broadcasts, exhibits, transmits, makes available and/or communicates material to the public, in various areas of the world by various manners and media whether of a traditional, new or convergent nature and whether now known or hereinafter invented, including, without limitation, the Internet, satellite broadcast and other technology (&#8220;the M-Net Services&#8221;);</p>
+  <p class="cl">1.2. &#8220;the Copyright Act&#8221; means the Copyright Act 98 of 1978, as amended;</p>
+  <p class="cl">1.3. &#8220;the Performer&#8221; means the principal performer, <span class="v">${n}</span> with ID number <span class="v">${pid}</span>;</p>
+  <p class="cl">1.4. &#8220;the Performer Agreement&#8221; means the performer agreement entered into between the Producer and the Performer, dated <span class="v">${period}</span>;</p>
+  <p class="cl">1.5. &#8220;the Performers&#8217; Protection Act&#8221; means the Performers&#8217; Protection Act 11 of 1967, as amended;</p>
+  <p class="cl">1.6. &#8220;the Producer&#8221; means Combined Artistic Productions (PTY) Ltd with registration number 2019/196874/07;</p>
+  <p class="cl">1.7. &#8220;the Production Agreement&#8221; means the production agreement entered into between M-Net and the Producer, dated <span class="v">${period}</span>;</p>
+  <p class="cl">1.8. &#8220;the Role&#8221; means the role to be portrayed and performed by the Performer in the Programme as specified in Schedule &#8220;A&#8221; to this acknowledgement and undertaking;</p>
+  <p class="cl">1.9. &#8220;Script&#8221; means the original literary work, being a television Programme script entitled Carte Blanche, Season <span class="v">${sn}</span>; and</p>
+  <p class="cl">1.10. &#8220;the Programme&#8221; means the television programme provisionally entitled Carte Blanche, <span class="v">${sn}</span>, to be produced by the Producer, pursuant to having been commissioned to do so by M-Net in terms of the Production Agreement which will consist of <span class="v">${ep} episodes</span>, each of 46 minutes in duration.</p>
+
+  <h3>2. Introduction</h3>
+  <p class="cl">2.1. M-Net and the Producer have entered into a Production Agreement in terms of which M-Net has commissioned the Producer to produce the Programme.</p>
+  <p class="cl">2.2. The Producer and the Performer have entered into the Performer Agreement in terms of which the Performer will portray and perform the Role in the Programme.</p>
+  <p class="cl">2.3. The Performer provides the acknowledgements and undertakings in favour of M-Net and/or the Producer, as stated hereunder.</p>
+
+  <h3>3. Complete consideration / Buy-out</h3>
+  <p class="cl">3.1. The Performer acknowledges and agrees that the consideration payable to the Performer by the Producer in terms of the Performer Agreement constitutes the full, complete and sufficient consideration in respect of the rendering of the services by the Performer and the grant of any and all rights by the Performer under the Performer Agreement, and includes:</p>
+  <p class="cl2">3.1.1. the Performer&#8217;s participation in any money received by M-Net, or profits related to the Programme or the exploitation thereof which may accrue to M-Net; and</p>
+  <p class="cl2">3.1.2. any repeat or residual fees of any nature whatsoever in respect of the services rendered by the Performer in terms of the Performer Agreement; and</p>
+  <p class="cl2">3.1.3. any and all royalties or any other consideration to which the Performer may be entitled, as may be contemplated under section 5 of the Performers&#8217; Protection Act, in respect of the reproduction, use and exploitation of the Programme and related material incorporating the Performer&#8217;s performance pursuant to the Performer Agreement.</p>
+  <p class="cl">3.2. The Performer accordingly agrees that M-Net shall not pay the Performer any further fees or royalties in connection with the services rendered under the Performer Agreement or the Performer&#8217;s contribution to the Programme including, without limitation, when the Programme is rebroadcast or exploited in any other form of media either by M-Net, its affiliates or any of its third party licensees. Notwithstanding the foregoing, it is agreed that in the event parliament passes legislation during the term of the Performer Agreement that provides for mandatory payment to performers of further fees or royalties by broadcasters in respect of repeat broadcasts of programmes, then M-Net shall pay the Performer any such further fees or royalties in respect of the repeat broadcasts of the Programme as may be required by legislation with effect from the date prescribed by parliament and in the manner provided for under such legislation.</p>
+
+  <h3>4. Intellectual Property</h3>
+  <p class="cl">4.1. All copyright, intellectual property rights and performance rights of whatsoever nature arising out of the performance by the Performer of his/her obligations in terms of the Performer Agreement are, to the extent that they do not vest automatically in the Producer, hereby irrevocably ceded and assigned, in perpetuity, to the Producer. It is recorded that in terms of the Production Agreement, the Producer in turn assigns all such rights to M-Net, worldwide and in perpetuity, without limitation.</p>
+  <p class="cl">4.2. For the avoidance of any doubt, it is recorded, acknowledged and agreed that M-Net shall own all right, title and interest in and to:</p>
+  <p class="cl2">4.2.1. the Programme, and any portion thereof (and any and all recorded footage); all works and materials underlying the Programme, and/or upon which the Programme will be based, including, without limitation, all drafts of the Script (including the final shooting version of the Script); and</p>
+  <p class="cl2">4.2.2. all works and materials that may be incorporated in and/or related to the Programme, including, without limitation, all off-cuts from the Programme and any unused footage and materials, worldwide and in perpetuity.</p>
+  <p class="cl">4.3. Accordingly, M-Net shall be entitled to exploit and/or dispose of all copyright and intellectual property rights in and to the Programme and all formats, ideas and concepts arising out of the Programme, in its sole discretion, anywhere in the world without any further payment to the Performer.</p>
+  <p class="cl">4.4. The Performer hereby:</p>
+  <p class="cl2">4.4.1. irrevocably and unconditionally grants to M-Net and the Producer, the right to photograph, portray, make recordings of and/or film the Performer, his/her portrayal and/or performance of the Role and record his/her voice and other sound effects in connection with the portrayal and/or performance of the Role for use in and in connection with the Programme (&#8220;the Performance&#8221;);</p>
+  <p class="cl2">4.4.2. irrevocably and unconditionally grants to M-Net, the exclusive right to reproduce in any manner or form, use, rebroadcast, exhibit, transmit, communicate or make available to the public, distribute or make an adaptation of (including, without limitation, by editing, cutting, rearranging or dubbing), and otherwise exploit (including without limitation, include in advertisements, promotions and publicity for the Programme), the Programme (or part thereof), incorporating the Performance (or any part thereof), in any manner and all media whether now known or hereinafter invented, worldwide and in perpetuity, or do, in relation to an adaptation of the Programme (or part thereof) incorporating the Performance (or part thereof), any of the aforementioned acts, worldwide and in perpetuity;</p>
+  <p class="cl2">4.4.3. waives in favour of each of M-Net and the Producer, and each of their successors in title and assigns, any moral rights, as envisaged in the Copyright Act, which may vest in the Performer, in respect of any part of the Programme, any M-Net programme or other event or function attended, recorded and/or filmed by the Producer, M-Net and/or its agent/s arising out of or related to the Performance; and</p>
+  <p class="cl2">4.4.4. grants to each of M-Net and the Producer, an exclusive transferable licence to use and authorise others to use, produce and exploit in any manner and in all media worldwide and in perpetuity, his/her name, sobriquet, profile, photograph, likeness (whether actual or simulated), biographical material, voice, sound effect, caricature and the like (&#8220;the Performer&#8217;s Image&#8221;) for advertising and publicity purposes in respect of the promotion of the Programme and the M-Net Services only. It is specifically recorded, acknowledged and agreed that this paragraph 4.4.4 shall not be construed so as to entitle M-Net to use the Performer&#8217;s Image for the purposes of the endorsement of any product or service other than (i) the Programme or any M-Net Service or (ii) by way of the Performer&#8217;s indirect association with any sponsor of the Programme, by virtue only of the Performer&#8217;s performance in the Programme.</p>
+
+  <h3>5. The Performer&#8217;s Obligations</h3>
+  <p class="cl">5.1. The Performer undertakes to make himself/herself available, at such times as may be agreed between M-Net and/or the Producer on the one hand, and the Performer on the other hand, during the production of the Programme and after completion of production of the Programme, at no extra cost to M-Net or the Producer, for any reasonable publicity work related to the Programme that is deemed necessary by M-Net&#8217;s Public Relations Department and/or the Producer, including but not limited to, print media, radio and television interviews, programme director and master of ceremonies work, related to the publicity of the Programme. For the avoidance of any doubt, it is acknowledged and agreed that the Performer&#8217;s schedule may not necessarily allow for the Performer to make himself/herself available at the times proposed by M-Net and that to the extent that it is not possible for M-Net and the Performer to reach agreement in respect of a time at which the Performer is able to make himself available, the Performer will not be obliged to make himself/herself available in terms of this clause 5; and</p>
+  <p class="cl">5.2. not to include in any of his/her public appearances, or at any functions or events presented or attended by him/her, any matter that may be obscene, racially offensive, pornographic, abusive or embarrassing to M-Net.</p>
+
+  <h3>6. Confidentiality</h3>
+  <p class="cl">6.1. The Performer shall not disclose to any third party, any information relating to the terms and conditions of this acknowledgement, except to the extent necessary to comply with any law or valid court order.</p>
+  <p class="cl">6.2. The Performer shall not at any time, disclose to any person whatsoever, any information relating to M-Net or its business or trade secrets, of which the Performer has or may come into possession.</p>
+  <p class="cl">6.3. The Performer shall not at any time release any statement to the press or make any other public statement of any nature which could reasonably be expected to be published in the media regarding this acknowledgement or any other matters concerning M-Net, without M-Net&#8217;s prior written authority to do so. Notwithstanding the aforegoing, it is recorded that in the Performer&#8217;s capacity as a public figure, the Performer will be entitled to freely communicate with the press and make public statements on any other matter, provided such statements will not directly relate to the Programme or M-Net.</p>
+
+  <h3>7. Further assurances</h3>
+  <p>To the extent necessary, the Performer undertakes, when called upon to do so by M-Net and/or the Producer, to sign any documentation or enter into any agreement to give effect to the rights granted to M-Net and/or the Producer in terms of this acknowledgement and undertaking.</p>
+
+  <h3>8. Acknowledgement given freely and voluntarily</h3>
+  <p>The Performer confirms that this acknowledgement has been made freely and voluntarily.</p>
+  <p>I confirm that I undertake to familiarise myself with the Multichoice group code of ethics available at <em>https://investors.multichoice.com/governance.php</em></p>
+  <p style="margin-top:16px">Signed at and accepted by <span class="v">${n}</span> on ______________________________</p>
+  <div class="sig-grid" style="margin-top:24px">
+    <div><div class="sig-line"></div><div class="sig-name">${n}</div></div>
+    <div></div>
+    <div><div class="sig-line"></div><div class="sig-name">${_CT_SIG1}</div></div>
+    <div><div class="sig-line"></div><div class="sig-name">${_CT_SIG2}</div></div>
+  </div>
+
+  <div class="new-page" style="page-break-inside:avoid">
+    <h2>Schedule &#8220;A&#8221; &#8212; The Role &amp; Rates</h2>
+    <table style="width:100%;border-collapse:collapse;margin:20px 0">
+      <tr>
+        <td style="padding:10px 0;vertical-align:top;width:220px;font-weight:700;font-size:10.5pt">Monthly Retainer:</td>
+        <td style="padding:10px 0;font-weight:700;font-size:10.5pt">${r1||'(to be completed)'}</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding:0 0 10px 0;font-size:9.5pt;color:#555;font-style:italic">Includes: voice overs for field stories done</td>
+      </tr>
+      <tr style="border-top:1px solid #eee">
+        <td style="padding:10px 0;vertical-align:top;font-weight:700;font-size:10.5pt">Field Presenter:</td>
+        <td style="padding:10px 0;font-weight:700;font-size:10.5pt">${r2||'(to be completed)'} per call</td>
+      </tr>
+      <tr>
+        <td style="padding:0 0 4px 0;vertical-align:top;font-weight:700;font-size:10.5pt"></td>
+        <td style="padding:0 0 10px 0;font-weight:700;font-size:10.5pt">${r3||'(to be completed)'} per travel day / half day</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding:0 0 10px 0;font-size:9.5pt;color:#555;font-style:italic">* Performer to be booked according to production schedule and performer&#8217;s availability.</td>
+      </tr>
+      <tr style="border-top:1px solid #eee">
+        <td style="padding:10px 0;vertical-align:top;font-weight:700;font-size:10.5pt">Studio Anchor:</td>
+        <td style="padding:10px 0;font-weight:700;font-size:10.5pt">${r4||'(to be completed)'} per live transmission</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding:0 0 4px 0;font-size:9.5pt;color:#555;font-style:italic">* Performer to be on a rotating basis with 5 other performers.</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding:0 0 10px 0;font-size:9.5pt;color:#555;font-style:italic">* Bookings depend on performer&#8217;s availability and the equal split of studio shifts.</td>
+      </tr>
+    </table>
+    <div class="sig-grid" style="margin-top:24px">
+      <div><div class="sig-line"></div><div class="sig-name">${n}</div></div>
+      <div></div>
+      <div><div class="sig-line"></div><div class="sig-name">${_CT_SIG1}</div></div>
+      <div><div class="sig-line"></div><div class="sig-name">${_CT_SIG2}</div></div>
+    </div>
+  </div>
   ${_ctFoot(logo)}
   </body></html>`;
 }
