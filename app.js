@@ -1,6 +1,7 @@
 import{initializeApp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,createUserWithEmailAndPassword,updateProfile}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import{getFirestore,doc,collection,onSnapshot,setDoc,updateDoc,getDoc,getDocs,deleteDoc,serverTimestamp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import{getStorage,ref,uploadBytes,getDownloadURL}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
 
 const STORAGE_KEY='cb_portal_cfg_v2';
 const ADMIN_EMAIL='rudi@combinedartists.co.za';
@@ -91,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.149';
+const BUILD_VERSION='3.10.150';
 const BUILD_DATE='1 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null;
@@ -115,7 +116,7 @@ let leaveBalances={};
 let leaveFormOpen=false;
 let leaveCancelModal=null;
 let leaveExportWeek='';
-let leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',sickNoteFile:null};
+let leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',attachmentFile:null};
 let leaveDeclineModal=null;
 let leaveReviewModal=null; // {id, showReject}
 let leaveViewMode='my'; // 'my'|'calendar'|'manage'
@@ -176,7 +177,8 @@ let commEditModal=null; // commission id — edit crew/deliverables modal
 let addUserModal=false,newUserData={email:'',password:'',displayName:'',role:'editorial'},editUserModal=null,deleteUserModal=null;
 let toast=null,toastTimer=null,pendingFocusId=null;
 
-function initFB(cfg){try{fbApp=initializeApp(cfg);auth=getAuth(fbApp);db=getFirestore(fbApp);return true;}catch(e){console.error(e);return false;}}
+let storage;
+function initFB(cfg){try{fbApp=initializeApp(cfg);auth=getAuth(fbApp);db=getFirestore(fbApp);storage=getStorage(fbApp);return true;}catch(e){console.error(e);return false;}}
 
 async function saveComm(c){setSyncDot('saving');try{await setDoc(doc(db,'commissions',String(c.id)),{...c,updatedAt:serverTimestamp()});setSyncDot('live');}catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}}
 
@@ -2155,11 +2157,11 @@ function renderLeave(){
           <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Reason</label>
           <textarea id="leave-reason" rows="2" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px;resize:vertical">${esc(fd.reason||'')}</textarea>
         </div>
-        ${fd.leaveType==='sick'?`<div style="grid-column:1/-1">
-          <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Sick Note <span style="color:#484f58;font-weight:400;text-transform:none">(optional)</span></label>
+        ${(fd.leaveType==='sick'||fd.leaveType==='study')?`<div style="grid-column:1/-1">
+          <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">${fd.leaveType==='sick'?"Doctor's Note":"Exam Schedule"} <span style="color:#484f58;font-weight:400;text-transform:none">(optional)</span></label>
           <div style="display:flex;align-items:center;gap:10px">
-            <label class="btn" style="cursor:pointer;font-size:11px">📎 Attach Sick Note<input type="file" id="leave-sick-note" accept=".pdf,.jpg,.jpeg,.png" style="display:none"></label>
-            <span id="sick-note-name" style="font-size:11px;color:#6e7681">${fd.sickNoteFile?fd.sickNoteFile.name:'No file selected'}</span>
+            <label class="btn" style="cursor:pointer;font-size:11px">📎 Attach Document<input type="file" id="leave-attachment" accept=".pdf,.jpg,.jpeg,.png" style="display:none"></label>
+            <span id="attachment-name" style="font-size:11px;color:#6e7681">${fd.attachmentFile?fd.attachmentFile.name:'No file selected'}</span>
           </div>
         </div>`:''}
       </div>
@@ -2181,7 +2183,7 @@ function renderLeave(){
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px">
-            ${r.hasSickNote?`<span style="font-size:10px;color:#3fb950">📎</span>`:''}
+            ${r.attachmentUrl?`<a href="${r.attachmentUrl}" target="_blank" style="font-size:10px;color:#3fb950;text-decoration:none" title="View attached document">📎</a>`:r.hasSickNote?`<span style="font-size:10px;color:#3fb950" title="Document attached">📎</span>`:''}
             <span style="font-size:10px;font-weight:700;color:${sc};text-transform:uppercase;background:${sc}22;padding:2px 8px;border-radius:3px">${r.status}</span>
             ${r.adminNote?`<span style="font-size:11px;color:#6e7681;font-style:italic">"${esc(r.adminNote)}"</span>`:''}
             ${(r.status==='pending'||r.status==='approved')?`<button class="btn danger" data-leave-cancel="${id}" data-leave-status="${r.status}" style="font-size:10px;padding:2px 8px">Cancel</button>`:''}
@@ -2275,7 +2277,7 @@ function renderLeave(){
         </div>
       </div>
       ${r.reason?`<div style="margin-top:8px;font-size:11px;color:#8b949e;text-align:left">Reason: ${esc(r.reason)}</div>`:''}
-      ${r.hasSickNote?`<div style="margin-top:4px;font-size:11px;color:#3fb950;text-align:left">📎 Sick note attached</div>`:''}
+      ${r.attachmentUrl?`<div style="margin-top:4px;font-size:11px;text-align:left"><a href="${r.attachmentUrl}" target="_blank" style="color:#3fb950;text-decoration:none">📎 View attached document</a></div>`:r.hasSickNote?`<div style="margin-top:4px;font-size:11px;color:#3fb950;text-align:left">📎 Document attached</div>`:''}
     </div>`;
   }
   const leaveUsers=users.filter(u=>u.role==='capstaff'||(u.extraRoles||[]).includes('capstaff')||u.role==='admin'||u.role==='deputyadmin');
@@ -2479,7 +2481,7 @@ function renderLeaveReviewModal(){
         <div style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:4px">Staff Reason</div>
         <div style="font-size:13px;color:#cdd9e5">${esc(r.reason)}</div>
       </div>`:''}
-      ${r.hasSickNote?`<div style="font-size:12px;color:#3fb950;margin-bottom:14px">📎 Sick note attached</div>`:''}
+      ${r.attachmentUrl?`<div style="margin-bottom:14px"><a href="${r.attachmentUrl}" target="_blank" style="font-size:12px;color:#3fb950;text-decoration:none">📎 View attached document</a></div>`:r.hasSickNote?`<div style="font-size:12px;color:#3fb950;margin-bottom:14px">📎 Document attached</div>`:''}
       ${!showReject?`
         <div class="modal-actions">
           <button class="btn" id="lv-review-cancel">Cancel</button>
@@ -7290,7 +7292,7 @@ function bindApp(){
   });
   document.getElementById('leave-new-btn')?.addEventListener('click',()=>{
     leaveFormOpen=true;
-    leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',sickNoteFile:null};
+    leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',attachmentFile:null};
     render();
   });
   document.getElementById('leave-form-close')?.addEventListener('click',()=>{leaveFormOpen=false;render();});
@@ -7306,10 +7308,10 @@ function bindApp(){
     leaveDraft.endDate=e.target.value;render();
   });
   document.getElementById('leave-reason')?.addEventListener('blur',e=>{leaveDraft.reason=e.target.value;});
-  document.getElementById('leave-sick-note')?.addEventListener('change',e=>{
-    leaveDraft.sickNoteFile=e.target.files[0]||null;
-    const nameEl=document.getElementById('sick-note-name');
-    if(nameEl)nameEl.textContent=leaveDraft.sickNoteFile?leaveDraft.sickNoteFile.name:'No file selected';
+  document.getElementById('leave-attachment')?.addEventListener('change',e=>{
+    leaveDraft.attachmentFile=e.target.files[0]||null;
+    const nameEl=document.getElementById('attachment-name');
+    if(nameEl)nameEl.textContent=leaveDraft.attachmentFile?leaveDraft.attachmentFile.name:'No file selected';
   });
 
   // Submit leave application
@@ -7335,15 +7337,24 @@ function bindApp(){
       }
     }
     const id='leave_'+currentUser.uid+'_'+Date.now();
+    let attachmentUrl=null;
+    if(leaveDraft.attachmentFile&&storage){
+      try{
+        const storageRef=ref(storage,`leave_attachments/${id}/${leaveDraft.attachmentFile.name}`);
+        const snap=await uploadBytes(storageRef,leaveDraft.attachmentFile);
+        attachmentUrl=await getDownloadURL(snap.ref);
+      }catch(e){console.error('Attachment upload failed',e);showToast('Could not upload attachment — submitting without it.',true);}
+    }
     await saveLeaveRequest(id,{
       uid:currentUser.uid,userName:currentUser.displayName||currentUser.email,
       leaveType,startDate,endDate,reason,
-      hasSickNote:!!(leaveDraft.sickNoteFile),
+      hasSickNote:!!(leaveDraft.attachmentFile),
+      ...(attachmentUrl?{attachmentUrl}:{}),
       status:'pending',submittedAt:Date.now()
     });
     showToast('Leave application submitted!');
     leaveFormOpen=false;
-    leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',sickNoteFile:null};
+    leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',attachmentFile:null};
     render();
   });
 
