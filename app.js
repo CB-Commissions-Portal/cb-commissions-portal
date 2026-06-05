@@ -92,10 +92,10 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.150';
-const BUILD_DATE='1 Jun 2026';
+const BUILD_VERSION='3.10.151';
+const BUILD_DATE='5 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
-let syncStatus='offline',unsubComms=null,unsubSettings=null;
+let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
 let studioCrew={}; // {epNum: {studioDirector:'', ad:'', ...}}
 let studioSchedule={}; // {epNum:{director,asstDir,makeup,autocue(Autocue Operator),floorMgr,production,bookingFrom,bookingTo}}
@@ -460,9 +460,23 @@ async function saveROS(epNum,data){
   try{await setDoc(doc(db,'run_of_show',String(epNum)),{...data,updatedAt:serverTimestamp(),updatedByName,updatedAtStr});setSyncDot('live');}
   catch(e){setSyncDot('offline');showToast('ROS save failed: '+e.message,true);}
 }
-async function loadROS(){
-  try{const snap=await getDocs(collection(db,'run_of_show'));snap.docs.forEach(d=>{rosData[d.id]={...d.data()};});}
-  catch(e){console.error('ROS load:',e);}
+function subscribeROS(){
+  if(unsubROS)unsubROS();
+  return new Promise(resolve=>{
+    let resolved=false;
+    unsubROS=onSnapshot(collection(db,'run_of_show'),snap=>{
+      snap.docs.forEach(d=>{
+        const epId=d.id;
+        const editingThisEp=(rosEditModal&&String(rosEditModal.epNum)===epId)||(rosScriptModal&&String(rosScriptModal.epNum)===epId);
+        if(!editingThisEp)rosData[epId]={...d.data()};
+      });
+      if(!resolved){resolved=true;resolve();}
+      else if(tab==='ros'&&!rosEditModal&&!rosScriptModal){
+        const active=document.activeElement;
+        if(!active?.classList.contains('ros-content')&&!active?.classList.contains('ros-dur'))render();
+      }
+    },e=>{console.error('ROS snapshot:',e);if(!resolved){resolved=true;resolve();}});
+  });
 }
 async function exportAllDataToJSON(){
   showToast('Collecting data — this may take a moment…');
@@ -10065,7 +10079,7 @@ async function boot(){
         loadPresCal().catch(e=>console.error('Presenter calendar error:',e)),
         loadLineups().catch(e=>console.error('Lineup load error:',e)),
         loadPostProd().catch(e=>console.error('Post prod load error:',e)),
-        loadROS().catch(e=>console.error('ROS load error:',e)),
+        subscribeROS().catch(e=>console.error('ROS subscribe error:',e)),
         loadCallSheets().catch(e=>console.error('Call sheets load error:',e)),
         loadFCCData().catch(e=>console.error('FCC data load error:',e)),
         loadContracts().catch(e=>console.error('Contracts load error:',e)),
@@ -10076,6 +10090,7 @@ async function boot(){
       currentUser=null;currentRole=null;
       if(unsubComms){unsubComms();unsubComms=null;}
       if(unsubSettings){unsubSettings();unsubSettings=null;}
+      if(unsubROS){unsubROS();unsubROS=null;}
       render();
     }
   });
