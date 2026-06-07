@@ -92,10 +92,10 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.151';
-const BUILD_DATE='5 Jun 2026';
+const BUILD_VERSION='3.10.152';
+const BUILD_DATE='7 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
-let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null;
+let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
 let studioCrew={}; // {epNum: {studioDirector:'', ad:'', ...}}
 let studioSchedule={}; // {epNum:{director,asstDir,makeup,autocue(Autocue Operator),floorMgr,production,bookingFrom,bookingTo}}
@@ -385,6 +385,24 @@ async function loadPromoData(){
     snap.docs.forEach(d=>{promoData[d.id]={...d.data()};});
   }catch(e){console.error('Promo data load error:',e);}
 }
+function subscribePromoData(){
+  if(unsubPromo)unsubPromo();
+  return new Promise(resolve=>{
+    let resolved=false;
+    unsubPromo=onSnapshot(collection(db,'promo_scheduling'),snap=>{
+      const active=document.activeElement;
+      const fresh={};
+      snap.docs.forEach(d=>{
+        const ep=d.id;
+        const editingThis=active&&(active.classList.contains('promo-date-inp')||active.classList.contains('promo-uid-inp')||active.classList.contains('promo-live-type')||active.classList.contains('promo-live-uid')||active.classList.contains('promo-content-inp'))&&active.dataset.ep===ep;
+        fresh[ep]=editingThis?(promoData[ep]||{...d.data()}):{...d.data()};
+      });
+      promoData=fresh;
+      if(!resolved){resolved=true;resolve();}
+      else if(tab==='promos'){if(!active?.classList.contains('promo-date-inp')&&!active?.classList.contains('promo-uid-inp')&&!active?.classList.contains('promo-live-type')&&!active?.classList.contains('promo-live-uid')&&!active?.classList.contains('promo-content-inp'))render();}
+    },e=>{console.error('Promo snapshot:',e);if(!resolved){resolved=true;resolve();}});
+  });
+}
 
 async function saveUIDPool(){
   setSyncDot('saving');
@@ -409,6 +427,17 @@ async function loadDeliverables(){
   try{const snap=await getDocs(collection(db,'deliverables'));snap.docs.forEach(d=>{deliverables[d.id]={...d.data()};});}
   catch(e){console.error('Deliverables error:',e);}
 }
+function subscribeDeliverables(){
+  if(unsubDeliverables)unsubDeliverables();
+  return new Promise(resolve=>{
+    let resolved=false;
+    unsubDeliverables=onSnapshot(collection(db,'deliverables'),snap=>{
+      const fresh={};snap.docs.forEach(d=>{fresh[d.id]={...d.data()};});deliverables=fresh;
+      if(!resolved){resolved=true;resolve();}
+      else if(tab==='deliverables')render();
+    },e=>{console.error('Deliverables snapshot:',e);if(!resolved){resolved=true;resolve();}});
+  });
+}
 function isEpFinalised(epNum){
   const d=deliverables[String(epNum)]||{};
   return DELIVERABLE_TASKS.every(t=>d[t.key]);
@@ -424,6 +453,24 @@ async function loadPresCal(){
     if(endSnap.exists()&&endSnap.data().endDate)PRES_CAL_END=endSnap.data().endDate;
   }catch(e){console.error('Presenter calendar error:',e);}
 }
+function subscribePresCalData(){
+  if(unsubPresCalData)unsubPresCalData();
+  if(unsubPresCalEnd)unsubPresCalEnd();
+  return new Promise(resolve=>{
+    let calResolved=false,endResolved=false;
+    const tryResolve=()=>{if(calResolved&&endResolved)resolve();};
+    unsubPresCalData=onSnapshot(collection(db,'presenter_calendar'),snap=>{
+      const fresh={};snap.docs.forEach(d=>{fresh[d.id]={...d.data()};});presCalData=fresh;presCalLoaded=true;
+      if(!calResolved){calResolved=true;tryResolve();}
+      else if(tab==='prescal')render();
+    },e=>{console.error('PresCalData snapshot:',e);if(!calResolved){calResolved=true;tryResolve();}});
+    unsubPresCalEnd=onSnapshot(doc(db,'settings','presCalEnd'),snap=>{
+      if(snap.exists()&&snap.data().endDate)PRES_CAL_END=snap.data().endDate;
+      if(!endResolved){endResolved=true;tryResolve();}
+      else if(tab==='prescal')render();
+    },e=>{console.error('PresCalEnd snapshot:',e);if(!endResolved){endResolved=true;tryResolve();}});
+  });
+}
 async function savePPEntry(commNum,data){
   setSyncDot('saving');
   try{await setDoc(doc(db,'postprod',String(commNum)),{...data,updatedAt:serverTimestamp()});ppData[commNum]={...data};setSyncDot('live');}
@@ -438,6 +485,17 @@ async function loadCallSheets(){
   try{const snap=await getDocs(collection(db,'call_sheets'));snap.docs.forEach(d=>{callSheetData[d.id]={...d.data()};});}
   catch(e){console.error('Call sheets load:',e);}
 }
+function subscribeCallSheets(){
+  if(unsubCallSheets)unsubCallSheets();
+  return new Promise(resolve=>{
+    let resolved=false;
+    unsubCallSheets=onSnapshot(collection(db,'call_sheets'),snap=>{
+      const fresh={};snap.docs.forEach(d=>{fresh[d.id]={...d.data()};});callSheetData=fresh;
+      if(!resolved){resolved=true;resolve();}
+      else if(tab==='callsheet')render();
+    },e=>{console.error('CallSheets snapshot:',e);if(!resolved){resolved=true;resolve();}});
+  });
+}
 async function saveContractDoc(id,data){
   setSyncDot('saving');
   try{await setDoc(doc(db,'contracts',String(id)),{...data,updatedAt:serverTimestamp()});ctContractsData[id]={...data};setSyncDot('live');}
@@ -451,6 +509,17 @@ async function deleteContractDoc(id){
 async function loadContracts(){
   try{const snap=await getDocs(collection(db,'contracts'));snap.docs.forEach(d=>{ctContractsData[d.id]={...d.data()};});}
   catch(e){console.error('Contracts load:',e);}
+}
+function subscribeContracts(){
+  if(unsubContracts)unsubContracts();
+  return new Promise(resolve=>{
+    let resolved=false;
+    unsubContracts=onSnapshot(collection(db,'contracts'),snap=>{
+      const fresh={};snap.docs.forEach(d=>{fresh[d.id]={...d.data()};});ctContractsData=fresh;
+      if(!resolved){resolved=true;resolve();}
+      else if(tab==='contracts'&&ctView==='list')render();
+    },e=>{console.error('Contracts snapshot:',e);if(!resolved){resolved=true;resolve();}});
+  });
 }
 async function saveROS(epNum,data){
   setSyncDot('saving');
@@ -580,6 +649,37 @@ async function loadPostProd(){
     ppActiveComms=Object.keys(ppData).sort((a,b)=>Number(a)-Number(b));
   }
 }
+function subscribePostProd(){
+  if(unsubPP)unsubPP();
+  if(unsubPPMeta)unsubPPMeta();
+  return new Promise(resolve=>{
+    let ppLoaded=false,metaLoaded=false;
+    const tryResolve=()=>{
+      if(ppLoaded&&metaLoaded){
+        if(!ppActiveComms.length&&Object.keys(ppData).length){
+          ppActiveComms=Object.keys(ppData).sort((a,b)=>Number(a)-Number(b));
+          savePPActiveComms().catch(e=>console.warn('ppActiveComms migrate:',e));
+        }
+        resolve();
+      }
+    };
+    unsubPP=onSnapshot(collection(db,'postprod'),snap=>{
+      const active=document.activeElement;
+      snap.docs.forEach(d=>{
+        const cn=d.id;
+        const editingThis=active&&(active.classList.contains('pp-cell')||active.classList.contains('pp-del-date'))&&active.dataset.commnum===cn;
+        if(!editingThis)ppData[cn]={...d.data()};
+      });
+      if(!ppLoaded){ppLoaded=true;tryResolve();}
+      else if(tab==='postprod'){const a=document.activeElement;if(!a?.classList.contains('pp-cell')&&!a?.classList.contains('pp-del-date'))render();}
+    },e=>{console.error('PP snapshot:',e);if(!ppLoaded){ppLoaded=true;tryResolve();}});
+    unsubPPMeta=onSnapshot(doc(db,'postprod_meta','activeComms'),snap=>{
+      if(snap.exists()&&snap.data().list)ppActiveComms=snap.data().list;
+      if(!metaLoaded){metaLoaded=true;tryResolve();}
+      else if(tab==='postprod'){const a=document.activeElement;if(!a?.classList.contains('pp-cell')&&!a?.classList.contains('pp-del-date'))render();}
+    },e=>{console.error('PPMeta snapshot:',e);if(!metaLoaded){metaLoaded=true;tryResolve();}});
+  });
+}
 async function savePPActiveComms(){
   try{await setDoc(doc(db,'postprod_meta','activeComms'),{list:ppActiveComms,updatedAt:serverTimestamp()});}
   catch(e){console.warn('ppActiveComms save:',e);}
@@ -592,6 +692,22 @@ async function saveLineup(epNum,data){
 async function loadLineups(){
   try{const snap=await getDocs(collection(db,'lineups'));snap.docs.forEach(d=>{lineups[d.id]={...d.data()};});}
   catch(e){console.error('Lineup load error:',e);}
+}
+function subscribeLineups(){
+  if(unsubLineups)unsubLineups();
+  return new Promise(resolve=>{
+    let resolved=false;
+    unsubLineups=onSnapshot(collection(db,'lineups'),snap=>{
+      const active=document.activeElement;
+      snap.docs.forEach(d=>{
+        const ep=d.id;
+        const editingThis=active&&(active.classList.contains('lu-director')||active.classList.contains('lu-pres1')||active.classList.contains('lu-pres2')||active.classList.contains('lu-live-note')||active.classList.contains('lu-live-dur'))&&active.dataset.ep===ep;
+        if(!editingThis)lineups[ep]={...d.data()};
+      });
+      if(!resolved){resolved=true;resolve();}
+      else if(tab==='lineups'){const a=document.activeElement;if(!a?.classList.contains('lu-director')&&!a?.classList.contains('lu-pres1')&&!a?.classList.contains('lu-pres2')&&!a?.classList.contains('lu-live-note')&&!a?.classList.contains('lu-live-dur'))render();}
+    },e=>{console.error('Lineups snapshot:',e);if(!resolved){resolved=true;resolve();}});
+  });
 }
 async function saveLeaveRequest(id,data){
   setSyncDot('saving');
@@ -610,6 +726,17 @@ async function loadLeaveBalances(){
   try{const snap=await getDocs(collection(db,'leave_balances'));snap.docs.forEach(d=>{leaveBalances[d.id]={...d.data()};});}
   catch(e){console.error('Leave balances error:',e);}
 }
+function subscribeLeaveBalances(){
+  if(unsubLeaveBalances)unsubLeaveBalances();
+  return new Promise(resolve=>{
+    let resolved=false;
+    unsubLeaveBalances=onSnapshot(collection(db,'leave_balances'),snap=>{
+      const fresh={};snap.docs.forEach(d=>{fresh[d.id]={...d.data()};});leaveBalances=fresh;
+      if(!resolved){resolved=true;resolve();}
+      else if(tab==='leave')render();
+    },e=>{console.error('LeaveBalances snapshot:',e);if(!resolved){resolved=true;resolve();}});
+  });
+}
 async function saveMusicCue(id,data){
   setSyncDot('saving');
   try{await setDoc(doc(db,'music_cues',String(id)),{...data,updatedAt:serverTimestamp()});musicCues[id]={...data};setSyncDot('live');}
@@ -618,6 +745,17 @@ async function saveMusicCue(id,data){
 async function loadMusicCues(){
   try{const snap=await getDocs(collection(db,'music_cues'));snap.docs.forEach(d=>{musicCues[d.id]={...d.data()};});}
   catch(e){console.error('Music cues error:',e);}
+}
+function subscribeMusicCues(){
+  if(unsubMusicCues)unsubMusicCues();
+  return new Promise(resolve=>{
+    let resolved=false;
+    unsubMusicCues=onSnapshot(collection(db,'music_cues'),snap=>{
+      const fresh={};snap.docs.forEach(d=>{fresh[d.id]={...d.data()};});musicCues=fresh;
+      if(!resolved){resolved=true;resolve();}
+      else if(tab==='musiccues')render();
+    },e=>{console.error('MusicCues snapshot:',e);if(!resolved){resolved=true;resolve();}});
+  });
 }
 function blankMCRow(){return{cue:'',trackTitle:'',composer:'',publisher:'',cmo:'',label:'',artist:'',albumNumber:'',albumTitle:'',trackNumber:'',usage:'',musicType:'PRODUCTION',duration:''}}
 
@@ -762,6 +900,22 @@ async function loadEndCredits(){
     snap.docs.forEach(d=>{endCredits[d.id]={...d.data()};});
   }catch(e){console.error('End credits load error:',e);}
 }
+function subscribeEndCredits(){
+  if(unsubEndCredits)unsubEndCredits();
+  return new Promise(resolve=>{
+    let resolved=false;
+    unsubEndCredits=onSnapshot(collection(db,'end_credits'),snap=>{
+      const active=document.activeElement;
+      snap.docs.forEach(d=>{
+        const ep=d.id;
+        const editingThis=active&&active.classList.contains('ec-inp')&&active.closest('[data-ep]')?.dataset.ep===ep;
+        if(!editingThis)endCredits[ep]={...d.data()};
+      });
+      if(!resolved){resolved=true;resolve();}
+      else if(tab==='credits'){if(!document.activeElement?.classList.contains('ec-inp'))render();}
+    },e=>{console.error('EndCredits snapshot:',e);if(!resolved){resolved=true;resolve();}});
+  });
+}
 
 
 async function saveStudioSchedule(ep,data){
@@ -771,6 +925,17 @@ async function saveStudioSchedule(ep,data){
 async function loadStudioSchedule(){
   try{const snap=await getDocs(collection(db,'studio_schedule'));snap.docs.forEach(d=>{studioSchedule[d.id]={...d.data()};});}
   catch(e){console.error(e);}
+}
+function subscribeStudioSched(){
+  if(unsubStudioSched)unsubStudioSched();
+  return new Promise(resolve=>{
+    let resolved=false;
+    unsubStudioSched=onSnapshot(collection(db,'studio_schedule'),snap=>{
+      const fresh={};snap.docs.forEach(d=>{fresh[d.id]={...d.data()};});studioSchedule=fresh;
+      if(!resolved){resolved=true;resolve();}
+      else if(tab==='studiosched')render();
+    },e=>{console.error('StudioSched snapshot:',e);if(!resolved){resolved=true;resolve();}});
+  });
 }
 
 async function saveStudioCrew(ep,data){
@@ -787,6 +952,22 @@ async function loadStudioCrew(){
     const snap=await getDocs(collection(db,'studio_crew'));
     snap.docs.forEach(d=>{studioCrew[d.id]={...d.data()};});
   }catch(e){console.error('Studio crew load error:',e);}
+}
+function subscribeStudioCrew(){
+  if(unsubStudioCrew)unsubStudioCrew();
+  return new Promise(resolve=>{
+    let resolved=false;
+    unsubStudioCrew=onSnapshot(collection(db,'studio_crew'),snap=>{
+      const active=document.activeElement;
+      snap.docs.forEach(d=>{
+        const ep=d.id;
+        const editingThis=active&&active.classList.contains('studio-ci')&&active.dataset.ep===ep;
+        if(!editingThis)studioCrew[ep]={...d.data()};
+      });
+      if(!resolved){resolved=true;resolve();}
+      else if(tab==='studio'){if(!document.activeElement?.classList.contains('studio-ci'))render();}
+    },e=>{console.error('StudioCrew snapshot:',e);if(!resolved){resolved=true;resolve();}});
+  });
 }
 
 function getStudioACValues(field){
@@ -3563,6 +3744,17 @@ async function saveFCCData(ep, data){
 async function loadFCCData(){
   try{const snap=await getDocs(collection(db,'fcc_data'));snap.docs.forEach(d=>{fccData[d.id]={...d.data()};});}
   catch(e){console.error('FCC data load:',e);}
+}
+function subscribeFCCData(){
+  if(unsubFCC)unsubFCC();
+  return new Promise(resolve=>{
+    let resolved=false;
+    unsubFCC=onSnapshot(collection(db,'fcc_data'),snap=>{
+      const fresh={};snap.docs.forEach(d=>{fresh[d.id]={...d.data()};});fccData=fresh;
+      if(!resolved){resolved=true;resolve();}
+      else if(tab==='fcc')render();
+    },e=>{console.error('FCC snapshot:',e);if(!resolved){resolved=true;resolve();}});
+  });
 }
 
 function renderFCC(epNums){
@@ -10068,22 +10260,22 @@ async function boot(){
       try{subscribeLeaveRequests();}catch(e){console.error('Leave subscribe error:',e);}
       await Promise.all([
         loadUsers().catch(e=>console.error('Load users error:',e)),
-        loadStudioCrew().catch(e=>console.error('Studio crew error:',e)),
-        loadStudioSchedule().catch(e=>console.error('Studio schedule error:',e)),
-        loadEndCredits().catch(e=>console.error('End credits error:',e)),
-        loadPromoData().catch(e=>console.error('Promo data error:',e)),
         loadUIDPool().catch(e=>console.error('UID pool error:',e)),
-        loadMusicCues().catch(e=>console.error('Music cues error:',e)),
-        loadDeliverables().catch(e=>console.error('Deliverables error:',e)),
         loadLeaveRequests().catch(e=>console.error('Leave requests error:',e)),
-        loadPresCal().catch(e=>console.error('Presenter calendar error:',e)),
-        loadLineups().catch(e=>console.error('Lineup load error:',e)),
-        loadPostProd().catch(e=>console.error('Post prod load error:',e)),
         subscribeROS().catch(e=>console.error('ROS subscribe error:',e)),
-        loadCallSheets().catch(e=>console.error('Call sheets load error:',e)),
-        loadFCCData().catch(e=>console.error('FCC data load error:',e)),
-        loadContracts().catch(e=>console.error('Contracts load error:',e)),
-        loadLeaveBalances().catch(e=>console.error('Leave balances error:',e)),
+        subscribeStudioCrew().catch(e=>console.error('Studio crew error:',e)),
+        subscribeStudioSched().catch(e=>console.error('Studio schedule error:',e)),
+        subscribeEndCredits().catch(e=>console.error('End credits error:',e)),
+        subscribePromoData().catch(e=>console.error('Promo data error:',e)),
+        subscribeMusicCues().catch(e=>console.error('Music cues error:',e)),
+        subscribeDeliverables().catch(e=>console.error('Deliverables error:',e)),
+        subscribePresCalData().catch(e=>console.error('Presenter calendar error:',e)),
+        subscribeLineups().catch(e=>console.error('Lineup load error:',e)),
+        subscribePostProd().catch(e=>console.error('Post prod load error:',e)),
+        subscribeCallSheets().catch(e=>console.error('Call sheets load error:',e)),
+        subscribeFCCData().catch(e=>console.error('FCC data load error:',e)),
+        subscribeContracts().catch(e=>console.error('Contracts load error:',e)),
+        subscribeLeaveBalances().catch(e=>console.error('Leave balances error:',e)),
       ]);
       render();
     } else {
@@ -10091,6 +10283,22 @@ async function boot(){
       if(unsubComms){unsubComms();unsubComms=null;}
       if(unsubSettings){unsubSettings();unsubSettings=null;}
       if(unsubROS){unsubROS();unsubROS=null;}
+      if(unsubLeave){unsubLeave();unsubLeave=null;}
+      if(unsubLineups){unsubLineups();unsubLineups=null;}
+      if(unsubPP){unsubPP();unsubPP=null;}
+      if(unsubPPMeta){unsubPPMeta();unsubPPMeta=null;}
+      if(unsubPromo){unsubPromo();unsubPromo=null;}
+      if(unsubDeliverables){unsubDeliverables();unsubDeliverables=null;}
+      if(unsubPresCalData){unsubPresCalData();unsubPresCalData=null;}
+      if(unsubPresCalEnd){unsubPresCalEnd();unsubPresCalEnd=null;}
+      if(unsubCallSheets){unsubCallSheets();unsubCallSheets=null;}
+      if(unsubContracts){unsubContracts();unsubContracts=null;}
+      if(unsubMusicCues){unsubMusicCues();unsubMusicCues=null;}
+      if(unsubEndCredits){unsubEndCredits();unsubEndCredits=null;}
+      if(unsubStudioCrew){unsubStudioCrew();unsubStudioCrew=null;}
+      if(unsubStudioSched){unsubStudioSched();unsubStudioSched=null;}
+      if(unsubFCC){unsubFCC();unsubFCC=null;}
+      if(unsubLeaveBalances){unsubLeaveBalances();unsubLeaveBalances=null;}
       render();
     }
   });
