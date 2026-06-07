@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.153';
+const BUILD_VERSION='3.10.154';
 const BUILD_DATE='7 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
@@ -7449,13 +7449,13 @@ function bindApp(){
 
   // Deliverables checkboxes
   document.querySelectorAll('input.deliv-cb').forEach(cb=>{
-    cb.addEventListener('change',async()=>{
+    cb.addEventListener('change',()=>{
       const ep=cb.dataset.ep;
       const key=cb.dataset.key;
       if(!deliverables[ep])deliverables[ep]={};
       deliverables[ep][key]=cb.checked;
-      await saveDeliverables(ep,deliverables[ep]);
       render();
+      saveDeliverables(ep,deliverables[ep]);
     });
   });
 
@@ -7476,9 +7476,9 @@ function bindApp(){
     const ep=String(delivEditEp);
     if(!confirm('Reset ALL deliverables for Episode '+ep+'? This cannot be undone.'))return;
     deliverables[ep]={};
-    await saveDeliverables(ep,{});
-    showToast('Episode '+ep+' deliverables reset');
     render();
+    showToast('Episode '+ep+' deliverables reset');
+    saveDeliverables(ep,{});
   });
 
   // ── LEAVE BINDINGS ──────────────────────────────────────────────
@@ -7552,17 +7552,13 @@ function bindApp(){
         attachmentUrl=await getDownloadURL(snap.ref);
       }catch(e){console.error('Attachment upload failed',e);showToast('Could not upload attachment — submitting without it.',true);}
     }
-    await saveLeaveRequest(id,{
-      uid:currentUser.uid,userName:currentUser.displayName||currentUser.email,
-      leaveType,startDate,endDate,reason,
-      hasSickNote:!!(leaveDraft.attachmentFile),
-      ...(attachmentUrl?{attachmentUrl}:{}),
-      status:'pending',submittedAt:Date.now()
-    });
+    const leavePayload={uid:currentUser.uid,userName:currentUser.displayName||currentUser.email,leaveType,startDate,endDate,reason,hasSickNote:!!(leaveDraft.attachmentFile),...(attachmentUrl?{attachmentUrl}:{}),status:'pending',submittedAt:Date.now()};
+    leaveRequests[id]=leavePayload;
     showToast('Leave application submitted!');
     leaveFormOpen=false;
     leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',attachmentFile:null};
     render();
+    saveLeaveRequest(id,leavePayload);
   });
 
   // Cancel own leave request (pending or approved)
@@ -7581,8 +7577,10 @@ function bindApp(){
     const reason=document.getElementById('lv-cancel-reason')?.value.trim();
     if(!reason){showToast('Please enter a reason',true);return;}
     const {id,wasApproved}=leaveCancelModal;
-    await saveLeaveRequest(id,{...leaveRequests[id],status:'cancelled',cancelReason:reason,wasApproved,cancelledAt:new Date().toISOString()});
+    const cancelPayload={...leaveRequests[id],status:'cancelled',cancelReason:reason,wasApproved,cancelledAt:new Date().toISOString()};
+    leaveRequests[id]=cancelPayload;
     showToast('Leave request cancelled');leaveCancelModal=null;render();
+    saveLeaveRequest(id,cancelPayload);
   });
 
 // Admin: open review modal
@@ -7595,8 +7593,10 @@ function bindApp(){
   // Review modal — approve
   document.getElementById('lv-review-approve-btn')?.addEventListener('click',async()=>{
     const id=leaveReviewModal?.id;if(!id)return;
-    await saveLeaveRequest(id,{...leaveRequests[id],status:'approved',adminNote:''});
+    const approvePayload={...leaveRequests[id],status:'approved',adminNote:''};
+    leaveRequests[id]=approvePayload;
     showToast('Leave approved ✓');leaveReviewModal=null;render();
+    saveLeaveRequest(id,approvePayload);
   });
   // Review modal — show reject form
   document.getElementById('lv-review-reject-btn')?.addEventListener('click',()=>{
@@ -7607,8 +7607,10 @@ function bindApp(){
     const id=leaveReviewModal?.id;if(!id)return;
     const reason=document.getElementById('lv-reject-reason')?.value.trim()||'';
     if(!reason){document.getElementById('lv-reject-reason')?.focus();return;}
-    await saveLeaveRequest(id,{...leaveRequests[id],status:'declined',adminNote:reason});
+    const declinePayload={...leaveRequests[id],status:'declined',adminNote:reason};
+    leaveRequests[id]=declinePayload;
     showToast('Leave declined');leaveReviewModal=null;render();
+    saveLeaveRequest(id,declinePayload);
   });
 
   // Admin: save balance
@@ -7625,8 +7627,9 @@ function bindApp(){
       const inps=document.querySelectorAll('.leave-bal-inp[data-uid="'+uid+'"]');
       const data={};
       inps.forEach(i=>{data[i.dataset.type]=Number(i.value)||0;});
-      await saveLeaveBalance(uid,data);
+      leaveBalances[uid]=data;
       showToast('Balance saved');
+      saveLeaveBalance(uid,data);
     });
   });
 
@@ -7879,15 +7882,12 @@ function bindApp(){
     // Find story name and producer from commission list
     const comm=comms.find(c=>c.commNum===commNum);
     const id=commNum+'_'+Date.now();
-    await saveMusicCue(id,{
-      afmName,afmUid:currentUser?.uid||'',
-      commNum,storyName:comm?.storyName||'',
-      producer:comm?.producer||'',
-      rows,submitted:false
-    });
+    const importPayload={afmName,afmUid:currentUser?.uid||'',commNum,storyName:comm?.storyName||'',producer:comm?.producer||'',rows,submitted:false};
+    musicCues[id]=importPayload;
     showToast(rows.length+' cues imported ✓ — complete and submit to mark as submitted.');
     mcImportModal=false;mcImportData=[];mcImportHeaders=[];mcImportMapping={};
     render();
+    saveMusicCue(id,importPayload);
   });
 
   document.getElementById('mc-submit-btn')?.addEventListener('click',async()=>{
@@ -7924,8 +7924,10 @@ function bindApp(){
       return;
     }
     const id=mcEditId||(commNum+'_'+Date.now());
-    await saveMusicCue(id,{afmName,afmUid:currentUser?.uid||'',commNum,storyName,producer,rows:mcDraft.rows,submitted:true,submittedAt:{seconds:Math.floor(Date.now()/1000)}});
+    const submitPayload={afmName,afmUid:currentUser?.uid||'',commNum,storyName,producer,rows:mcDraft.rows,submitted:true,submittedAt:{seconds:Math.floor(Date.now()/1000)}};
+    musicCues[id]=submitPayload;
     showToast('Cue sheet submitted ✓');mcTab='dashboard';mcEditId=null;render();
+    saveMusicCue(id,submitPayload);
   });
   document.getElementById('mc-export-xl')?.addEventListener('click',async()=>{
     if(mcEpFilter==='all'){showToast('Please select an episode from the filter first.',true);return;}
