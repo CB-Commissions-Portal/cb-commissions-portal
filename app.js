@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.152';
+const BUILD_VERSION='3.10.153';
 const BUILD_DATE='7 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
@@ -1665,7 +1665,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='lineups'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','director'].includes(role))return renderLineups(epNums);
   if(tab==='ros'&&['admin','deputyadmin','editorial','content','director'].includes(role))return renderRunOfShow();
   if(tab==='broadcast'&&role!=='afm')return renderBroadcastList();
-  if(tab==='contracts'&&currentRole==='admin'&&!previewRole)return renderContracts();
+  if(tab==='contracts'&&((currentRole==='admin'&&!previewRole)||currentRole==='finance'))return renderContracts();
   if(tab==='admin'&&currentRole==='admin'&&!previewRole)return renderAdmin();
   return '';
 }
@@ -5052,8 +5052,9 @@ function renderCallSheet(epNums){
 
 // ── CONTRACTS ─────────────────────────────────────────────────────────
 function renderContracts(){
-  if(ctView==='form')return renderContractForm();
-  if(ctView==='pick')return renderContractPicker();
+  const isFinance=getEffectiveRole()==='finance';
+  if(ctView==='form'&&!isFinance)return renderContractForm();
+  if(ctView==='pick'&&!isFinance)return renderContractPicker();
   if(ctView==='preview')return renderContractPreview();
   return renderContractList();
 }
@@ -5112,6 +5113,7 @@ function renderContractList(){
   const all=Object.entries(ctContractsData).sort((a,b)=>((b[1].createdAt?.seconds||0)-(a[1].createdAt?.seconds||0)));
   const active=all.filter(([,c])=>!c.archived);
   const archived=all.filter(([,c])=>!!c.archived);
+  const isFinance=getEffectiveRole()==='finance';
 
   const thS='padding:8px 14px;font-size:10px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left;border-bottom:2px solid #2e3a50';
 
@@ -5133,13 +5135,12 @@ function renderContractList(){
       <td style="padding:10px 14px;font-size:11px;color:#484f58">${c.createdAt?new Date(c.createdAt.seconds*1000).toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}):''}</td>
       <td style="padding:10px 14px">
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-          ${!isArchived?`<button class="btn ct-edit-btn" data-id="${id}" style="font-size:11px;padding:3px 10px">✏ Edit</button>`:''}
+          ${!isArchived&&!isFinance?`<button class="btn ct-edit-btn" data-id="${id}" style="font-size:11px;padding:3px 10px">✏ Edit</button>`:''}
           <button class="btn ct-preview-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#58a6ff;color:#58a6ff">👁 Preview</button>
           <button class="btn ct-pdf-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#388bfd;color:#58a6ff">⬇ PDF</button>
-          <button class="btn ct-duplicate-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#56d364;color:#56d364">⧉ Duplicate</button>
-          <button class="btn ct-archive-btn" data-id="${id}" data-archived="${isArchived?'1':'0'}" style="font-size:11px;padding:3px 10px;border-color:${isArchived?'#e3b341':'#484f58'};color:${isArchived?'#e3b341':'#484f58'}">${isArchived?'Unarchive':'Archive'}</button>
-          <span style="width:1px;height:18px;background:#2e3a50;display:inline-block;flex-shrink:0;margin:0 4px"></span>
-          <button class="btn ct-del-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#484f58;color:#484f58">✕</button>
+          ${!isFinance?`<button class="btn ct-duplicate-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#56d364;color:#56d364">⧉ Duplicate</button>`:''}
+          ${!isFinance?`<button class="btn ct-archive-btn" data-id="${id}" data-archived="${isArchived?'1':'0'}" style="font-size:11px;padding:3px 10px;border-color:${isArchived?'#e3b341':'#484f58'};color:${isArchived?'#e3b341':'#484f58'}">${isArchived?'Unarchive':'Archive'}</button>`:''}
+          ${!isFinance?`<span style="width:1px;height:18px;background:#2e3a50;display:inline-block;flex-shrink:0;margin:0 4px"></span><button class="btn ct-del-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#484f58;color:#484f58">✕</button>`:''}
         </div>
       </td>
     </tr>`;
@@ -5166,7 +5167,7 @@ function renderContractList(){
     <div style="padding:12px 20px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:12px">
       <h2 style="font-size:17px;font-weight:900;color:#eaf0ff;margin:0">Contracts</h2>
       <div style="margin-left:auto">
-        <button class="btn primary" id="ct-new-btn" style="font-size:13px;padding:6px 18px;font-weight:800">+ New Contract</button>
+        ${!isFinance?`<button class="btn primary" id="ct-new-btn" style="font-size:13px;padding:6px 18px;font-weight:800">+ New Contract</button>`:''}
       </div>
     </div>
     <div style="padding:20px">
