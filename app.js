@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.155';
+const BUILD_VERSION='3.10.156';
 const BUILD_DATE='7 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
@@ -1219,6 +1219,8 @@ function toggleTheme(){
 function render(){
   const _epWrap=document.querySelector('.ep-wrap');
   const _scrollTop=_epWrap?_epWrap.scrollTop:0;
+  const _rosScroll=document.getElementById('ros-scroll');
+  const _rosScrollTop=_rosScroll?_rosScroll.scrollTop:0;
   const root=document.getElementById('root');
   const cfg=getCfg();
   if(!cfg){root.innerHTML=renderSetup();bindSetup();return;}
@@ -1234,6 +1236,8 @@ function render(){
   // Restore scroll after re-render
   const _epWrap2=document.querySelector('.ep-wrap');
   if(_epWrap2&&_scrollTop)_epWrap2.scrollTop=_scrollTop;
+  const _rosScroll2=document.getElementById('ros-scroll');
+  if(_rosScroll2&&_rosScrollTop)_rosScroll2.scrollTop=_rosScrollTop;
   if(pendingFocusId!==null){
     const newRow=document.querySelector(`tr[data-id="${pendingFocusId}"]`);
     if(newRow){
@@ -4617,7 +4621,7 @@ function renderRunOfShow(){
         </div>
       </div>
       <!-- Table -->
-      <div style="flex:1;overflow-y:auto">
+      <div id="ros-scroll" style="flex:1;overflow-y:auto">
         <table style="border-collapse:collapse;width:100%">
           <thead style="position:sticky;top:0;z-index:5;background:#0d1117">
             <tr>
@@ -9666,6 +9670,7 @@ document.addEventListener('click',function rosHandler(e){
   // Script modal — save
   if(e.target.id==='ros-script-save'){
     const ta=document.getElementById('ros-script-ta');
+    const _savedScriptIdx=rosScriptModal?.itemIdx;
     if(ta&&rosScriptModal){
       const {epNum,itemIdx}=rosScriptModal;
       const items=(rosData[String(epNum)]?.items)||[];
@@ -9678,12 +9683,15 @@ document.addEventListener('click',function rosHandler(e){
     }
     rosScriptModal=null;
     render();
+    if(_savedScriptIdx!=null){const _scriptRow=document.querySelector(`tr[data-ros-idx="${_savedScriptIdx}"]`);if(_scriptRow)_scriptRow.scrollIntoView({block:'nearest',behavior:'smooth'});}
     return;
   }
   // Script modal — close (discard unsaved)
   if(e.target.id==='ros-script-close'||e.target.id==='ros-script-overlay'){
+    const _savedScriptIdx=rosScriptModal?.itemIdx;
     rosScriptModal=null;
     render();
+    if(_savedScriptIdx!=null){const _scriptRow=document.querySelector(`tr[data-ros-idx="${_savedScriptIdx}"]`);if(_scriptRow)_scriptRow.scrollIntoView({block:'nearest',behavior:'smooth'});}
     return;
   }
   // Edit Item modal — open
@@ -9724,15 +9732,20 @@ document.addEventListener('click',function rosHandler(e){
       saveROS(epNum,{items,epNum});
       showToast('Item saved ✓');
     }
+    const _savedEditIdx=itemIdx;
     rosEditModal=null;
     render();
+    const _editRow=document.querySelector(`tr[data-ros-idx="${_savedEditIdx}"]`);
+    if(_editRow)_editRow.scrollIntoView({block:'nearest',behavior:'smooth'});
     return;
   }
   // Edit Item modal — close
   if(e.target.id==='ros-edit-execute'){updateRosEditPreview();return;}
   if(e.target.id==='ros-edit-close'||e.target.id==='ros-edit-overlay'){
+    const _savedEditIdx=rosEditModal?.itemIdx;
     rosEditModal=null;
     render();
+    if(_savedEditIdx!=null){const _editRow=document.querySelector(`tr[data-ros-idx="${_savedEditIdx}"]`);if(_editRow)_editRow.scrollIntoView({block:'nearest',behavior:'smooth'});}
     return;
   }
   // Edit Item modal — add slug
