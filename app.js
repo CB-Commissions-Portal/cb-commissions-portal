@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.154';
+const BUILD_VERSION='3.10.155';
 const BUILD_DATE='7 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
@@ -6714,22 +6714,12 @@ function bindApp(){
   });
 
     // PDF Export
-  document.getElementById('export-pdf-btn')?.addEventListener('click',async()=>{
+  document.getElementById('export-pdf-btn')?.addEventListener('click',()=>{
     const btn=document.getElementById('export-pdf-btn');
     const epSel=document.getElementById('ep-export-sel');
     const filterEp=epSel?epSel.value:'all';
     btn.innerHTML='⏳ Preparing PDF…';
     btn.disabled=true;
-
-    // Load html2pdf if not already loaded
-    if(!window.html2pdf){
-      await new Promise((res,rej)=>{
-        const s=document.createElement('script');
-        s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-        s.onload=res;s.onerror=rej;
-        document.head.appendChild(s);
-      });
-    }
 
     // Build clean HTML for PDF
     const paid=getPaidMins(),contracted=settings.contractedMinutes||438,remaining=contracted-paid;
@@ -6846,6 +6836,7 @@ function bindApp(){
     </body></html>`;
 
     const win=window.open('','_blank');
+    if(!win){btn.innerHTML='⬇ Export PDF';btn.disabled=false;alert('Popup blocked — please allow popups for this site.');return;}
     win.document.write(html);
     win.document.close();
     setTimeout(()=>{win.print();btn.innerHTML='⬇ Export PDF';btn.disabled=false;},600);
