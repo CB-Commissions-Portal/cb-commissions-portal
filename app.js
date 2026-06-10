@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.156';
+const BUILD_VERSION='3.10.157';
 const BUILD_DATE='7 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
@@ -9502,7 +9502,6 @@ function rosExportWord(preview=false){
   if(_sTA&&rosScriptModal?.epNum===ep&&items[rosScriptModal.itemIdx]!==undefined){
     items[rosScriptModal.itemIdx].script=_sTA.value;
   }
-  const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
   const html=buildRosWordHtml(ep,items);
   if(preview){
     const win=window.open('','_blank','width=900,height=1100');
@@ -9511,15 +9510,162 @@ function rosExportWord(preview=false){
     win.document.write(previewHtml);
     win.document.close();
   } else {
-    const blob=new Blob(['﻿',html],{type:'application/msword'});
+    rosExportDocx(ep,items);
+  }
+}
+
+async function rosExportDocx(ep,items){
+  try{
+    if(!window.docx){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdn.jsdelivr.net/npm/docx@8/build/index.umd.js';
+        s.onload=res;s.onerror=rej;
+        document.head.appendChild(s);
+      });
+    }
+  }catch(e){showToast('Could not load docx library — check your connection',true);return;}
+
+  try{
+    const{Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,
+          WidthType,AlignmentType,VerticalAlign,BorderStyle,ShadingType,
+          Footer,TabStopType,PageNumber,UnderlineType}=window.docx;
+
+    const epDate=resolveDate(ep);
+    const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'}):'';
+    const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
+    const footerLeft=`CARTE BLANCHE | SEASON ${currentSeason} | EPISODE ${String(ep).padStart(2,'0')} | TX: ${epDateFmt.toUpperCase()}`;
+
+    const FONT='Arial';
+    const SZ=22;    // 11pt in half-points
+    const SZ_SM=18; // 9pt
+    const SP0={before:0,after:0};
+
+    // Empty paragraph with explicit font run — holds line height whether ¶ is visible or not
+    const emptyPara=(sz=SZ)=>new Paragraph({spacing:SP0,children:[new TextRun({text:'',size:sz,font:FONT})]});
+
+    const BORDERS={
+      top:   {style:BorderStyle.SINGLE,size:8,color:'000000'},
+      bottom:{style:BorderStyle.SINGLE,size:8,color:'000000'},
+      left:  {style:BorderStyle.SINGLE,size:8,color:'000000'},
+      right: {style:BorderStyle.SINGLE,size:8,color:'000000'},
+    };
+    const COL_W=[447,2461,1231,6264,783]; // twips, sum=11186 (A4 – 18pt margins each side)
+
+    const durFmt=d=>{if(!d)return'';const p=String(d).split(':');if(p.length===3){const mm=Number(p[0])*60+Number(p[1]);return`${String(mm).padStart(2,'0')}:${p[2]}`;}return d;};
+
+    // Header row
+    const headerRow=new TableRow({tableHeader:true,children:
+      ['ITEM','PRODUCTION','SOUND','DESCRIPTION','DUR'].map((lbl,i)=>
+        new TableCell({
+          width:{size:COL_W[i],type:WidthType.DXA},
+          shading:{type:ShadingType.CLEAR,color:'auto',fill:'003366'},
+          borders:BORDERS,verticalAlign:VerticalAlign.CENTER,
+          children:[new Paragraph({alignment:AlignmentType.CENTER,spacing:{before:40,after:40},
+            children:[new TextRun({text:lbl,bold:true,color:'FFFFFF',font:FONT,size:SZ})]})]
+        })
+      )
+    });
+
+    // Body rows
+    const bodyRows=items.map((item,idx)=>{
+      const num=item.itemNum||String(idx+1);
+      const slugs=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean);
+      const sources=item.slugSources||[];
+      const isGrey=['fixed','insert','coldstart','upnext','break'].includes(item.type);
+      const fill=isGrey?'D9D9D9':'FFFFFF';
+      const shd={type:ShadingType.CLEAR,color:'auto',fill};
+
+      // ITEM
+      const itemCell=new TableCell({width:{size:COL_W[0],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,children:[
+        emptyPara(),
+        new Paragraph({alignment:AlignmentType.CENTER,spacing:SP0,children:[new TextRun({text:String(num),bold:true,font:FONT,size:SZ})]})
+      ]});
+
+      // PRODUCTION
+      const prodParas=[emptyPara()];
+      slugs.forEach((s,si)=>{
+        const src=sources[si]||'';
+        const txt=src?`${src} - ${s}`:s;
+        prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({
+          text:txt,bold:true,font:FONT,size:SZ,
+          shading:{type:ShadingType.CLEAR,color:'auto',fill:'39FF14'}
+        })]}));
+      });
+      if(item.directorNotes){
+        prodParas.push(emptyPara());
+        prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:"DIRECTOR'S NOTES:",bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ_SM,color:'000000'})]}));
+        item.directorNotes.split('\n').forEach(line=>
+          prodParas.push(line.trim()
+            ?new Paragraph({spacing:SP0,children:[new TextRun({text:line,italics:true,font:FONT,size:SZ_SM,color:'555555'})]})
+            :emptyPara(SZ_SM))
+        );
+      }
+      const prodCell=new TableCell({width:{size:COL_W[1],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,children:prodParas});
+
+      // SOUND
+      const soundCell=new TableCell({width:{size:COL_W[2],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,children:[
+        emptyPara(),
+        new Paragraph({spacing:SP0,children:[new TextRun({text:item.sound||'',bold:true,font:FONT,size:SZ})]})
+      ]});
+
+      // DESCRIPTION
+      const descParas=[emptyPara()];
+      descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.label||'',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ,color:'000000'})]}));
+      if(item.content) descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.content,font:FONT,size:SZ,color:'000000'})]}));
+      if(item.type==='insert'&&item.outWords) descParas.push(new Paragraph({spacing:SP0,children:[
+        new TextRun({text:'OUT WORDS: ',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ}),
+        new TextRun({text:item.outWords,font:FONT,size:SZ,color:'000000'})
+      ]}));
+      if(['live','coldstart','upnext'].includes(item.type)&&item.script){
+        item.script.split('\n').forEach(line=>{
+          if(!line){descParas.push(emptyPara());}
+          else if(/^[^:]+:\s*$/.test(line.trim())){descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:line.trim(),bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ,color:'000000'})]}))}
+          else{descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:line,font:FONT,size:SZ,color:'000000'})]}))}
+        });
+      }
+      const descCell=new TableCell({width:{size:COL_W[3],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,children:descParas});
+
+      // DUR
+      const durCell=new TableCell({width:{size:COL_W[4],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,children:[
+        emptyPara(),
+        new Paragraph({alignment:AlignmentType.CENTER,spacing:SP0,children:[new TextRun({text:durFmt(item.duration)||'',font:'Courier New',size:SZ})]})
+      ]});
+
+      return new TableRow({children:[itemCell,prodCell,soundCell,descCell,durCell]});
+    });
+
+    const doc=new Document({sections:[{
+      properties:{page:{
+        size:{width:11906,height:16838},
+        margin:{top:360,right:360,bottom:1000,left:360,footer:640}
+      }},
+      footers:{default:new Footer({children:[new Paragraph({
+        spacing:SP0,
+        tabStops:[{type:TabStopType.RIGHT,position:11180}],
+        children:[
+          new TextRun({text:footerLeft,font:FONT,size:SZ_SM,color:'333333'}),
+          new TextRun({text:'\t',font:FONT,size:SZ_SM}),
+          new TextRun({children:[PageNumber.CURRENT],font:FONT,size:SZ_SM,color:'333333'})
+        ]
+      })]})},
+      children:[
+        new Paragraph({spacing:SP0,children:[new TextRun({text:'CARTE BLANCHE',bold:true,font:FONT,size:28,color:'000000'})]}),
+        new Paragraph({spacing:SP0,children:[new TextRun({text:`Season ${currentSeason}, ${epLabel.replace(`S${currentSeason} `,`Season ${currentSeason}, `)}`,bold:true,font:FONT,size:SZ})]}),
+        new Paragraph({spacing:{before:0,after:120},children:[new TextRun({text:`TX: ${epDateFmt}`,bold:true,font:FONT,size:SZ})]}),
+        new Table({width:{size:11186,type:WidthType.DXA},columnWidths:COL_W,rows:[headerRow,...bodyRows]})
+      ]
+    }]});
+
+    const blob=await Packer.toBlob(doc);
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;
-    a.download=`CB-Studio-Script-${epLabel.replace(/ /g,'-')}.doc`;
+    a.download=`CB-Studio-Script-${epLabel.replace(/ /g,'-')}.docx`;
     document.body.appendChild(a);a.click();document.body.removeChild(a);
     URL.revokeObjectURL(url);
     showToast('Studio Script downloaded ✓');
-  }
+  }catch(e){showToast('Export failed — '+(e.message||'unknown error'),true);console.error('rosExportDocx',e);}
 }
 
 function rosExportPDF(){
