@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.157';
+const BUILD_VERSION='3.10.158';
 const BUILD_DATE='7 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
@@ -2098,6 +2098,8 @@ function renderEndCredits(epNums){
         <div style="width:1px;background:#2e3a50;margin:0 2px"></div>
         <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('insertUnorderedList')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px" title="Bullet List">• List</button>
         <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('removeFormat')" style="background:#252d3d;border:1px solid #2e3a50;color:#8b949e;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px" title="Clear Formatting">Clear</button>
+        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('undo')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:13px" title="Undo (⌘Z)">↩</button>
+        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('redo')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:13px" title="Redo (⌘⇧Z)">↪</button>
         <div style="width:1px;background:#2e3a50;margin:0 4px"></div>
         <button class="btn" data-credits-copy="${n}" style="font-size:11px;border-color:#7a3fbf;color:#c084fc" onmousedown="event.preventDefault()">Copy from EP…</button>
         <button class="btn" data-credits-print="${n}" style="font-size:11px;border-color:#388bfd;color:#58a6ff" onmousedown="event.preventDefault()">⬇ Print / PDF</button>
