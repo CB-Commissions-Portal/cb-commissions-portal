@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.158';
+const BUILD_VERSION='3.10.159';
 const BUILD_DATE='7 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
@@ -1219,6 +1219,8 @@ function toggleTheme(){
 function render(){
   const _epWrap=document.querySelector('.ep-wrap');
   const _scrollTop=_epWrap?_epWrap.scrollTop:0;
+  const _epRegList=document.querySelector('.ep-reg-list');
+  const _epRegListTop=_epRegList?_epRegList.scrollTop:0;
   const _rosScroll=document.getElementById('ros-scroll');
   const _rosScrollTop=_rosScroll?_rosScroll.scrollTop:0;
   const root=document.getElementById('root');
@@ -1236,6 +1238,8 @@ function render(){
   // Restore scroll after re-render
   const _epWrap2=document.querySelector('.ep-wrap');
   if(_epWrap2&&_scrollTop)_epWrap2.scrollTop=_scrollTop;
+  const _epRegList2=document.querySelector('.ep-reg-list');
+  if(_epRegList2&&_epRegListTop)_epRegList2.scrollTop=_epRegListTop;
   const _rosScroll2=document.getElementById('ros-scroll');
   if(_rosScroll2&&_rosScrollTop)_rosScroll2.scrollTop=_rosScrollTop;
   if(pendingFocusId!==null){
@@ -6497,6 +6501,8 @@ function bindApp(){
     // Save scroll position of current tab
     const curWrap=document.querySelector('.ep-wrap');
     if(curWrap)_tabScroll[tab]=curWrap.scrollTop;
+    const curRegList=document.querySelector('.ep-reg-list');
+    if(curRegList)_tabScroll[tab+'_reglist']=curRegList.scrollTop;
     tab=newTab;
     // Update active class on tab buttons instantly
     document.querySelectorAll('[data-tab]').forEach(el=>{
@@ -6514,6 +6520,8 @@ function bindApp(){
     // Restore scroll position for this tab
     const newWrap=document.querySelector('.ep-wrap');
     if(newWrap&&_tabScroll[tab])newWrap.scrollTop=_tabScroll[tab];
+    const newRegList=document.querySelector('.ep-reg-list');
+    if(newRegList&&_tabScroll[tab+'_reglist'])newRegList.scrollTop=_tabScroll[tab+'_reglist'];
   }
   document.getElementById('logout-btn')?.addEventListener('click',()=>signOut(auth));
   document.getElementById('preview-role-sel')?.addEventListener('change',e=>{
