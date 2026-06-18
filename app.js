@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.160';
+const BUILD_VERSION='3.10.161';
 const BUILD_DATE='7 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
@@ -1075,7 +1075,7 @@ function updateComm(id,field,val){
   if(row&&updated){
     const c=updated;
     const incRow=!c.decommissioned&&!c.approvedForPayment&&!c.isInHouse&&c.storyName;
-    row.className=c.decommissioned?'decom-row':c.approvedForPayment?'paid-row':incRow?'yellow-row':'';
+    row.className=c.decommissioned?'decom-row':c.onHold?'hold-row':c.approvedForPayment?'paid-row':incRow?'yellow-row':'';
     const pCb=row.querySelector('input[data-field="approvedForPayment"]');
     if(pCb)pCb.style.accentColor=c.approvedForPayment?'#388bfd':'';
     DEL_KEYS.forEach(k=>{const cb=row.querySelector(`input[data-field="${k}"]`);if(cb)cb.className='cb'+(c[k]?' g':'');});
@@ -1133,7 +1133,7 @@ async function deleteComm(id){
 async function addRow(){
   const maxId=comms.length?Math.max(...comms.map(c=>Number(c.id)||0)):0;
   const newId=maxId+1;
-  const blank={id:newId,broadcastOrder:0,portal:false,commNum:'',shortName:'',storyName:'',commDuration:'',deliveredDuration:'',paidDuration:'',producer:'',presenterVO:'',dop:'',ca:'',editor:'',afm:'',callSheets:false,insertScripts:false,releaseForms:false,footageAgreement:false,musicCueSheet:false,footageDeclaration:false,carpUpload:false,approvedForPayment:false,decommissioned:false,decommissionMotivation:'',broadcastEpisode:'',isInHouse:false,isLicensed:false,totalInsertCost:''};
+  const blank={id:newId,broadcastOrder:0,portal:false,commNum:'',shortName:'',storyName:'',commDuration:'',deliveredDuration:'',paidDuration:'',producer:'',presenterVO:'',dop:'',ca:'',editor:'',afm:'',callSheets:false,insertScripts:false,releaseForms:false,footageAgreement:false,musicCueSheet:false,footageDeclaration:false,carpUpload:false,approvedForPayment:false,decommissioned:false,decommissionMotivation:'',onHold:false,broadcastEpisode:'',isInHouse:false,isLicensed:false,totalInsertCost:''};
   pendingFocusId=newId;await saveComm(blank);
 }
 
@@ -1189,8 +1189,9 @@ function getFiltered(){
   if(filter==='unpaid')list=list.filter(c=>!c.approvedForPayment&&!c.decommissioned);
   if(filter==='portal')list=list.filter(c=>c.portal);
   if(filter==='decom')list=list.filter(c=>c.decommissioned);
+  if(filter==='hold')list=list.filter(c=>c.onHold);
   if(filter==='inhouse')list=list.filter(c=>c.isInHouse);
-  if(filter==='ready')list=list.filter(c=>allDel(c)&&!c.approvedForPayment&&!c.decommissioned);
+  if(filter==='ready')list=list.filter(c=>allDel(c)&&!c.approvedForPayment&&!c.decommissioned&&!c.onHold);
   list.sort((a,b)=>{let av=a[sortField],bv=b[sortField];if(typeof av==='boolean')av=av?1:0;if(typeof bv==='boolean')bv=bv?1:0;if(typeof av==='string')av=av.toLowerCase();if(typeof bv==='string')bv=bv.toLowerCase();return av<bv?(sortDir==='asc'?-1:1):av>bv?(sortDir==='asc'?1:-1):0;});
   return list;
 }
@@ -1622,7 +1623,7 @@ function renderApp(){
       <div style="font-size:9px;color:#484f58;margin-top:2px">broadcast variance</div>
     </div>
     <div class="t-meta">
-      <span>${comms.filter(c=>c.approvedForPayment).length} paid · ${comms.filter(c=>!c.decommissioned).length} active · ${epNums.length} episodes</span>
+      <span>${comms.filter(c=>c.approvedForPayment).length} paid · ${comms.filter(c=>c.onHold).length} on hold · ${comms.filter(c=>!c.decommissioned).length} active · ${epNums.length} episodes</span>
       ${readyCount>0?`<span class="t-ready">● ${readyCount} ready for payment</span>`:''}
     </div>
   </div>`:''}  
@@ -1690,6 +1691,7 @@ function renderCommList(epNums,nextEp){
     <option value="paid"${filter==='paid'?' selected':''}>Approved for Payment</option>
     <option value="unpaid"${filter==='unpaid'?' selected':''}>Not Yet Paid</option>
     <option value="portal"${filter==='portal'?' selected':''}>On Portal</option>
+    <option value="hold"${filter==='hold'?' selected':''}>On Hold</option>
     <option value="decom"${filter==='decom'?' selected':''}>Decommissioned</option>
     <option value="inhouse"${filter==='inhouse'?' selected':''}>In-House</option>
   </select>
@@ -1727,7 +1729,7 @@ ${filtered.map(c=>{
   // Blue = approved for payment ticked
   // No green row anymore — stays yellow until paid is ticked
   const incomplete=!c.decommissioned&&!c.approvedForPayment&&!c.isInHouse&&c.storyName;
-  const cls=c.decommissioned?'decom-row':c.approvedForPayment?'paid-row':incomplete?'yellow-row':'';
+  const cls=c.decommissioned?'decom-row':c.onHold?'hold-row':c.approvedForPayment?'paid-row':incomplete?'yellow-row':'';
   const dup=isDup(c.id,c.shortName);
   function ci(field,w,ph=''){
     const role=getEffectiveRole();
@@ -6370,6 +6372,7 @@ function renderModals(epNums,nextEp){
             <span style="font-size:18px;font-weight:800;color:#e6edf3">${esc(String(_c.commNum||''))}</span>
             ${_c.storyName?`<span style="font-size:14px;color:#8b949e;margin-left:12px">· ${esc(_c.storyName)}</span>`:''}
             ${_c.decommissioned?'<span style="background:#3d1a1a;color:#f85149;font-size:10px;font-weight:800;padding:2px 8px;border-radius:3px;margin-left:10px;letter-spacing:.5px">DECOM</span>':''}
+            ${_c.onHold&&!_c.decommissioned?'<span style="background:#2d1400;color:#f97316;font-size:10px;font-weight:800;padding:2px 8px;border-radius:3px;margin-left:10px;letter-spacing:.5px">ON HOLD</span>':''}
           </div>
           <button id="cem-close" class="btn" style="font-size:13px;padding:6px 16px;flex-shrink:0">✕ Close</button>
         </div>
@@ -6433,6 +6436,20 @@ function renderModals(epNums,nextEp){
           <div>
             <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:12px">Decommission</div>
             ${_decomSection}
+          </div>
+
+          <!-- On Hold -->
+          <div>
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:12px">On Hold</div>
+            ${(_role==='admin'||_role==='deputyadmin')
+              ? _c.onHold
+                ? `<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                    <button id="cem-hold-off" class="btn" style="border-color:#f97316;color:#f97316;font-size:14px;padding:8px 20px;font-weight:700">↩ Remove Hold</button>
+                    <span style="background:#2d1400;color:#f97316;font-size:12px;font-weight:800;padding:4px 12px;border-radius:4px;letter-spacing:.5px">ON HOLD</span>
+                  </div>`
+                : `<button id="cem-hold-on" class="btn" style="border-color:#f97316;color:#f97316;font-size:14px;padding:8px 20px;font-weight:700">Place On Hold</button>`
+              : '<span style="font-size:13px;color:#484f58;padding:8px 0">No permission to change hold status</span>'
+            }
           </div>
 
         </div>
@@ -6998,6 +7015,8 @@ function bindApp(){
   document.getElementById('cem-overlay')?.addEventListener('click',e=>{if(e.target.id==='cem-overlay')_cemClose();});
   document.getElementById('cem-decom-trigger')?.addEventListener('click',()=>{if(commEditModal===null)return;decomModal=commEditModal;decomText=comms.find(c=>c.id===commEditModal)?.decommissionMotivation||document.getElementById('cem-motivation')?.value||'';commEditModal=null;render();});
   document.getElementById('cem-undo-decom')?.addEventListener('click',()=>{if(commEditModal===null)return;const id=commEditModal;updateComm(id,'decommissioned',false);updateComm(id,'decommissionMotivation','');commEditModal=null;render();});
+  document.getElementById('cem-hold-on')?.addEventListener('click',()=>{if(commEditModal===null)return;const id=commEditModal;updateComm(id,'onHold',true);commEditModal=null;render();});
+  document.getElementById('cem-hold-off')?.addEventListener('click',()=>{if(commEditModal===null)return;const id=commEditModal;updateComm(id,'onHold',false);commEditModal=null;render();});
   document.getElementById('cem-delete-comm')?.addEventListener('click',()=>{if(commEditModal===null)return;const id=commEditModal;commEditModal=null;deleteComm(id);});
   document.getElementById('cem-save')?.addEventListener('click',()=>{
     if(commEditModal===null)return;
