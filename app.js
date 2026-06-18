@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.163';
+const BUILD_VERSION='3.10.164';
 const BUILD_DATE='7 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
@@ -1075,7 +1075,7 @@ function updateComm(id,field,val){
   if(row&&updated){
     const c=updated;
     const incRow=!c.decommissioned&&!c.approvedForPayment&&!c.isInHouse&&c.storyName;
-    row.className=c.decommissioned?'decom-row':c.onHold?'hold-row':c.approvedForPayment?'paid-row':incRow?'yellow-row':'';
+    row.className=c.decommissioned?'decom-row':c.onHold?'hold-row':c.approvedForPayment?'paid-row':c.isInHouse?'inhouse-row':incRow?'yellow-row':'';
     const pCb=row.querySelector('input[data-field="approvedForPayment"]');
     if(pCb)pCb.style.accentColor=c.approvedForPayment?'#388bfd':'';
     DEL_KEYS.forEach(k=>{const cb=row.querySelector(`input[data-field="${k}"]`);if(cb)cb.className='cb'+(c[k]?' g':'');});
@@ -1708,7 +1708,7 @@ function renderCommList(epNums,nextEp){
   <span class="count-lbl">${filtered.length} shown</span>
 </div>
 <div class="table-outer">
-<table>
+<table class="comm-tbl">
 <thead><tr>
   <th data-sort="portal" class="st st-1" style="width:36px;min-width:36px">✓</th>
   <th data-sort="commNum" class="st st-2" style="width:155px;min-width:155px">Comm #</th>
@@ -1729,7 +1729,7 @@ ${filtered.map(c=>{
   // Blue = approved for payment ticked
   // No green row anymore — stays yellow until paid is ticked
   const incomplete=!c.decommissioned&&!c.approvedForPayment&&!c.isInHouse&&c.storyName;
-  const cls=c.decommissioned?'decom-row':c.onHold?'hold-row':c.approvedForPayment?'paid-row':incomplete?'yellow-row':'';
+  const cls=c.decommissioned?'decom-row':c.onHold?'hold-row':c.approvedForPayment?'paid-row':c.isInHouse?'inhouse-row':incomplete?'yellow-row':'';
   const dup=isDup(c.id,c.shortName);
   function ci(field,w,ph=''){
     const role=getEffectiveRole();
