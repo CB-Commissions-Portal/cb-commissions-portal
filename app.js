@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.162';
+const BUILD_VERSION='3.10.163';
 const BUILD_DATE='7 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
@@ -1748,6 +1748,7 @@ ${filtered.map(c=>{
       ${c.broadcastEpisode&&isEpFinalised(c.broadcastEpisode)?'<span style="background:#2e4a2e;color:#4ade80;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;white-space:nowrap">FINALISED</span>':''}
       ${c.isLicensed?'<span style="background:#1c2d1c;color:#3fb950;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #2d6a2d;white-space:nowrap">LICENSED</span>':''}
       ${c.isInHouse?'<span style="background:#1a2d4a;color:#58a6ff;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #1a3a6a;white-space:nowrap">IN-HOUSE</span>':''}
+      ${c.onHold?'<span style="background:#2d1400;color:#f97316;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;white-space:nowrap">ON HOLD</span>':''}
     </div>
   </div>
 </td>
@@ -2972,8 +2973,9 @@ function renderPostProd(){
     const txIso=getTxDate(c);
     const txFmt=txIso?new Date(txIso+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'2-digit'}):'';
     const rowBg=pp.editComplete?'#0f1f10':ri%2===0?'#1a2133':'#1e2840';
-    const badge=c.isLicensed?'<span style="font-size:6px;background:#1c2d1c;color:#3fb950;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">LIC</span>':
-                c.isInHouse?'<span style="font-size:6px;background:#1a1a2e;color:#7a8ba0;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">IH</span>':'';
+    const badge=(c.isLicensed?'<span style="font-size:6px;background:#1c2d1c;color:#3fb950;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">LIC</span>':
+                c.isInHouse?'<span style="font-size:6px;background:#1a1a2e;color:#7a8ba0;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">IH</span>':'')+
+               (c.onHold?'<span style="font-size:9px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 4px;border-radius:2px;margin-left:3px;vertical-align:middle">ON HOLD</span>':'');
 
     rowsHtml+=`<tr style="background:${rowBg}${pp.editComplete?';opacity:0.75':''}">`;
     rowsHtml+=`<td style="${tdFix};position:sticky;left:0;z-index:2;background:${rowBg};font-weight:900;color:${pp.editComplete?'#3fb950':'#58a6ff'};font-family:monospace;font-size:11px">${esc(String(c.commNum))}${badge}${canRemove?`<br><button class="pp-remove-btn" data-commnum="${esc(String(c.commNum))}" style="background:none;border:none;color:#484f58;font-size:8px;cursor:pointer;padding:0;margin-top:2px;font-family:inherit;font-weight:400">✕ remove</button>`:''}</td>`;
@@ -3048,7 +3050,7 @@ function renderPostProd(){
           onmouseover="this.style.borderColor='#58a6ff'" onmouseout="this.style.borderColor='#2e3a50'">
           <span style="font-size:12px;font-weight:900;color:#58a6ff;font-family:monospace;min-width:45px">${esc(String(c.commNum))}</span>
           <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:700;color:#eaf0ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName)}</div>
+            <div style="font-size:12px;font-weight:700;color:#eaf0ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName)}${c.onHold?'<span style="font-size:9px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 4px;border-radius:2px;margin-left:5px;vertical-align:middle">ON HOLD</span>':''}</div>
             <div style="font-size:10px;color:#6e7681;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
               ${c.producer?`<span>${esc(c.producer)}</span>`:''}
               ${c.editor?`<span style="color:#c084fc">${esc(c.editor)}</span>`:''}
@@ -5851,8 +5853,9 @@ function renderBroadcastList(){
     const txLabel=txDate?new Date(txDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}):'—';
     const delDur=c.deliveredDuration||'—';
     const commDur=c.commDuration||'—';
-    const badge=c.isLicensed?'<span style="font-size:8px;font-weight:800;background:#1c2d1c;color:#3fb950;padding:1px 5px;border-radius:2px;margin-left:4px">LIC</span>':
-                c.isInHouse?'<span style="font-size:8px;font-weight:800;background:#1a1a2e;color:#7a8ba0;padding:1px 5px;border-radius:2px;margin-left:4px">IH</span>':'';
+    const badge=(c.isLicensed?'<span style="font-size:8px;font-weight:800;background:#1c2d1c;color:#3fb950;padding:1px 5px;border-radius:2px;margin-left:4px">LIC</span>':
+                c.isInHouse?'<span style="font-size:8px;font-weight:800;background:#1a1a2e;color:#7a8ba0;padding:1px 5px;border-radius:2px;margin-left:4px">IH</span>':'')+
+               (c.onHold?'<span style="font-size:9px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 5px;border-radius:2px;margin-left:4px;vertical-align:middle">ON HOLD</span>':'');
     const rowBg=isPast?'background:rgba(248,81,73,0.06)':isFuture?'background:rgba(88,166,255,0.04)':'';
     const txColor=isPast?'#f85149':isFuture?'#3fb950':'#484f58';
 
@@ -5986,7 +5989,7 @@ function renderLineups(epNums){
         const isDelivered=c&&!!c.deliveredDuration;
         itemsHtml+=`<div style="${rowBg};padding:14px 18px;border-radius:6px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <span style="font-size:14px;font-weight:900;color:${past?'#f85149':'#58a6ff'};width:60px;font-family:monospace;flex-shrink:0">${esc(String(item.commNum))}</span>
-          <span style="font-size:14px;font-weight:700;color:${past?'#f87171':'#eaf0ff'};flex:1;min-width:100px">${esc(c?.storyName||String(item.commNum))}${c?.isLicensed?'<span style="margin-left:5px;font-size:8px;font-weight:800;background:#1c2d1c;color:#3fb950;padding:1px 4px;border-radius:2px;vertical-align:middle">LIC</span>':''}${c?.isInHouse?'<span style="margin-left:5px;font-size:8px;font-weight:800;background:#1a1a2e;color:#7a8ba0;padding:1px 4px;border-radius:2px;vertical-align:middle">IH</span>':''}</span>
+          <span style="font-size:14px;font-weight:700;color:${past?'#f87171':'#eaf0ff'};flex:1;min-width:100px">${esc(c?.storyName||String(item.commNum))}${c?.isLicensed?'<span style="margin-left:5px;font-size:8px;font-weight:800;background:#1c2d1c;color:#3fb950;padding:1px 4px;border-radius:2px;vertical-align:middle">LIC</span>':''}${c?.isInHouse?'<span style="margin-left:5px;font-size:8px;font-weight:800;background:#1a1a2e;color:#7a8ba0;padding:1px 4px;border-radius:2px;vertical-align:middle">IH</span>':''}${c?.onHold?'<span style="margin-left:5px;font-size:9px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 5px;border-radius:2px;vertical-align:middle">ON HOLD</span>':''}</span>
           <span style="font-size:11px;color:#8b949e;min-width:70px">${esc(c?.presenterVO||'')}</span>
           <span style="font-size:11px;color:#6e7681;min-width:70px">${esc(c?.producer||'')}</span>
           <span style="font-size:11px;font-family:monospace;color:${isDelivered?'#3fb950':'#8b949e'};min-width:50px;text-align:right" title="${isDelivered?'Delivered':'Commissioned'}">${decToMmSs(toDecimalMins(dur))}${isDelivered?' ✓':''}</span>
@@ -6031,7 +6034,7 @@ function renderLineups(epNums){
         ${canEdit&&!past?`<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center">
           <select class="lu-add-comm" data-ep="${ep}" style="flex:1;min-width:220px;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 12px;border-radius:5px;font-size:13px">
             <option value="">+ Add commission…</option>
-            ${availableComms.map(c=>`<option value="${esc(String(c.commNum))}">${esc(String(c.commNum))} | ${esc(c.storyName)} (${decToMmSs(toDecimalMins(durForComm(c)))})</option>`).join('')}
+            ${availableComms.map(c=>`<option value="${esc(String(c.commNum))}">${esc(String(c.commNum))} | ${esc(c.storyName)}${c.onHold?' [ON HOLD]':''} (${decToMmSs(toDecimalMins(durForComm(c)))})</option>`).join('')}
           </select>
         </div>`:''}
       </div></div>
@@ -6052,7 +6055,7 @@ function renderLineups(epNums){
     const dur=decToMmSs(toDecimalMins(c.deliveredDuration||c.commDuration));
     return`<div style="background:${bgCol};border-left:3px solid ${borderCol};border-radius:5px;padding:10px 12px;margin-bottom:8px">
       <div style="font-size:12px;font-weight:900;color:${commCol};font-family:monospace">${esc(String(c.commNum))}${typeTag}</div>
-      <div style="font-size:12px;font-weight:700;color:#eaf0ff;margin-top:2px">${esc(c.storyName)}</div>
+      <div style="font-size:12px;font-weight:700;color:#eaf0ff;margin-top:2px">${esc(c.storyName)}${c.onHold?'<span style="font-size:9px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 4px;border-radius:2px;margin-left:5px;vertical-align:middle">ON HOLD</span>':''}</div>
       <div style="display:flex;gap:6px;margin-top:4px;align-items:center;flex-wrap:wrap">
         ${c.presenterVO?`<span style="font-size:11px;color:#8b949e">${esc(c.presenterVO)}</span>`:''}
         ${c.producer?`<span style="font-size:11px;color:#6e7681">${esc(c.producer)}</span>`:''}
