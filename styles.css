@@ -99,13 +99,13 @@ tr.paid-row:hover td{background:#004d66!important}
 tr.paid-row .sc{background:#005570!important;color:#80f0ff!important;border-color:#00c8e0!important}
 tr.paid-row .badge{border-color:rgba(0,212,240,.4)!important}
 tr.green-row td{background:#122a1a}
-tr.yellow-row td{background:#2d2200!important}
-tr.yellow-row td.st{background:#2d2200!important}
+tr.yellow-row td{background:#3d2c00!important}
+tr.yellow-row td.st{background:#3d2c00!important}
 tr.yellow-row td:first-child{border-left:5px solid #f5a623!important}
-tr:hover.yellow-row td{background:#3a2d00!important}
-tr:hover.yellow-row td.st{background:#3a2d00!important}
+tr:hover.yellow-row td{background:#4e3900!important}
+tr:hover.yellow-row td.st{background:#4e3900!important}
 tr.yellow-row .ci{color:#ffe082!important}
-tr.yellow-row .sc{background:#3a2d00!important;border-color:#f5a623!important;color:#ffe082!important}
+tr.yellow-row .sc{background:#4e3900!important;border-color:#f5a623!important;color:#ffe082!important}
 tr.yellow-row .badge{border-color:rgba(245,166,35,.4)!important}
 tr.decom-row td{background:#2d0a0a!important;opacity:1}
 tr.decom-row td.st{background:#2d0a0a!important}
@@ -114,13 +114,13 @@ tr:hover.decom-row td{background:#3d0f0f!important}
 tr:hover.decom-row td.st{background:#3d0f0f!important}
 tr.decom-row .ci{color:#ff9999!important;opacity:.7}
 tr.decom-row .sc{background:#3d0f0f!important;border-color:#f85149!important;color:#ff9999!important}
-tr.hold-row td{background:#1e1008!important;opacity:1}
-tr.hold-row td.st{background:#1e1008!important}
+tr.hold-row td{background:#321900!important;opacity:1}
+tr.hold-row td.st{background:#321900!important}
 tr.hold-row td:first-child{border-left:5px solid #f97316!important}
-tr:hover.hold-row td{background:#2a1a08!important}
-tr:hover.hold-row td.st{background:#2a1a08!important}
+tr:hover.hold-row td{background:#422300!important}
+tr:hover.hold-row td.st{background:#422300!important}
 tr.hold-row .ci{color:#fdba74!important;opacity:.9}
-tr.hold-row .sc{background:#2a1a08!important;border-color:#f97316!important;color:#fdba74!important}
+tr.hold-row .sc{background:#422300!important;border-color:#f97316!important;color:#fdba74!important}
 .ci{background:transparent;border:1px solid transparent;color:#e8eef8;font-size:13px;padding:5px 8px;border-radius:5px;transition:border .15s,background .15s;font-family:var(--font-main);width:100%;box-sizing:border-box}
 .ci:hover{border-color:#2e3a50;background:#1e2535}
 .ci:focus{outline:none;background:#252d3d;border-color:#388bfd}
