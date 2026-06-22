@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.165';
+const BUILD_VERSION='3.10.166';
 const BUILD_DATE='22 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
@@ -1106,7 +1106,7 @@ function updateTicker(){
   const pe=document.querySelector('.t-val.p');const re=document.querySelector('.t-val.r');
   if(pe)pe.textContent=paid.toFixed(1);if(re)re.textContent=rem.toFixed(1);
   // Episode slot balance: budget remaining vs unaired episode slots
-  const remainingEps=getEpNums().filter(n=>!isEpBroadcast(n));
+  const remainingEps=getEpNums().filter(n=>!isEpBroadcast(n)&&(settings.epTypes||{})[String(n)]!=='repeat');
   const slotRem=remainingEps.length*34;
   const bal=rem-slotRem;
   const ve=document.querySelector('.t-val.slot-bal');
@@ -1617,8 +1617,8 @@ function renderApp(){
     <div class="t-item"><div class="t-lbl">Remaining Mins</div><div class="t-val r">${remaining.toFixed(1)}</div></div>
     <div class="t-sep" style="color:#2e3a50;margin:0 8px">│</div>
     <div class="t-item" title="Budget remaining vs remaining episode slots (unaired eps × 34 min). Positive = budget covers slot; negative = budget falls short.">
-      <div class="t-lbl slot-bal" style="white-space:nowrap">${(()=>{const reps=getEpNums().filter(n=>!isEpBroadcast(n));return reps.length+' ep'+(reps.length===1?'':'s')+' left × 34 min';})()}</div>
-      <div class="t-val slot-bal" style="font-size:22px">${(()=>{const reps=getEpNums().filter(n=>!isEpBroadcast(n));const slot=reps.length*34;const bal=remaining-slot;return`<span style="color:${bal>=0?'#3fb950':'#f85149'}">${bal>=0?'+':'−'}${Math.abs(bal).toFixed(1)}</span>`;})()}</div>
+      <div class="t-lbl slot-bal" style="white-space:nowrap">${(()=>{const reps=getEpNums().filter(n=>!isEpBroadcast(n)&&(settings.epTypes||{})[String(n)]!=='repeat');return reps.length+' ep'+(reps.length===1?'':'s')+' left × 34 min';})()}</div>
+      <div class="t-val slot-bal" style="font-size:22px">${(()=>{const reps=getEpNums().filter(n=>!isEpBroadcast(n)&&(settings.epTypes||{})[String(n)]!=='repeat');const slot=reps.length*34;const bal=remaining-slot;return`<span style="color:${bal>=0?'#3fb950':'#f85149'}">${bal>=0?'+':'−'}${Math.abs(bal).toFixed(1)}</span>`;})()}</div>
       <div style="font-size:9px;color:#484f58;margin-top:2px">budget vs slot</div>
     </div>
     <div class="t-meta">
@@ -1896,8 +1896,9 @@ ${episodes.map(({ep,date,stories})=>{
   <div class="type-toggle no-print" style="margin-left:auto" onclick="event.stopPropagation()">
     <button class="type-btn normal${epType==='normal'?' on':''}" data-eptype="${k}" data-val="normal">Normal</button>
     <button class="type-btn extended${epType==='extended'?' on':''}" data-eptype="${k}" data-val="extended">Extended</button>
+    <button class="type-btn repeat${epType==='repeat'?' on':''}" data-eptype="${k}" data-val="repeat">Repeat</button>
   </div>
-  <span style="font-size:13px;font-weight:600;margin-left:4px;color:${epType==='extended'?'#d29922':'#3fb950'}">${epType==='extended'?'★ Extended':'Normal'}</span>
+  <span style="font-size:13px;font-weight:600;margin-left:4px;color:${epType==='extended'?'#d29922':epType==='repeat'?'#7a8ba0':'#3fb950'}">${epType==='extended'?'★ Extended':epType==='repeat'?'↺ Repeat':'Normal'}</span>
   <span style="font-size:13px;color:#484f58;margin-left:8px" class="no-print">${isExpEp?'▲':'▼'}</span>
 </div>
 ${isExpEp?`<div style="overflow:hidden">`+'':(``)}${isExpEp&&stories.length>0?`<div class="ep-body"><table class="ep-tbl"><thead><tr>
@@ -1937,7 +1938,7 @@ return`<tr data-ep-row="${s.id}">
   <div class="ep-stat">Ep Content: <b style="color:#eaf0ff">${fmtHMS(epContentMins)}</b></div>
   <div class="ep-stat">Insert Mins: <b class="gr">${fmtHMS(insertMins)}</b></div>
   <div class="ep-stat">Non-Insert: <b class="am">${fmtHMS(nonMins)}</b></div>
-  <div class="ep-stat">Type: <b style="color:#eaf0ff">${epType==='extended'?'★ Extended':'Normal'}</b></div>
+  <div class="ep-stat">Type: <b style="color:#eaf0ff">${epType==='extended'?'★ Extended':epType==='repeat'?'↺ Repeat':'Normal'}</b></div>
   <div class="ep-stat no-print" style="margin-left:auto;display:flex;align-items:center;gap:8px">
     <span style="color:#7a8ba0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">On-Air Duration:</span>
     ${['admin','deputyadmin'].includes(currentRole)?`<input class="ep-onair-inp" data-ep="${ep}" value="${esc((settings.epOnAir||{})[k]||'')}" placeholder="00:00:00" style="background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#3fb950;font-size:13px;font-family:'JetBrains Mono',monospace;padding:4px 8px;width:100px;outline:none;text-align:center">`:
@@ -3807,7 +3808,7 @@ function renderFCC(epNums){
         <span style="font-size:16px;font-weight:900;color:${past?'#f85149':'#f7768e'};font-family:monospace">S${currentSeason} EP ${String(ep).padStart(2,'0')}</span>
         ${txFmt?`<span style="font-size:13px;color:#6e7681">${txFmt}</span>`:''}
         ${uid?`<span style="font-size:13px;font-family:monospace;color:#e3b341;font-weight:700">UID: ${uid}</span>`:''}
-        <span style="font-size:11px;color:#484f58;border:1px solid #2e3a50;padding:2px 8px;border-radius:3px">${epType==='extended'?'★ EXTENDED — 7 segs / 6 breaks':'NORMAL — 5 segs / 4 breaks'}</span>
+        <span style="font-size:11px;color:#484f58;border:1px solid #2e3a50;padding:2px 8px;border-radius:3px">${epType==='extended'?'★ EXTENDED — 7 segs / 6 breaks':epType==='repeat'?'↺ REPEAT':'NORMAL — 5 segs / 4 breaks'}</span>
         <div style="margin-left:auto;display:flex;gap:8px">
           ${canEdit?`<button class="btn fcc-save-btn" data-ep="${ep}" style="font-size:11px;padding:4px 14px;border-color:#3fb950;color:#3fb950">💾 Save</button>`:''}
           <button class="btn fcc-print-btn" data-ep="${ep}" style="font-size:11px;padding:4px 14px;border-color:#388bfd;color:#58a6ff">⬇ Print / PDF</button>
@@ -4204,8 +4205,8 @@ function renderStudioSchedule(epNums){
     const {anchor1,anchor2}=getStudioAnchors(n);
     const txDate=resolveDate(n);
     const txFmt=txDate?new Date(txDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}):'—';
-    const epType=(settings.epTypes||{})[k]==='extended'?'EXTENDED':'NORMAL';
-    const typeColor=epType==='EXTENDED'?'#e3b341':'#3fb950';
+    const epType=(settings.epTypes||{})[k]==='extended'?'EXTENDED':(settings.epTypes||{})[k]==='repeat'?'REPEAT':'NORMAL';
+    const typeColor=epType==='EXTENDED'?'#e3b341':epType==='REPEAT'?'#7a8ba0':'#3fb950';
     // Pre-fill from studioCrew if ss fields empty
     const dir=ss.director!==undefined?ss.director:(sc.studioDirector||'');
     const asst=ss.asstDir!==undefined?ss.asstDir:(sc.assistantDirector||'');
@@ -4286,7 +4287,7 @@ async function exportStudioSchedPDF(){
     const {anchor1,anchor2}=getStudioAnchors(n);
     const txDate=resolveDate(n);
     const txFmt=txDate?new Date(txDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'—';
-    const epType=(settings.epTypes||{})[k]==='extended'?'EXTENDED':'NORMAL';
+    const epType=(settings.epTypes||{})[k]==='extended'?'EXTENDED':(settings.epTypes||{})[k]==='repeat'?'REPEAT':'NORMAL';
     const dir=ss.director!==undefined?ss.director:(sc.studioDirector||'');
     const asst=ss.asstDir!==undefined?ss.asstDir:(sc.assistantDirector||'');
     const fmgr=ss.floorMgr!==undefined?ss.floorMgr:(sc.floorManager||'');
@@ -6799,7 +6800,7 @@ function bindApp(){
             Insert: ${insertDisplay} &nbsp;|&nbsp;
             Non-Insert: <strong style="font-family:monospace;color:#b8860b">${fmtHMS(nonMins)}</strong>
           </span>
-          <span style="margin-left:auto;font-size:10px;font-weight:700;color:${epType==='extended'?'#b8860b':'#1a7a1a'}">${epType==='extended'?'★ EXTENDED':'NORMAL'}</span>
+          <span style="margin-left:auto;font-size:10px;font-weight:700;color:${epType==='extended'?'#b8860b':epType==='repeat'?'#7a8ba0':'#1a7a1a'}">${epType==='extended'?'★ EXTENDED':epType==='repeat'?'↺ REPEAT':'NORMAL'}</span>
         </div>
         ${stories.length>0?`
         <table style="width:100%;border-collapse:collapse;table-layout:fixed">
