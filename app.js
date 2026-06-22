@@ -92,8 +92,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.164';
-const BUILD_DATE='7 Jun 2026';
+const BUILD_VERSION='3.10.165';
+const BUILD_DATE='22 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -1105,18 +1105,17 @@ function updateTicker(){
   const rem=(settings.contractedMinutes||438)-paid;
   const pe=document.querySelector('.t-val.p');const re=document.querySelector('.t-val.r');
   if(pe)pe.textContent=paid.toFixed(1);if(re)re.textContent=rem.toFixed(1);
-  // Broadcast variance
-  const broadcastEps=getEpNums().filter(n=>isEpBroadcast(n));
-  const availBc=broadcastEps.length*34;
-  const usedBc=comms.filter(c=>!c.isInHouse&&!c.decommissioned&&c.broadcastEpisode&&broadcastEps.includes(Number(c.broadcastEpisode))).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);
-  const variance=availBc-usedBc; // positive = under (good), negative = over (bad)
-  const ve=document.querySelector('.t-val.bc-var');
-  const vl=document.querySelector('.t-lbl.bc-var');
+  // Episode slot balance: budget remaining vs unaired episode slots
+  const remainingEps=getEpNums().filter(n=>!isEpBroadcast(n));
+  const slotRem=remainingEps.length*34;
+  const bal=rem-slotRem;
+  const ve=document.querySelector('.t-val.slot-bal');
+  const vl=document.querySelector('.t-lbl.slot-bal');
   if(ve){
-    ve.textContent=(variance>=0?'−':'+')+(Math.abs(variance).toFixed(1));
-    ve.style.color=variance>=0?'#3fb950':'#f85149';
+    ve.textContent=(bal>=0?'+':'−')+(Math.abs(bal).toFixed(1));
+    ve.style.color=bal>=0?'#3fb950':'#f85149';
   }
-  if(vl)vl.textContent=`${broadcastEps.length} eps × 34 mins`;
+  if(vl)vl.textContent=`${remainingEps.length} ep${remainingEps.length===1?'':'s'} left × 34 min`;
 }
 
 async function deleteComm(id){
@@ -1617,10 +1616,10 @@ function renderApp(){
     <div class="t-sep">=</div>
     <div class="t-item"><div class="t-lbl">Remaining Mins</div><div class="t-val r">${remaining.toFixed(1)}</div></div>
     <div class="t-sep" style="color:#2e3a50;margin:0 8px">│</div>
-    <div class="t-item" title="Broadcast episodes: available minutes vs paid minutes used">
-      <div class="t-lbl bc-var" style="white-space:nowrap">${(()=>{const beps=getEpNums().filter(n=>isEpBroadcast(n));return beps.length+' eps × 34 mins';})()}</div>
-      <div class="t-val bc-var" style="font-size:22px">${(()=>{const beps=getEpNums().filter(n=>isEpBroadcast(n));const avail=beps.length*34;const used=comms.filter(c=>!c.isInHouse&&!c.decommissioned&&c.broadcastEpisode&&beps.includes(Number(c.broadcastEpisode))).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);const v=avail-used;return`<span style="color:${v>=0?'#3fb950':'#f85149'}">${v>=0?'−':'+'}${Math.abs(v).toFixed(1)}</span>`;})()}</div>
-      <div style="font-size:9px;color:#484f58;margin-top:2px">broadcast variance</div>
+    <div class="t-item" title="Budget remaining vs remaining episode slots (unaired eps × 34 min). Positive = budget covers slot; negative = budget falls short.">
+      <div class="t-lbl slot-bal" style="white-space:nowrap">${(()=>{const reps=getEpNums().filter(n=>!isEpBroadcast(n));return reps.length+' ep'+(reps.length===1?'':'s')+' left × 34 min';})()}</div>
+      <div class="t-val slot-bal" style="font-size:22px">${(()=>{const reps=getEpNums().filter(n=>!isEpBroadcast(n));const slot=reps.length*34;const bal=remaining-slot;return`<span style="color:${bal>=0?'#3fb950':'#f85149'}">${bal>=0?'+':'−'}${Math.abs(bal).toFixed(1)}</span>`;})()}</div>
+      <div style="font-size:9px;color:#484f58;margin-top:2px">budget vs slot</div>
     </div>
     <div class="t-meta">
       <span>${comms.filter(c=>c.approvedForPayment).length} paid · ${comms.filter(c=>c.onHold).length} on hold · ${comms.filter(c=>!c.decommissioned).length} active · ${epNums.length} episodes</span>
