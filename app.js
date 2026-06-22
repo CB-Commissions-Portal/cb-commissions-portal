@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.166';
+const BUILD_VERSION='3.10.167';
 const BUILD_DATE='22 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
@@ -6757,10 +6757,9 @@ function bindApp(){
 
     // Build clean HTML for PDF
     const paid=getPaidMins(),contracted=settings.contractedMinutes||438,remaining=contracted-paid;
-    const bcEps=getEpNums().filter(n=>isEpBroadcast(n));
-    const bcAvail=bcEps.length*34;
-    const bcUsed=comms.filter(c=>!c.isInHouse&&!c.decommissioned&&c.broadcastEpisode&&bcEps.includes(Number(c.broadcastEpisode))).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);
-    const bcVariance=bcAvail-bcUsed;
+    const pdfRemainingEps=getEpNums().filter(n=>!isEpBroadcast(n)&&(settings.epTypes||{})[String(n)]!=='repeat');
+    const pdfSlotRem=pdfRemainingEps.length*34;
+    const pdfSlotBal=remaining-pdfSlotRem;
     const epNums=getEpNums();
     const episodes=epNums
       .filter(n=>filterEp==='all'||String(n)===filterEp)
@@ -6857,9 +6856,9 @@ function bindApp(){
             </div>
             <div style="width:1px;background:#c8d0dc;height:36px;margin:0 6px"></div>
             <div style="text-align:center;padding:0 14px">
-              <div style="font-size:7px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.5px;margin-bottom:2px">${bcEps.length} eps × 34 mins</div>
-              <div style="font-size:17px;font-weight:900;font-family:monospace;color:${bcVariance>=0?'#1a7a1a':'#c0392b'};line-height:1">${bcVariance>=0?'−':'+'}${Math.abs(bcVariance).toFixed(1)}</div>
-              <div style="font-size:7px;color:#888;margin-top:1px">broadcast variance</div>
+              <div style="font-size:7px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.5px;margin-bottom:2px">${pdfRemainingEps.length} ep${pdfRemainingEps.length===1?'':'s'} left × 34 min</div>
+              <div style="font-size:17px;font-weight:900;font-family:monospace;color:${pdfSlotBal>=0?'#1a7a1a':'#c0392b'};line-height:1">${pdfSlotBal>=0?'+':'−'}${Math.abs(pdfSlotBal).toFixed(1)}</div>
+              <div style="font-size:7px;color:#888;margin-top:1px">budget vs slot</div>
             </div>
           </div>
         </td>
