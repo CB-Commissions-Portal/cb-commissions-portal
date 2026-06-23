@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.167';
+const BUILD_VERSION='3.10.168';
 const BUILD_DATE='22 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
@@ -1697,6 +1697,7 @@ function renderCommList(epNums,nextEp){
   ${currentRole==='admin'&&!previewRole?`<button class="btn primary" id="add-row-btn">+ Add Commission</button><button class="btn" id="add-ep-btn">+ Add Episode</button>`:''}
   ${(currentRole==='admin'&&!previewRole)||getEffectiveRole()==='operations'?`
     <div style="display:flex;align-items:center;gap:6px">
+      <button class="btn" id="presenter-export-btn" style="border-color:#3fb950;color:#3fb950">⬇ Presenter Export</button>
       <button class="btn" id="comm-report-btn" style="border-color:#388bfd;color:#58a6ff">⬇ Crew List PDF</button>
       <select id="crew-ep-sel" class="f-sel" tabindex="-1" style="font-size:12px">
         <option value="all">All Episodes</option>
@@ -1847,6 +1848,29 @@ async function exportCommissionsXLSX(){
   XLSX.utils.book_append_sheet(wb,ws,`S${currentSeason} Commissions`);
   XLSX.writeFile(wb,`CB-Commission-Export-S${currentSeason}.xlsx`);
   showToast('Commission export downloaded ✓');
+}
+
+async function exportPresenterXLSX(){
+  if(!window.XLSX){
+    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+  }
+  const headers=['Comm #','Short Name','Story Name','Producer','Presenter / VO'];
+  const sorted=[...comms]
+    .filter(c=>!c.decommissioned)
+    .sort((a,b)=>Number(a.commNum)-Number(b.commNum));
+  const rows=[headers,...sorted.map(c=>[
+    c.commNum||'',
+    c.shortName||'',
+    c.storyName||'',
+    c.producer||'',
+    c.presenterVO||''
+  ])];
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:12},{wch:18},{wch:40},{wch:28},{wch:28}];
+  XLSX.utils.book_append_sheet(wb,ws,`S${currentSeason} Presenters`);
+  XLSX.writeFile(wb,`CB-Presenter-Export-S${currentSeason}.xlsx`);
+  showToast('Presenter export downloaded ✓');
 }
 
 function renderEpisodes(epNums,paid,remaining){
@@ -6994,6 +7018,7 @@ function bindApp(){
   // On-Air Duration
   // Commission Excel export
   document.getElementById('ep-comm-export-btn')?.addEventListener('click',()=>exportCommissionsXLSX());
+  document.getElementById('presenter-export-btn')?.addEventListener('click',()=>exportPresenterXLSX());
 
   document.querySelectorAll('.ep-onair-inp').forEach(inp=>{
     inp.addEventListener('change',()=>{
