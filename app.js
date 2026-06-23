@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.170';
+const BUILD_VERSION='3.10.171';
 const BUILD_DATE='22 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
@@ -1874,76 +1874,67 @@ async function exportPresenterXLSX(){
   showToast('Presenter export downloaded ✓');
 }
 
-async function exportPresenterPDF(btn){
+function exportPresenterPDF(btn){
   btn.innerHTML='⏳ Preparing PDF…';
   btn.disabled=true;
-  if(!window.html2pdf){
-    await new Promise((res,rej)=>{
-      const s=document.createElement('script');
-      s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-      s.onload=res;s.onerror=rej;
-      document.head.appendChild(s);
-    });
-  }
-  const CB_LOGO=BAKED_CB_LOGO;
-  const CAP_LOGO=BAKED_CAP_LOGO;
   const printDate=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
-  // Fix 1: require commNum to be truthy — drops blank placeholder rows
   const sorted=[...comms]
     .filter(c=>!c.decommissioned&&c.commNum)
     .sort((a,b)=>Number(a.commNum)-Number(b.commNum));
 
-  const tdBase='padding:6px 8px;font-size:9.5px;border-bottom:1px solid #e0e8f0;word-break:break-word;vertical-align:top';
+  const tdBase='padding:6px 8px;font-size:9.5px;border-bottom:1px solid #e8eef5;word-wrap:break-word;overflow-wrap:break-word;vertical-align:top';
   const tableRows=sorted.map((c,i)=>{
     const bg=i%2===0?'#ffffff':'#f4f7fb';
-    // Fix 3: no white-space:nowrap anywhere; word-break:break-word on all cells
-    return`<tr style="background:${bg};page-break-inside:avoid">
-      <td style="${tdBase};font-family:monospace;font-weight:800;color:#1a3a6a;width:7%">${esc(String(c.commNum))}</td>
-      <td style="${tdBase};font-weight:700;color:#333;width:12%">${esc(c.shortName||'—')}</td>
-      <td style="${tdBase};color:#111;width:30%">${esc(c.storyName||'—')}</td>
-      <td style="${tdBase};color:#333;width:26%">${esc(c.producer||'—')}</td>
-      <td style="${tdBase};color:#333;width:25%">${esc(c.presenterVO||'—')}</td>
+    return`<tr style="background:${bg}">
+      <td style="${tdBase};font-family:monospace;font-weight:800;color:#1a3a6a">${esc(String(c.commNum))}</td>
+      <td style="${tdBase};font-weight:700;color:#222">${esc(c.shortName||'—')}</td>
+      <td style="${tdBase};color:#111">${esc(c.storyName||'—')}</td>
+      <td style="${tdBase};color:#333">${esc(c.producer||'—')}</td>
+      <td style="${tdBase};color:#333">${esc(c.presenterVO||'—')}</td>
     </tr>`;
   }).join('');
 
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>CB Presenter List S${currentSeason}</title>
   <style>
+    @page{size:A4 landscape;margin:12mm 14mm}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;padding:20px;font-size:10px}
-    @page{margin:12mm;size:A4 landscape}
-    table{width:100%;border-collapse:collapse;table-layout:fixed}
-    thead th{background:#1a3a6a;color:#fff;padding:8px;font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;text-align:left;word-break:break-word}
+    body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;font-size:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    table.data{width:100%;border-collapse:collapse;table-layout:fixed}
+    table.data thead th{background:#1a3a6a;color:#fff;padding:8px;font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;text-align:left}
   </style></head><body>
 
-  <!-- Fix 5: min-width:0 on centre block prevents right side being squeezed off -->
-  <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;border-bottom:2px solid #1a3a6a;margin-bottom:16px">
-    <img src="${CB_LOGO}" style="height:52px;width:auto;object-fit:contain;flex-shrink:0">
-    <div style="text-align:center;flex:1;min-width:0;padding:0 20px">
-      <div style="font-size:19px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#111;line-height:1.1">CARTE BLANCHE PRESENTER LIST</div>
-      <div style="font-size:8.5px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">Combined Artists Productions · Production Portal</div>
-    </div>
-    <div style="text-align:right;flex-shrink:0">
-      <img src="${CAP_LOGO}" style="height:32px;width:auto;object-fit:contain;display:block;margin-bottom:4px">
-    </div>
-  </div>
+  <!-- Table-based header: no flexbox = no logo squishing -->
+  <table style="width:100%;margin-bottom:12px;padding-bottom:10px;border-bottom:3px solid #1a3a6a" cellpadding="0" cellspacing="0">
+    <tr valign="middle">
+      <td style="width:76px"><img src="${BAKED_CB_LOGO}" style="height:48px;width:auto"></td>
+      <td style="text-align:center;padding:0 16px">
+        <div style="font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#111;line-height:1.1">CARTE BLANCHE PRESENTER LIST</div>
+        <div style="font-size:8.5px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">Combined Artists Productions · Production Portal</div>
+        <div style="margin-top:6px;font-size:10px;color:#444">
+          <strong style="color:#1a3a6a">Season ${currentSeason}</strong>
+          &nbsp;·&nbsp; ${sorted.length} commission${sorted.length!==1?'s':''}
+          &nbsp;·&nbsp; <span style="color:#888">Generated: ${printDate}</span>
+        </div>
+      </td>
+      <td style="width:76px;text-align:right"><img src="${BAKED_CAP_LOGO}" style="height:36px;width:auto;max-width:72px"></td>
+    </tr>
+  </table>
 
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-    <div style="font-size:10px;color:#444">
-      <span style="font-weight:700;color:#1a3a6a">Season ${currentSeason}</span>
-      &nbsp;·&nbsp; ${sorted.length} commission${sorted.length!==1?'s':''}
-    </div>
-    <!-- Fix 5: explicit text, no flex truncation -->
-    <div style="font-size:8.5px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Generated: ${printDate}</div>
-  </div>
-
-  <table>
+  <table class="data">
+    <colgroup>
+      <col style="width:7%">
+      <col style="width:13%">
+      <col style="width:30%">
+      <col style="width:26%">
+      <col style="width:24%">
+    </colgroup>
     <thead>
       <tr>
-        <th style="width:7%">Comm #</th>
-        <th style="width:12%">Short Name</th>
-        <th style="width:30%">Story Name</th>
-        <th style="width:26%">Producer</th>
-        <th style="width:25%">Presenter / VO</th>
+        <th>Comm #</th>
+        <th>Short Name</th>
+        <th>Story Name</th>
+        <th>Producer</th>
+        <th>Presenter / VO</th>
       </tr>
     </thead>
     <tbody>
@@ -1951,25 +1942,18 @@ async function exportPresenterPDF(btn){
     </tbody>
   </table>
 
-  <div style="margin-top:20px;padding-top:8px;border-top:1px solid #e0e8f0;display:flex;justify-content:space-between;font-size:7.5px;color:#bbb">
+  <div style="margin-top:16px;padding-top:8px;border-top:1px solid #dde4ee;display:flex;justify-content:space-between;font-size:7.5px;color:#bbb">
     <span>CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason}</span>
     <span>Generated: ${printDate}</span>
   </div>
 
   </body></html>`;
 
-  html2pdf().set({
-    margin:[10,12,10,12],
-    filename:`CB-Presenter-List-S${currentSeason}.pdf`,
-    image:{type:'jpeg',quality:0.98},
-    // Fix 4: landscape gives ~267mm usable width vs 182mm portrait
-    html2canvas:{scale:2,useCORS:true,allowTaint:true,letterRendering:true},
-    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
-  }).from(html).save().then(()=>{
-    btn.innerHTML='⬇ Presenter PDF';
-    btn.disabled=false;
-    showToast('Presenter PDF downloaded ✓');
-  });
+  const win=window.open('','_blank');
+  if(!win){btn.innerHTML='⬇ Presenter PDF';btn.disabled=false;alert('Popup blocked — please allow popups for this site.');return;}
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>{win.print();btn.innerHTML='⬇ Presenter PDF';btn.disabled=false;},600);
 }
 
 function renderEpisodes(epNums,paid,remaining){
