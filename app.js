@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.169';
+const BUILD_VERSION='3.10.170';
 const BUILD_DATE='22 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
@@ -1888,55 +1888,62 @@ async function exportPresenterPDF(btn){
   const CB_LOGO=BAKED_CB_LOGO;
   const CAP_LOGO=BAKED_CAP_LOGO;
   const printDate=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
+  // Fix 1: require commNum to be truthy — drops blank placeholder rows
   const sorted=[...comms]
-    .filter(c=>!c.decommissioned)
+    .filter(c=>!c.decommissioned&&c.commNum)
     .sort((a,b)=>Number(a.commNum)-Number(b.commNum));
 
+  const tdBase='padding:6px 8px;font-size:9.5px;border-bottom:1px solid #e0e8f0;word-break:break-word;vertical-align:top';
   const tableRows=sorted.map((c,i)=>{
     const bg=i%2===0?'#ffffff':'#f4f7fb';
+    // Fix 3: no white-space:nowrap anywhere; word-break:break-word on all cells
     return`<tr style="background:${bg};page-break-inside:avoid">
-      <td style="padding:7px 10px;font-family:monospace;font-size:10px;font-weight:800;color:#1a3a6a;border-bottom:1px solid #e0e8f0;white-space:nowrap">${esc(String(c.commNum||''))}</td>
-      <td style="padding:7px 10px;font-size:10px;font-weight:700;color:#333;border-bottom:1px solid #e0e8f0;white-space:nowrap">${esc(c.shortName||'—')}</td>
-      <td style="padding:7px 10px;font-size:10px;color:#111;border-bottom:1px solid #e0e8f0">${esc(c.storyName||'—')}</td>
-      <td style="padding:7px 10px;font-size:10px;color:#333;border-bottom:1px solid #e0e8f0">${esc(c.producer||'—')}</td>
-      <td style="padding:7px 10px;font-size:10px;color:#333;border-bottom:1px solid #e0e8f0">${esc(c.presenterVO||'—')}</td>
+      <td style="${tdBase};font-family:monospace;font-weight:800;color:#1a3a6a;width:7%">${esc(String(c.commNum))}</td>
+      <td style="${tdBase};font-weight:700;color:#333;width:12%">${esc(c.shortName||'—')}</td>
+      <td style="${tdBase};color:#111;width:30%">${esc(c.storyName||'—')}</td>
+      <td style="${tdBase};color:#333;width:26%">${esc(c.producer||'—')}</td>
+      <td style="${tdBase};color:#333;width:25%">${esc(c.presenterVO||'—')}</td>
     </tr>`;
   }).join('');
 
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;padding:24px;font-size:11px}
-    @page{margin:14mm;size:A4 portrait}
-    table{width:100%;border-collapse:collapse}
-    thead th{background:#1a3a6a;color:#fff;padding:9px 10px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;text-align:left}
+    body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;padding:20px;font-size:10px}
+    @page{margin:12mm;size:A4 landscape}
+    table{width:100%;border-collapse:collapse;table-layout:fixed}
+    thead th{background:#1a3a6a;color:#fff;padding:8px;font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;text-align:left;word-break:break-word}
   </style></head><body>
 
-  <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:2px solid #1a3a6a;margin-bottom:18px">
-    <img src="${CB_LOGO}" style="height:56px;width:auto;object-fit:contain">
-    <div style="text-align:center;flex:1;padding:0 24px">
-      <div style="font-size:20px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#111;line-height:1.1">CARTE BLANCHE PRESENTER LIST</div>
-      <div style="font-size:9px;color:#888;margin-top:5px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">Combined Artists Productions · Production Portal</div>
+  <!-- Fix 5: min-width:0 on centre block prevents right side being squeezed off -->
+  <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;border-bottom:2px solid #1a3a6a;margin-bottom:16px">
+    <img src="${CB_LOGO}" style="height:52px;width:auto;object-fit:contain;flex-shrink:0">
+    <div style="text-align:center;flex:1;min-width:0;padding:0 20px">
+      <div style="font-size:19px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#111;line-height:1.1">CARTE BLANCHE PRESENTER LIST</div>
+      <div style="font-size:8.5px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">Combined Artists Productions · Production Portal</div>
     </div>
-    <img src="${CAP_LOGO}" style="height:34px;width:auto;object-fit:contain">
+    <div style="text-align:right;flex-shrink:0">
+      <img src="${CAP_LOGO}" style="height:32px;width:auto;object-fit:contain;display:block;margin-bottom:4px">
+    </div>
   </div>
 
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <div style="font-size:11px;color:#444">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <div style="font-size:10px;color:#444">
       <span style="font-weight:700;color:#1a3a6a">Season ${currentSeason}</span>
       &nbsp;·&nbsp; ${sorted.length} commission${sorted.length!==1?'s':''}
     </div>
-    <div style="font-size:9px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Generated: ${printDate}</div>
+    <!-- Fix 5: explicit text, no flex truncation -->
+    <div style="font-size:8.5px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Generated: ${printDate}</div>
   </div>
 
   <table>
     <thead>
       <tr>
-        <th style="width:72px">Comm #</th>
-        <th style="width:110px">Short Name</th>
-        <th>Story Name</th>
-        <th style="width:150px">Producer</th>
-        <th style="width:150px">Presenter / VO</th>
+        <th style="width:7%">Comm #</th>
+        <th style="width:12%">Short Name</th>
+        <th style="width:30%">Story Name</th>
+        <th style="width:26%">Producer</th>
+        <th style="width:25%">Presenter / VO</th>
       </tr>
     </thead>
     <tbody>
@@ -1944,7 +1951,7 @@ async function exportPresenterPDF(btn){
     </tbody>
   </table>
 
-  <div style="margin-top:24px;padding-top:8px;border-top:1px solid #e0e8f0;display:flex;justify-content:space-between;font-size:8px;color:#bbb">
+  <div style="margin-top:20px;padding-top:8px;border-top:1px solid #e0e8f0;display:flex;justify-content:space-between;font-size:7.5px;color:#bbb">
     <span>CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason}</span>
     <span>Generated: ${printDate}</span>
   </div>
@@ -1952,11 +1959,12 @@ async function exportPresenterPDF(btn){
   </body></html>`;
 
   html2pdf().set({
-    margin:[10,14,10,14],
+    margin:[10,12,10,12],
     filename:`CB-Presenter-List-S${currentSeason}.pdf`,
     image:{type:'jpeg',quality:0.98},
+    // Fix 4: landscape gives ~267mm usable width vs 182mm portrait
     html2canvas:{scale:2,useCORS:true,allowTaint:true,letterRendering:true},
-    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
   }).from(html).save().then(()=>{
     btn.innerHTML='⬇ Presenter PDF';
     btn.disabled=false;
