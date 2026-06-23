@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.168';
+const BUILD_VERSION='3.10.169';
 const BUILD_DATE='22 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
@@ -1697,7 +1697,8 @@ function renderCommList(epNums,nextEp){
   ${currentRole==='admin'&&!previewRole?`<button class="btn primary" id="add-row-btn">+ Add Commission</button><button class="btn" id="add-ep-btn">+ Add Episode</button>`:''}
   ${(currentRole==='admin'&&!previewRole)||getEffectiveRole()==='operations'?`
     <div style="display:flex;align-items:center;gap:6px">
-      <button class="btn" id="presenter-export-btn" style="border-color:#3fb950;color:#3fb950">⬇ Presenter Export</button>
+      <button class="btn" id="presenter-xlsx-btn" style="border-color:#3fb950;color:#3fb950">⬇ Presenter Excel</button>
+      <button class="btn" id="presenter-pdf-btn" style="border-color:#3fb950;color:#3fb950">⬇ Presenter PDF</button>
       <button class="btn" id="comm-report-btn" style="border-color:#388bfd;color:#58a6ff">⬇ Crew List PDF</button>
       <select id="crew-ep-sel" class="f-sel" tabindex="-1" style="font-size:12px">
         <option value="all">All Episodes</option>
@@ -1871,6 +1872,96 @@ async function exportPresenterXLSX(){
   XLSX.utils.book_append_sheet(wb,ws,`S${currentSeason} Presenters`);
   XLSX.writeFile(wb,`CB-Presenter-Export-S${currentSeason}.xlsx`);
   showToast('Presenter export downloaded ✓');
+}
+
+async function exportPresenterPDF(btn){
+  btn.innerHTML='⏳ Preparing PDF…';
+  btn.disabled=true;
+  if(!window.html2pdf){
+    await new Promise((res,rej)=>{
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      s.onload=res;s.onerror=rej;
+      document.head.appendChild(s);
+    });
+  }
+  const CB_LOGO=BAKED_CB_LOGO;
+  const CAP_LOGO=BAKED_CAP_LOGO;
+  const printDate=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
+  const sorted=[...comms]
+    .filter(c=>!c.decommissioned)
+    .sort((a,b)=>Number(a.commNum)-Number(b.commNum));
+
+  const tableRows=sorted.map((c,i)=>{
+    const bg=i%2===0?'#ffffff':'#f4f7fb';
+    return`<tr style="background:${bg};page-break-inside:avoid">
+      <td style="padding:7px 10px;font-family:monospace;font-size:10px;font-weight:800;color:#1a3a6a;border-bottom:1px solid #e0e8f0;white-space:nowrap">${esc(String(c.commNum||''))}</td>
+      <td style="padding:7px 10px;font-size:10px;font-weight:700;color:#333;border-bottom:1px solid #e0e8f0;white-space:nowrap">${esc(c.shortName||'—')}</td>
+      <td style="padding:7px 10px;font-size:10px;color:#111;border-bottom:1px solid #e0e8f0">${esc(c.storyName||'—')}</td>
+      <td style="padding:7px 10px;font-size:10px;color:#333;border-bottom:1px solid #e0e8f0">${esc(c.producer||'—')}</td>
+      <td style="padding:7px 10px;font-size:10px;color:#333;border-bottom:1px solid #e0e8f0">${esc(c.presenterVO||'—')}</td>
+    </tr>`;
+  }).join('');
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;padding:24px;font-size:11px}
+    @page{margin:14mm;size:A4 portrait}
+    table{width:100%;border-collapse:collapse}
+    thead th{background:#1a3a6a;color:#fff;padding:9px 10px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;text-align:left}
+  </style></head><body>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:2px solid #1a3a6a;margin-bottom:18px">
+    <img src="${CB_LOGO}" style="height:56px;width:auto;object-fit:contain">
+    <div style="text-align:center;flex:1;padding:0 24px">
+      <div style="font-size:20px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#111;line-height:1.1">CARTE BLANCHE PRESENTER LIST</div>
+      <div style="font-size:9px;color:#888;margin-top:5px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">Combined Artists Productions · Production Portal</div>
+    </div>
+    <img src="${CAP_LOGO}" style="height:34px;width:auto;object-fit:contain">
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div style="font-size:11px;color:#444">
+      <span style="font-weight:700;color:#1a3a6a">Season ${currentSeason}</span>
+      &nbsp;·&nbsp; ${sorted.length} commission${sorted.length!==1?'s':''}
+    </div>
+    <div style="font-size:9px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Generated: ${printDate}</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:72px">Comm #</th>
+        <th style="width:110px">Short Name</th>
+        <th>Story Name</th>
+        <th style="width:150px">Producer</th>
+        <th style="width:150px">Presenter / VO</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRows||'<tr><td colspan="5" style="padding:16px;text-align:center;color:#888">No commissions found.</td></tr>'}
+    </tbody>
+  </table>
+
+  <div style="margin-top:24px;padding-top:8px;border-top:1px solid #e0e8f0;display:flex;justify-content:space-between;font-size:8px;color:#bbb">
+    <span>CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason}</span>
+    <span>Generated: ${printDate}</span>
+  </div>
+
+  </body></html>`;
+
+  html2pdf().set({
+    margin:[10,14,10,14],
+    filename:`CB-Presenter-List-S${currentSeason}.pdf`,
+    image:{type:'jpeg',quality:0.98},
+    html2canvas:{scale:2,useCORS:true,allowTaint:true,letterRendering:true},
+    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+  }).from(html).save().then(()=>{
+    btn.innerHTML='⬇ Presenter PDF';
+    btn.disabled=false;
+    showToast('Presenter PDF downloaded ✓');
+  });
 }
 
 function renderEpisodes(epNums,paid,remaining){
@@ -7018,7 +7109,9 @@ function bindApp(){
   // On-Air Duration
   // Commission Excel export
   document.getElementById('ep-comm-export-btn')?.addEventListener('click',()=>exportCommissionsXLSX());
-  document.getElementById('presenter-export-btn')?.addEventListener('click',()=>exportPresenterXLSX());
+  document.getElementById('presenter-xlsx-btn')?.addEventListener('click',()=>exportPresenterXLSX());
+  const presPdfBtn=document.getElementById('presenter-pdf-btn');
+  presPdfBtn?.addEventListener('click',()=>exportPresenterPDF(presPdfBtn));
 
   document.querySelectorAll('.ep-onair-inp').forEach(inp=>{
     inp.addEventListener('change',()=>{
