@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.171';
+const BUILD_VERSION='3.10.172';
 const BUILD_DATE='22 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
@@ -1858,7 +1858,7 @@ async function exportPresenterXLSX(){
   const headers=['Comm #','Short Name','Story Name','Producer','Presenter / VO'];
   const sorted=[...comms]
     .filter(c=>!c.decommissioned)
-    .sort((a,b)=>Number(a.commNum)-Number(b.commNum));
+    .sort((a,b)=>Number(b.commNum)-Number(a.commNum));
   const rows=[headers,...sorted.map(c=>[
     c.commNum||'',
     c.shortName||'',
@@ -1880,7 +1880,7 @@ function exportPresenterPDF(btn){
   const printDate=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
   const sorted=[...comms]
     .filter(c=>!c.decommissioned&&c.commNum)
-    .sort((a,b)=>Number(a.commNum)-Number(b.commNum));
+    .sort((a,b)=>Number(b.commNum)-Number(a.commNum));
 
   const tdBase='padding:6px 8px;font-size:9.5px;border-bottom:1px solid #e8eef5;word-wrap:break-word;overflow-wrap:break-word;vertical-align:top';
   const tableRows=sorted.map((c,i)=>{
@@ -6106,7 +6106,7 @@ function renderLineups(epNums){
     });
 
     const usedComms=items.filter(i=>!i.liveStudio).map(i=>String(i.commNum));
-    const availableComms=activeComms.filter(c=>c.commNum&&c.storyName&&!usedComms.includes(String(c.commNum))).sort((a,b)=>Number(a.commNum)-Number(b.commNum));
+    const availableComms=activeComms.filter(c=>c.commNum&&c.storyName&&!usedComms.includes(String(c.commNum))).sort((a,b)=>Number(b.commNum)-Number(a.commNum));
 
     let luAnc1='',luAnc2='';
     try{const _a=getStudioAnchors(ep);luAnc1=_a.anchor1||'';luAnc2=_a.anchor2||'';}catch(_e){}
