@@ -1,6 +1,6 @@
 import{initializeApp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,createUserWithEmailAndPassword,updateProfile}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-import{getFirestore,doc,collection,onSnapshot,setDoc,updateDoc,getDoc,getDocs,deleteDoc,serverTimestamp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import{getFirestore,doc,collection,onSnapshot,setDoc,updateDoc,getDoc,getDocs,deleteDoc,serverTimestamp,writeBatch}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import{getStorage,ref,uploadBytes,getDownloadURL}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
 
 const STORAGE_KEY='cb_portal_cfg_v2';
@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.179';
+const BUILD_VERSION='3.10.180';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -2959,10 +2959,10 @@ document.addEventListener('selectionchange',()=>{
 });
 
 // Move story up or down in episode register
-function moveStory(id,dir){
+async function moveStory(id,dir){
   const comm=comms.find(c=>Number(c.id)===Number(id));
   if(!comm){showToast('Story not found',true);return;}
-  let epStories=comms.filter(c=>c.broadcastEpisode&&c.broadcastEpisode===comm.broadcastEpisode&&!c.decommissioned);
+  let epStories=comms.filter(c=>String(c.broadcastEpisode)===String(comm.broadcastEpisode)&&!c.decommissioned);
   if(epStories.length<2){
     const allEps=getEpNums();
     for(const ep of allEps){
@@ -2972,27 +2972,25 @@ function moveStory(id,dir){
   }
   if(epStories.length<2){showToast('Only one story — nothing to reorder',true);return;}
   epStories.sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
-  if(epStories.some(c=>!c.broadcastOrder)){
-    epStories.forEach((c,i)=>{c.broadcastOrder=i+1;});
-    epStories.forEach(c=>saveComm(c));
-  }
+  if(epStories.some(c=>!c.broadcastOrder)){epStories.forEach((c,i)=>{c.broadcastOrder=i+1;});}
   const idx=epStories.findIndex(c=>Number(c.id)===Number(id));
   if(idx<0){showToast('Story not in list',true);return;}
   if(dir==='up'){
     if(idx===0){showToast('Already first',true);return;}
     const prev=epStories[idx-1];
-    const tmp=prev.broadcastOrder;
-    prev.broadcastOrder=comm.broadcastOrder;
-    comm.broadcastOrder=tmp;
-    saveComm(comm);saveComm(prev);showToast('Moved up ✓');
+    const tmp=prev.broadcastOrder;prev.broadcastOrder=comm.broadcastOrder;comm.broadcastOrder=tmp;
   } else {
     if(idx>=epStories.length-1){showToast('Already last',true);return;}
     const next=epStories[idx+1];
-    const tmp=next.broadcastOrder;
-    next.broadcastOrder=comm.broadcastOrder;
-    comm.broadcastOrder=tmp;
-    saveComm(comm);saveComm(next);showToast('Moved down ✓');
+    const tmp=next.broadcastOrder;next.broadcastOrder=comm.broadcastOrder;comm.broadcastOrder=tmp;
   }
+  setSyncDot('saving');
+  try{
+    const batch=writeBatch(db);
+    epStories.forEach(c=>batch.set(doc(db,'commissions',String(c.id)),{...c,updatedAt:serverTimestamp()}));
+    await batch.commit();
+    setSyncDot('live');showToast(dir==='up'?'Moved up ✓':'Moved down ✓');
+  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}
   render();
 }
 
@@ -3534,7 +3532,7 @@ function renderPromoScheduling(epNums){
           <input type="checkbox" class="promo-pulled-cb" data-ep="${n}" data-key="${pt.key}" ${isPulled?'checked':''} tabindex="-1">
           <span style="font-size:11px;font-weight:700;color:${isPulled?'#f85149':'#6e7681'};text-transform:uppercase">Pulled</span>
         </label>`:''}</td>
-        <td style="${tdB};font-family:monospace;font-size:13px;font-weight:700;color:#3fb950;letter-spacing:.5px">
+        <td style="${tdB};font-family:monospace;font-size:13px;font-weight:700;color:#3fb950;letter-spacing:.5px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(combined)}">
           ${isPulled?'<span style="color:#f85149;font-size:12px">PULLED</span>':combined?esc(combined):'<span style="color:#9ca3af">—</span>'}
         </td>
         <td style="${tdB};min-width:180px"><input class="ci promo-content-inp" value="${esc(pd['content_'+pt.key]||'')}" data-ep="${n}" data-key="${pt.key}" placeholder="Enter content…" style="font-size:14px;width:100%;color:#e3b341" ${!canEditContent?'disabled':''}></td>
