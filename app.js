@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.187';
+const BUILD_VERSION='3.10.188';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -1801,8 +1801,8 @@ function renderCommList(epNums,nextEp){
 <thead><tr>
   <th data-sort="portal" class="st st-1" style="width:36px;min-width:36px">✓</th>
   <th data-sort="commNum" class="st st-2" style="width:155px;min-width:155px">Comm #</th>
-  <th class="st st-3" style="width:160px;min-width:160px">Short Name</th>
-  <th data-sort="storyName" class="st st-4" style="width:320px;min-width:320px">Story Name</th>
+  <th class="st st-3" style="width:190px;min-width:190px">Short Name</th>
+  <th data-sort="storyName" class="st st-4" style="width:400px;min-width:400px">Story Name</th>
   <th data-sort="deliveryDate" style="width:14ch;min-width:14ch">Del. Date</th>
   <th data-sort="commDuration" style="width:14ch;min-width:14ch">Comm Dur</th>
   <th data-sort="deliveredDuration" style="width:14ch;min-width:14ch">Del Dur</th>
@@ -1834,10 +1834,10 @@ ${filtered.map(c=>{
   <div style="display:flex;flex-direction:column;gap:2px;align-items:flex-start">
     ${ci('commNum')}
     <div style="display:flex;gap:3px;flex-wrap:nowrap;align-items:center">
-      ${c.broadcastEpisode&&isEpFinalised(c.broadcastEpisode)?'<span style="background:#2e4a2e;color:#4ade80;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;white-space:nowrap">FINALISED</span>':''}
+      ${c.broadcastEpisode&&isEpFinalised(c.broadcastEpisode)?'<span style="background:#dcfce7;color:#15803d;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #86efac;white-space:nowrap">FINALISED</span>':''}
       ${c.isLicensed?'<span style="background:#dcfce7;color:#3fb950;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #86efac;white-space:nowrap">LICENSED</span>':''}
       ${c.isInHouse?'<span style="background:#eff6ff;color:#0066CC;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #1a3a6a;white-space:nowrap">IN-HOUSE</span>':''}
-      ${c.onHold?'<span style="background:#2d1400;color:#f97316;font-size:11px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;white-space:nowrap">ON HOLD</span>':''}
+      ${c.onHold?'<span style="background:#fff7ed;color:#c2410c;font-size:11px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #fed7aa;white-space:nowrap">ON HOLD</span>':''}
     </div>
   </div>
 </td>
@@ -2853,7 +2853,7 @@ function renderLeaveCancelModal(){
   return`<div id="lv-cancel-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center">
     <div style="background:#f8fafc;border:1px solid #d1dae8;border-radius:12px;width:420px;max-width:95vw;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.6)">
       <div style="font-size:17px;font-weight:800;color:#111827;margin-bottom:8px">Cancel Leave Request</div>
-      ${wasApproved?`<div style="background:#2d1f00;border:1px solid #e3b341;border-radius:6px;padding:8px 12px;font-size:14px;color:#e3b341;margin-bottom:14px">&#9888; This leave has been approved. Cancelling will notify your admin.</div>`:''}
+      ${wasApproved?`<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 12px;font-size:14px;color:#b45309;margin-bottom:14px">&#9888; This leave has been approved. Cancelling will notify your admin.</div>`:''}
       <div style="font-size:14px;color:#6b7280;margin-bottom:6px">Please provide a reason for cancelling:</div>
       <textarea id="lv-cancel-reason" placeholder="Reason for cancellation…" style="width:100%;min-height:80px;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:15px;padding:8px 10px;outline:none;font-family:inherit;resize:vertical;box-sizing:border-box">${esc(reason||'')}</textarea>
       <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
@@ -3171,7 +3171,7 @@ function renderPostProd(){
     const rowBg=pp.editComplete?'#0f1f10':ri%2===0?'#1a2133':'#1e2840';
     const badge=(c.isLicensed?'<span style="font-size:6px;background:#dcfce7;color:#3fb950;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">LIC</span>':
                 c.isInHouse?'<span style="font-size:6px;background:#eef2ff;color:#6b7280;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">IH</span>':'')+
-               (c.onHold?'<span style="font-size:11px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 4px;border-radius:2px;margin-left:3px;vertical-align:middle">ON HOLD</span>':'');
+               (c.onHold?'<span style="font-size:11px;font-weight:800;background:#fff7ed;color:#c2410c;padding:1px 4px;border-radius:2px;margin-left:3px;border:1px solid #fed7aa;vertical-align:middle">ON HOLD</span>':'');
 
     rowsHtml+=`<tr style="background:${rowBg}${pp.editComplete?';opacity:0.75':''}">`;
     rowsHtml+=`<td style="${tdFix};position:sticky;left:0;z-index:2;background:${rowBg};font-weight:900;color:${pp.editComplete?'#3fb950':'#58a6ff'};font-family:monospace;font-size:13px">${esc(String(c.commNum))}${badge}${canRemove?`<br><button class="pp-remove-btn" data-commnum="${esc(String(c.commNum))}" style="background:none;border:none;color:#9ca3af;font-size:10px;cursor:pointer;padding:0;margin-top:2px;font-family:inherit;font-weight:400">✕ remove</button>`:''}</td>`;
@@ -3246,7 +3246,7 @@ function renderPostProd(){
           onmouseover="this.style.borderColor='#58a6ff'" onmouseout="this.style.borderColor='#d1dae8'">
           <span style="font-size:14px;font-weight:900;color:#0066CC;font-family:monospace;min-width:45px">${esc(String(c.commNum))}</span>
           <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:700;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName)}${c.onHold?'<span style="font-size:11px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 4px;border-radius:2px;margin-left:5px;vertical-align:middle">ON HOLD</span>':''}</div>
+            <div style="font-size:14px;font-weight:700;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName)}${c.onHold?'<span style="font-size:11px;font-weight:800;background:#fff7ed;color:#c2410c;padding:1px 4px;border-radius:2px;margin-left:5px;border:1px solid #fed7aa;vertical-align:middle">ON HOLD</span>':''}</div>
             <div style="font-size:12px;color:#6b7280;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
               ${c.producer?`<span>${esc(c.producer)}</span>`:''}
               ${c.editor?`<span style="color:#c084fc">${esc(c.editor)}</span>`:''}
@@ -3770,11 +3770,11 @@ function renderMusicCues(epNums){
           </div>
           <div>
             <label style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">Story Name</label>
-            <input id="mc-story-name" value="${esc(draft.storyName)}" placeholder="${matchedComm?matchedComm.storyName:'Auto-fills from Commission List'}" style="width:100%;background:#f9fafb;border:1px solid ${matchedComm?'#2d6a2d':'#d1dae8'};color:${matchedComm?'#3fb950':'#eaf0ff'};padding:7px 10px;border-radius:5px;font-size:15px" ${matchedComm?'readonly':''}>
+            <input id="mc-story-name" value="${esc(draft.storyName)}" placeholder="${matchedComm?matchedComm.storyName:'Auto-fills from Commission List'}" style="width:100%;background:#f9fafb;border:1px solid ${matchedComm?'#16a34a':'#d1dae8'};color:${matchedComm?'#16a34a':'#111827'};padding:7px 10px;border-radius:5px;font-size:15px" ${matchedComm?'readonly':''}>
           </div>
           <div>
             <label style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">Producer</label>
-            <input id="mc-producer" value="${esc(draft.producer)}" placeholder="${matchedComm?matchedComm.producer:'Auto-fills from Commission List'}" style="width:100%;background:#f9fafb;border:1px solid ${matchedComm?'#2d6a2d':'#d1dae8'};color:${matchedComm?'#3fb950':'#eaf0ff'};padding:7px 10px;border-radius:5px;font-size:15px" ${matchedComm?'readonly':''}>
+            <input id="mc-producer" value="${esc(draft.producer)}" placeholder="${matchedComm?matchedComm.producer:'Auto-fills from Commission List'}" style="width:100%;background:#f9fafb;border:1px solid ${matchedComm?'#16a34a':'#d1dae8'};color:${matchedComm?'#16a34a':'#111827'};padding:7px 10px;border-radius:5px;font-size:15px" ${matchedComm?'readonly':''}>
           </div>
         </div>
         ${matchedComm&&matchedComm.broadcastEpisode?`<div style="padding:0 16px 12px;font-size:13px;color:#3fb950">→ Linked to Episode ${matchedComm.broadcastEpisode} · ${fmtDate(resolveDate(Number(matchedComm.broadcastEpisode)))}</div>`:''}
@@ -5130,7 +5130,7 @@ function renderCallSheet(epNums){
       return`<div class="cs-ep-pick" data-ep="${ep}" style="background:#f9fafb;border:2px solid ${hasSaved?'#e3b341':'#d1dae8'};border-radius:10px;padding:20px 24px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px" onmouseover="this.style.borderColor='#e3b341';this.style.background='#eff6ff'" onmouseout="this.style.borderColor='${hasSaved?'#e3b341':'#d1dae8'}';this.style.background='#f9fafb'">
         <div><div style="font-size:22px;font-weight:900;color:${isPast?'#f85149':'#eaf0ff'};font-family:monospace">S${currentSeason} EP ${String(ep).padStart(2,'0')}</div>
         <div style="font-size:15px;color:#6b7280;margin-top:4px">${d?new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'No date set'}</div></div>
-        <div style="display:flex;align-items:center;gap:12px">${hasSaved?'<span style="font-size:13px;background:#2d2000;color:#e3b341;padding:4px 12px;border-radius:4px;border:1px solid #4a3300;font-weight:700">HAS CALL SHEET</span>':''}<span style="color:#e3b341;font-size:26px">→</span></div>
+        <div style="display:flex;align-items:center;gap:12px">${hasSaved?'<span style="font-size:13px;background:#fffbeb;color:#b45309;padding:4px 12px;border-radius:4px;border:1px solid #fde68a;font-weight:700">HAS CALL SHEET</span>':''}<span style="color:#e3b341;font-size:26px">→</span></div>
       </div>`;
     }).join('');
     return`<div class="ep-wrap" style="padding:32px;max-width:640px;margin:0 auto"><h2 style="font-size:22px;font-weight:900;color:#111827;margin:0 0 24px 0">Studio Call Sheet — Select Episode</h2>${epList||'<div style="color:#9ca3af;font-size:17px">No episodes found.</div>'}</div>`;
@@ -6051,7 +6051,7 @@ function renderBroadcastList(){
     const commDur=c.commDuration||'—';
     const badge=(c.isLicensed?'<span style="font-size:10px;font-weight:800;background:#dcfce7;color:#3fb950;padding:1px 5px;border-radius:2px;margin-left:4px">LIC</span>':
                 c.isInHouse?'<span style="font-size:10px;font-weight:800;background:#eef2ff;color:#6b7280;padding:1px 5px;border-radius:2px;margin-left:4px">IH</span>':'')+
-               (c.onHold?'<span style="font-size:11px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 5px;border-radius:2px;margin-left:4px;vertical-align:middle">ON HOLD</span>':'');
+               (c.onHold?'<span style="font-size:11px;font-weight:800;background:#fff7ed;color:#c2410c;padding:1px 5px;border-radius:2px;margin-left:4px;border:1px solid #fed7aa;vertical-align:middle">ON HOLD</span>':'');
     const rowBg=isPast?'background:rgba(248,81,73,0.06)':isFuture?'background:rgba(88,166,255,0.04)':'';
     const txColor=isPast?'#f85149':isFuture?'#3fb950':'#484f58';
 
@@ -6251,7 +6251,7 @@ function renderLineups(epNums){
     const dur=decToMmSs(toDecimalMins(c.deliveredDuration||c.commDuration));
     return`<div style="background:${bgCol};border-left:3px solid ${borderCol};border-radius:5px;padding:10px 12px;margin-bottom:8px">
       <div style="font-size:14px;font-weight:900;color:${commCol};font-family:monospace">${esc(String(c.commNum))}${typeTag}</div>
-      <div style="font-size:14px;font-weight:700;color:#111827;margin-top:2px">${esc(c.storyName)}${c.onHold?'<span style="font-size:11px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 4px;border-radius:2px;margin-left:5px;vertical-align:middle">ON HOLD</span>':''}</div>
+      <div style="font-size:14px;font-weight:700;color:#111827;margin-top:2px">${esc(c.storyName)}${c.onHold?'<span style="font-size:11px;font-weight:800;background:#fff7ed;color:#c2410c;padding:1px 4px;border-radius:2px;margin-left:5px;border:1px solid #fed7aa;vertical-align:middle">ON HOLD</span>':''}</div>
       <div style="display:flex;gap:6px;margin-top:4px;align-items:center;flex-wrap:wrap">
         ${c.presenterVO?`<span style="font-size:13px;color:#6b7280">${esc(c.presenterVO)}</span>`:''}
         ${c.producer?`<span style="font-size:13px;color:#6b7280">${esc(c.producer)}</span>`:''}
@@ -6570,8 +6570,8 @@ function renderModals(epNums,nextEp){
           <div>
             <span style="font-size:18px;font-weight:800;color:#e6edf3">${esc(String(_c.commNum||''))}</span>
             ${_c.storyName?`<span style="font-size:16px;color:#6b7280;margin-left:12px">· ${esc(_c.storyName)}</span>`:''}
-            ${_c.decommissioned?'<span style="background:#3d1a1a;color:#f85149;font-size:12px;font-weight:800;padding:2px 8px;border-radius:3px;margin-left:10px;letter-spacing:.5px">DECOM</span>':''}
-            ${_c.onHold&&!_c.decommissioned?'<span style="background:#2d1400;color:#f97316;font-size:12px;font-weight:800;padding:2px 8px;border-radius:3px;margin-left:10px;letter-spacing:.5px">ON HOLD</span>':''}
+            ${_c.decommissioned?'<span style="background:#fee2e2;color:#b91c1c;font-size:12px;font-weight:800;padding:2px 8px;border-radius:3px;margin-left:10px;letter-spacing:.5px;border:1px solid #fca5a5">DECOM</span>':''}
+            ${_c.onHold&&!_c.decommissioned?'<span style="background:#fff7ed;color:#c2410c;font-size:12px;font-weight:800;padding:2px 8px;border-radius:3px;margin-left:10px;letter-spacing:.5px;border:1px solid #fed7aa">ON HOLD</span>':''}
           </div>
           <button id="cem-close" class="btn" style="font-size:15px;padding:6px 16px;flex-shrink:0">✕ Close</button>
         </div>
@@ -6644,7 +6644,7 @@ function renderModals(epNums,nextEp){
               ? _c.onHold
                 ? `<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
                     <button id="cem-hold-off" class="btn" style="border-color:#f97316;color:#f97316;font-size:16px;padding:8px 20px;font-weight:700">↩ Remove Hold</button>
-                    <span style="background:#2d1400;color:#f97316;font-size:14px;font-weight:800;padding:4px 12px;border-radius:4px;letter-spacing:.5px">ON HOLD</span>
+                    <span style="background:#fff7ed;color:#c2410c;font-size:14px;font-weight:800;padding:4px 12px;border-radius:4px;letter-spacing:.5px;border:1px solid #fed7aa">ON HOLD</span>
                   </div>`
                 : `<button id="cem-hold-on" class="btn" style="border-color:#f97316;color:#f97316;font-size:16px;padding:8px 20px;font-weight:700">Place On Hold</button>`
               : '<span style="font-size:15px;color:#9ca3af;padding:8px 0">No permission to change hold status</span>'
