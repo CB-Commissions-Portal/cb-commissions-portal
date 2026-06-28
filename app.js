@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.189';
+const BUILD_VERSION='3.10.190';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -1270,6 +1270,8 @@ function render(){
   const _epRegListTop=_epRegList?_epRegList.scrollTop:0;
   const _rosScroll=document.getElementById('ros-scroll');
   const _rosScrollTop=_rosScroll?_rosScroll.scrollTop:0;
+  const _trBlocks=document.getElementById('tr-live-blocks');
+  const _trBlocksTop=_trBlocks?_trBlocks.scrollTop:0;
   const root=document.getElementById('root');
   const cfg=getCfg();
   if(!cfg){root.innerHTML=renderSetup();bindSetup();return;}
@@ -1289,6 +1291,8 @@ function render(){
   if(_epRegList2&&_epRegListTop)_epRegList2.scrollTop=_epRegListTop;
   const _rosScroll2=document.getElementById('ros-scroll');
   if(_rosScroll2&&_rosScrollTop)_rosScroll2.scrollTop=_rosScrollTop;
+  const _trBlocks2=document.getElementById('tr-live-blocks');
+  if(_trBlocks2&&_trBlocksTop)_trBlocks2.scrollTop=_trBlocksTop;
   if(pendingFocusId!==null){
     const newRow=document.querySelector(`tr[data-id="${pendingFocusId}"]`);
     if(newRow){
