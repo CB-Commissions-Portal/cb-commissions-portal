@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.192';
+const BUILD_VERSION='3.10.193';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -1347,194 +1347,55 @@ function renderHome(){
   const rm=ROLE_META[role]||ROLE_META.editorial;
   const user=currentUser;
   const season=currentSeason;
+  function mk(tab,title,sub,icon,color,bg,show,desc){return show?{tab,title,sub,icon,color,bg,desc}:null;}
+  const sections=[
+    {label:'Content',items:[
+      mk('commissions','Commission List',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>`,'#388bfd','rgba(56,139,253,.1)',role!=='afm','Manage commissions, durations and deliverables'),
+      mk('lineups','Line-Ups',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.5"/><circle cx="3" cy="12" r="1.5"/><circle cx="3" cy="18" r="1.5"/></svg>`,'#e3b341','rgba(227,179,65,.1)',['admin','deputyadmin','operations','production','prodmgmt','editorial','content','capstaff','finance','director'].includes(role),'Episode line-ups, directors and presenter assignments'),
+      mk('broadcast','Broadcast List',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>`,'#79c0ff','rgba(121,192,255,.1)',role!=='afm','Search commissions by broadcast date, episode and duration'),
+      mk('episodes','Episode Register','Broadcast Schedule',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,'#58a6ff','rgba(88,166,255,.1)',role!=='afm','Track episodes, durations and broadcast dates'),
+    ].filter(Boolean)},
+    {label:'Production',items:[
+      mk('postprod','Post Production','Schedule',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>`,'#f7768e','rgba(247,118,142,.1)',['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role),'Weekly post production schedule'),
+      mk('prescal','Presenter Calendar','Scheduling',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,'#f472b6','rgba(244,114,182,.1)',['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance','director'].includes(role),'Daily presenter scheduling'),
+      mk('deliverables','Deliverables',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`,'#3fb950','rgba(63,185,80,.1)',currentRole==='admin'&&!previewRole,'Commission deliverable tracking and overview'),
+      mk('promos','Promo Scheduling',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,'#ffa657','rgba(255,166,87,.1)',['admin','deputyadmin','operations','prodmgmt','editorial','finance'].includes(role),'UID codes and promo scheduling per episode'),
+      mk('musiccues','Music Cue Sheets','Insert Music',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,'#f7768e','rgba(247,118,142,.1)',['admin','deputyadmin','operations','afm','production','finance'].includes(role),'Upload and manage music cue sheets per commission'),
+    ].filter(Boolean)},
+    {label:'Studio',items:[
+      mk('ros','Studio Script Build',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,'#c084fc','rgba(192,132,252,.1)',['admin','deputyadmin','editorial','content','operations','finance','director'].includes(role),'Build the episode studio script with duration calculator'),
+      mk('fcc','Script Cover Page',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>`,'#f7768e','rgba(247,118,142,.1)',['admin','deputyadmin','production','prodmgmt','finance'].includes(role),'Studio Script with timecode and segment durations'),
+      mk('transcripts','Transcripts',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`,'#06b6d4','rgba(6,182,212,.1)',['admin','deputyadmin'].includes(role),'Commission and live show transcripts'),
+      mk('callsheet','Studio Call Sheet',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,'#e3b341','rgba(227,179,65,.1)',['admin','deputyadmin','operations','production','prodmgmt','finance'].includes(role),'Studio call sheet and running order per episode'),
+      mk('credits','End Credits','Per Episode',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,'#d2a8ff','rgba(210,168,255,.1)',['admin','deputyadmin','operations','finance'].includes(role),'Edit and export end credits for each episode'),
+      mk('studio','Studio Crew','Per Episode',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/><circle cx="18" cy="8" r="3"/><path d="M22 21a5 5 0 00-8-4"/></svg>`,'#3fb950','rgba(63,185,80,.1)',['admin','deputyadmin','operations','finance'].includes(role),'Studio crew allocation and export'),
+      mk('studiosched','Studio Schedule',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/></svg>`,'#22d3ee','rgba(34,211,238,.1)',['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance'].includes(role),'Monthly studio crew schedule and booking times'),
+    ].filter(Boolean)},
+    {label:'CAP',items:[
+      mk('leave','CAP Leave','Leave Management',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01"/></svg>`,'#34d399','rgba(52,211,153,.1)',userHasLeaveAccess(),'Apply for leave, check balances and approvals'),
+    ].filter(Boolean)},
+    {label:'Admin',items:[
+      mk('contracts','Contracts','Finance & Legal',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`,'#a3e635','rgba(163,230,53,.1)',(currentRole==='admin'&&!previewRole)||role==='finance','Presenter and contractor agreements'),
+      mk('admin','Admin','Users & Access',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,'#e3b341','rgba(227,179,65,.1)',currentRole==='admin'&&!previewRole,'Manage users, roles and access control'),
+    ].filter(Boolean)},
+  ].filter(s=>s.items.length);
 
-  // Define cards with access rules
-  const cards=[
-    {
-      tab:'commissions',
-      title:`Commission List`,
-      sub:`Season ${season}`,
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>`,
-      color:'#388bfd',
-      bg:'rgba(56,139,253,.1)',
-      show: role!=='afm',
-      desc:'Manage commissions, durations and deliverables'
-    },
-    {
-      tab:'lineups',
-      title:'Line-Ups',
-      sub:`Season ${season}`,
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.5"/><circle cx="3" cy="12" r="1.5"/><circle cx="3" cy="18" r="1.5"/></svg>`,
-      color:'#e3b341',
-      bg:'rgba(227,179,65,.1)',
-      show: ['admin','deputyadmin','operations','production','prodmgmt','editorial','content','capstaff','finance','director'].includes(role),
-      desc:'Episode line-ups, directors and presenter assignments'
-    },
-    {
-      tab:'ros',
-      title:'Studio Script Build',
-      sub:`Season ${season}`,
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
-      color:'#c084fc',
-      bg:'rgba(192,132,252,.1)',
-      show: ['admin','deputyadmin','editorial','content','operations','finance','director'].includes(role),
-      desc:'Build the episode studio script with duration calculator'
-    },
-    {
-      tab:'callsheet',
-      title:'Studio Call Sheet',
-      sub:`Season ${season}`,
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
-      color:'#e3b341',
-      bg:'rgba(227,179,65,.1)',
-      show: ['admin','deputyadmin','operations','production','prodmgmt','finance'].includes(role),
-      desc:'Studio call sheet and running order per episode'
-    },
-    {
-      tab:'broadcast',
-      title:'Broadcast List',
-      sub:`Season ${season}`,
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>`,
-      color:'#79c0ff',
-      bg:'rgba(121,192,255,.1)',
-      show: role!=='afm',
-      desc:'Search commissions by broadcast date, episode and duration'
-    },
-    {
-      tab:'episodes',
-      title:'Episode Register',
-      sub:'Broadcast Schedule',
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
-      color:'#58a6ff',
-      bg:'rgba(88,166,255,.1)',
-      show: role!=='afm',
-      desc:'Track episodes, durations and broadcast dates'
-    },
-    {
-      tab:'postprod',
-      title:'Post Production',
-      sub:`Schedule`,
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>`,
-      color:'#f7768e',
-      bg:'rgba(247,118,142,.1)',
-      show: ['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role),
-      desc:'Weekly post production schedule'
-    },
-    {
-      tab:'studiosched',
-      title:'Studio Schedule',
-      sub:`Season ${season}`,
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/></svg>`,
-      color:'#22d3ee',
-      bg:'rgba(34,211,238,.1)',
-      show:['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance'].includes(role),
-      desc:'Monthly studio crew schedule and booking times'
-    },
-    {
-      tab:'studio',
-      title:'Studio Crew',
-      sub:'Per Episode',
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/><circle cx="18" cy="8" r="3"/><path d="M22 21a5 5 0 00-8-4"/></svg>`,
-      color:'#3fb950',
-      bg:'rgba(63,185,80,.1)',
-      show: ['admin','deputyadmin','operations','finance'].includes(role),
-      desc:'Studio crew allocation and export'
-    },
-    {
-      tab:'credits',
-      title:'End Credits',
-      sub:'Per Episode',
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,
-      color:'#d2a8ff',
-      bg:'rgba(210,168,255,.1)',
-      show: ['admin','deputyadmin','operations','finance'].includes(role),
-      desc:'Edit and export end credits for each episode'
-    },
-    {
-      tab:'promos',
-      title:'Promo Scheduling',
-      sub:`Season ${season}`,
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,
-      color:'#ffa657',
-      bg:'rgba(255,166,87,.1)',
-      show: ['admin','deputyadmin','operations','prodmgmt','editorial','finance'].includes(role),
-      desc:'UID codes and promo scheduling per episode'
-    },
-    {
-      tab:'musiccues',
-      title:'Music Cue Sheets',
-      sub:'Insert Music',
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
-      color:'#f7768e',
-      bg:'rgba(247,118,142,.1)',
-      show:['admin','deputyadmin','operations','afm','production','finance'].includes(role),
-      desc:'Upload and manage music cue sheets per commission'
-    },
-    {
-      tab:'leave',
-      title:'CAP Leave',
-      sub:'Leave Management',
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01"/></svg>`,
-      color:'#34d399',
-      bg:'rgba(52,211,153,.1)',
-      show:hasLeaveAccess(role,(role==='admin'?['capstaff']:currentUserExtraRoles)),
-      desc:'Apply for leave, check balances and approvals'
-    },
-    {
-      tab:'fcc',
-      title:'Studio Script Cover Page',
-      sub:`Season ${season}`,
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>`,
-      color:'#f7768e',
-      bg:'rgba(247,118,142,.1)',
-      show: ['admin','deputyadmin','production','prodmgmt','finance'].includes(role),
-      desc:'Studio Script with timecode and segment durations'
-    },
-    {
-      tab:'prescal',
-      title:'Presenter Calendar',
-      sub:'Scheduling',
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
-      color:'#f472b6',
-      bg:'rgba(244,114,182,.1)',
-      show:['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance','director'].includes(role),
-      desc:'Daily presenter scheduling from 25 May 2026'
-    },
-    {
-      tab:'deliverables',
-      title:'Deliverables',
-      sub:`Season ${season}`,
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`,
-      color:'#3fb950',
-      bg:'rgba(63,185,80,.1)',
-      show: currentRole==='admin'&&!previewRole,
-      desc:'Commission deliverable tracking and overview'
-    },
-    {
-      tab:'contracts',
-      title:'Contracts',
-      sub:'Finance & Legal',
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`,
-      color:'#a3e635',
-      bg:'rgba(163,230,53,.1)',
-      show: (currentRole==='admin'&&!previewRole)||role==='finance',
-      desc:'Presenter and contractor agreements'
-    },
-    {
-      tab:'admin',
-      title:'Admin',
-      sub:'Users & Access',
-      icon:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
-      color:'#e3b341',
-      bg:'rgba(227,179,65,.1)',
-      show: currentRole==='admin'&&!previewRole,
-      desc:'Manage users, roles and access control'
-    },
-  ].filter(c=>c.show);
+  function cardHtml(c){return`<div data-home-tab="${c.tab}" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 18px;cursor:pointer;transition:border-color .15s,box-shadow .15s;display:flex;flex-direction:column;gap:8px;box-shadow:0 1px 4px rgba(0,0,0,.06)"
+    onmouseover="this.style.borderColor='${c.color}';this.style.boxShadow='0 6px 20px rgba(0,0,0,.10)'"
+    onmouseout="this.style.borderColor='#e5e7eb';this.style.boxShadow='0 1px 4px rgba(0,0,0,.06)'">
+    <div style="color:${c.color};display:flex;align-items:center;justify-content:space-between">
+      ${c.icon}
+      <div style="background:${c.bg};color:${c.color};font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:3px 8px;border-radius:3px">${c.sub}</div>
+    </div>
+    <div>
+      <div style="font-size:15px;font-weight:800;color:#111827;margin-bottom:1px">${c.title}</div>
+      <div style="font-size:13px;color:#6b7280;line-height:1.3">${c.desc}</div>
+    </div>
+    <div style="font-size:13px;color:${c.color};font-weight:600;margin-top:4px">Open →</div>
+  </div>`;}
 
   return`<div style="flex:1;min-height:0;height:0;overflow-y:auto;background:#f4f7fb;display:flex;flex-direction:column;align-items:center;padding:24px 20px">
-    <!-- LOGOS -->
-    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;max-width:860px;margin-bottom:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;max-width:940px;margin-bottom:20px">
       <img src="${BAKED_CB_LOGO}" style="height:52px;width:auto;object-fit:contain">
       <div style="text-align:center">
         <div style="font-size:15px;font-weight:700;color:#111827;text-transform:uppercase;letter-spacing:1.5px">Carte Blanche Production Portal</div>
@@ -1542,37 +1403,19 @@ function renderHome(){
       </div>
       <img src="${BAKED_CAP_LOGO}" style="height:44px;width:auto;object-fit:contain;max-width:120px">
     </div>
-
-    <!-- WELCOME -->
-    <div style="text-align:center;margin-bottom:20px">
+    <div style="text-align:center;margin-bottom:28px">
       <div style="font-size:20px;font-weight:900;color:#111827;letter-spacing:-.5px">Welcome back${user?.displayName?', '+user.displayName.split(' ')[0]:''}.</div>
-      <div style="font-size:15px;color:#6b7280;margin-top:6px">
-        <span style="background:${rm.bg};color:${rm.color};padding:2px 10px;border-radius:3px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">${rm.label}</span>
-      </div>
+      <div style="margin-top:6px"><span style="background:${rm.bg};color:${rm.color};padding:2px 10px;border-radius:3px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">${rm.label}</span></div>
     </div>
-
-    <!-- CARDS GRID -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;width:100%;max-width:940px">
-      ${cards.map(c=>`
-        <div data-home-tab="${c.tab}" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 18px;cursor:pointer;transition:border-color .15s,box-shadow .15s;display:flex;flex-direction:column;gap:8px;box-shadow:0 1px 4px rgba(0,0,0,.06)"
-          onmouseover="this.style.borderColor='${c.color}';this.style.boxShadow='0 6px 20px rgba(0,0,0,.10)'"
-          onmouseout="this.style.borderColor='#e5e7eb';this.style.boxShadow='0 1px 4px rgba(0,0,0,.06)'">
-          <div style="color:${c.color};display:flex;align-items:center;justify-content:space-between">
-            ${c.icon}
-            <div style="background:${c.bg};color:${c.color};font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:3px 8px;border-radius:3px">${c.sub}</div>
-          </div>
-          <div>
-            <div style="font-size:15px;font-weight:800;color:#111827;margin-bottom:1px">${c.title}</div>
-            <div style="font-size:13px;color:#6b7280;line-height:1.3">${c.desc}</div>
-          </div>
-          <div style="font-size:13px;color:${c.color};font-weight:600;margin-top:4px">Open →</div>
-        </div>`).join('')}
+    <div style="width:100%;max-width:940px">
+      ${sections.map(s=>`<div style="margin-bottom:32px">
+        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.4px;color:#6b7280;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #e5e7eb">${s.label}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px">${s.items.map(cardHtml).join('')}</div>
+      </div>`).join('')}
     </div>
-
-    <!-- FOOTER -->
-    <div style="margin-top:48px;text-align:center;font-size:13px;color:#9ca3af">
+    <div style="margin-top:16px;margin-bottom:24px;text-align:center;font-size:13px;color:#9ca3af">
       Combined Artists Productions · Carte Blanche Production Portal<br>
-      <span style="font-size:12px;color:#9ca3af">Build v${BUILD_VERSION} &nbsp;·&nbsp; ${BUILD_DATE}</span>
+      <span style="font-size:12px">Build v${BUILD_VERSION} &nbsp;·&nbsp; ${BUILD_DATE}</span>
     </div>
   </div>`;
 }
