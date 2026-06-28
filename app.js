@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.175';
+const BUILD_VERSION='3.10.176';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -6706,12 +6706,12 @@ function renderModals(epNums,nextEp){
 }
 
 function renderTranscripts(epNums){
-  const activeComms=comms.filter(c=>!c.decommissioned).sort((a,b)=>Number(a.commNum||0)-Number(b.commNum||0));
+  const activeComms=comms.filter(c=>!c.decommissioned).sort((a,b)=>Number(b.commNum||0)-Number(a.commNum||0));
   function statusBadge(status){
     const map={
-      ready:     {label:'READY',       bg:'#1a3a1a',color:'#3fb950'},
-      inprogress:{label:'IN PROGRESS', bg:'#0d2246',color:'#58a6ff'},
-      draft:     {label:'DRAFT',       bg:'#3a2a0a',color:'#e3b341'},
+      ready:     {label:'READY',       bg:'#dcfce7',color:'#16a34a'},
+      inprogress:{label:'IN PROGRESS', bg:'#eff6ff', color:'#0066CC'},
+      draft:     {label:'DRAFT',       bg:'#fffbeb', color:'#b45309'},
     };
     const s=map[status]||{label:'NO TRANSCRIPT',bg:'#f4f4f5',color:'#9ca3af'};
     return`<span style="background:${s.bg};color:${s.color};font-size:9px;font-weight:800;padding:2px 7px;border-radius:3px;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap">${s.label}</span>`;
@@ -6764,7 +6764,7 @@ function renderTranscripts(epNums){
             return`<div class="tr-comm-row${sel?' tr-selected':''}" data-commnum="${esc(String(c.commNum))}" style="padding:10px 14px;border-bottom:1px solid #e8edf5;cursor:pointer;background:${sel?'#eff6ff':'transparent'}">
               <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">
                 <span style="font-size:13px;font-weight:800;color:#111827">${esc(String(c.commNum))}</span>
-                ${c.broadcastEpisode?`<span style="font-size:9px;background:#dcfce7;color:#4ade80;padding:1px 5px;border-radius:3px;font-weight:700">EP${c.broadcastEpisode}</span>`:''}
+                ${c.broadcastEpisode?`<span style="font-size:9px;background:#dcfce7;color:#16a34a;padding:1px 5px;border-radius:3px;font-weight:700">EP${c.broadcastEpisode}</span>`:''}
                 <span style="margin-left:auto">${statusBadge(td.status)}</span>
               </div>
               <div style="font-size:11px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName||'Untitled')}</div>
@@ -6786,7 +6786,8 @@ function renderTranscripts(epNums){
   function blockAccent(type){return{fixed:'#484f58',break:'#484f58',live:'#1f6feb',insert:'#3fb950',coldstart:'#8957e5',upnext:'#2ea043'}[type]||'#484f58';}
   const rosItems=ep?(rosData[String(ep)]?.items||[]):[];
   const displayBlocks=(lt.blocks&&lt.blocks.length)?lt.blocks:rosItems.map(item=>({
-    itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',content:'',
+    itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',
+    content:item.script||'',
     commNum:item.type==='insert'?(insertComm(item.key)?.commNum||null):null
   }));
   return`<div style="display:flex;flex:1;min-height:0;overflow:hidden;background:#f8fafc">
@@ -6797,7 +6798,10 @@ function renderTranscripts(epNums){
         <select id="tr-live-ep" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:13px;padding:7px 10px;font-family:inherit;box-sizing:border-box">
           ${epNums.map(n=>`<option value="${n}" ${String(n)===String(ep)?'selected':''}>EP ${n}${settings.epDates?.[n]?' · '+fmtDate(settings.epDates[n]):''}</option>`).join('')}
         </select>
-        <button id="tr-build-btn" class="btn primary" style="width:100%;margin-top:8px;font-size:12px;padding:7px 0">⚙ BUILD FROM SCRIPT</button>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button id="tr-build-btn" class="btn primary" style="flex:1;font-size:12px;padding:7px 0">⚙ Build from Script</button>
+          <button id="tr-export-txt-btn" class="btn" style="font-size:12px;padding:7px 10px" title="Export as TXT (UTF-8)">⬇ TXT</button>
+        </div>
         ${lt.updatedByName?`<div style="margin-top:10px;font-size:10px;color:#9ca3af;line-height:1.5">Last saved by <strong style="color:#6b7280">${esc(lt.updatedByName)}</strong>${lt.updatedAtStr?`<br>${esc(lt.updatedAtStr)}`:''}</div>`:''}
       </div>
       <div style="padding:10px 14px;flex:1;overflow-y:auto">
@@ -6832,7 +6836,7 @@ function renderTranscripts(epNums){
             ${linkedTd?.status==='ready'&&linkedTd?.transcript?`<button class="btn tr-copy-in" data-bi="${bi}" data-commnum="${esc(String(linked.commNum))}" style="font-size:10px;padding:3px 9px;margin-left:auto;background:#dcfce7;color:#16a34a;border-color:#86efac">↓ Copy In Transcript</button>`:''}
           </div>`:''}
           ${isFixed?`<div style="padding:8px 14px;font-size:11px;color:#9ca3af;font-style:italic">Fixed/break item — no dialogue</div>`:
-            `<textarea class="tr-live-area" data-bi="${bi}" placeholder="Enter dialogue / transcript here…" style="width:100%;min-height:70px;background:transparent;border:none;color:#111827;font-size:13px;padding:12px 14px;resize:vertical;outline:none;font-family:inherit;line-height:1.7;box-sizing:border-box">${esc(block.content||'')}</textarea>`}
+            `<textarea class="tr-live-area" data-bi="${bi}" placeholder="Enter dialogue / transcript here…" rows="${Math.max(3,(block.content||'').split('\n').length+Math.ceil((block.content||'').length/90))}" style="width:100%;height:auto;background:transparent;border:none;color:#111827;font-size:13px;padding:12px 14px;resize:none;outline:none;font-family:inherit;line-height:1.7;box-sizing:border-box;overflow:hidden">${esc(block.content||'')}</textarea>`}
         </div>`;
       }).join('')}
     </div>
@@ -8559,16 +8563,22 @@ function bindApp(){
       const existMap={};existing.forEach(b=>{existMap[b.itemKey]=b;});
       const newBlocks=rosItems.map(item=>({
         itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',
-        content:existMap[item.key]?.content||'',
+        content:existMap[item.key]?.content||item.script||'',
         commNum:(item.type==='insert'?iComm(item.key):null)||(existMap[item.key]?.commNum||null)
       }));
       await saveLiveTranscript(ep,{epNum:ep,blocks:newBlocks});
       showToast(`Live Show Transcript built — ${newBlocks.length} items from EP${ep} script`);
       render();
     });
+    // Auto-resize all live-area textareas to fit content
+    function autoResizeTa(ta){ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';}
+    document.querySelectorAll('.tr-live-area').forEach(ta=>{
+      autoResizeTa(ta);
+    });
     let _trLiveTimer=null;
     document.querySelectorAll('.tr-live-area').forEach(ta=>{
       ta.addEventListener('input',()=>{
+        autoResizeTa(ta);
         clearTimeout(_trLiveTimer);
         _trLiveTimer=setTimeout(async()=>{
           const ep=transcriptLiveEp;if(!ep)return;
@@ -8579,6 +8589,42 @@ function bindApp(){
           await saveLiveTranscript(ep,{epNum:ep,blocks});
         },1500);
       });
+    });
+    // TXT export
+    document.getElementById('tr-export-txt-btn')?.addEventListener('click',()=>{
+      const ep=transcriptLiveEp;
+      if(!ep){showToast('Select an episode first',true);return;}
+      const lt=liveTranscripts[String(ep)]||{};
+      const blocks=lt.blocks&&lt.blocks.length?lt.blocks:[];
+      if(!blocks.length){
+        // fall back to live textarea values
+        const tas=document.querySelectorAll('.tr-live-area');
+        if(!tas.length){showToast('No transcript content to export',true);return;}
+      }
+      const divider='─'.repeat(60);
+      let txt=`CARTE BLANCHE — EP${String(ep).padStart(2,'0')} LIVE SHOW TRANSCRIPT\n`;
+      txt+=`Exported: ${new Date().toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})}\n\n`;
+      // collect current textarea values (live DOM) if available, otherwise use saved blocks
+      const taMap={};
+      document.querySelectorAll('.tr-live-area').forEach(ta=>{taMap[ta.dataset.bi]=ta.value;});
+      const epComs=comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0));
+      blocks.forEach((block,bi)=>{
+        const content=taMap[String(bi)]!==undefined?taMap[String(bi)]:block.content||'';
+        const isFixed=['fixed','break'].includes(block.itemType);
+        txt+=`${divider}\n[${(block.itemType||'live').toUpperCase()}] ${block.itemLabel}\n`;
+        if(block.commNum){
+          const comm=comms.find(c=>String(c.commNum)===String(block.commNum));
+          if(comm)txt+=`Comm ${comm.commNum} · ${comm.storyName||''}\n`;
+        }
+        txt+=`${divider}\n`;
+        txt+=isFixed?'[Fixed / break — no dialogue]\n\n':(content||'[No transcript entered]\n')+'\n\n';
+      });
+      const blob=new Blob([txt],{type:'text/plain;charset=utf-8'});
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=`EP${String(ep).padStart(2,'0')}_Live_Transcript.txt`;
+      a.click();
+      URL.revokeObjectURL(a.href);
     });
     document.querySelectorAll('.tr-copy-in').forEach(btn=>{
       btn.addEventListener('click',()=>{
