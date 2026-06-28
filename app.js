@@ -92,10 +92,10 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.173';
-const BUILD_DATE='22 Jun 2026';
+const BUILD_VERSION='3.10.174';
+const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
-let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null;
+let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
 let studioCrew={}; // {epNum: {studioDirector:'', ad:'', ...}}
 let studioSchedule={}; // {epNum:{director,asstDir,makeup,autocue(Autocue Operator),floorMgr,production,bookingFrom,bookingTo}}
@@ -151,6 +151,11 @@ let rosEpModal=false; // show episode picker modal
 let rosCurrentEp=null; // currently viewed episode
 let rosScriptModal=null; // {epNum,itemIdx} — script editor modal
 let rosEditModal=null;   // {epNum,itemIdx} — full item edit modal
+let commTranscripts={}; // {commNum: {transcript,status,updatedByName,updatedAtStr}}
+let liveTranscripts={}; // {epNum: {blocks:[],updatedByName,updatedAtStr}}
+let transcriptView='comm'; // 'comm' | 'live'
+let transcriptSelectedComm=null; // commNum open in commission transcript editor
+let transcriptLiveEp=null; // episode number selected in live show transcript
 let ppActiveComms=[]; // ordered list of commNums added to the post prod schedule
 let ppSortField='commNum';
 let ppSortDir='asc';
@@ -546,6 +551,48 @@ function subscribeROS(){
       }
     },e=>{console.error('ROS snapshot:',e);if(!resolved){resolved=true;resolve();}});
   });
+}
+function subscribeCommTranscripts(){
+  if(unsubCommTranscripts)unsubCommTranscripts();
+  return new Promise(resolve=>{
+    let resolved=false;
+    unsubCommTranscripts=onSnapshot(collection(db,'comm_transcripts'),snap=>{
+      snap.docs.forEach(d=>{commTranscripts[String(d.id)]={...d.data()};});
+      if(!resolved){resolved=true;resolve();}
+      else if(tab==='transcripts'&&!transcriptSelectedComm)render();
+    },e=>{console.error('CommTranscripts error:',e);if(!resolved){resolved=true;resolve();}});
+  });
+}
+function subscribeLiveTranscripts(){
+  if(unsubLiveTranscripts)unsubLiveTranscripts();
+  return new Promise(resolve=>{
+    let resolved=false;
+    unsubLiveTranscripts=onSnapshot(collection(db,'live_transcripts'),snap=>{
+      snap.docs.forEach(d=>{liveTranscripts[String(d.id)]={...d.data()};});
+      if(!resolved){resolved=true;resolve();}
+      else if(tab==='transcripts'&&transcriptView==='live')render();
+    },e=>{console.error('LiveTranscripts error:',e);if(!resolved){resolved=true;resolve();}});
+  });
+}
+async function saveCommTranscript(commNum,data){
+  setSyncDot('saving');
+  const updatedByName=currentUser?.displayName||currentUser?.email||'Unknown';
+  const updatedAtStr=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  commTranscripts[String(commNum)]={...data,updatedByName,updatedAtStr};
+  try{
+    await setDoc(doc(db,'comm_transcripts',String(commNum)),{...data,updatedAt:serverTimestamp(),updatedByName,updatedAtStr});
+    setSyncDot('live');
+  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}
+}
+async function saveLiveTranscript(epNum,data){
+  setSyncDot('saving');
+  const updatedByName=currentUser?.displayName||currentUser?.email||'Unknown';
+  const updatedAtStr=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  liveTranscripts[String(epNum)]={...data,updatedByName,updatedAtStr};
+  try{
+    await setDoc(doc(db,'live_transcripts',String(epNum)),{...data,updatedAt:serverTimestamp(),updatedByName,updatedAtStr});
+    setSyncDot('live');
+  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}
 }
 async function exportAllDataToJSON(){
   showToast('Collecting data — this may take a moment…');
@@ -1631,6 +1678,7 @@ function renderApp(){
     ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='commissions'?' active':''}" data-tab="commissions">Commission List ${currentSeason}</div>`:''}
     ${['admin','deputyadmin','operations','production','prodmgmt','editorial','content','capstaff','finance','director'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='lineups'?' active':''}" data-tab="lineups">Line-Ups</div>`:''}
     ${['admin','deputyadmin','editorial','content','operations','finance','director'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='ros'?' active':''}" data-tab="ros">Studio Script Build</div>`:''}
+    ${['admin','deputyadmin'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='transcripts'?' active':''}" data-tab="transcripts">Transcripts</div>`:''}
     ${['admin','deputyadmin','production','prodmgmt','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='fcc'?' active':''}" data-tab="fcc">Studio Script Cover Page</div>`:''}
     ${getEffectiveRole()!=='afm'?`<div class="tab-btn${tab==='broadcast'?' active':''}" data-tab="broadcast">Broadcast List</div>`:''}
     ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='episodes'?' active':''}" data-tab="episodes">Episode Register</div>`:''}
@@ -1672,6 +1720,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='deliverables'&&['admin','deputyadmin'].includes(currentRole)&&!previewRole)return renderDeliverables(epNums);
   if(tab==='lineups'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','director'].includes(role))return renderLineups(epNums);
   if(tab==='ros'&&['admin','deputyadmin','editorial','content','director'].includes(role))return renderRunOfShow();
+  if(tab==='transcripts'&&['admin','deputyadmin'].includes(role))return renderTranscripts(epNums);
   if(tab==='broadcast'&&role!=='afm')return renderBroadcastList();
   if(tab==='contracts'&&((currentRole==='admin'&&!previewRole)||currentRole==='finance'))return renderContracts();
   if(tab==='admin'&&currentRole==='admin'&&!previewRole)return renderAdmin();
@@ -6622,6 +6671,140 @@ function renderModals(epNums,nextEp){
   return out;
 }
 
+function renderTranscripts(epNums){
+  const activeComms=comms.filter(c=>!c.decommissioned).sort((a,b)=>Number(a.commNum||0)-Number(b.commNum||0));
+  function statusBadge(status){
+    const map={
+      ready:     {label:'READY',       bg:'#1a3a1a',color:'#3fb950'},
+      inprogress:{label:'IN PROGRESS', bg:'#0d2246',color:'#58a6ff'},
+      draft:     {label:'DRAFT',       bg:'#3a2a0a',color:'#e3b341'},
+    };
+    const s=map[status]||{label:'NO TRANSCRIPT',bg:'#1c2433',color:'#484f58'};
+    return`<span style="background:${s.bg};color:${s.color};font-size:9px;font-weight:800;padding:2px 7px;border-radius:3px;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap">${s.label}</span>`;
+  }
+  const sidebarToggle=`<div style="display:flex;gap:6px;margin-bottom:10px">
+    <button class="btn${transcriptView==='comm'?' primary':''}" style="flex:1;font-size:11px;padding:6px 0" data-tr-view="comm">Commission Transcripts</button>
+    <button class="btn${transcriptView==='live'?' primary':''}" style="flex:1;font-size:11px;padding:6px 0" data-tr-view="live">Live Show Transcript</button>
+  </div>`;
+
+  // ─── COMMISSION TRANSCRIPTS ─────────────────────────────────────────────
+  if(transcriptView==='comm'){
+    let rightPanel='';
+    if(transcriptSelectedComm!==null){
+      const comm=comms.find(c=>String(c.commNum)===String(transcriptSelectedComm));
+      const td=commTranscripts[String(transcriptSelectedComm)]||{};
+      const status=td.status||'';
+      rightPanel=`<div style="display:flex;flex-direction:column;height:100%">
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #2e3a50;flex-shrink:0;background:#141c2b">
+          <button class="btn" id="tr-back-btn" style="font-size:12px;padding:4px 10px">← Back</button>
+          <div style="flex:1;min-width:0">
+            <span style="font-size:16px;font-weight:800;color:#eaf0ff">${esc(String(comm?.commNum||transcriptSelectedComm))}</span>
+            ${comm?.storyName?`<span style="font-size:13px;color:#8b949e;margin-left:10px">· ${esc(comm.storyName)}</span>`:''}
+            ${comm?.broadcastEpisode?`<span style="font-size:10px;background:#1c2f1c;color:#4ade80;padding:2px 6px;border-radius:3px;font-weight:700;margin-left:8px">EP${comm.broadcastEpisode}</span>`:''}
+          </div>
+          <select id="tr-status-sel" style="background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:12px;padding:6px 10px;font-family:inherit;cursor:pointer">
+            <option value="" ${!status?'selected':''}>No Transcript</option>
+            <option value="draft" ${status==='draft'?'selected':''}>Draft</option>
+            <option value="inprogress" ${status==='inprogress'?'selected':''}>In Progress</option>
+            <option value="ready" ${status==='ready'?'selected':''}>Ready</option>
+          </select>
+        </div>
+        <div style="flex:1;padding:20px;display:flex;flex-direction:column;min-height:0;overflow:hidden">
+          <textarea id="tr-comm-text" placeholder="Start typing the commission transcript here…" style="flex:1;width:100%;background:#131c2b;border:1px solid #2e3a50;border-radius:8px;color:#eaf0ff;font-size:14px;padding:16px;resize:none;outline:none;font-family:inherit;line-height:1.7;box-sizing:border-box">${esc(td.transcript||'')}</textarea>
+          ${td.updatedByName?`<div style="margin-top:8px;font-size:11px;color:#484f58">Last saved by <strong style="color:#6e7681">${esc(td.updatedByName)}</strong>${td.updatedAtStr?` · ${esc(td.updatedAtStr)}`:''}</div>`:''}
+        </div>
+      </div>`;
+    } else {
+      rightPanel=`<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#484f58;font-size:14px;font-style:italic">Select a commission from the list to open its transcript</div>`;
+    }
+    return`<div style="display:flex;height:calc(100vh - 110px);overflow:hidden;background:#0d1117">
+      <div style="width:300px;flex-shrink:0;border-right:1px solid #2e3a50;display:flex;flex-direction:column;background:#141c2b">
+        <div style="padding:12px 14px;border-bottom:1px solid #2e3a50;flex-shrink:0">
+          ${sidebarToggle}
+          <input id="tr-comm-search" placeholder="Search commissions…" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:12px;padding:7px 10px;outline:none;font-family:inherit;box-sizing:border-box">
+        </div>
+        <div id="tr-comm-list" style="overflow-y:auto;flex:1">
+          ${activeComms.map(c=>{
+            const td=commTranscripts[String(c.commNum)]||{};
+            const sel=String(c.commNum)===String(transcriptSelectedComm);
+            return`<div class="tr-comm-row${sel?' tr-selected':''}" data-commnum="${esc(String(c.commNum))}" style="padding:10px 14px;border-bottom:1px solid #1c2433;cursor:pointer;background:${sel?'#1a2d48':'transparent'}">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">
+                <span style="font-size:13px;font-weight:800;color:#eaf0ff">${esc(String(c.commNum))}</span>
+                ${c.broadcastEpisode?`<span style="font-size:9px;background:#1c2f1c;color:#4ade80;padding:1px 5px;border-radius:3px;font-weight:700">EP${c.broadcastEpisode}</span>`:''}
+                <span style="margin-left:auto">${statusBadge(td.status)}</span>
+              </div>
+              <div style="font-size:11px;color:#8b949e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName||'Untitled')}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div style="flex:1;min-width:0;overflow:hidden">${rightPanel}</div>
+    </div>`;
+  }
+
+  // ─── LIVE SHOW TRANSCRIPT ───────────────────────────────────────────────
+  if(!transcriptLiveEp&&epNums.length)transcriptLiveEp=epNums[epNums.length-1];
+  const ep=transcriptLiveEp;
+  const lt=ep?(liveTranscripts[String(ep)]||{}):{};
+  const epComms=ep?comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0)):[];
+  function insertComm(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComms[Number(m[1])-1]||null;}
+  function blockBg(type){return{fixed:'#1c1c28',break:'#1c1c28',live:'#0d1f3c',insert:'#0e1f10',coldstart:'#160d24',upnext:'#0a1c14'}[type]||'#1a2235';}
+  function blockAccent(type){return{fixed:'#484f58',break:'#484f58',live:'#1f6feb',insert:'#3fb950',coldstart:'#8957e5',upnext:'#2ea043'}[type]||'#484f58';}
+  const rosItems=ep?(rosData[String(ep)]?.items||[]):[];
+  const displayBlocks=(lt.blocks&&lt.blocks.length)?lt.blocks:rosItems.map(item=>({
+    itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',content:'',
+    commNum:item.type==='insert'?(insertComm(item.key)?.commNum||null):null
+  }));
+  return`<div style="display:flex;height:calc(100vh - 110px);overflow:hidden;background:#0d1117">
+    <div style="width:300px;flex-shrink:0;border-right:1px solid #2e3a50;display:flex;flex-direction:column;background:#141c2b">
+      <div style="padding:12px 14px;border-bottom:1px solid #2e3a50;flex-shrink:0">
+        ${sidebarToggle}
+        <div style="font-size:10px;color:#8b949e;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Episode</div>
+        <select id="tr-live-ep" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:13px;padding:7px 10px;font-family:inherit;box-sizing:border-box">
+          ${epNums.map(n=>`<option value="${n}" ${String(n)===String(ep)?'selected':''}>EP ${n}${settings.epDates?.[n]?' · '+fmtDate(settings.epDates[n]):''}</option>`).join('')}
+        </select>
+        <button id="tr-build-btn" class="btn primary" style="width:100%;margin-top:8px;font-size:12px;padding:7px 0">⚙ BUILD FROM SCRIPT</button>
+        ${lt.updatedByName?`<div style="margin-top:10px;font-size:10px;color:#484f58;line-height:1.5">Last saved by <strong style="color:#6e7681">${esc(lt.updatedByName)}</strong>${lt.updatedAtStr?`<br>${esc(lt.updatedAtStr)}`:''}</div>`:''}
+      </div>
+      <div style="padding:10px 14px;flex:1;overflow-y:auto">
+        <div style="font-size:10px;color:#8b949e;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">EP${ep} Commissions</div>
+        ${epComms.length?epComms.map(c=>{
+          const td=commTranscripts[String(c.commNum)]||{};
+          return`<div style="padding:6px 0;border-bottom:1px solid #1c2433">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-size:12px;font-weight:700;color:#eaf0ff">${esc(String(c.commNum))}</span>
+              ${statusBadge(td.status)}
+            </div>
+            <div style="font-size:10px;color:#8b949e;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName||'Untitled')}</div>
+          </div>`;
+        }).join(''):`<div style="font-size:11px;color:#484f58;font-style:italic">No commissions assigned to EP${ep}</div>`}
+      </div>
+    </div>
+    <div id="tr-live-blocks" style="flex:1;min-width:0;overflow-y:auto;padding:16px 20px">
+      ${!displayBlocks.length?`<div style="color:#484f58;font-size:14px;padding:60px 0;text-align:center">No script items yet.<br><br>Select an episode and click <strong style="color:#eaf0ff">BUILD FROM SCRIPT</strong> to get started.</div>`:
+      displayBlocks.map((block,bi)=>{
+        const isFixed=['fixed','break'].includes(block.itemType);
+        const accent=blockAccent(block.itemType);
+        const linked=block.commNum?comms.find(c=>String(c.commNum)===String(block.commNum)):null;
+        const linkedTd=block.commNum?commTranscripts[String(block.commNum)]:null;
+        return`<div style="margin-bottom:10px;border:1px solid ${accent}40;border-radius:8px;overflow:hidden;background:${blockBg(block.itemType)}">
+          <div style="padding:7px 14px;border-bottom:1px solid ${accent}30;display:flex;align-items:center;gap:10px">
+            <span style="font-size:10px;font-weight:800;color:${accent};text-transform:uppercase;letter-spacing:.5px;flex:1">${esc(block.itemLabel)}</span>
+            <span style="font-size:9px;background:${accent}20;color:${accent};padding:2px 6px;border-radius:3px;font-weight:700;text-transform:uppercase">${esc(block.itemType)}</span>
+          </div>
+          ${linked?`<div style="padding:6px 14px;background:${accent}08;border-bottom:1px solid ${accent}25;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:11px;color:#8b949e">Comm <strong style="color:#eaf0ff">${esc(String(linked.commNum))}</strong> · ${esc(linked.storyName||'')}</span>
+            ${statusBadge(linkedTd?.status)}
+            ${linkedTd?.status==='ready'&&linkedTd?.transcript?`<button class="btn tr-copy-in" data-bi="${bi}" data-commnum="${esc(String(linked.commNum))}" style="font-size:10px;padding:3px 9px;margin-left:auto;background:#1a3a1a;color:#3fb950;border-color:#3fb950">↓ Copy In Transcript</button>`:''}
+          </div>`:''}
+          ${isFixed?`<div style="padding:8px 14px;font-size:11px;color:#484f58;font-style:italic">Fixed/break item — no dialogue</div>`:
+            `<textarea class="tr-live-area" data-bi="${bi}" placeholder="Enter dialogue / transcript here…" style="width:100%;min-height:70px;background:transparent;border:none;color:#eaf0ff;font-size:13px;padding:12px 14px;resize:vertical;outline:none;font-family:inherit;line-height:1.7;box-sizing:border-box">${esc(block.content||'')}</textarea>`}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
 function bindApp(){
   // ── Fast tab switching: only swap content, not the whole app ──
   const _tabScroll={};
@@ -8295,6 +8478,92 @@ function bindApp(){
     if(!res.ok){err.textContent=res.error;err.style.display='block';btn.disabled=false;btn.textContent='Create Account';return;}
     newUserData={email:'',password:'',displayName:'',role:'editorial'};addUserModal=false;render();
   });
+
+  // ── TRANSCRIPTS ─────────────────────────────────────────────────
+  if(tab==='transcripts'){
+    document.querySelectorAll('[data-tr-view]').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        transcriptView=btn.dataset.trView;
+        transcriptSelectedComm=null;
+        if(transcriptView==='live'&&!transcriptLiveEp){const ep=getEpNums();if(ep.length)transcriptLiveEp=ep[ep.length-1];}
+        render();
+      });
+    });
+    document.querySelectorAll('.tr-comm-row').forEach(row=>{
+      row.addEventListener('click',()=>{transcriptSelectedComm=row.dataset.commnum;render();});
+    });
+    document.getElementById('tr-back-btn')?.addEventListener('click',()=>{transcriptSelectedComm=null;render();});
+    document.getElementById('tr-comm-search')?.addEventListener('input',e=>{
+      const q=e.target.value.toLowerCase();
+      document.querySelectorAll('.tr-comm-row').forEach(row=>{row.style.display=row.textContent.toLowerCase().includes(q)?'':'none';});
+    });
+    document.getElementById('tr-status-sel')?.addEventListener('change',async e=>{
+      if(transcriptSelectedComm===null)return;
+      const text=document.getElementById('tr-comm-text')?.value||'';
+      await saveCommTranscript(transcriptSelectedComm,{commNum:String(transcriptSelectedComm),transcript:text,status:e.target.value});
+      render();
+    });
+    let _trCommTimer=null;
+    document.getElementById('tr-comm-text')?.addEventListener('input',e=>{
+      clearTimeout(_trCommTimer);
+      _trCommTimer=setTimeout(async()=>{
+        if(transcriptSelectedComm===null)return;
+        const status=document.getElementById('tr-status-sel')?.value||'';
+        await saveCommTranscript(transcriptSelectedComm,{commNum:String(transcriptSelectedComm),transcript:e.target.value,status});
+      },1500);
+    });
+    document.getElementById('tr-live-ep')?.addEventListener('change',e=>{
+      transcriptLiveEp=Number(e.target.value)||e.target.value;render();
+    });
+    document.getElementById('tr-build-btn')?.addEventListener('click',async()=>{
+      const ep=transcriptLiveEp;if(!ep){showToast('Select an episode first',true);return;}
+      const rosItems=(rosData[String(ep)]?.items)||[];
+      if(!rosItems.length){showToast('No script items found for EP'+ep+'. Add items in Studio Script Build first.',true);return;}
+      const epComs=comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0));
+      function iComm(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComs[Number(m[1])-1]?.commNum||null;}
+      const existing=(liveTranscripts[String(ep)]?.blocks)||[];
+      const existMap={};existing.forEach(b=>{existMap[b.itemKey]=b;});
+      const newBlocks=rosItems.map(item=>({
+        itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',
+        content:existMap[item.key]?.content||'',
+        commNum:(item.type==='insert'?iComm(item.key):null)||(existMap[item.key]?.commNum||null)
+      }));
+      await saveLiveTranscript(ep,{epNum:ep,blocks:newBlocks});
+      showToast(`Live Show Transcript built — ${newBlocks.length} items from EP${ep} script`);
+      render();
+    });
+    let _trLiveTimer=null;
+    document.querySelectorAll('.tr-live-area').forEach(ta=>{
+      ta.addEventListener('input',()=>{
+        clearTimeout(_trLiveTimer);
+        _trLiveTimer=setTimeout(async()=>{
+          const ep=transcriptLiveEp;if(!ep)return;
+          const lt=liveTranscripts[String(ep)]||{};
+          const blocks=JSON.parse(JSON.stringify(lt.blocks||[]));
+          const bi=Number(ta.dataset.bi);
+          if(blocks[bi])blocks[bi].content=ta.value;
+          await saveLiveTranscript(ep,{epNum:ep,blocks});
+        },1500);
+      });
+    });
+    document.querySelectorAll('.tr-copy-in').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const bi=Number(btn.dataset.bi);
+        const commNum=btn.dataset.commnum;
+        const td=commTranscripts[String(commNum)]||{};
+        const ep=transcriptLiveEp;if(!ep)return;
+        const lt=liveTranscripts[String(ep)]||{};
+        const blocks=JSON.parse(JSON.stringify(lt.blocks||[]));
+        if(blocks[bi]){
+          blocks[bi].content=td.transcript||'';
+          saveLiveTranscript(ep,{epNum:ep,blocks});
+          const ta=document.querySelector(`.tr-live-area[data-bi="${bi}"]`);
+          if(ta)ta.value=td.transcript||'';
+          showToast('Commission transcript copied in');
+        }
+      });
+    });
+  }
 }
 
 
@@ -10575,6 +10844,8 @@ async function boot(){
         subscribeFCCData().catch(e=>console.error('FCC data load error:',e)),
         subscribeContracts().catch(e=>console.error('Contracts load error:',e)),
         subscribeLeaveBalances().catch(e=>console.error('Leave balances error:',e)),
+        subscribeCommTranscripts().catch(e=>console.error('CommTranscripts error:',e)),
+        subscribeLiveTranscripts().catch(e=>console.error('LiveTranscripts error:',e)),
       ]);
       render();
     } else {
@@ -10598,6 +10869,8 @@ async function boot(){
       if(unsubStudioSched){unsubStudioSched();unsubStudioSched=null;}
       if(unsubFCC){unsubFCC();unsubFCC=null;}
       if(unsubLeaveBalances){unsubLeaveBalances();unsubLeaveBalances=null;}
+      if(unsubCommTranscripts){unsubCommTranscripts();unsubCommTranscripts=null;}
+      if(unsubLiveTranscripts){unsubLiveTranscripts();unsubLiveTranscripts=null;}
       render();
     }
   });
