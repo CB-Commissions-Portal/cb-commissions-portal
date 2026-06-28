@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.184';
+const BUILD_VERSION='3.10.185';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -6171,12 +6171,12 @@ function renderLineups(epNums){
     const collapsed=luCollapsed.has(String(ep));
     const items=lu.items||[];
     const tot=totalMins(ep);
-    const epAccent=past?'#f85149':'#58a6ff';
+    const epAccent=past?'#b91c1c':'#0066CC';
     const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
 
     let itemsHtml='';
     items.forEach((item,idx)=>{
-      const rowBg=past?'background:rgba(248,81,73,0.15);border-left:3px solid #f85149':'background:rgba(88,166,255,0.06);border-left:3px solid #1e3a5f';
+      const rowBg=past?'background:#fff0f0;border-left:3px solid #fca5a5':'background:#f0f4ff;border-left:3px solid #93c5fd';
       if(item.liveStudio){
         // Live Studio hidden
       } else {
@@ -6184,11 +6184,11 @@ function renderLineups(epNums){
         const dur=durForComm(c);
         const isDelivered=c&&!!c.deliveredDuration;
         itemsHtml+=`<div style="${rowBg};padding:14px 18px;border-radius:6px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <span style="font-size:16px;font-weight:900;color:${past?'#f85149':'#58a6ff'};width:60px;font-family:monospace;flex-shrink:0">${esc(String(item.commNum))}</span>
-          <span style="font-size:16px;font-weight:700;color:${past?'#f87171':'#eaf0ff'};flex:1;min-width:100px">${esc(c?.storyName||String(item.commNum))}${c?.isLicensed?'<span style="margin-left:5px;font-size:10px;font-weight:800;background:#dcfce7;color:#3fb950;padding:1px 4px;border-radius:2px;vertical-align:middle">LIC</span>':''}${c?.isInHouse?'<span style="margin-left:5px;font-size:10px;font-weight:800;background:#eef2ff;color:#6b7280;padding:1px 4px;border-radius:2px;vertical-align:middle">IH</span>':''}${c?.onHold?'<span style="margin-left:5px;font-size:11px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 5px;border-radius:2px;vertical-align:middle">ON HOLD</span>':''}</span>
+          <span style="font-size:16px;font-weight:900;color:${past?'#b91c1c':'#0066CC'};width:60px;font-family:monospace;flex-shrink:0">${esc(String(item.commNum))}</span>
+          <span style="font-size:16px;font-weight:700;color:${past?'#7f1d1d':'#111827'};flex:1;min-width:100px">${esc(c?.storyName||String(item.commNum))}${c?.isLicensed?'<span style="margin-left:5px;font-size:10px;font-weight:800;background:#dcfce7;color:#16a34a;padding:1px 4px;border-radius:2px;vertical-align:middle">LIC</span>':''}${c?.isInHouse?'<span style="margin-left:5px;font-size:10px;font-weight:800;background:#eff6ff;color:#6b7280;padding:1px 4px;border-radius:2px;vertical-align:middle">IH</span>':''}${c?.onHold?'<span style="margin-left:5px;font-size:11px;font-weight:800;background:#fff7ed;color:#f97316;padding:1px 5px;border-radius:2px;border:1px solid #fed7aa;vertical-align:middle">ON HOLD</span>':''}</span>
           <span style="font-size:13px;color:#6b7280;min-width:70px">${esc(c?.presenterVO||'')}</span>
           <span style="font-size:13px;color:#6b7280;min-width:70px">${esc(c?.producer||'')}</span>
-          <span style="font-size:13px;font-family:monospace;color:${isDelivered?'#3fb950':'#8b949e'};min-width:50px;text-align:right" title="${isDelivered?'Delivered':'Commissioned'}">${decToMmSs(toDecimalMins(dur))}${isDelivered?' ✓':''}</span>
+          <span style="font-size:13px;font-family:monospace;color:${isDelivered?'#16a34a':'#6b7280'};min-width:50px;text-align:right" title="${isDelivered?'Delivered':'Commissioned'}">${decToMmSs(toDecimalMins(dur))}${isDelivered?' ✓':''}</span>
           ${canEdit&&!past?`<button class="lu-remove-item" data-ep="${ep}" data-idx="${idx}" data-commnum="${item.commNum||''}" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:16px;line-height:1">✕</button>`:''}
         </div>`;
       }
@@ -6200,14 +6200,14 @@ function renderLineups(epNums){
     let luAnc1='',luAnc2='';
     try{const _a=getStudioAnchors(ep);luAnc1=_a.anchor1||'';luAnc2=_a.anchor2||'';}catch(_e){}
     epsHtml+=`<div data-lu-ep-block="${ep}" data-lu-past="${past?1:0}" style="${past?'background:#fff5f5;border-color:#fecaca':'background:#f8fafc;border-color:#e8edf5'};border:1px solid;border-radius:10px;margin-bottom:20px;overflow:hidden">
-      <div class="lu-ep-header" data-lu-ep="${ep}" style="${past?'background:#2d0f0f':'background:#f8fafc'};padding:18px 22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;cursor:pointer;user-select:none" title="${collapsed?'Click to expand':'Click to collapse'}">
+      <div class="lu-ep-header" data-lu-ep="${ep}" style="${past?'background:#fecaca':'background:#f8fafc'};padding:18px 22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;cursor:pointer;user-select:none" title="${collapsed?'Click to expand':'Click to collapse'}">
         <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
           <span class="lu-chevron" style="font-size:18px;color:${epAccent};margin-right:2px">${collapsed?'▶':'▼'}</span>
           <span style="font-size:20px;font-weight:900;color:${epAccent};font-family:monospace">2026 | ${epLabel}</span>
-          ${past?`<span style="background:#3d0000;color:#f85149;font-size:12px;font-weight:800;padding:3px 9px;border-radius:3px;border:1px solid #6b1111;letter-spacing:.5px">BROADCAST</span>`:''}
-          ${epDate?`<span style="font-size:15px;color:#6b7280">${fmtDate(epDate)}</span>`:''}
+          ${past?`<span style="background:#fee2e2;color:#b91c1c;font-size:12px;font-weight:800;padding:3px 9px;border-radius:3px;border:1px solid #fca5a5;letter-spacing:.5px">BROADCAST</span>`:''}
+          ${epDate?`<span style="font-size:15px;color:${past?'#7f1d1d':'#6b7280'}">${fmtDate(epDate)}</span>`:''}
         </div>
-        <span style="font-size:18px;font-weight:800;color:${tot>0?(past?'#f85149':'#3fb950'):'#484f58'};font-family:monospace">Total: ${decToMmSs(tot)}</span>
+        <span style="font-size:18px;font-weight:800;color:${tot>0?(past?'#b91c1c':'#16a34a'):'#9ca3af'};font-family:monospace">Total: ${decToMmSs(tot)}</span>
       </div>
       <div class="lu-ep-body" style="display:${collapsed?'none':'block'}"><div style="padding:16px 22px;border-bottom:1px solid ${past?'#fecaca':'#e8edf5'};display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
         <div>
