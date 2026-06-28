@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.183';
+const BUILD_VERSION='3.10.184';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -570,7 +570,7 @@ function subscribeLiveTranscripts(){
     unsubLiveTranscripts=onSnapshot(collection(db,'live_transcripts'),snap=>{
       snap.docs.forEach(d=>{liveTranscripts[String(d.id)]={...d.data()};});
       if(!resolved){resolved=true;resolve();}
-      else if(tab==='transcripts'&&transcriptView==='live')render();
+      else if(tab==='transcripts'&&transcriptView==='live'){if(!document.activeElement?.classList.contains('tr-live-area'))render();}
     },e=>{console.error('LiveTranscripts error:',e);if(!resolved){resolved=true;resolve();}});
   });
 }
@@ -6718,9 +6718,9 @@ function renderTranscripts(epNums){
     const s=map[status]||{label:'NO TRANSCRIPT',bg:'#f4f4f5',color:'#9ca3af'};
     return`<span style="background:${s.bg};color:${s.color};font-size:11px;font-weight:800;padding:2px 7px;border-radius:3px;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap">${s.label}</span>`;
   }
-  const sidebarToggle=`<div style="display:flex;gap:6px;margin-bottom:10px">
-    <button class="btn${transcriptView==='comm'?' primary':''}" style="flex:1;font-size:13px;padding:6px 0" data-tr-view="comm">Commission Transcripts</button>
-    <button class="btn${transcriptView==='live'?' primary':''}" style="flex:1;font-size:13px;padding:6px 0" data-tr-view="live">Live Show Transcript</button>
+  const sidebarToggle=`<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
+    <button class="btn${transcriptView==='comm'?' primary':''}" style="font-size:13px;padding:7px 0;width:100%;text-align:center" data-tr-view="comm">Commission Transcripts</button>
+    <button class="btn${transcriptView==='live'?' primary':''}" style="font-size:13px;padding:7px 0;width:100%;text-align:center" data-tr-view="live">Live Show Transcript</button>
   </div>`;
 
   // ─── COMMISSION TRANSCRIPTS ─────────────────────────────────────────────
@@ -6837,8 +6837,8 @@ function renderTranscripts(epNums){
             ${statusBadge(linkedTd?.status)}
             ${linkedTd?.status==='ready'&&linkedTd?.transcript?`<button class="btn tr-copy-in" data-bi="${bi}" data-commnum="${esc(String(linked.commNum))}" style="font-size:12px;padding:3px 9px;margin-left:auto;background:#dcfce7;color:#16a34a;border-color:#86efac">↓ Copy In Transcript</button>`:''}
           </div>`:''}
-          ${isFixed?`<div style="padding:8px 14px;font-size:13px;color:#9ca3af;font-style:italic">Fixed/break item — no dialogue</div>`:
-            `<textarea class="tr-live-area" data-bi="${bi}" placeholder="Enter dialogue / transcript here…" rows="${Math.max(3,(block.content||'').split('\n').length+Math.ceil((block.content||'').length/90))}" style="width:100%;height:auto;background:transparent;border:none;color:#111827;font-size:15px;padding:12px 14px;resize:none;outline:none;font-family:inherit;line-height:1.7;box-sizing:border-box;overflow:hidden">${esc(block.content||'')}</textarea>`}
+          ${isFixed?`<div style="padding:10px 14px;font-size:15px;color:#9ca3af;font-style:italic">Fixed/break item — no dialogue</div>`:
+            `<textarea class="tr-live-area" data-bi="${bi}" placeholder="Enter dialogue / transcript here…" style="width:100%;min-height:60px;height:auto;background:transparent;border:none;color:#111827;font-size:17px;padding:12px 14px;resize:none;outline:none;font-family:inherit;line-height:1.8;box-sizing:border-box;overflow:hidden;display:block">${esc(block.content||'')}</textarea>`}
         </div>`;
       }).join('')}
     </div>
@@ -8573,7 +8573,7 @@ function bindApp(){
       render();
     });
     // Auto-resize all live-area textareas to fit content
-    function autoResizeTa(ta){ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';}
+    function autoResizeTa(ta){ta.style.height='0px';ta.style.height=Math.max(60,ta.scrollHeight)+'px';}
     document.querySelectorAll('.tr-live-area').forEach(ta=>{
       autoResizeTa(ta);
     });
