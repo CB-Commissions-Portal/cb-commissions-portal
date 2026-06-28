@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.181';
+const BUILD_VERSION='3.10.182';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -3532,10 +3532,10 @@ function renderPromoScheduling(epNums){
           <input type="checkbox" class="promo-pulled-cb" data-ep="${n}" data-key="${pt.key}" ${isPulled?'checked':''} tabindex="-1" style="width:16px;height:16px;accent-color:#dc2626;cursor:pointer">
           <span style="font-size:12px;font-weight:800;color:${isPulled?'#dc2626':'#9ca3af'};text-transform:uppercase;letter-spacing:.5px">${isPulled?'PULLED':'–'}</span>
         </label>`:`<span style="font-size:12px;font-weight:800;color:${isPulled?'#dc2626':'#9ca3af'}">${isPulled?'PULLED':'–'}</span>`}</td>
-        <td style="${tdB};font-family:monospace;font-size:13px;font-weight:700;color:#3fb950;letter-spacing:.5px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(combined)}">
-          ${isPulled?'<span style="color:#f85149;font-size:12px">PULLED</span>':combined?esc(combined):'<span style="color:#9ca3af">—</span>'}
+        <td style="${tdB};font-family:monospace;font-size:13px;font-weight:700;color:#3fb950;letter-spacing:.5px;white-space:nowrap">
+          ${isPulled?'<span style="color:#dc2626;font-size:12px;font-weight:800">PULLED</span>':combined?esc(combined):'<span style="color:#9ca3af">—</span>'}
         </td>
-        <td style="${tdB};min-width:180px"><input class="ci promo-content-inp" value="${esc(pd['content_'+pt.key]||'')}" data-ep="${n}" data-key="${pt.key}" placeholder="Enter content…" style="font-size:14px;width:100%;color:#e3b341" ${!canEditContent?'disabled':''}></td>
+        <td style="${tdB};width:220px;white-space:normal"><input class="ci promo-content-inp" value="${esc(pd['content_'+pt.key]||'')}" data-ep="${n}" data-key="${pt.key}" placeholder="Enter content…" style="font-size:14px;width:200px;color:#e3b341" ${!canEditContent?'disabled':''}></td>
       </tr>`;
     }).join('');
 
@@ -3560,10 +3560,10 @@ function renderPromoScheduling(epNums){
         <span style="font-size:12px;color:#6b7280;margin-right:4px">UID:</span>
         <input class="ci promo-live-uid" value="${esc(liveUID)}" data-ep="${n}" placeholder="Enter UID" style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:#0066CC;width:130px;letter-spacing:1px" ${!canEd?'disabled':''}>
       </div>
-      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+      <div style="overflow-x:auto"><table style="width:auto;min-width:100%;border-collapse:collapse;white-space:nowrap">
         <thead><tr>
-          <th style="${thS}">Type</th><th style="${thS}">TX From</th><th style="${thS}">TX To</th>
-          <th style="${thS}">UID</th><th style="${thS}">Pulled?</th><th style="${thS}">Promo Scheduling Code</th><th style="${thS}">Content</th>
+          <th style="${thS};width:130px">Type</th><th style="${thS};width:95px">TX From</th><th style="${thS};width:95px">TX To</th>
+          <th style="${thS};width:110px">UID</th><th style="${thS};width:110px">Pulled?</th><th style="${thS}">Promo Scheduling Code</th><th style="${thS};width:220px;white-space:normal">Content</th>
         </tr></thead><tbody>${rows}</tbody>
       </table></div>`:''}
     </div>`;
