@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.174';
+const BUILD_VERSION='3.10.175';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -1053,7 +1053,7 @@ function showLeaveToast(msg,type='default',duration=6000){
   const div=document.createElement('div');
   div.className='notif-toast'+(type==='leave'?' leave':'');
   div.id=id;
-  div.innerHTML=`<span style="font-size:18px">${type==='leave'?'🏖':''}</span><div><div style="font-size:13px;font-weight:700;color:#eaf0ff">${msg}</div><div style="font-size:11px;color:#6e7681;margin-top:2px">Click to view</div></div>`;
+  div.innerHTML=`<span style="font-size:18px">${type==='leave'?'🏖':''}</span><div><div style="font-size:13px;font-weight:700;color:#111827">${msg}</div><div style="font-size:11px;color:#6b7280;margin-top:2px">Click to view</div></div>`;
   div.style.cursor='pointer';
   div.addEventListener('click',()=>{
     tab='leave';leaveViewMode='manage';render();
@@ -1528,7 +1528,7 @@ function renderHome(){
     },
   ].filter(c=>c.show);
 
-  return`<div style="min-height:100vh;background:#ffffff;display:flex;flex-direction:column;align-items:center;padding:24px 20px;overflow-y:auto">
+  return`<div style="flex:1;min-height:0;height:0;overflow-y:auto;background:#f4f7fb;display:flex;flex-direction:column;align-items:center;padding:24px 20px">
     <!-- LOGOS -->
     <div style="display:flex;align-items:center;justify-content:space-between;width:100%;max-width:860px;margin-bottom:20px">
       <img src="${BAKED_CB_LOGO}" style="height:52px;width:auto;object-fit:contain">
@@ -1542,7 +1542,7 @@ function renderHome(){
     <!-- WELCOME -->
     <div style="text-align:center;margin-bottom:20px">
       <div style="font-size:20px;font-weight:900;color:#111827;letter-spacing:-.5px">Welcome back${user?.displayName?', '+user.displayName.split(' ')[0]:''}.</div>
-      <div style="font-size:13px;color:#6e7681;margin-top:6px">
+      <div style="font-size:13px;color:#6b7280;margin-top:6px">
         <span style="background:${rm.bg};color:${rm.color};padding:2px 10px;border-radius:3px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">${rm.label}</span>
       </div>
     </div>
@@ -1604,6 +1604,57 @@ function bindAuth(){
   document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 }
 
+function renderSidebar(){
+  const role=getEffectiveRole();
+  const pendingLeave=(currentRole==='admin'||currentRole==='deputyadmin')&&!previewRole
+    ?Object.entries(leaveRequests).filter(([k,r])=>r.status==='pending'&&!seenLeaveIds.has(k)).length:0;
+  function item(tabKey,label,showCond){
+    if(!showCond)return'';
+    return`<div class="sidebar-item${tab===tabKey?' active':''}" data-tab="${tabKey}">${label}</div>`;
+  }
+  const content=[
+    item('commissions','Commission List',role!=='afm'),
+    item('lineups','Line-Ups',['admin','deputyadmin','operations','production','prodmgmt','editorial','content','capstaff','finance','director'].includes(role)),
+    item('broadcast','Broadcast List',role!=='afm'),
+    item('episodes','Episode Register',role!=='afm'),
+  ].filter(Boolean);
+  const production=[
+    item('postprod','Post Production',['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role)),
+    item('prescal','Presenter Calendar',['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance','director'].includes(role)),
+    item('deliverables','Deliverables',currentRole==='admin'&&!previewRole),
+    item('promos','Promo Scheduling',['admin','deputyadmin','operations','prodmgmt','editorial','finance'].includes(role)),
+    item('musiccues','Music Cue Sheets',['admin','deputyadmin','operations','afm','production','finance'].includes(role)),
+  ].filter(Boolean);
+  const studio=[
+    item('ros','Studio Script Build',['admin','deputyadmin','editorial','content','operations','finance','director'].includes(role)),
+    item('fcc','Script Cover Page',['admin','deputyadmin','production','prodmgmt','finance'].includes(role)),
+    item('transcripts','Transcripts',['admin','deputyadmin'].includes(role)),
+    item('callsheet','Studio Call Sheet',['admin','deputyadmin','operations','production','prodmgmt','finance'].includes(role)),
+    item('credits','End Credits',['admin','deputyadmin','operations','finance'].includes(role)),
+    item('studio','Studio Crew',['admin','deputyadmin','operations','finance'].includes(role)),
+    item('studiosched','Studio Schedule',['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance'].includes(role)),
+  ].filter(Boolean);
+  const cap=[
+    item('leave',`CAP Leave${pendingLeave>0?` <span style="background:#f87171;color:#fff;border-radius:10px;padding:1px 6px;font-size:9px;font-weight:900;margin-left:4px">${pendingLeave}</span>`:''}`,userHasLeaveAccess()),
+  ].filter(Boolean);
+  const adm=[
+    item('contracts','Contracts',(currentRole==='admin'&&!previewRole)||currentRole==='finance'),
+    item('admin','Admin',currentRole==='admin'&&!previewRole),
+  ].filter(Boolean);
+  return`
+<div class="sidebar no-print">
+  <div class="sidebar-brand">
+    <img src="${BAKED_CB_LOGO}" style="height:28px;width:auto;object-fit:contain;filter:brightness(10)">
+    <div><div class="sidebar-title">CB Production Portal</div><div class="sidebar-season">Season ${currentSeason}</div></div>
+  </div>
+  <div class="sidebar-dash${tab==='home'?' active':''}" data-tab="home">⌂ &nbsp;Dashboard</div>
+  ${content.length?`<div class="sidebar-group-label">Content</div>${content.join('')}`:''}
+  ${production.length?`<div class="sidebar-group-label">Production</div>${production.join('')}`:''}
+  ${studio.length?`<div class="sidebar-group-label">Studio</div>${studio.join('')}`:''}
+  ${cap.length?`<div class="sidebar-group-label">CAP</div>${cap.join('')}`:''}
+  ${adm.length?`<div class="sidebar-group-label">Admin</div>${adm.join('')}`:''}
+</div>`;}
+
 function renderApp(){
   const paid=getPaidMins(),contracted=settings.contractedMinutes||438,remaining=contracted-paid;
   const epNums=getEpNums(),maxEp=epNums.length?Math.max(...epNums):0,nextEp=maxEp+1;
@@ -1626,77 +1677,60 @@ function renderApp(){
     <img src="${BAKED_CB_LOGO}" style="height:24px;width:auto;object-fit:contain;margin-right:4px">
     <div class="logo-sep">|</div>
     <div class="logo-sub">Carte Blanche Production Portal</div>
-    <select id="season-sel" style="background:#252d3d;border:1px solid #2e3a50;color:#58a6ff;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;margin-left:8px;font-family:var(--font-main)">
+    <select id="season-sel" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;margin-left:8px;font-family:var(--font-main)">
       <option value="39" ${currentSeason==='39'?'selected':''}>Season 39</option>
       <option value="new">+ Add Season…</option>
     </select>
     ${(currentRole==='admin'||currentRole==='deputyadmin')&&!previewRole?`
-    <button id="notif-bell-btn" onclick="tab='leave';leaveViewMode='manage';seenLeaveIds=new Set(Object.keys(leaveRequests).filter(id=>leaveRequests[id].status==='pending'));render();" style="position:relative;background:none;border:1px solid #2e3a50;color:#7a8ba0;border-radius:50%;width:30px;height:30px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0" title="Leave requests">
+    <button id="notif-bell-btn" onclick="tab='leave';leaveViewMode='manage';seenLeaveIds=new Set(Object.keys(leaveRequests).filter(id=>leaveRequests[id].status==='pending'));render();" style="position:relative;background:none;border:1px solid rgba(255,255,255,.22);color:rgba(255,255,255,.7);border-radius:50%;width:30px;height:30px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0" title="Leave requests">
       🔔
-      ${(()=>{const n=Object.values(leaveRequests).filter(r=>r.status==='pending'&&!seenLeaveIds.has(Object.keys(leaveRequests).find(k=>leaveRequests[k]===r)));const c=Object.entries(leaveRequests).filter(([k,r])=>r.status==='pending'&&!seenLeaveIds.has(k)).length;return c>0?`<span style="position:absolute;top:-4px;right:-4px;background:#f85149;color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #0d1117">${c}</span>`:''})()}
+      ${(()=>{const n=Object.values(leaveRequests).filter(r=>r.status==='pending'&&!seenLeaveIds.has(Object.keys(leaveRequests).find(k=>leaveRequests[k]===r)));const c=Object.entries(leaveRequests).filter(([k,r])=>r.status==='pending'&&!seenLeaveIds.has(k)).length;return c>0?`<span style="position:absolute;top:-4px;right:-4px;background:#f85149;color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #002868">${c}</span>`:''})()}
     </button>`:''}
     <div class="sync-pill"><span class="sync-dot ${syncStatus}" id="sync-dot"></span><span id="sync-lbl">${syncStatus==='live'?'Live':syncStatus==='saving'?'Saving…':'Offline'}</span></div>
     <div class="user-area">
       ${currentRole==='admin'?`
       <div style="display:flex;align-items:center;gap:6px;margin-right:8px">
-        <span style="font-size:10px;color:#6e7681;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Preview as:</span>
-        <select id="preview-role-sel" style="background:#252d3d;border:1px solid ${previewRole?'#f5a623':'#2e3a50'};color:${previewRole?'#f5a623':'#7a8ba0'};padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">
+        <span style="font-size:10px;color:rgba(255,255,255,.5);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Preview as:</span>
+        <select id="preview-role-sel" style="background:rgba(255,255,255,.12);border:1px solid ${previewRole?'#fbbf24':'rgba(255,255,255,.2)'};color:${previewRole?'#fbbf24':'rgba(255,255,255,.85)'};padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">
           <option value="">Admin (you)</option>
           ${Object.entries(ROLE_META).filter(([k])=>k!=='admin').map(([k,v])=>`<option value="${k}" ${previewRole===k?'selected':''}>${v.label}</option>`).join('')}
         </select>
-        ${previewRole?`<span style="font-size:10px;background:#2d2200;color:#f5a623;border:1px solid #f5a623;padding:2px 8px;border-radius:4px;font-weight:700">PREVIEW MODE</span>`:''}
+        ${previewRole?`<span style="font-size:10px;background:#fff7ed;color:#b45309;border:1px solid #fbbf24;padding:2px 8px;border-radius:4px;font-weight:700">PREVIEW MODE</span>`:''}
       </div>`:''}
       <div class="user-chip">
-        <button id="help-btn" style="background:none;border:1px solid #2e3a50;color:#7a8ba0;border-radius:50%;width:26px;height:26px;font-size:13px;font-weight:900;cursor:pointer;margin-right:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center" title="How To Guide">?</button>
-        <button id="theme-toggle-btn" style="background:none;border:1px solid #2e3a50;color:#7a8ba0;border-radius:50%;width:26px;height:26px;font-size:13px;cursor:pointer;margin-right:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center" title="Toggle theme">${appTheme==='dark'?'☀':'🌙'}</button>
-        <span style="font-size:9px;color:#cdd9e5;margin-right:8px;font-family:'JetBrains Mono',monospace;font-weight:700">v${BUILD_VERSION}</span>
+        <button id="help-btn" style="background:none;border:1px solid rgba(255,255,255,.22);color:rgba(255,255,255,.7);border-radius:50%;width:26px;height:26px;font-size:13px;font-weight:900;cursor:pointer;margin-right:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center" title="How To Guide">?</button>
+        <button id="theme-toggle-btn" style="background:none;border:1px solid rgba(255,255,255,.22);color:rgba(255,255,255,.7);border-radius:50%;width:26px;height:26px;font-size:13px;cursor:pointer;margin-right:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center" title="Toggle theme">${appTheme==='dark'?'☀':'🌙'}</button>
+        <span style="font-size:9px;color:rgba(255,255,255,.55);margin-right:8px;font-family:'JetBrains Mono',monospace;font-weight:700">v${BUILD_VERSION}</span>
         <div class="avatar" style="background:${rm.bg};color:${rm.color}">${initials(currentUser.displayName||currentUser.email)}</div>
         <div><div class="u-name">${esc(currentUser.displayName||currentUser.email)}</div><div class="u-role-lbl" style="color:${rm.color}">${previewRole?`Previewing: ${ROLE_META[previewRole].label}`:rm.label}</div></div>
       </div>
       <button class="sign-out" id="logout-btn">Sign Out</button>
     </div>
   </div>
-  ${getEffectiveRole()!=='afm'?`  <div class="ticker no-print">
+  <div class="app-body">
+    ${renderSidebar()}
+    <div class="main-area">
+      ${getEffectiveRole()!=='afm'?`<div class="ticker no-print">
     <div class="t-item"><div class="t-lbl">Contracted Mins</div>${currentRole==='admin'&&!previewRole?`<input class="t-inp" type="number" id="contracted-input" tabindex="-1" value="${contracted}">`:`<div class="t-val c">${contracted}</div>`}</div>
     <div class="t-sep">−</div>
     <div class="t-item"><div class="t-lbl">Paid Mins</div><div class="t-val p">${paid.toFixed(1)}</div></div>
     <div class="t-sep">=</div>
     <div class="t-item"><div class="t-lbl">Remaining Mins</div><div class="t-val r">${remaining.toFixed(1)}</div></div>
-    <div class="t-sep" style="color:#2e3a50;margin:0 8px">│</div>
+    <div class="t-sep" style="color:#d1dae8;margin:0 8px">│</div>
     <div class="t-item" title="Budget remaining vs remaining episode slots (unaired eps × 34 min). Positive = budget covers slot; negative = budget falls short.">
       <div class="t-lbl slot-bal" style="white-space:nowrap">${(()=>{const reps=getEpNums().filter(n=>!isEpBroadcast(n)&&(settings.epTypes||{})[String(n)]!=='repeat');return reps.length+' ep'+(reps.length===1?'':'s')+' left × 34 min';})()}</div>
-      <div class="t-val slot-bal" style="font-size:22px">${(()=>{const reps=getEpNums().filter(n=>!isEpBroadcast(n)&&(settings.epTypes||{})[String(n)]!=='repeat');const slot=reps.length*34;const bal=remaining-slot;return`<span style="color:${bal>=0?'#3fb950':'#f85149'}">${bal>=0?'+':'−'}${Math.abs(bal).toFixed(1)}</span>`;})()}</div>
-      <div style="font-size:9px;color:#484f58;margin-top:2px">budget vs slot</div>
+      <div class="t-val slot-bal" style="font-size:22px">${(()=>{const reps=getEpNums().filter(n=>!isEpBroadcast(n)&&(settings.epTypes||{})[String(n)]!=='repeat');const slot=reps.length*34;const bal=remaining-slot;return`<span style="color:${bal>=0?'#16a34a':'#dc2626'}">${bal>=0?'+':'−'}${Math.abs(bal).toFixed(1)}</span>`;})()}</div>
+      <div style="font-size:9px;color:#9ca3af;margin-top:2px">budget vs slot</div>
     </div>
     <div class="t-meta">
       <span>${comms.filter(c=>c.approvedForPayment).length} paid · ${comms.filter(c=>c.onHold).length} on hold · ${comms.filter(c=>!c.decommissioned).length} active · ${epNums.length} episodes</span>
       ${readyCount>0?`<span class="t-ready">● ${readyCount} ready for payment</span>`:''}
     </div>
-  </div>`:''}  
-  <div class="tabs no-print">
-    <div class="tab-btn${tab==='home'?' active':''}" data-tab="home" style="font-size:16px;padding:4px 10px" title="Home">⌂</div>
-    ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='commissions'?' active':''}" data-tab="commissions">Commission List ${currentSeason}</div>`:''}
-    ${['admin','deputyadmin','operations','production','prodmgmt','editorial','content','capstaff','finance','director'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='lineups'?' active':''}" data-tab="lineups">Line-Ups</div>`:''}
-    ${['admin','deputyadmin','editorial','content','operations','finance','director'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='ros'?' active':''}" data-tab="ros">Studio Script Build</div>`:''}
-    ${['admin','deputyadmin'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='transcripts'?' active':''}" data-tab="transcripts">Transcripts</div>`:''}
-    ${['admin','deputyadmin','production','prodmgmt','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='fcc'?' active':''}" data-tab="fcc">Studio Script Cover Page</div>`:''}
-    ${getEffectiveRole()!=='afm'?`<div class="tab-btn${tab==='broadcast'?' active':''}" data-tab="broadcast">Broadcast List</div>`:''}
-    ${!['afm'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='episodes'?' active':''}" data-tab="episodes">Episode Register</div>`:''}
-    ${['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='postprod'?' active':''}" data-tab="postprod">Post Production</div>`:''}
-    ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='deliverables'?' active':''}" data-tab="deliverables">Deliverables</div>`:''}
-    ${['admin','deputyadmin','operations','prodmgmt','editorial','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='promos'?' active':''}" data-tab="promos">Promo Scheduling</div>`:''}
-    ${['admin','deputyadmin','operations','afm','production','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='musiccues'?' active':''}" data-tab="musiccues">Music Cue Sheets</div>`:''}
-    ${['admin','deputyadmin','operations','production','prodmgmt','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='callsheet'?' active':''}" data-tab="callsheet">Studio Call Sheet</div>`:''}
-    ${['admin','deputyadmin','operations','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='credits'?' active':''}" data-tab="credits">End Credits</div>`:''}
-    ${['admin','deputyadmin','operations','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studio'?' active':''}" data-tab="studio">Studio Crew</div>`:''}
-    ${['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='studiosched'?' active':''}" data-tab="studiosched">Studio Schedule</div>`:''}
-    ${['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance','director'].includes(getEffectiveRole())?`<div class="tab-btn${tab==='prescal'?' active':''}" data-tab="prescal">Presenter Calendar</div>`:''}
-    ${userHasLeaveAccess()?`<div class="tab-btn${tab==='leave'?' active':''}" data-tab="leave" style="position:relative">CAP Leave${(currentRole==='admin'||currentRole==='deputyadmin')&&!previewRole?(()=>{const n=Object.entries(leaveRequests).filter(([k,r])=>r.status==='pending'&&!seenLeaveIds.has(k)).length;return n>0?`<span style="display:inline-flex;align-items:center;justify-content:center;background:#f85149;color:#fff;border-radius:50%;width:15px;height:15px;font-size:9px;font-weight:900;margin-left:5px;vertical-align:middle">${n}</span>`:''})():''}</div>`:''}
-    ${(currentRole==='admin'&&!previewRole)||currentRole==='finance'?`<div class="tab-btn${tab==='contracts'?' active':''}" data-tab="contracts">Contracts</div>`:''}
-    ${currentRole==='admin'&&!previewRole?`<div class="tab-btn${tab==='admin'?' active':''}" data-tab="admin">Admin</div>`:''}
-  </div>
-  <div class="content" id="tab-content" style="${tab==='home'?'background:#ffffff;':''}">
-    ${renderContent(epNums,nextEp,paid,remaining)}
+  </div>`:''}
+      <div class="content" id="tab-content">
+        ${renderContent(epNums,nextEp,paid,remaining)}
+      </div>
+    </div>
   </div>
 </div>
 ${renderModals(epNums,nextEp)}
@@ -1748,7 +1782,7 @@ function renderCommList(epNums,nextEp){
     <div style="display:flex;align-items:center;gap:6px">
       <button class="btn" id="presenter-xlsx-btn" style="border-color:#3fb950;color:#3fb950">⬇ Presenter Excel</button>
       <button class="btn" id="presenter-pdf-btn" style="border-color:#3fb950;color:#3fb950">⬇ Presenter PDF</button>
-      <button class="btn" id="comm-report-btn" style="border-color:#388bfd;color:#58a6ff">⬇ Crew List PDF</button>
+      <button class="btn" id="comm-report-btn" style="border-color:#388bfd;color:#0066CC">⬇ Crew List PDF</button>
       <select id="crew-ep-sel" class="f-sel" tabindex="-1" style="font-size:12px">
         <option value="all">All Episodes</option>
         ${getEpNums().map(n=>`<option value="${n}">Episode ${n} only</option>`).join('')}
@@ -1801,8 +1835,8 @@ ${filtered.map(c=>{
     ${ci('commNum')}
     <div style="display:flex;gap:3px;flex-wrap:nowrap;align-items:center">
       ${c.broadcastEpisode&&isEpFinalised(c.broadcastEpisode)?'<span style="background:#2e4a2e;color:#4ade80;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;white-space:nowrap">FINALISED</span>':''}
-      ${c.isLicensed?'<span style="background:#1c2d1c;color:#3fb950;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #2d6a2d;white-space:nowrap">LICENSED</span>':''}
-      ${c.isInHouse?'<span style="background:#1a2d4a;color:#58a6ff;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #1a3a6a;white-space:nowrap">IN-HOUSE</span>':''}
+      ${c.isLicensed?'<span style="background:#dcfce7;color:#3fb950;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #86efac;white-space:nowrap">LICENSED</span>':''}
+      ${c.isInHouse?'<span style="background:#eff6ff;color:#0066CC;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #1a3a6a;white-space:nowrap">IN-HOUSE</span>':''}
       ${c.onHold?'<span style="background:#2d1400;color:#f97316;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;white-space:nowrap">ON HOLD</span>':''}
     </div>
   </div>
@@ -1824,12 +1858,12 @@ ${filtered.map(c=>{
 <td>${ci('deliveredDuration')}</td>
 <td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}">${c.isInHouse?`<span class="badge ih" style="opacity:.5">N/A</span>`:ci('paidDuration',54)}</td>
 <td style="text-align:center;white-space:nowrap">
-  <label style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#58a6ff;cursor:pointer" title="In-House"><input type="checkbox" class="cb" data-field="isInHouse" tabindex="-1" ${c.isInHouse?'checked':''} ${getEffectiveRole()!=='admin'?'disabled':''}> IH</label>
+  <label style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#0066CC;cursor:pointer" title="In-House"><input type="checkbox" class="cb" data-field="isInHouse" tabindex="-1" ${c.isInHouse?'checked':''} ${getEffectiveRole()!=='admin'?'disabled':''}> IH</label>
   <label style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#3fb950;cursor:pointer;margin-left:6px" title="Licensed"><input type="checkbox" class="cb${c.isLicensed?' g':''}" data-field="isLicensed" tabindex="-1" ${c.isLicensed?'checked':''} ${getEffectiveRole()!=='admin'?'disabled':''}> LIC</label>
 </td>
 <td>${ci('producer')}</td>
 <td>${ci('presenterVO')}</td>
-<td style="text-align:right;padding-right:8px"><button class="comm-edit-btn btn" data-id="${c.id}" style="font-size:12px;padding:6px 12px;border-color:#388bfd;color:#58a6ff;font-weight:700;white-space:nowrap">✎ EDIT COMMISSION</button></td>
+<td style="text-align:right;padding-right:8px"><button class="comm-edit-btn btn" data-id="${c.id}" style="font-size:12px;padding:6px 12px;border-color:#388bfd;color:#0066CC;font-weight:700;white-space:nowrap">✎ EDIT COMMISSION</button></td>
 </tr>`;}).join('')}
 </tbody>
 </table>
@@ -2015,7 +2049,7 @@ function renderEpisodes(epNums,paid,remaining){
 
   return`<div class="ep-wrap">
 <div class="ep-reg-header no-print">
-  <div style="font-size:20px;font-weight:900;color:#eaf0ff;margin-bottom:14px">Episode Register</div>
+  <div style="font-size:20px;font-weight:900;color:#111827;margin-bottom:14px">Episode Register</div>
   ${currentRole==='editorial'?`<div class="info-box" style="margin-bottom:14px"><strong>Editorial view</strong> — Contracted: <strong>${settings.contractedMinutes||438}</strong> · Paid: <strong>${paid.toFixed(1)}</strong> · Remaining: <strong>${remaining.toFixed(1)}</strong></div>`:''}
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
     <button class="btn primary" id="export-pdf-btn" style="font-size:13px;padding:8px 16px">⬇ Export PDF</button>
@@ -2044,15 +2078,15 @@ ${episodes.map(({ep,date,stories})=>{
   return`<div class="ep-card" style="margin-bottom:8px">
 <div class="ep-head" style="cursor:pointer" data-ep-toggle="${ep}">
   <span class="ep-num">EP ${ep}</span>
-  ${ep===1?`<span style="color:#8b949e;font-size:12px">${fmtDate('2026-04-05')} <span style="color:#6e7681;font-size:10px">(fixed)</span></span>`:isEd?`<input type="date" class="ep-date-inp" id="ep-date-inp" value="${tempDate}">`:
+  ${ep===1?`<span style="color:#6b7280;font-size:12px">${fmtDate('2026-04-05')} <span style="color:#6b7280;font-size:10px">(fixed)</span></span>`:isEd?`<input type="date" class="ep-date-inp" id="ep-date-inp" value="${tempDate}">`:
   `<span class="ep-date-btn" data-ep-date="${ep}">${fmtDate(date)}${currentRole==='admin'?' ✎':''}</span>`}
-  <span style="font-size:14px;color:#7a8ba0;font-weight:500">${stories.length} ${stories.length===1?'story':'stories'}</span>
-  <span style="display:inline-flex;align-items:center;gap:16px;margin-left:12px;padding-left:12px;border-left:1px solid #2e3a50;font-size:13px;flex-wrap:wrap">
-    <span style="color:#7a8ba0">Allocated: <strong style="color:#58a6ff;font-family:'JetBrains Mono',monospace;font-size:15px">00:34:00</strong></span>
-    <span style="color:#7a8ba0">Ep Content: <strong style="color:#eaf0ff;font-family:'JetBrains Mono',monospace;font-size:15px">${fmtHMS(epContentMins)}</strong></span>
-    <span style="color:#7a8ba0">Insert Mins: ${insertMinsDisplay(insertMins)}</span>
-    <span style="color:#7a8ba0">Non-Insert: <strong style="color:#d29922;font-family:'JetBrains Mono',monospace;font-size:15px">${fmtHMS(nonMins)}</strong></span>
-    ${(settings.epOnAir||{})[k]?`<span style="color:#7a8ba0;border-left:1px solid #2e3a50;padding-left:12px">On-Air: <strong style="color:#3fb950;font-family:'JetBrains Mono',monospace;font-size:15px">${esc((settings.epOnAir||{})[k])}</strong></span>`:''}
+  <span style="font-size:14px;color:#6b7280;font-weight:500">${stories.length} ${stories.length===1?'story':'stories'}</span>
+  <span style="display:inline-flex;align-items:center;gap:16px;margin-left:12px;padding-left:12px;border-left:1px solid #d1dae8;font-size:13px;flex-wrap:wrap">
+    <span style="color:#6b7280">Allocated: <strong style="color:#0066CC;font-family:'JetBrains Mono',monospace;font-size:15px">00:34:00</strong></span>
+    <span style="color:#6b7280">Ep Content: <strong style="color:#111827;font-family:'JetBrains Mono',monospace;font-size:15px">${fmtHMS(epContentMins)}</strong></span>
+    <span style="color:#6b7280">Insert Mins: ${insertMinsDisplay(insertMins)}</span>
+    <span style="color:#6b7280">Non-Insert: <strong style="color:#b45309;font-family:'JetBrains Mono',monospace;font-size:15px">${fmtHMS(nonMins)}</strong></span>
+    ${(settings.epOnAir||{})[k]?`<span style="color:#6b7280;border-left:1px solid #d1dae8;padding-left:12px">On-Air: <strong style="color:#3fb950;font-family:'JetBrains Mono',monospace;font-size:15px">${esc((settings.epOnAir||{})[k])}</strong></span>`:''}
   </span>
   <div class="type-toggle no-print" style="margin-left:auto" onclick="event.stopPropagation()">
     <button class="type-btn normal${epType==='normal'?' on':''}" data-eptype="${k}" data-val="normal">Normal</button>
@@ -2060,7 +2094,7 @@ ${episodes.map(({ep,date,stories})=>{
     <button class="type-btn repeat${epType==='repeat'?' on':''}" data-eptype="${k}" data-val="repeat">Repeat</button>
   </div>
   <span style="font-size:13px;font-weight:600;margin-left:4px;color:${epType==='extended'?'#d29922':epType==='repeat'?'#7a8ba0':'#3fb950'}">${epType==='extended'?'★ Extended':epType==='repeat'?'↺ Repeat':'Normal'}</span>
-  <span style="font-size:13px;color:#484f58;margin-left:8px" class="no-print">${isExpEp?'▲':'▼'}</span>
+  <span style="font-size:13px;color:#9ca3af;margin-left:8px" class="no-print">${isExpEp?'▲':'▼'}</span>
 </div>
 ${isExpEp?`<div style="overflow:hidden">`+'':(``)}${isExpEp&&stories.length>0?`<div class="ep-body"><table class="ep-tbl"><thead><tr>
 <th style="width:44px;text-align:center">#</th>
@@ -2077,12 +2111,12 @@ function epci(field,w){return canEd?`<input class="ci ep-ci" value="${esc(String
 return`<tr data-ep-row="${s.id}">
 <td style="text-align:center;vertical-align:middle;white-space:nowrap">
   ${canEd?`<div style="display:flex;flex-direction:column;gap:1px;align-items:center" onclick="event.stopPropagation()">
-    <button onclick="event.stopPropagation();moveStory(${s.id},'up')" style="background:#1a1a00;border:1px solid #4a3800;color:#e3b341;width:22px;height:16px;cursor:pointer;font-size:9px;line-height:1;border-radius:3px 3px 0 0;padding:0" title="Move up">▲</button>
-    <button onclick="event.stopPropagation();moveStory(${s.id},'dn')" style="background:#1a1a00;border:1px solid #4a3800;color:#e3b341;width:22px;height:16px;cursor:pointer;font-size:9px;line-height:1;border-radius:0 0 3px 3px;padding:0" title="Move down">▼</button>
+    <button onclick="event.stopPropagation();moveStory(${s.id},'up')" style="background:#fef9c3;border:1px solid #fcd34d;color:#e3b341;width:22px;height:16px;cursor:pointer;font-size:9px;line-height:1;border-radius:3px 3px 0 0;padding:0" title="Move up">▲</button>
+    <button onclick="event.stopPropagation();moveStory(${s.id},'dn')" style="background:#fef9c3;border:1px solid #fcd34d;color:#e3b341;width:22px;height:16px;cursor:pointer;font-size:9px;line-height:1;border-radius:0 0 3px 3px;padding:0" title="Move down">▼</button>
   </div>`:`<span style="color:#e3b341;font-weight:700;font-size:11px">${s.broadcastOrder||''}</span>`}
 </td>
-<td class="story" style="font-weight:600;color:#eaf0ff;font-size:14px;white-space:normal">${esc(s.storyName||'')}</td>
-<td style="text-align:right;font-family:'JetBrains Mono',monospace;color:#58a6ff;font-size:13px">${s.commNum}</td>
+<td class="story" style="font-weight:600;color:#111827;font-size:14px;white-space:normal">${esc(s.storyName||'')}</td>
+<td style="text-align:right;font-family:'JetBrains Mono',monospace;color:#0066CC;font-size:13px">${s.commNum}</td>
 <td style="text-align:right">
   ${dd ? (s.isInHouse ? `<span class="dur am">${fmtHMS(dd)}</span>` : `<span class="dur gr">${fmtHMS(dd)}</span>`) : '—'}
 </td>
@@ -2094,20 +2128,20 @@ return`<tr data-ep-row="${s.id}">
 </td>
 <td style="text-align:center">${s.approvedForPayment?`<span class="badge paid">Paid</span>`:s.isInHouse?`<span class="badge ih">In-House</span>`:`<span class="badge pending">Pending</span>`}</td>
 </tr>`;}).join('')}
-</tbody></table></div>`:`<div style="padding:10px 14px;color:#6e7681;font-size:12px;font-style:italic">No stories assigned yet.</div>`}
+</tbody></table></div>`:`<div style="padding:10px 14px;color:#6b7280;font-size:12px;font-style:italic">No stories assigned yet.</div>`}
 <div class="ep-foot">
-  <div class="ep-stat">Ep Content: <b style="color:#eaf0ff">${fmtHMS(epContentMins)}</b></div>
+  <div class="ep-stat">Ep Content: <b style="color:#111827">${fmtHMS(epContentMins)}</b></div>
   <div class="ep-stat">Insert Mins: <b class="gr">${fmtHMS(insertMins)}</b></div>
   <div class="ep-stat">Non-Insert: <b class="am">${fmtHMS(nonMins)}</b></div>
-  <div class="ep-stat">Type: <b style="color:#eaf0ff">${epType==='extended'?'★ Extended':epType==='repeat'?'↺ Repeat':'Normal'}</b></div>
+  <div class="ep-stat">Type: <b style="color:#111827">${epType==='extended'?'★ Extended':epType==='repeat'?'↺ Repeat':'Normal'}</b></div>
   <div class="ep-stat no-print" style="margin-left:auto;display:flex;align-items:center;gap:8px">
-    <span style="color:#7a8ba0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">On-Air Duration:</span>
-    ${['admin','deputyadmin'].includes(currentRole)?`<input class="ep-onair-inp" data-ep="${ep}" value="${esc((settings.epOnAir||{})[k]||'')}" placeholder="00:00:00" style="background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#3fb950;font-size:13px;font-family:'JetBrains Mono',monospace;padding:4px 8px;width:100px;outline:none;text-align:center">`:
+    <span style="color:#6b7280;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">On-Air Duration:</span>
+    ${['admin','deputyadmin'].includes(currentRole)?`<input class="ep-onair-inp" data-ep="${ep}" value="${esc((settings.epOnAir||{})[k]||'')}" placeholder="00:00:00" style="background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#3fb950;font-size:13px;font-family:'JetBrains Mono',monospace;padding:4px 8px;width:100px;outline:none;text-align:center">`:
     `<strong style="color:#3fb950;font-family:'JetBrains Mono',monospace;font-size:13px">${esc((settings.epOnAir||{})[k]||'—')}</strong>`}
   </div>
 </div>
 </div>`;}).join('')}
-${episodes.length===0?`<div style="color:#6e7681;padding:32px;text-align:center;font-size:14px">No episodes yet. Assign a broadcast episode from the Comm List tab.</div>`:''}
+${episodes.length===0?`<div style="color:#6b7280;padding:32px;text-align:center;font-size:14px">No episodes yet. Assign a broadcast episode from the Comm List tab.</div>`:''}
 </div></div>`;}
 
 
@@ -2215,7 +2249,7 @@ function saveECValue(epNum, sectionId, key, val){
 
 function renderEndCredits(epNums){
   const canEd=['admin','deputyadmin','operations','production'].includes(getEffectiveRole());
-  if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet.</div></div>`;
+  if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6b7280;padding:32px;text-align:center">No episodes yet.</div></div>`;
 
   const cards=epNums.map(n=>{
     const isExp=creditsExpandedEp===String(n);
@@ -2228,34 +2262,34 @@ function renderEndCredits(epNums){
         <div style="display:flex;align-items:center;gap:12px">
           <span class="ep-num"${isPast?' style="background:#3d0000;color:#f85149"':''}>EP ${n}</span>
           <span style="font-size:13px;font-weight:600;color:${isPast?'#f85149':'#9aaabe'}">${fmtDate(epDate)}</span>
-          <span style="font-size:11px;color:#484f58">${isExp?'▲':'▼'}</span>
+          <span style="font-size:11px;color:#9ca3af">${isExp?'▲':'▼'}</span>
         </div>
         <div style="display:flex;gap:8px" onclick="event.stopPropagation()">
           ${isExp?`
           `:''}\n        </div>
       </div>
       ${isExp?`
-      <div style="overflow-y:auto;display:flex;flex-direction:column;height:calc(100vh - 250px)">
-      <div style="padding:10px 16px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid #21262d;background:#1e2535;position:sticky;top:0;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.3);flex-shrink:0">
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('bold')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;font-weight:900;font-size:13px" title="Bold">B</button>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('italic')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;font-style:italic;font-size:13px" title="Italic">I</button>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('underline')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;text-decoration:underline;font-size:13px" title="Underline">U</button>
-        <div style="width:1px;background:#2e3a50;margin:0 2px"></div>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('justifyLeft')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px" title="Align Left">≡L</button>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('justifyCenter')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px" title="Centre">≡C</button>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('justifyRight')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px" title="Align Right">≡R</button>
-        <div style="width:1px;background:#2e3a50;margin:0 2px"></div>
-        <span style="font-size:11px;color:#7a8ba0;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-          <span style="font-size:10px;color:#7a8ba0">Colour:</span>
+      <div style="overflow-y:auto;display:flex;flex-direction:column;flex:1;min-height:0">
+      <div style="padding:10px 16px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid #21262d;background:#f0f4f8;position:sticky;top:0;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.3);flex-shrink:0">
+        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('bold')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;font-weight:900;font-size:13px" title="Bold">B</button>
+        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('italic')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;font-style:italic;font-size:13px" title="Italic">I</button>
+        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('underline')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;text-decoration:underline;font-size:13px" title="Underline">U</button>
+        <div style="width:1px;background:#d1dae8;margin:0 2px"></div>
+        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('justifyLeft')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px" title="Align Left">≡L</button>
+        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('justifyCenter')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px" title="Centre">≡C</button>
+        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('justifyRight')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px" title="Align Right">≡R</button>
+        <div style="width:1px;background:#d1dae8;margin:0 2px"></div>
+        <span style="font-size:11px;color:#6b7280;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+          <span style="font-size:10px;color:#6b7280">Colour:</span>
           ${['#000000','#1a3a6a','#cc0000','#006600','#cc6600','#666666','#ffffff'].map(c=>
             `<button onmousedown="event.preventDefault();applyCredColour('${c}','${n}')" style="width:20px;height:20px;background:${c};border:2px solid #555;border-radius:3px;cursor:pointer;padding:0" title="${c}"></button>`
           ).join('')}
-          <label style="cursor:pointer;font-size:10px;color:#7a8ba0;display:flex;align-items:center;gap:2px" title="Custom colour">
+          <label style="cursor:pointer;font-size:10px;color:#6b7280;display:flex;align-items:center;gap:2px" title="Custom colour">
             Custom:<input type="color" value="#000000" onmousedown="event.preventDefault()" onchange="applyCredColour(this.value,'${n}')" style="width:22px;height:20px;border:none;cursor:pointer;padding:0;background:none">
           </label>
         </span>
-        <label style="font-size:11px;color:#7a8ba0;display:flex;align-items:center;gap:4px">Size:
-          <select onmousedown="event.preventDefault();event.stopPropagation()" onchange="refocusEditor(${n});document.execCommand('fontSize',false,this.value)" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:2px 4px;border-radius:4px;font-size:11px">
+        <label style="font-size:11px;color:#6b7280;display:flex;align-items:center;gap:4px">Size:
+          <select onmousedown="event.preventDefault();event.stopPropagation()" onchange="refocusEditor(${n});document.execCommand('fontSize',false,this.value)" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:2px 4px;border-radius:4px;font-size:11px">
             <option value="2">Small</option>
             <option value="3" selected>Normal</option>
             <option value="4">Large</option>
@@ -2263,14 +2297,14 @@ function renderEndCredits(epNums){
             <option value="6">XX-Large</option>
           </select>
         </label>
-        <div style="width:1px;background:#2e3a50;margin:0 2px"></div>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('insertUnorderedList')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px" title="Bullet List">• List</button>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('removeFormat')" style="background:#252d3d;border:1px solid #2e3a50;color:#8b949e;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px" title="Clear Formatting">Clear</button>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('undo')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:13px" title="Undo (⌘Z)">↩</button>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('redo')" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:13px" title="Redo (⌘⇧Z)">↪</button>
-        <div style="width:1px;background:#2e3a50;margin:0 4px"></div>
+        <div style="width:1px;background:#d1dae8;margin:0 2px"></div>
+        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('insertUnorderedList')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px" title="Bullet List">• List</button>
+        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('removeFormat')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#6b7280;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:11px" title="Clear Formatting">Clear</button>
+        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('undo')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:13px" title="Undo (⌘Z)">↩</button>
+        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('redo')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:13px" title="Redo (⌘⇧Z)">↪</button>
+        <div style="width:1px;background:#d1dae8;margin:0 4px"></div>
         <button class="btn" data-credits-copy="${n}" style="font-size:11px;border-color:#7a3fbf;color:#c084fc" onmousedown="event.preventDefault()">Copy from EP…</button>
-        <button class="btn" data-credits-print="${n}" style="font-size:11px;border-color:#388bfd;color:#58a6ff" onmousedown="event.preventDefault()">⬇ Print / PDF</button>
+        <button class="btn" data-credits-print="${n}" style="font-size:11px;border-color:#388bfd;color:#0066CC" onmousedown="event.preventDefault()">⬇ Print / PDF</button>
         ${canEd?`<button class="btn primary" data-credits-save="${n}" style="font-size:11px" onmousedown="event.preventDefault()">💾 Save</button>`:''}
       </div>
       <div id="credits-editor-${n}"
@@ -2441,8 +2475,8 @@ function renderLeaveCalendarView(){
         }
       });
     }
-    cells+=`<div style="border:1px solid #21262d;border-radius:6px;padding:10px 12px;min-height:120px;background:${isToday?'rgba(56,139,253,.12)':isWeekend?'#0d1117':'#161b22'};${!isValid?'opacity:.15':''}${isToday?';box-shadow:inset 0 0 0 2px #388bfd':''}">
-      ${isValid?`<div style="font-size:14px;font-weight:${isToday?'900':'700'};color:${isToday?'#388bfd':'#8b949e'};margin-bottom:4px">${dayNum}</div>`:''}
+    cells+=`<div style="border:1px solid #e8edf5;border-radius:6px;padding:10px 12px;min-height:120px;background:${isToday?'rgba(0,102,204,.08)':isWeekend?'#f0f4f8':'#ffffff'};${!isValid?'opacity:.15':''}${isToday?';box-shadow:inset 0 0 0 2px #0066CC':''}">
+      ${isValid?`<div style="font-size:14px;font-weight:${isToday?'900':'700'};color:${isToday?'#0066CC':'#6b7280'};margin-bottom:4px">${dayNum}</div>`:''}
       ${pills}
     </div>`;
   }
@@ -2450,12 +2484,12 @@ function renderLeaveCalendarView(){
   return`<div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
       <button class="btn" id="lv-cal-prev">◀</button>
-      <span style="font-size:20px;font-weight:800;color:#eaf0ff;min-width:180px;text-align:center">${months[mo]} ${yr}</span>
+      <span style="font-size:20px;font-weight:800;color:#111827;min-width:180px;text-align:center">${months[mo]} ${yr}</span>
       <button class="btn" id="lv-cal-next">▶</button>
       <button class="btn" id="lv-cal-today">Today</button>
     </div>
     <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px">
-      ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div style="text-align:center;font-size:13px;font-weight:800;color:#6e7681;padding:8px 0;text-transform:uppercase;letter-spacing:.5px">${d}</div>`).join('')}
+      ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div style="text-align:center;font-size:13px;font-weight:800;color:#6b7280;padding:8px 0;text-transform:uppercase;letter-spacing:.5px">${d}</div>`).join('')}
     </div>
     <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">${cells}</div>
     <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">${legend}</div>
@@ -2487,11 +2521,11 @@ function renderLeave(){
       const used=myRequests.filter(([,r])=>r.leaveType===t.key&&r.status==='approved').reduce((s,[,r])=>s+countCalendarDays(r.startDate,r.endDate),0);
       const remaining=Math.max(0,total-used);
       const pct=total>0?Math.round((remaining/total)*100):0;
-      return`<div style="background:#161b22;border:1px solid #21262d;border-radius:10px;padding:14px 16px;min-width:150px;flex:1">
-        <div style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:6px">${t.label}</div>
+      return`<div style="background:#f8fafc;border:1px solid #e8edf5;border-radius:10px;padding:14px 16px;min-width:150px;flex:1">
+        <div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:6px">${t.label}</div>
         <div style="font-size:24px;font-weight:900;color:${remaining<=3?'#f85149':remaining<=7?'#e3b341':'#3fb950'}">${remaining}</div>
-        <div style="font-size:10px;color:#484f58;margin-top:2px">of ${total} days remaining</div>
-        <div style="margin-top:7px;height:3px;background:#21262d;border-radius:2px">
+        <div style="font-size:10px;color:#9ca3af;margin-top:2px">of ${total} days remaining</div>
+        <div style="margin-top:7px;height:3px;background:#e8edf5;border-radius:2px">
           <div style="height:3px;border-radius:2px;background:${remaining<=3?'#f85149':remaining<=7?'#e3b341':'#3fb950'};width:${pct}%"></div>
         </div>
       </div>`;
@@ -2501,36 +2535,36 @@ function renderLeave(){
     const days=fd.startDate&&fd.endDate?countCalendarDays(fd.startDate,fd.endDate):0;
     const form=showForm?`<div class="ep-card" style="margin-bottom:16px">
       <div class="ep-head" style="display:flex;align-items:center;justify-content:space-between">
-        <span style="font-size:14px;font-weight:800;color:#eaf0ff">New Leave Application</span>
+        <span style="font-size:14px;font-weight:800;color:#111827">New Leave Application</span>
         <button class="btn" id="leave-form-close" style="font-size:11px">Cancel</button>
       </div>
       <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div>
-          <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Leave Type *</label>
-          <select id="leave-type-sel" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px">
+          <label style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">Leave Type *</label>
+          <select id="leave-type-sel" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:8px 10px;border-radius:5px;font-size:13px">
             ${LEAVE_TYPES.map(t=>`<option value="${t.key}" ${fd.leaveType===t.key?'selected':''}>${t.label}</option>`).join('')}
           </select>
         </div>
         <div style="display:flex;align-items:flex-end;gap:8px">
           <div style="flex:1">
-            <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Start Date *</label>
-            <input type="date" id="leave-start" value="${fd.startDate||''}" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px">
+            <label style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">Start Date *</label>
+            <input type="date" id="leave-start" value="${fd.startDate||''}" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:8px 10px;border-radius:5px;font-size:13px">
           </div>
           <div style="flex:1">
-            <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">End Date *</label>
-            <input type="date" id="leave-end" value="${fd.endDate||''}" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px">
+            <label style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">End Date *</label>
+            <input type="date" id="leave-end" value="${fd.endDate||''}" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:8px 10px;border-radius:5px;font-size:13px">
           </div>
-          ${days>0?`<div style="padding-bottom:8px;white-space:nowrap;font-size:12px;color:#58a6ff;font-weight:700">${days} day${days!==1?'s':''}</div>`:''}
+          ${days>0?`<div style="padding-bottom:8px;white-space:nowrap;font-size:12px;color:#0066CC;font-weight:700">${days} day${days!==1?'s':''}</div>`:''}
         </div>
         <div style="grid-column:1/-1">
-          <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Reason</label>
-          <textarea id="leave-reason" rows="2" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px;resize:vertical">${esc(fd.reason||'')}</textarea>
+          <label style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">Reason</label>
+          <textarea id="leave-reason" rows="2" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:8px 10px;border-radius:5px;font-size:13px;resize:vertical">${esc(fd.reason||'')}</textarea>
         </div>
         ${(fd.leaveType==='sick'||fd.leaveType==='study')?`<div style="grid-column:1/-1">
-          <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">${fd.leaveType==='sick'?"Doctor's Note":"Exam Schedule"} <span style="color:#484f58;font-weight:400;text-transform:none">(optional)</span></label>
+          <label style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">${fd.leaveType==='sick'?"Doctor's Note":"Exam Schedule"} <span style="color:#9ca3af;font-weight:400;text-transform:none">(optional)</span></label>
           <div style="display:flex;align-items:center;gap:10px">
             <label class="btn" style="cursor:pointer;font-size:11px">📎 Attach Document<input type="file" id="leave-attachment" accept=".pdf,.jpg,.jpeg,.png" style="display:none"></label>
-            <span id="attachment-name" style="font-size:11px;color:#6e7681">${fd.attachmentFile?fd.attachmentFile.name:'No file selected'}</span>
+            <span id="attachment-name" style="font-size:11px;color:#6b7280">${fd.attachmentFile?fd.attachmentFile.name:'No file selected'}</span>
           </div>
         </div>`:''}
       </div>
@@ -2542,19 +2576,19 @@ function renderLeave(){
       const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5];
       const d=countCalendarDays(r.startDate,r.endDate);
       const sc=r.status==='approved'?'#3fb950':r.status==='declined'?'#f85149':'#e3b341';
-      return`<div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px 16px;margin-bottom:8px">
+      return`<div style="background:#f8fafc;border:1px solid #e8edf5;border-radius:8px;padding:12px 16px;margin-bottom:8px">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
           <div style="display:flex;align-items:center;gap:10px">
             <span style="background:${lt.color}22;color:${lt.color};padding:2px 9px;border-radius:4px;font-size:10px;font-weight:800;text-transform:uppercase">${lt.label}</span>
             <div>
-              <div style="font-size:12px;color:#eaf0ff;text-align:left">${r.startDate} → ${r.endDate} <span style="color:#6e7681">(${d} day${d!==1?'s':''})</span></div>
-              ${r.reason?`<div style="font-size:11px;color:#6e7681;margin-top:1px;text-align:left">${esc(r.reason)}</div>`:''}
+              <div style="font-size:12px;color:#111827;text-align:left">${r.startDate} → ${r.endDate} <span style="color:#6b7280">(${d} day${d!==1?'s':''})</span></div>
+              ${r.reason?`<div style="font-size:11px;color:#6b7280;margin-top:1px;text-align:left">${esc(r.reason)}</div>`:''}
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             ${r.attachmentUrl?`<a href="${r.attachmentUrl}" target="_blank" style="font-size:10px;color:#3fb950;text-decoration:none" title="View attached document">📎</a>`:r.hasSickNote?`<span style="font-size:10px;color:#3fb950" title="Document attached">📎</span>`:''}
             <span style="font-size:10px;font-weight:700;color:${sc};text-transform:uppercase;background:${sc}22;padding:2px 8px;border-radius:3px">${r.status}</span>
-            ${r.adminNote?`<span style="font-size:11px;color:#6e7681;font-style:italic">"${esc(r.adminNote)}"</span>`:''}
+            ${r.adminNote?`<span style="font-size:11px;color:#6b7280;font-style:italic">"${esc(r.adminNote)}"</span>`:''}
             ${(r.status==='pending'||r.status==='approved')?`<button class="btn danger" data-leave-cancel="${id}" data-leave-status="${r.status}" style="font-size:10px;padding:2px 8px">Cancel</button>`:''}
           </div>
         </div>
@@ -2562,14 +2596,14 @@ function renderLeave(){
     }).join('');
     return`<div class="ep-wrap">${tabBar}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <span style="font-size:15px;font-weight:800;color:#eaf0ff">My Leave — ${esc(myName)}</span>
+        <span style="font-size:15px;font-weight:800;color:#111827">My Leave — ${esc(myName)}</span>
         <button class="btn primary" id="leave-new-btn">+ Apply for Leave</button>
       </div>
       <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">${balCards}</div>
       ${form}
       <div>
-        <div style="font-size:13px;font-weight:700;color:#eaf0ff;margin-bottom:10px;text-align:left">My Applications</div>
-        ${history||'<div style="color:#484f58;font-size:12px;padding:12px 0;text-align:left">No applications yet.</div>'}
+        <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:10px;text-align:left">My Applications</div>
+        ${history||'<div style="color:#9ca3af;font-size:12px;padding:12px 0;text-align:left">No applications yet.</div>'}
       </div>
       ${leaveReviewModal?renderLeaveReviewModal():''}
       ${leaveCancelModal?renderLeaveCancelModal():''}
@@ -2580,8 +2614,8 @@ function renderLeave(){
   if(leaveViewMode==='calendar'){
     // Team Calendar + week export toolbar
     const weekExportBar=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-      <span style="font-size:12px;color:#7a8ba0;font-weight:600">Export week:</span>
-      <input type="date" id="leave-export-week-inp" value="${leaveExportWeek}" style="background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#eaf0ff;font-size:12px;padding:5px 8px;outline:none">
+      <span style="font-size:12px;color:#6b7280;font-weight:600">Export week:</span>
+      <input type="date" id="leave-export-week-inp" value="${leaveExportWeek}" style="background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:12px;padding:5px 8px;outline:none">
       <button class="btn" id="leave-export-week-btn" style="font-size:12px;border-color:#3fb950;color:#3fb950">⬇ Export Week (Excel)</button>
     </div>`;
     return`<div class="ep-wrap">${tabBar}${weekExportBar}${renderLeaveCalendarView()}${leaveReviewModal?renderLeaveReviewModal():''}</div>`;
@@ -2592,29 +2626,29 @@ function renderLeave(){
     const cards=LEAVE_TYPES.map(lt=>{
       const p=LEAVE_POLICY[lt.key];
       if(!p)return'';
-      return`<div style="background:#161b22;border:1px solid #21262d;border-radius:10px;padding:18px 20px;margin-bottom:14px">
+      return`<div style="background:#f8fafc;border:1px solid #e8edf5;border-radius:10px;padding:18px 20px;margin-bottom:14px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
           <span style="background:${lt.color}22;color:${lt.color};padding:3px 12px;border-radius:5px;font-size:11px;font-weight:800;text-transform:uppercase">${lt.label}</span>
-          ${lt.deductsBalance?'':'<span style="font-size:10px;color:#484f58;font-weight:600">Does not deduct from balance</span>'}
+          ${lt.deductsBalance?'':'<span style="font-size:10px;color:#9ca3af;font-weight:600">Does not deduct from balance</span>'}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-          <div style="background:#0d1117;border-radius:6px;padding:10px 12px">
-            <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;margin-bottom:4px">Entitlement</div>
-            <div style="font-size:13px;font-weight:700;color:#eaf0ff">${p.entitlement}</div>
+          <div style="background:#f8fafc;border-radius:6px;padding:10px 12px">
+            <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#6b7280;margin-bottom:4px">Entitlement</div>
+            <div style="font-size:13px;font-weight:700;color:#111827">${p.entitlement}</div>
           </div>
-          <div style="background:#0d1117;border-radius:6px;padding:10px 12px">
-            <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;margin-bottom:4px">Accrual</div>
-            <div style="font-size:13px;font-weight:700;color:#eaf0ff">${p.accrual}</div>
+          <div style="background:#f8fafc;border-radius:6px;padding:10px 12px">
+            <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#6b7280;margin-bottom:4px">Accrual</div>
+            <div style="font-size:13px;font-weight:700;color:#111827">${p.accrual}</div>
           </div>
         </div>
         <ul style="margin:0;padding-left:18px">
-          ${p.notes.map(n=>`<li style="font-size:12px;color:#8b949e;margin-bottom:5px;line-height:1.5">${n}</li>`).join('')}
+          ${p.notes.map(n=>`<li style="font-size:12px;color:#6b7280;margin-bottom:5px;line-height:1.5">${n}</li>`).join('')}
         </ul>
       </div>`;
     }).join('');
     return`<div class="ep-wrap">${tabBar}
-      <div style="font-size:15px;font-weight:800;color:#eaf0ff;margin-bottom:16px">CAP Leave Policy</div>
-      <div style="font-size:12px;color:#484f58;margin-bottom:20px;padding:10px 14px;background:#0d1117;border-radius:6px;border-left:3px solid #2e3a50">
+      <div style="font-size:15px;font-weight:800;color:#111827;margin-bottom:16px">CAP Leave Policy</div>
+      <div style="font-size:12px;color:#9ca3af;margin-bottom:20px;padding:10px 14px;background:#f8fafc;border-radius:6px;border-left:3px solid #d1dae8">
         Policies are based on the South African Basic Conditions of Employment Act (BCEA). Company-specific leave types are governed by individual employment contracts. Contact your administrator for queries.
       </div>
       ${cards}
@@ -2630,22 +2664,22 @@ function renderLeave(){
     const d=countCalendarDays(r.startDate,r.endDate);
     const sc=r.status==='approved'?'#3fb950':r.status==='declined'?'#f85149':'#e3b341';
     const nm=getLeaveName(r);
-    return`<div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:14px 16px;margin-bottom:8px">
+    return`<div style="background:#f8fafc;border:1px solid #e8edf5;border-radius:8px;padding:14px 16px;margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <div style="display:flex;align-items:center;gap:12px">
           <div style="background:${lt.color}22;color:${lt.color};padding:3px 10px;border-radius:4px;font-size:10px;font-weight:800;text-transform:uppercase">${lt.label}</div>
           <div>
-            <div style="font-size:13px;font-weight:700;color:#eaf0ff;text-align:left">${esc(nm)}</div>
-            <div style="font-size:11px;color:#6e7681;margin-top:1px;text-align:left">${r.startDate} → ${r.endDate} &nbsp;·&nbsp; <strong style="color:#eaf0ff">${d} day${d!==1?'s':''}</strong></div>
+            <div style="font-size:13px;font-weight:700;color:#111827;text-align:left">${esc(nm)}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:1px;text-align:left">${r.startDate} → ${r.endDate} &nbsp;·&nbsp; <strong style="color:#111827">${d} day${d!==1?'s':''}</strong></div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:10px;font-weight:700;color:${sc};text-transform:uppercase;background:${sc}22;padding:2px 8px;border-radius:3px">${r.status}</span>
           ${showActions?`<button class="btn primary" data-leave-review="${id}" style="font-size:11px">Review</button>`:''}
-          ${r.adminNote?`<span style="font-size:11px;color:#6e7681;font-style:italic">"${esc(r.adminNote)}"</span>`:''}
+          ${r.adminNote?`<span style="font-size:11px;color:#6b7280;font-style:italic">"${esc(r.adminNote)}"</span>`:''}
         </div>
       </div>
-      ${r.reason?`<div style="margin-top:8px;font-size:11px;color:#8b949e;text-align:left">Reason: ${esc(r.reason)}</div>`:''}
+      ${r.reason?`<div style="margin-top:8px;font-size:11px;color:#6b7280;text-align:left">Reason: ${esc(r.reason)}</div>`:''}
       ${r.attachmentUrl?`<div style="margin-top:4px;font-size:11px;text-align:left"><a href="${r.attachmentUrl}" target="_blank" style="color:#3fb950;text-decoration:none">📎 View attached document</a></div>`:r.hasSickNote?`<div style="margin-top:4px;font-size:11px;color:#3fb950;text-align:left">📎 Document attached</div>`:''}
     </div>`;
   }
@@ -2653,10 +2687,10 @@ function renderLeave(){
   const balEditor=leaveUsers.map(u=>{
     const bal=leaveBalances[u.uid]||{};
     return`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #21262d;flex-wrap:wrap">
-      <div style="min-width:160px;font-size:13px;font-weight:600;color:#eaf0ff;text-align:left">${esc(u.displayName||u.email)}</div>
+      <div style="min-width:160px;font-size:13px;font-weight:600;color:#111827;text-align:left">${esc(u.displayName||u.email)}</div>
       ${LEAVE_TYPES.filter(t=>t.deductsBalance).map(t=>`
         <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:10px;color:#7a8ba0;text-transform:uppercase;width:70px;text-align:left">${t.label.replace(' Leave','')}</span>
+          <span style="font-size:10px;color:#6b7280;text-transform:uppercase;width:70px;text-align:left">${t.label.replace(' Leave','')}</span>
           <input type="number" class="ci leave-bal-inp" data-uid="${u.uid}" data-type="${t.key}" value="${esc(String(bal[t.key]??21))}" min="0" max="365" style="width:52px;font-size:12px;text-align:left">
         </div>`).join('')}
       <button class="btn" data-save-balance="${u.uid}" style="font-size:11px">Save</button>
@@ -2664,20 +2698,20 @@ function renderLeave(){
   }).join('');
   return`<div class="ep-wrap">${tabBar}
     <div style="margin-bottom:20px">
-      <div style="font-size:15px;font-weight:800;color:#eaf0ff;margin-bottom:12px;text-align:left">⏳ Pending Requests (${pending.length})</div>
-      ${pending.length?pending.map(r=>reqCard(r,true)).join(''):'<div style="color:#484f58;font-size:12px;padding:12px 0;text-align:left">No pending requests.</div>'}
+      <div style="font-size:15px;font-weight:800;color:#111827;margin-bottom:12px;text-align:left">⏳ Pending Requests (${pending.length})</div>
+      ${pending.length?pending.map(r=>reqCard(r,true)).join(''):'<div style="color:#9ca3af;font-size:12px;padding:12px 0;text-align:left">No pending requests.</div>'}
     </div>
     <div style="margin-bottom:20px">
       <div style="font-size:14px;font-weight:700;color:#3fb950;margin-bottom:10px;text-align:left">✓ Approved</div>
-      ${approved.length?approved.map(r=>reqCard(r,false)).join(''):'<div style="color:#484f58;font-size:12px;padding:8px 0;text-align:left">None yet.</div>'}
+      ${approved.length?approved.map(r=>reqCard(r,false)).join(''):'<div style="color:#9ca3af;font-size:12px;padding:8px 0;text-align:left">None yet.</div>'}
     </div>
     <div style="margin-bottom:28px">
       <div style="font-size:14px;font-weight:700;color:#f85149;margin-bottom:10px;text-align:left">✗ Declined</div>
-      ${declined.length?declined.map(r=>reqCard(r,false)).join(''):'<div style="color:#484f58;font-size:12px;padding:8px 0;text-align:left">None yet.</div>'}
+      ${declined.length?declined.map(r=>reqCard(r,false)).join(''):'<div style="color:#9ca3af;font-size:12px;padding:8px 0;text-align:left">None yet.</div>'}
     </div>
     <div class="ep-card" style="margin-bottom:16px">
-      <div class="ep-head"><span style="font-size:14px;font-weight:800;color:#eaf0ff">Leave Balances</span><span style="font-size:11px;color:#6e7681">Set starting balances per staff member</span><button class="btn" id="leave-bal-export-btn" style="font-size:11px;border-color:#3fb950;color:#3fb950;margin-left:auto">⬇ Export Balance Report</button></div>
-      <div style="padding:12px 16px">${balEditor||'<div style="color:#484f58;font-size:12px;text-align:left">No CAP Staff users found.</div>'}</div>
+      <div class="ep-head"><span style="font-size:14px;font-weight:800;color:#111827">Leave Balances</span><span style="font-size:11px;color:#6b7280">Set starting balances per staff member</span><button class="btn" id="leave-bal-export-btn" style="font-size:11px;border-color:#3fb950;color:#3fb950;margin-left:auto">⬇ Export Balance Report</button></div>
+      <div style="padding:12px 16px">${balEditor||'<div style="color:#9ca3af;font-size:12px;text-align:left">No CAP Staff users found.</div>'}</div>
     </div>
     ${leaveReviewModal?renderLeaveReviewModal():''}
   </div>`;
@@ -2817,11 +2851,11 @@ function renderLeaveDeclineModal(){return '';}
 function renderLeaveCancelModal(){
   const {id,reason='',wasApproved}=leaveCancelModal||{};
   return`<div id="lv-cancel-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center">
-    <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;width:420px;max-width:95vw;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.6)">
-      <div style="font-size:15px;font-weight:800;color:#eaf0ff;margin-bottom:8px">Cancel Leave Request</div>
+    <div style="background:#f8fafc;border:1px solid #d1dae8;border-radius:12px;width:420px;max-width:95vw;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+      <div style="font-size:15px;font-weight:800;color:#111827;margin-bottom:8px">Cancel Leave Request</div>
       ${wasApproved?`<div style="background:#2d1f00;border:1px solid #e3b341;border-radius:6px;padding:8px 12px;font-size:12px;color:#e3b341;margin-bottom:14px">&#9888; This leave has been approved. Cancelling will notify your admin.</div>`:''}
-      <div style="font-size:12px;color:#8b949e;margin-bottom:6px">Please provide a reason for cancelling:</div>
-      <textarea id="lv-cancel-reason" placeholder="Reason for cancellation…" style="width:100%;min-height:80px;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:13px;padding:8px 10px;outline:none;font-family:inherit;resize:vertical;box-sizing:border-box">${esc(reason||'')}</textarea>
+      <div style="font-size:12px;color:#6b7280;margin-bottom:6px">Please provide a reason for cancelling:</div>
+      <textarea id="lv-cancel-reason" placeholder="Reason for cancellation…" style="width:100%;min-height:80px;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:13px;padding:8px 10px;outline:none;font-family:inherit;resize:vertical;box-sizing:border-box">${esc(reason||'')}</textarea>
       <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
         <button class="btn" id="lv-cancel-close">Keep Leave</button>
         <button class="btn danger" id="lv-cancel-confirm">Confirm Cancellation</button>
@@ -2842,13 +2876,13 @@ function renderLeaveReviewModal(){
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
         <div style="background:${lt.color}22;color:${lt.color};padding:4px 12px;border-radius:5px;font-size:11px;font-weight:800;text-transform:uppercase">${lt.label}</div>
         <div>
-          <div style="font-size:15px;font-weight:800;color:#eaf0ff">${esc(nm)}</div>
-          <div style="font-size:11px;color:#6e7681;margin-top:2px">${r.startDate} → ${r.endDate} &nbsp;·&nbsp; <strong style="color:#eaf0ff">${days} day${days!==1?'s':''}</strong></div>
+          <div style="font-size:15px;font-weight:800;color:#111827">${esc(nm)}</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:2px">${r.startDate} → ${r.endDate} &nbsp;·&nbsp; <strong style="color:#111827">${days} day${days!==1?'s':''}</strong></div>
         </div>
       </div>
-      ${r.reason?`<div style="background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:10px 12px;margin-bottom:16px">
-        <div style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:4px">Staff Reason</div>
-        <div style="font-size:13px;color:#cdd9e5">${esc(r.reason)}</div>
+      ${r.reason?`<div style="background:#f8fafc;border:1px solid #e8edf5;border-radius:6px;padding:10px 12px;margin-bottom:16px">
+        <div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:4px">Staff Reason</div>
+        <div style="font-size:13px;color:#374151">${esc(r.reason)}</div>
       </div>`:''}
       ${r.attachmentUrl?`<div style="margin-bottom:14px"><a href="${r.attachmentUrl}" target="_blank" style="font-size:12px;color:#3fb950;text-decoration:none">📎 View attached document</a></div>`:r.hasSickNote?`<div style="font-size:12px;color:#3fb950;margin-bottom:14px">📎 Document attached</div>`:''}
       ${!showReject?`
@@ -2859,7 +2893,7 @@ function renderLeaveReviewModal(){
         </div>`:`
         <div style="margin-bottom:14px">
           <label style="font-size:11px;font-weight:700;color:#f85149;text-transform:uppercase;display:block;margin-bottom:6px">Reason for Rejection *</label>
-          <textarea id="lv-reject-reason" rows="3" style="width:100%;background:#1c2433;border:1px solid #f8514944;color:#eaf0ff;padding:8px 10px;border-radius:5px;font-size:13px;resize:vertical" placeholder="Enter reason for rejecting this leave request…"></textarea>
+          <textarea id="lv-reject-reason" rows="3" style="width:100%;background:#f9fafb;border:1px solid #f8514944;color:#111827;padding:8px 10px;border-radius:5px;font-size:13px;resize:vertical" placeholder="Enter reason for rejecting this leave request…"></textarea>
         </div>
         <div class="modal-actions">
           <button class="btn" id="lv-review-cancel">Cancel</button>
@@ -3043,7 +3077,7 @@ function renderPostProd(){
     if(v.includes('mix'))return'background:#9a4f00;color:#ffffff';
     if(v.includes('vo'))return'background:#0e7490;color:#ffffff';
     if(v.includes('amf')||v.includes('afm'))return'background:#b91c1c;color:#ffffff';
-    return'background:#1c2433;color:#cdd9e5';
+    return'background:#f9fafb;color:#374151';
   }
 
   // Build active commission rows — from ppActiveComms list (ordered, persistent)
@@ -3074,20 +3108,20 @@ function renderPostProd(){
   const availToAdd=allComms.filter(c=>!addedSet.has(String(c.commNum)))
     .sort((a,b)=>Number(b.commNum)-Number(a.commNum)); // newest first
 
-  const thFix='padding:8px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#9aaabe;background:#1e2535;border:1px solid #2e3a50;white-space:nowrap;text-align:left;vertical-align:bottom';
-  const thDay='padding:4px 6px;font-size:8px;font-weight:800;text-transform:uppercase;color:#eaf0ff;background:#1e2535;border:1px solid #21262d;text-align:center;white-space:nowrap';
-  const thWknd='padding:4px 6px;font-size:8px;font-weight:800;text-transform:uppercase;color:#484f58;background:#13131a;border:1px solid #21262d;text-align:center;white-space:nowrap';
-  const thSlot='padding:3px 4px;font-size:7px;font-weight:700;color:#484f58;border:1px solid #21262d;text-align:center;white-space:nowrap';
-  const thSlotWknd='padding:3px 4px;font-size:7px;font-weight:700;color:#333340;border:1px solid #21262d;text-align:center;white-space:nowrap';
-  const tdFix='padding:9px 10px;border:1px solid #2e3a50;font-size:12px;white-space:nowrap;vertical-align:middle';
-  const tdCell='padding:4px 5px;border:1px solid #2e3a50;vertical-align:middle;min-width:88px;max-width:140px';
+  const thFix='padding:8px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#4b5563;background:#f0f4f8;border:1px solid #d1dae8;white-space:nowrap;text-align:left;vertical-align:bottom';
+  const thDay='padding:4px 6px;font-size:8px;font-weight:800;text-transform:uppercase;color:#111827;background:#f0f4f8;border:1px solid #e8edf5;text-align:center;white-space:nowrap';
+  const thWknd='padding:4px 6px;font-size:8px;font-weight:800;text-transform:uppercase;color:#9ca3af;background:#f0f4f8;border:1px solid #e8edf5;text-align:center;white-space:nowrap';
+  const thSlot='padding:3px 4px;font-size:7px;font-weight:700;color:#9ca3af;border:1px solid #e8edf5;text-align:center;white-space:nowrap';
+  const thSlotWknd='padding:3px 4px;font-size:7px;font-weight:700;color:#6b7280;border:1px solid #e8edf5;text-align:center;white-space:nowrap';
+  const tdFix='padding:9px 10px;border:1px solid #d1dae8;font-size:12px;white-space:nowrap;vertical-align:middle';
+  const tdCell='padding:4px 5px;border:1px solid #d1dae8;vertical-align:middle;min-width:88px;max-width:140px';
 
   const ppSortArrow=f=>ppSortField===f?' '+(ppSortDir==='asc'?'↑':'↓'):'';
 
   let h1='<tr>';
-  h1+=`<th data-pp-sort="commNum" style="${thFix};min-width:46px;position:sticky;left:0;z-index:12;background:#161b22;cursor:pointer">Comm #${ppSortArrow('commNum')}</th>`;
-  h1+=`<th data-pp-sort="storyName" style="${thFix};min-width:40ch;position:sticky;left:52px;z-index:12;background:#161b22;cursor:pointer">Story${ppSortArrow('storyName')}</th>`;
-  h1+=`<th data-pp-sort="editComplete" style="${thFix};min-width:60px;text-align:center;cursor:pointer;position:sticky;left:calc(74px + 40ch);z-index:12;background:#1e2535" title="Edit Complete">✓${ppSortArrow('editComplete')}</th>`;
+  h1+=`<th data-pp-sort="commNum" style="${thFix};min-width:46px;position:sticky;left:0;z-index:12;background:#f8fafc;cursor:pointer">Comm #${ppSortArrow('commNum')}</th>`;
+  h1+=`<th data-pp-sort="storyName" style="${thFix};min-width:40ch;position:sticky;left:52px;z-index:12;background:#f8fafc;cursor:pointer">Story${ppSortArrow('storyName')}</th>`;
+  h1+=`<th data-pp-sort="editComplete" style="${thFix};min-width:60px;text-align:center;cursor:pointer;position:sticky;left:calc(74px + 40ch);z-index:12;background:#f0f4f8" title="Edit Complete">✓${ppSortArrow('editComplete')}</th>`;
   h1+=`<th data-pp-sort="producer" style="${thFix};min-width:45ch;cursor:pointer">Producer${ppSortArrow('producer')}</th>`;
   h1+=`<th data-pp-sort="editor" style="${thFix};min-width:25ch;cursor:pointer">Editor${ppSortArrow('editor')}</th>`;
   h1+=`<th data-pp-sort="dop" style="${thFix};min-width:60ch;cursor:pointer">DOP${ppSortArrow('dop')}</th>`;
@@ -3104,14 +3138,14 @@ function renderPostProd(){
 
   let h2='<tr>';
   const fixedSpacers=[
-    'min-width:46px;position:sticky;left:0;z-index:12;background:#0d1117',
-    'min-width:40ch;position:sticky;left:52px;z-index:12;background:#0d1117',
-    'min-width:60px;text-align:center;position:sticky;left:calc(74px + 40ch);z-index:12;background:#0d1117','min-width:45ch','min-width:25ch','min-width:60ch','min-width:25ch','min-width:180px','min-width:100px'
+    'min-width:46px;position:sticky;left:0;z-index:12;background:#f8fafc',
+    'min-width:40ch;position:sticky;left:52px;z-index:12;background:#f8fafc',
+    'min-width:60px;text-align:center;position:sticky;left:calc(74px + 40ch);z-index:12;background:#f8fafc','min-width:45ch','min-width:25ch','min-width:60ch','min-width:25ch','min-width:180px','min-width:100px'
   ];
-  fixedSpacers.forEach(s=>h2+=`<th style="${thSlot};background:#0d1117;${s}"></th>`);
+  fixedSpacers.forEach(s=>h2+=`<th style="${thSlot};background:#f8fafc;${s}"></th>`);
   days.forEach((d,i)=>{
     const wknd=isWeekend[i];
-    const bg=wknd?'background:#0d0d12':'background:#111620';
+    const bg=wknd?'background:#f9fafb':'background:#f9fafb';
     slots(i).forEach((sk,si)=>{
       const isFirst=si===0;
       const sColor=sk.endsWith('_vo')?'color:#7ae8f5':sk.endsWith('_mix')?'color:#ffb347':'';
@@ -3123,7 +3157,7 @@ function renderPostProd(){
 
   let rowsHtml='';
   if(schedComms.length===0){
-    rowsHtml=`<tr><td colspan="100" style="padding:50px;text-align:center;color:#484f58">
+    rowsHtml=`<tr><td colspan="100" style="padding:50px;text-align:center;color:#9ca3af">
       <div style="font-size:15px;margin-bottom:8px">No commissions in the Post Production Schedule yet.</div>
       <div style="font-size:12px">Click <strong style="color:#3fb950">+ New Edit</strong> to add a commission.</div>
     </td></tr>`;
@@ -3134,33 +3168,33 @@ function renderPostProd(){
     const txIso=getTxDate(c);
     const txFmt=txIso?new Date(txIso+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'2-digit'}):'';
     const rowBg=pp.editComplete?'#0f1f10':ri%2===0?'#1a2133':'#1e2840';
-    const badge=(c.isLicensed?'<span style="font-size:6px;background:#1c2d1c;color:#3fb950;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">LIC</span>':
-                c.isInHouse?'<span style="font-size:6px;background:#1a1a2e;color:#7a8ba0;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">IH</span>':'')+
+    const badge=(c.isLicensed?'<span style="font-size:6px;background:#dcfce7;color:#3fb950;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">LIC</span>':
+                c.isInHouse?'<span style="font-size:6px;background:#eef2ff;color:#6b7280;padding:1px 3px;border-radius:2px;margin-left:2px;vertical-align:middle">IH</span>':'')+
                (c.onHold?'<span style="font-size:9px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 4px;border-radius:2px;margin-left:3px;vertical-align:middle">ON HOLD</span>':'');
 
     rowsHtml+=`<tr style="background:${rowBg}${pp.editComplete?';opacity:0.75':''}">`;
-    rowsHtml+=`<td style="${tdFix};position:sticky;left:0;z-index:2;background:${rowBg};font-weight:900;color:${pp.editComplete?'#3fb950':'#58a6ff'};font-family:monospace;font-size:11px">${esc(String(c.commNum))}${badge}${canRemove?`<br><button class="pp-remove-btn" data-commnum="${esc(String(c.commNum))}" style="background:none;border:none;color:#484f58;font-size:8px;cursor:pointer;padding:0;margin-top:2px;font-family:inherit;font-weight:400">✕ remove</button>`:''}</td>`;
+    rowsHtml+=`<td style="${tdFix};position:sticky;left:0;z-index:2;background:${rowBg};font-weight:900;color:${pp.editComplete?'#3fb950':'#58a6ff'};font-family:monospace;font-size:11px">${esc(String(c.commNum))}${badge}${canRemove?`<br><button class="pp-remove-btn" data-commnum="${esc(String(c.commNum))}" style="background:none;border:none;color:#9ca3af;font-size:8px;cursor:pointer;padding:0;margin-top:2px;font-family:inherit;font-weight:400">✕ remove</button>`:''}</td>`;
     rowsHtml+=`<td style="${tdFix};position:sticky;left:52px;z-index:2;background:${rowBg};color:${pp.editComplete?'#3fb950':'#eaf0ff'};font-weight:600;min-width:40ch;max-width:40ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.storyName)}">${esc(c.storyName)}</td>`;
     // Edit Complete checkbox — between Story and Producer
     rowsHtml+=`<td style="${tdFix};text-align:center;min-width:60px;position:sticky;left:calc(74px + 40ch);z-index:2;background:${rowBg}">`;
     if(pp.editComplete){
       rowsHtml+=`<span title="Edit Complete — click Undo to revert" style="color:#3fb950;font-size:14px;cursor:default">✓</span>`;
-      if(canEdit)rowsHtml+=`<br><button class="pp-complete-toggle" data-commnum="${esc(String(c.commNum))}" style="background:none;border:none;color:#484f58;font-size:8px;cursor:pointer;padding:0;margin-top:2px">Undo</button>`;
+      if(canEdit)rowsHtml+=`<br><button class="pp-complete-toggle" data-commnum="${esc(String(c.commNum))}" style="background:none;border:none;color:#9ca3af;font-size:8px;cursor:pointer;padding:0;margin-top:2px">Undo</button>`;
     }else{
       if(canEdit)rowsHtml+=`<label style="display:flex;align-items:center;justify-content:center;cursor:pointer" title="Mark Edit Complete"><input type="checkbox" class="pp-complete-cb" data-commnum="${esc(String(c.commNum))}" style="cursor:pointer;accent-color:#3fb950;width:14px;height:14px"></label>`;
       else rowsHtml+=`<span style="color:#333;font-size:11px">—</span>`;
     }
     rowsHtml+=`</td>`;
-    rowsHtml+=`<td style="${tdFix};color:#8b949e;min-width:45ch;max-width:45ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.producer||'')}">${esc(c.producer||'')}</td>`;
+    rowsHtml+=`<td style="${tdFix};color:#6b7280;min-width:45ch;max-width:45ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.producer||'')}">${esc(c.producer||'')}</td>`;
     rowsHtml+=`<td style="${tdFix};color:#c084fc;min-width:25ch;max-width:25ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.editor||'')}">${esc(c.editor||'')}</td>`;
-    rowsHtml+=`<td style="${tdFix};color:#79c0ff;min-width:60ch;max-width:60ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.dop||'')}">${esc(c.dop||'')}</td>`;
+    rowsHtml+=`<td style="${tdFix};color:#0066CC;min-width:60ch;max-width:60ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.dop||'')}">${esc(c.dop||'')}</td>`;
     rowsHtml+=`<td style="${tdFix};color:#f7768e;min-width:25ch;max-width:25ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.afm||'')}">${esc(c.afm||'')}</td>`;
     // Delivery date
     rowsHtml+=`<td style="${tdFix};min-width:180px">`;
     if(canEdit){
       const resolvedDelDate=pp.deliveryDate||c.deliveryDate||'';
       const delFmt=resolvedDelDate?new Date(resolvedDelDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'— click to set —';
-      rowsHtml+=`<div class="pp-del-wrap" style="position:relative;min-width:170px"><span class="pp-del-label" style="color:${resolvedDelDate?'#e3b341':'#484f58'};font-size:10px;cursor:pointer;white-space:normal;line-height:1.3" title="${resolvedDelDate&&!pp.deliveryDate?'Pulled from Commission List':''}">${delFmt}${resolvedDelDate&&!pp.deliveryDate?' <span style=\'font-size:8px;color:#484f58\'>(from comm list)</span>':''}</span><input class="pp-del-date" data-commnum="${esc(String(c.commNum))}" value="${esc(pp.deliveryDate||'')}" type="date" style="position:absolute;top:0;left:0;opacity:0;width:100%;height:100%;cursor:pointer;border:none;background:transparent"></div>`;
+      rowsHtml+=`<div class="pp-del-wrap" style="position:relative;min-width:170px"><span class="pp-del-label" style="color:${resolvedDelDate?'#e3b341':'#484f58'};font-size:10px;cursor:pointer;white-space:normal;line-height:1.3" title="${resolvedDelDate&&!pp.deliveryDate?'Pulled from Commission List':''}">${delFmt}${resolvedDelDate&&!pp.deliveryDate?' <span style=\'font-size:8px;color:#9ca3af\'>(from comm list)</span>':''}</span><input class="pp-del-date" data-commnum="${esc(String(c.commNum))}" value="${esc(pp.deliveryDate||'')}" type="date" style="position:absolute;top:0;left:0;opacity:0;width:100%;height:100%;cursor:pointer;border:none;background:transparent"></div>`;
     }else{
       const resolvedDelDateRO=pp.deliveryDate||c.deliveryDate||'';
       const delFmt=resolvedDelDateRO?new Date(resolvedDelDateRO+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'—';
@@ -3197,29 +3231,29 @@ function renderPostProd(){
   // ── Add Commission Modal ──
   const addModalHtml=ppAddModal&&canEdit?`
   <div style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:center;justify-content:center" id="pp-add-overlay">
-    <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:24px;width:480px;max-width:95vw;max-height:80vh;display:flex;flex-direction:column;gap:16px">
+    <div style="background:#f8fafc;border:1px solid #d1dae8;border-radius:10px;padding:24px;width:480px;max-width:95vw;max-height:80vh;display:flex;flex-direction:column;gap:16px">
       <div style="display:flex;align-items:center;justify-content:space-between">
-        <span style="font-size:15px;font-weight:800;color:#eaf0ff">Add Commission to Post Production</span>
+        <span style="font-size:15px;font-weight:800;color:#111827">Add Commission to Post Production</span>
         <button class="btn" id="pp-add-cancel" style="font-size:12px;padding:4px 10px">✕ Cancel</button>
       </div>
       <input id="pp-add-search" placeholder="Search by comm # or story name…" autocomplete="off"
-        style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 12px;border-radius:5px;font-size:13px;box-sizing:border-box">
+        style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:8px 12px;border-radius:5px;font-size:13px;box-sizing:border-box">
       <div id="pp-add-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px">
         ${availToAdd.map(c=>`
         <div class="pp-add-item" data-commnum="${esc(String(c.commNum))}"
-          style="background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:border-color .15s"
-          onmouseover="this.style.borderColor='#58a6ff'" onmouseout="this.style.borderColor='#2e3a50'">
-          <span style="font-size:12px;font-weight:900;color:#58a6ff;font-family:monospace;min-width:45px">${esc(String(c.commNum))}</span>
+          style="background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:border-color .15s"
+          onmouseover="this.style.borderColor='#58a6ff'" onmouseout="this.style.borderColor='#d1dae8'">
+          <span style="font-size:12px;font-weight:900;color:#0066CC;font-family:monospace;min-width:45px">${esc(String(c.commNum))}</span>
           <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:700;color:#eaf0ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName)}${c.onHold?'<span style="font-size:9px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 4px;border-radius:2px;margin-left:5px;vertical-align:middle">ON HOLD</span>':''}</div>
-            <div style="font-size:10px;color:#6e7681;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
+            <div style="font-size:12px;font-weight:700;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName)}${c.onHold?'<span style="font-size:9px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 4px;border-radius:2px;margin-left:5px;vertical-align:middle">ON HOLD</span>':''}</div>
+            <div style="font-size:10px;color:#6b7280;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
               ${c.producer?`<span>${esc(c.producer)}</span>`:''}
               ${c.editor?`<span style="color:#c084fc">${esc(c.editor)}</span>`:''}
-              ${c.dop?`<span style="color:#79c0ff">${esc(c.dop)}</span>`:''}
+              ${c.dop?`<span style="color:#0066CC">${esc(c.dop)}</span>`:''}
             </div>
           </div>
           <button class="btn primary pp-add-confirm" data-commnum="${esc(String(c.commNum))}" style="font-size:11px;padding:4px 12px;flex-shrink:0">+ Add</button>
-        </div>`).join('')||'<div style="text-align:center;color:#484f58;padding:20px;font-size:12px">All commissions already added.</div>'}
+        </div>`).join('')||'<div style="text-align:center;color:#9ca3af;padding:20px;font-size:12px">All commissions already added.</div>'}
       </div>
     </div>
   </div>`:'';
@@ -3232,23 +3266,23 @@ function renderPostProd(){
 
   return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
     ${addModalHtml}
-    <div style="padding:8px 14px;background:#161b22;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap">
-      <button id="pp-view-toggle" class="btn" style="font-size:11px;padding:4px 12px;border-color:#58a6ff;color:#58a6ff">📅 Calendar</button>
-      <div style="width:1px;height:20px;background:#21262d;margin:0 2px"></div>
+    <div style="padding:8px 14px;background:#f8fafc;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap">
+      <button id="pp-view-toggle" class="btn" style="font-size:11px;padding:4px 12px;border-color:#0066CC;color:#0066CC">📅 Calendar</button>
+      <div style="width:1px;height:20px;background:#e8edf5;margin:0 2px"></div>
       ${canEdit?`<button class="btn primary" id="pp-new-edit-btn" style="font-size:12px;padding:5px 14px;font-weight:800">+ New Edit</button>`:''}
-      <button class="btn" id="pp-toggle-completed" style="font-size:11px;padding:4px 10px;border-color:${ppShowCompleted?'#3fb950':'#2e3a50'};color:${ppShowCompleted?'#3fb950':'#484f58'}">
+      <button class="btn" id="pp-toggle-completed" style="font-size:11px;padding:4px 10px;border-color:${ppShowCompleted?'#3fb950':'#d1dae8'};color:${ppShowCompleted?'#3fb950':'#484f58'}">
         ${ppShowCompleted?'Hide':'Show'} Completed${completedCount?` (${completedCount})`:''}
       </button>
-      <div style="width:1px;height:20px;background:#21262d;margin:0 4px"></div>
+      <div style="width:1px;height:20px;background:#e8edf5;margin:0 4px"></div>
       <button class="btn" id="pp-prev-week" style="font-size:11px;padding:4px 10px">◀ Prev</button>
-      <span style="font-size:13px;font-weight:800;color:#eaf0ff;min-width:220px;text-align:center">${weekLabel}</span>
+      <span style="font-size:13px;font-weight:800;color:#111827;min-width:220px;text-align:center">${weekLabel}</span>
       <button class="btn" id="pp-next-week" style="font-size:11px;padding:4px 10px">Next ▶</button>
       <button class="btn" id="pp-today-week" style="font-size:11px;padding:4px 10px">Today</button>
     </div>
-    <div style="padding:6px 14px;background:#0d1117;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap">
-      <span style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#484f58;margin-right:4px">Colour key:</span>
+    <div style="padding:6px 14px;background:#f8fafc;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap">
+      <span style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#9ca3af;margin-right:4px">Colour key:</span>
       ${legend}
-      <span style="font-size:9px;color:#484f58;margin-left:6px;font-style:italic">Type keyword first, then name — e.g. EDIT: John</span>
+      <span style="font-size:9px;color:#9ca3af;margin-left:6px;font-style:italic">Type keyword first, then name — e.g. EDIT: John</span>
     </div>
     <div style="flex:1;overflow:auto">
       <table style="border-collapse:collapse;white-space:nowrap;table-layout:auto">
@@ -3305,7 +3339,7 @@ function renderPPCalendar(){
   // Calendar grid
   const firstDow=monthStart.getUTCDay();
   const startOffset=firstDow===0?-6:1-firstDow;
-  const dayHdrs=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map((d,i)=>`<div style="text-align:center;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:${i>=5?'#484f58':'#7a8ba0'};padding:8px 0;border-bottom:2px solid #21262d;border-right:1px solid #21262d;background:#161b22">${d}</div>`).join('');
+  const dayHdrs=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map((d,i)=>`<div style="text-align:center;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:${i>=5?'#484f58':'#7a8ba0'};padding:8px 0;border-bottom:2px solid #e8edf5;border-right:1px solid #e8edf5;background:#f8fafc">${d}</div>`).join('');
 
   const cells=[];
   for(let i=0;i<42;i++){
@@ -3322,8 +3356,8 @@ function renderPPCalendar(){
         <span style="line-height:1.3">${esc(e.story)}</span>
       </div>`).join('');
 
-    const bgCol=isTod?'#0d2240':isWknd&&inMonth?'#191f2a':inMonth?'#1c2433':'#161b22';
-    cells.push(`<div style="border-right:1px solid #21262d;border-bottom:1px solid #21262d;min-height:160px;padding:8px;background:${bgCol};opacity:${inMonth?1:0.3};vertical-align:top">
+    const bgCol=isTod?'#dbeafe':isWknd&&inMonth?'#f0f4f8':inMonth?'#ffffff':'#f8fafc';
+    cells.push(`<div style="border-right:1px solid #e8edf5;border-bottom:1px solid #21262d;min-height:160px;padding:8px;background:${bgCol};opacity:${inMonth?1:0.3};vertical-align:top">
       <div style="${isTod?'background:#0057b8;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;':'color:'+( isWknd?'#484f58':'#6e7681')+';'}font-size:13px;font-weight:${isTod?900:700};margin-bottom:6px">${dn}</div>
       ${entryHtml}
     </div>`);
@@ -3332,15 +3366,15 @@ function renderPPCalendar(){
   const monthName=monthStart.toLocaleDateString('en-ZA',{month:'long',year:'numeric',timeZone:'UTC'});
 
   return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
-    <div style="padding:8px 14px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
+    <div style="padding:8px 14px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
       <button id="pp-view-toggle" class="btn" style="font-size:11px;padding:4px 12px;border-color:#e3b341;color:#e3b341">📋 Spreadsheet</button>
-      <div style="width:1px;height:20px;background:#21262d;margin:0 4px"></div>
+      <div style="width:1px;height:20px;background:#e8edf5;margin:0 4px"></div>
       <button id="pp-cal-prev" class="btn" style="font-size:13px;padding:3px 12px">◀</button>
-      <span style="font-size:16px;font-weight:800;color:#eaf0ff;min-width:180px;text-align:center">${monthName}</span>
+      <span style="font-size:16px;font-weight:800;color:#111827;min-width:180px;text-align:center">${monthName}</span>
       <button id="pp-cal-next" class="btn" style="font-size:13px;padding:3px 12px">▶</button>
       <button id="pp-cal-today" class="btn" style="font-size:11px;padding:4px 10px">Today</button>
       <div style="margin-left:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        ${[['#0057b8','View'],['#006622','Shoot'],['#4a0080','Edit'],['#804000','Mix'],['#005566','VO'],['#8b0000','AFM']].map(([c,l])=>`<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#7a8ba0"><span style="width:11px;height:11px;background:${c};border-radius:2px;display:inline-block"></span>${l}</span>`).join('')}
+        ${[['#0057b8','View'],['#006622','Shoot'],['#4a0080','Edit'],['#804000','Mix'],['#005566','VO'],['#8b0000','AFM']].map(([c,l])=>`<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:#6b7280"><span style="width:11px;height:11px;background:${c};border-radius:2px;display:inline-block"></span>${l}</span>`).join('')}
       </div>
     </div>
     <div style="flex:1;overflow-y:auto">
@@ -3353,7 +3387,7 @@ function renderPPCalendar(){
 }
 
 function renderDeliverables(epNums){
-  if(!epNums.length) return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet.</div></div>`;
+  if(!epNums.length) return`<div class="ep-wrap"><div style="color:#6b7280;padding:32px;text-align:center">No episodes yet.</div></div>`;
 
   const cards=epNums.map(n=>{
     const d=deliverables[String(n)]||{};
@@ -3369,14 +3403,14 @@ function renderDeliverables(epNums){
         ${finalised?`<div style="font-size:9px;font-weight:800;color:#4ade80;margin-top:3px;letter-spacing:.5px">DONE</div>`:''}
       </div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:12px;color:#9aaabe;margin-bottom:6px">${dateStr}</div>
+        <div style="font-size:12px;color:#4b5563;margin-bottom:6px">${dateStr}</div>
         <div style="display:flex;align-items:center;gap:8px">
-          <div style="flex:1;height:6px;background:#2e3a50;border-radius:3px;overflow:hidden">
+          <div style="flex:1;height:6px;background:#d1dae8;border-radius:3px;overflow:hidden">
             <div style="height:6px;background:${pctCol};border-radius:3px;width:${pct}%"></div>
           </div>
           <span style="font-size:11px;font-weight:800;color:${pctCol};min-width:36px;text-align:right">${pct}%</span>
         </div>
-        <div style="font-size:10px;color:#484f58;margin-top:4px">${done} of ${total} deliverables complete</div>
+        <div style="font-size:10px;color:#9ca3af;margin-top:4px">${done} of ${total} deliverables complete</div>
       </div>
       <button class="btn deliv-edit-btn" data-ep="${n}" style="font-size:11px;white-space:nowrap;flex-shrink:0">EDIT EPISODE</button>
     </div>`;
@@ -3385,8 +3419,8 @@ function renderDeliverables(epNums){
   return`<div class="ep-wrap" style="padding-bottom:40px">
     <div style="padding:16px 20px 14px;display:flex;align-items:center;justify-content:space-between">
       <div>
-        <div style="font-size:15px;font-weight:800;color:#eaf0ff">Deliverables</div>
-        <div style="font-size:11px;color:#6e7681;margin-top:2px">Track completion of all episode deliverables · Admin only</div>
+        <div style="font-size:15px;font-weight:800;color:#111827">Deliverables</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:2px">Track completion of all episode deliverables · Admin only</div>
       </div>
     </div>
     <div style="padding:0 20px;display:flex;flex-direction:column;gap:10px">
@@ -3397,7 +3431,7 @@ function renderDeliverables(epNums){
 
 
 function renderPromoScheduling(epNums){
-  if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet.</div></div>`;
+  if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6b7280;padding:32px;text-align:center">No episodes yet.</div></div>`;
   const canEd=getEffectiveRole()==='admin'||getEffectiveRole()==='operations';
   const canEditContent=['admin','operations','editorial'].includes(getEffectiveRole());
   const assigned=getAllAssignedUIDs();
@@ -3405,23 +3439,23 @@ function renderPromoScheduling(epNums){
 
   const poolRows=uidPool.map((u,i)=>{
     const isAss=!!assigned[u.uid];
-    const bg=i%2===0?'':'background:#1a2035';
+    const bg=i%2===0?'':'background:#f9fafb';
     const status=u.pulled
       ?`<span style="background:#3d1c1c;color:#f85149;padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700">PULLED</span>`
-      :isAss?`<span style="background:#1f4023;color:#3fb950;padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700">ASSIGNED</span>`
-      :`<span style="background:#1c2d4a;color:#58a6ff;padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700">AVAILABLE</span>`;
+      :isAss?`<span style="background:#dcfce7;color:#3fb950;padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700">ASSIGNED</span>`
+      :`<span style="background:#eff6ff;color:#0066CC;padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700">AVAILABLE</span>`;
     const info=isAss?`EP ${String(assigned[u.uid].ep).padStart(2,'0')} · ${PROMO_TYPES.find(p=>p.key===assigned[u.uid].key)?.label||''}`:'—';
-    return`<tr style="${bg}"><td style="padding:6px 12px;font-size:11px;color:#484f58">${i+1}</td>
+    return`<tr style="${bg}"><td style="padding:6px 12px;font-size:11px;color:#9ca3af">${i+1}</td>
       <td style="padding:6px 12px;font-family:monospace;font-size:12px;font-weight:700;color:${u.pulled?'#484f58':isAss?'#3fb950':'#9aaabe'};letter-spacing:1px;text-decoration:${u.pulled?'line-through':'none'}">${esc(u.uid)}</td>
       <td style="padding:6px 12px">${status}</td>
-      <td style="padding:6px 12px;font-size:11px;color:#6e7681">${info}</td></tr>`;
+      <td style="padding:6px 12px;font-size:11px;color:#6b7280">${info}</td></tr>`;
   }).join('');
 
   const assignCards=avail.map(u=>{
     const sel=selectedPoolUIDs.includes(u.uid);
     const idx=selectedPoolUIDs.indexOf(u.uid);
-    return`<div data-pool-uid="${esc(u.uid)}" style="padding:8px 10px;border-radius:6px;cursor:pointer;border:2px solid ${sel?'#58a6ff':'#2e3a50'};background:${sel?'#1a2d4a':'#1c2433'};display:flex;align-items:center;gap:6px">
-      ${sel?`<span style="font-size:9px;font-weight:900;color:#58a6ff;width:16px">${idx+1}.</span>`:'<span style="width:16px"></span>'}
+    return`<div data-pool-uid="${esc(u.uid)}" style="padding:8px 10px;border-radius:6px;cursor:pointer;border:2px solid ${sel?'#58a6ff':'#d1dae8'};background:${sel?'#eff6ff':'#f9fafb'};display:flex;align-items:center;gap:6px">
+      ${sel?`<span style="font-size:9px;font-weight:900;color:#0066CC;width:16px">${idx+1}.</span>`:'<span style="width:16px"></span>'}
       <span style="font-family:monospace;font-size:12px;font-weight:700;color:${sel?'#58a6ff':'#9aaabe'};letter-spacing:1px">${esc(u.uid)}</span>
     </div>`;
   }).join('');
@@ -3430,8 +3464,8 @@ function renderPromoScheduling(epNums){
     <div class="ep-head" style="display:flex;align-items:center;justify-content:space-between">
       <div style="display:flex;align-items:center;gap:12px">
         <span class="ep-num" style="background:#7a3fbf">UID</span>
-        <div><div style="font-size:14px;font-weight:800;color:#eaf0ff">Master UID Pool</div>
-        <div style="font-size:11px;color:#6e7681">${uidPool.length} total · ${avail.length} available · ${uidPool.filter(u=>u.pulled).length} pulled</div></div>
+        <div><div style="font-size:14px;font-weight:800;color:#111827">Master UID Pool</div>
+        <div style="font-size:11px;color:#6b7280">${uidPool.length} total · ${avail.length} available · ${uidPool.filter(u=>u.pulled).length} pulled</div></div>
       </div>
       <div style="display:flex;gap:8px">
         ${canEd?`<button class="btn" id="pool-view-btn" style="font-size:11px;border-color:#7a3fbf;color:#c084fc">${uidPoolView==='pool'?'▶ Assign UIDs':'◀ Back to Pool'}</button>
@@ -3442,27 +3476,27 @@ function renderPromoScheduling(epNums){
     ${uidPoolView==='assign'?`
     <div style="padding:16px">
       <div style="margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <span style="font-size:13px;font-weight:700;color:#eaf0ff">${selectedPoolUIDs.length}/12 selected</span>
+        <span style="font-size:13px;font-weight:700;color:#111827">${selectedPoolUIDs.length}/12 selected</span>
         ${selectedPoolUIDs.length===12?`
-          <select id="assign-ep-sel" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:5px 10px;border-radius:5px;font-size:12px">
+          <select id="assign-ep-sel" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:5px 10px;border-radius:5px;font-size:12px">
             <option value="">— Pick Episode —</option>
             ${epNums.map(n=>`<option value="${n}" ${assignTargetEp===String(n)?'selected':''}>Episode ${String(n).padStart(2,'0')}</option>`).join('')}
           </select>
           ${assignTargetEp?`<button class="btn primary" id="do-assign-btn">✓ Assign to EP ${String(assignTargetEp).padStart(2,'0')}</button>`:''}
-        `:'<span style="font-size:11px;color:#6e7681">Select exactly 12 UIDs in order (Teaser 1 → Catchup 2)</span>'}
+        `:'<span style="font-size:11px;color:#6b7280">Select exactly 12 UIDs in order (Teaser 1 → Catchup 2)</span>'}
         ${selectedPoolUIDs.length?`<button class="btn" id="clear-sel-btn" style="font-size:11px">Clear</button>`:''}
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;max-height:300px;overflow-y:auto">${assignCards}${!avail.length?`<div style="color:#484f58;font-size:12px;padding:16px">No available UIDs.</div>`:''}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;max-height:300px;overflow-y:auto">${assignCards}${!avail.length?`<div style="color:#9ca3af;font-size:12px;padding:16px">No available UIDs.</div>`:''}</div>
     </div>`:`
     <div style="overflow-x:auto;max-height:260px;overflow-y:auto">
       <table style="width:100%;border-collapse:collapse">
-        <thead style="position:sticky;top:0;background:#1a2035"><tr>
-          <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50">#</th>
-          <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">UID</th>
-          <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Status</th>
-          <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Assigned To</th>
+        <thead style="position:sticky;top:0;background:#f9fafb"><tr>
+          <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8">#</th>
+          <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:left">UID</th>
+          <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:left">Status</th>
+          <th style="padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:left">Assigned To</th>
         </tr></thead>
-        <tbody>${poolRows}${!uidPool.length?`<tr><td colspan="4" style="padding:24px;text-align:center;color:#484f58;font-size:12px">No UIDs yet. Import to get started.</td></tr>`:''}</tbody>
+        <tbody>${poolRows}${!uidPool.length?`<tr><td colspan="4" style="padding:24px;text-align:center;color:#9ca3af;font-size:12px">No UIDs yet. Import to get started.</td></tr>`:''}</tbody>
       </table>
     </div>`}
   </div>`;
@@ -3478,7 +3512,7 @@ function renderPromoScheduling(epNums){
     const epStr=String(n).padStart(2,'0');
     const sunDate=new Date(epDate).toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
     const filled=PROMO_TYPES.filter(pt=>uids[pt.key]).length;
-    const thS='padding:8px 12px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap';
+    const thS='padding:8px 12px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;border-bottom:2px solid #d1dae8;white-space:nowrap';
     const tdB='padding:8px 12px;font-size:12px;border-bottom:1px solid #21262d;vertical-align:middle';
 
     const rows=PROMO_TYPES.map((pt,i)=>{
@@ -3487,18 +3521,18 @@ function renderPromoScheduling(epNums){
       const isPulled=pulled[pt.key]||false;
       const slug=buildSlug(currentSeason,n,pt.slug);
       const combined=uid&&!isPulled?`${uid} ${slug}`:'';
-      const bg=i%2===0?'':'background:#1a2035';
+      const bg=i%2===0?'':'background:#f9fafb';
       return`<tr style="${bg}${isPulled?';opacity:.55':''}">
         <td style="${tdB};font-weight:700;color:${isPulled?'#484f58':'#eaf0ff'};width:120px;${isPulled?'text-decoration:line-through':''}">${pt.label}</td>
         <td style="${tdB};width:100px"><input class="ci promo-date-inp" value="${esc(pd['txFrom_'+pt.key]||txD.from)}" data-ep="${n}" data-field="txFrom_${pt.key}" style="font-size:11px;width:100%" ${!canEd||isPulled?'disabled':''}></td>
         <td style="${tdB};width:100px"><input class="ci promo-date-inp" value="${esc(pd['txTo_'+pt.key]||txD.to)}" data-ep="${n}" data-field="txTo_${pt.key}" style="font-size:11px;width:100%" ${!canEd||isPulled?'disabled':''}></td>
-        <td style="${tdB};width:110px"><span style="font-family:monospace;font-size:12px;font-weight:700;color:${isPulled?'#484f58':'#58a6ff'};letter-spacing:1px;text-decoration:${isPulled?'line-through':'none'}">${uid||'<span style="color:#484f58">—</span>'}</span></td>
+        <td style="${tdB};width:110px"><span style="font-family:monospace;font-size:12px;font-weight:700;color:${isPulled?'#484f58':'#58a6ff'};letter-spacing:1px;text-decoration:${isPulled?'line-through':'none'}">${uid||'<span style="color:#9ca3af">—</span>'}</span></td>
         <td style="${tdB};width:90px;text-align:center">${canEd?`<label style="display:flex;align-items:center;gap:5px;cursor:pointer;justify-content:center">
           <input type="checkbox" class="promo-pulled-cb" data-ep="${n}" data-key="${pt.key}" ${isPulled?'checked':''} tabindex="-1">
           <span style="font-size:9px;font-weight:700;color:${isPulled?'#f85149':'#6e7681'};text-transform:uppercase">Pulled</span>
         </label>`:''}</td>
         <td style="${tdB};font-family:monospace;font-size:11px;font-weight:700;color:#3fb950;letter-spacing:.5px">
-          ${isPulled?'<span style="color:#f85149;font-size:10px">PULLED</span>':combined?esc(combined):'<span style="color:#484f58">—</span>'}
+          ${isPulled?'<span style="color:#f85149;font-size:10px">PULLED</span>':combined?esc(combined):'<span style="color:#9ca3af">—</span>'}
         </td>
         <td style="${tdB};min-width:180px"><input class="ci promo-content-inp" value="${esc(pd['content_'+pt.key]||'')}" data-ep="${n}" data-key="${pt.key}" placeholder="Enter content…" style="font-size:12px;width:100%;color:#e3b341" ${!canEditContent?'disabled':''}></td>
       </tr>`;
@@ -3508,22 +3542,22 @@ function renderPromoScheduling(epNums){
       <div class="ep-head" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between" data-promo-toggle="${n}">
         <div style="display:flex;align-items:center;gap:12px;flex:1">
           <span class="ep-num">EP ${n}</span>
-          <div><div style="font-size:13px;font-weight:800;color:#eaf0ff;text-transform:uppercase">Carte Blanche Season ${currentSeason} · Episode ${epStr}</div>
-          <div style="font-size:11px;color:#6e7681;margin-top:2px">TX: ${sunDate} · ${filled}/12 UIDs</div></div>
-          <span style="font-size:11px;color:#484f58">${isExp?'▲':'▼'}</span>
+          <div><div style="font-size:13px;font-weight:800;color:#111827;text-transform:uppercase">Carte Blanche Season ${currentSeason} · Episode ${epStr}</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:2px">TX: ${sunDate} · ${filled}/12 UIDs</div></div>
+          <span style="font-size:11px;color:#9ca3af">${isExp?'▲':'▼'}</span>
         </div>
         <div style="display:flex;gap:8px" onclick="event.stopPropagation()">
           ${isExp?`<button class="btn promo-recalc-btn" data-ep="${n}" style="font-size:11px;border-color:#e3b341;color:#e3b341" title="Recalculate TX dates from broadcast date">↺ Recalc TX Dates</button>
-          <button class="btn" style="font-size:11px;border-color:#388bfd;color:#58a6ff" data-promo-pdf="${n}">⬇ PDF</button>
+          <button class="btn" style="font-size:11px;border-color:#388bfd;color:#0066CC" data-promo-pdf="${n}">⬇ PDF</button>
           <button class="btn" style="font-size:11px;border-color:#3fb950;color:#3fb950" data-promo-xlsx="${n}">⬇ Excel</button>`:''}
         </div>
       </div>
       ${isExp?`
-      <div style="padding:10px 16px;background:#1a2a1a;border-bottom:2px solid #2e3a50;display:flex;align-items:center;gap:16px">
+      <div style="padding:10px 16px;background:#f0fdf4;border-bottom:2px solid #d1dae8;display:flex;align-items:center;gap:16px">
         <input class="ci promo-live-type" value="${esc(liveType)}" data-ep="${n}" placeholder="LIVE SHOW" style="font-size:13px;font-weight:800;color:#3fb950;width:130px;background:transparent;border:none;border-bottom:1px solid #2d6a2d" ${!canEd?'disabled':''}>
-        <span style="font-size:11px;color:#6e7681"><span style="font-weight:700;color:#7a8ba0">TX:</span> ${sunDate}</span>
-        <span style="font-size:10px;color:#7a8ba0;margin-right:4px">UID:</span>
-        <input class="ci promo-live-uid" value="${esc(liveUID)}" data-ep="${n}" placeholder="Enter UID" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#58a6ff;width:130px;letter-spacing:1px" ${!canEd?'disabled':''}>
+        <span style="font-size:11px;color:#6b7280"><span style="font-weight:700;color:#6b7280">TX:</span> ${sunDate}</span>
+        <span style="font-size:10px;color:#6b7280;margin-right:4px">UID:</span>
+        <input class="ci promo-live-uid" value="${esc(liveUID)}" data-ep="${n}" placeholder="Enter UID" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#0066CC;width:130px;letter-spacing:1px" ${!canEd?'disabled':''}>
       </div>
       <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
         <thead><tr>
@@ -3536,13 +3570,13 @@ function renderPromoScheduling(epNums){
 
   const modal=pullReplaceModal?`<div class="modal-overlay" id="pull-modal-overlay"><div class="modal" style="max-width:420px">
     <h3 style="margin-bottom:12px">Promo Pulled</h3>
-    <p style="margin-bottom:6px;color:#8b949e;font-size:13px"><strong style="color:#eaf0ff">${PROMO_TYPES.find(p=>p.key===pullReplaceModal.key)?.label}</strong> · EP ${String(pullReplaceModal.ep).padStart(2,'0')}</p>
-    <p style="margin-bottom:16px;color:#8b949e;font-size:13px">UID: <span style="font-family:monospace;color:#f85149">${pullReplaceModal.uid}</span></p>
-    <p style="margin-bottom:20px;font-size:14px;color:#eaf0ff">Replace this pulled promo with an available UID?</p>
+    <p style="margin-bottom:6px;color:#6b7280;font-size:13px"><strong style="color:#111827">${PROMO_TYPES.find(p=>p.key===pullReplaceModal.key)?.label}</strong> · EP ${String(pullReplaceModal.ep).padStart(2,'0')}</p>
+    <p style="margin-bottom:16px;color:#6b7280;font-size:13px">UID: <span style="font-family:monospace;color:#f85149">${pullReplaceModal.uid}</span></p>
+    <p style="margin-bottom:20px;font-size:14px;color:#111827">Replace this pulled promo with an available UID?</p>
     ${getAvailablePoolUIDs().length?`
-    <div style="background:#1a2035;border-radius:6px;padding:12px;margin-bottom:16px">
-      <div style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:6px">Suggested replacement:</div>
-      <div style="font-family:monospace;font-size:18px;font-weight:900;color:#58a6ff;letter-spacing:2px">${getAvailablePoolUIDs()[0]?.uid}</div>
+    <div style="background:#f9fafb;border-radius:6px;padding:12px;margin-bottom:16px">
+      <div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:6px">Suggested replacement:</div>
+      <div style="font-family:monospace;font-size:18px;font-weight:900;color:#0066CC;letter-spacing:2px">${getAvailablePoolUIDs()[0]?.uid}</div>
     </div>
     <div class="modal-actions"><button class="btn" id="pull-no-btn">Keep Pulled</button><button class="btn primary" id="pull-yes-btn">Use This UID</button></div>`
     :`<div style="color:#f85149;font-size:12px;margin-bottom:16px">No available UIDs in pool to suggest.</div>
@@ -3559,19 +3593,19 @@ function renderMusicImportModal(){
     <div class="modal" style="max-width:700px;max-height:80vh;overflow-y:auto">
       <h3 style="margin-bottom:12px">Import Music Cues from Excel</h3>
       ${!mcImportData.length?`
-        <p style="font-size:13px;color:#8b949e;margin-bottom:16px">Select an Excel or CSV file to import cue data.</p>
+        <p style="font-size:13px;color:#6b7280;margin-bottom:16px">Select an Excel or CSV file to import cue data.</p>
         <label class="btn primary" style="cursor:pointer;display:inline-block">
           Choose File
           <input type="file" id="mc-import-file" accept=".xlsx,.xls,.csv" style="display:none">
         </label>
         <button class="btn" id="mc-import-cancel" style="margin-left:8px">Cancel</button>
       `:`
-        <p style="font-size:12px;color:#8b949e;margin-bottom:4px">${mcImportData.length} rows found. Map your columns to the cue sheet fields:</p>
+        <p style="font-size:12px;color:#6b7280;margin-bottom:4px">${mcImportData.length} rows found. Map your columns to the cue sheet fields:</p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
           ${['trackTitle','composer','publisher','cmo','label','artist','albumNumber','albumTitle','trackNumber','usage','musicType','duration'].map(field=>`
             <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;min-width:100px">${field==='trackTitle'?'Track Title':field==='albumNumber'?'Album #':field==='albumTitle'?'Album Title':field==='trackNumber'?'Track #':field==='musicType'?'Music Type':field.replace(/([A-Z])/g,' $1').trim()}</span>
-              <select class="mc-map-sel" data-field="${field}" style="flex:1;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:4px 6px;border-radius:4px;font-size:11px">
+              <span style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;min-width:100px">${field==='trackTitle'?'Track Title':field==='albumNumber'?'Album #':field==='albumTitle'?'Album Title':field==='trackNumber'?'Track #':field==='musicType'?'Music Type':field.replace(/([A-Z])/g,' $1').trim()}</span>
+              <select class="mc-map-sel" data-field="${field}" style="flex:1;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:4px 6px;border-radius:4px;font-size:11px">
                 <option value="">— Skip —</option>
                 ${mcImportHeaders.map(h=>`<option value="${esc(h)}" ${mcImportMapping[field]===h?'selected':''}>${esc(h)}</option>`).join('')}
               </select>
@@ -3579,34 +3613,34 @@ function renderMusicImportModal(){
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
           <div>
-            <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Commission Number *</label>
-            <input id="mc-import-comm" placeholder="e.g. 6855" value="${esc(mcImportCommNum||'')}" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 10px;border-radius:5px;font-size:13px;font-family:monospace">
+            <label style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">Commission Number *</label>
+            <input id="mc-import-comm" placeholder="e.g. 6855" value="${esc(mcImportCommNum||'')}" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:7px 10px;border-radius:5px;font-size:13px;font-family:monospace">
           </div>
           <div>
-            <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">AFM Operator</label>
-            <input id="mc-import-afm" value="${esc(currentUser?.displayName||currentUser?.email||'')}" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 10px;border-radius:5px;font-size:13px">
+            <label style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">AFM Operator</label>
+            <input id="mc-import-afm" value="${esc(currentUser?.displayName||currentUser?.email||'')}" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:7px 10px;border-radius:5px;font-size:13px">
           </div>
         </div>
         <div id="mc-import-comm-preview">${(()=>{
           const pc=mcImportCommNum?comms.find(c=>c.commNum===mcImportCommNum.trim()):null;
-          if(!mcImportCommNum)return'<div style="font-size:11px;color:#484f58;font-style:italic;margin-bottom:14px">Enter a commission number above to preview story details.</div>';
-          if(pc){return`<div style="background:#1a2d1a;border:1px solid #2d6a2d;border-radius:7px;padding:14px;margin-bottom:14px">
+          if(!mcImportCommNum)return'<div style="font-size:11px;color:#9ca3af;font-style:italic;margin-bottom:14px">Enter a commission number above to preview story details.</div>';
+          if(pc){return`<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:7px;padding:14px;margin-bottom:14px">
             <div style="font-size:9px;font-weight:700;color:#3fb950;text-transform:uppercase;margin-bottom:8px">✓ Commission found</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-              <div><div style="font-size:9px;color:#7a8ba0;text-transform:uppercase;margin-bottom:2px">Story Name</div><div style="font-size:13px;font-weight:700;color:#eaf0ff">${esc(pc.storyName||'—')}</div></div>
-              <div><div style="font-size:9px;color:#7a8ba0;text-transform:uppercase;margin-bottom:2px">Producer</div><div style="font-size:13px;font-weight:700;color:#eaf0ff">${esc(pc.producer||'—')}</div></div>
+              <div><div style="font-size:9px;color:#6b7280;text-transform:uppercase;margin-bottom:2px">Story Name</div><div style="font-size:13px;font-weight:700;color:#111827">${esc(pc.storyName||'—')}</div></div>
+              <div><div style="font-size:9px;color:#6b7280;text-transform:uppercase;margin-bottom:2px">Producer</div><div style="font-size:13px;font-weight:700;color:#111827">${esc(pc.producer||'—')}</div></div>
             </div>
             ${mcImportCommConfirmed?'<div style="font-size:11px;color:#3fb950;font-weight:700">✓ Details confirmed</div>':`<button class="btn primary" id="mc-import-comm-confirm-btn" style="font-size:12px">✓ Confirm Details</button>`}
           </div>`;}
-          return`<div style="background:#2d1a00;border:1px solid #5a3e00;border-radius:7px;padding:12px;margin-bottom:14px">
-            <div style="font-size:11px;font-weight:700;color:#d29922;margin-bottom:3px">⚠ Commission not found in Commission List</div>
-            <div style="font-size:11px;color:#8b949e">Story name and producer can be entered manually after import.</div>
-            ${mcImportCommConfirmed?'<div style="margin-top:8px;font-size:11px;color:#d29922;font-weight:700">✓ Confirmed — will proceed without auto-fill</div>':`<button class="btn" id="mc-import-comm-confirm-btn" style="font-size:12px;margin-top:8px;border-color:#d29922;color:#d29922">Proceed Without Auto-fill</button>`}
+          return`<div style="background:#fff7ed;border:1px solid #fcd34d;border-radius:7px;padding:12px;margin-bottom:14px">
+            <div style="font-size:11px;font-weight:700;color:#b45309;margin-bottom:3px">⚠ Commission not found in Commission List</div>
+            <div style="font-size:11px;color:#6b7280">Story name and producer can be entered manually after import.</div>
+            ${mcImportCommConfirmed?'<div style="margin-top:8px;font-size:11px;color:#b45309;font-weight:700">✓ Confirmed — will proceed without auto-fill</div>':`<button class="btn" id="mc-import-comm-confirm-btn" style="font-size:12px;margin-top:8px;border-color:#b45309;color:#b45309">Proceed Without Auto-fill</button>`}
           </div>`;
         })()}</div>
-        <div style="background:#1a2035;border-radius:6px;padding:10px 12px;margin-bottom:14px;max-height:150px;overflow-y:auto">
-          <div style="font-size:10px;font-weight:700;color:#7a8ba0;margin-bottom:6px">Preview (first 3 rows):</div>
-          ${mcImportData.slice(0,3).map((row,i)=>`<div style="font-size:10px;color:#6e7681;padding:3px 0;border-bottom:1px solid #21262d">${Object.entries(mcImportMapping).filter(([,v])=>v).map(([f,h])=>`<span style="color:#eaf0ff">${f}:</span> ${esc(String(row[h]||''))}`).join(' · ')}</div>`).join('')}
+        <div style="background:#f9fafb;border-radius:6px;padding:10px 12px;margin-bottom:14px;max-height:150px;overflow-y:auto">
+          <div style="font-size:10px;font-weight:700;color:#6b7280;margin-bottom:6px">Preview (first 3 rows):</div>
+          ${mcImportData.slice(0,3).map((row,i)=>`<div style="font-size:10px;color:#6b7280;padding:3px 0;border-bottom:1px solid #21262d">${Object.entries(mcImportMapping).filter(([,v])=>v).map(([f,h])=>`<span style="color:#111827">${f}:</span> ${esc(String(row[h]||''))}`).join(' · ')}</div>`).join('')}
         </div>
         <div class="modal-actions">
           <button class="btn" id="mc-import-cancel">Cancel</button>
@@ -3644,48 +3678,48 @@ function renderMusicCues(epNums){
         <div class="ep-card" style="margin-bottom:16px;max-width:560px;margin-left:auto;margin-right:auto">
           <div class="ep-head" style="display:flex;align-items:center;gap:12px">
             <button class="btn" id="mc-back-btn" style="font-size:12px">← Back</button>
-            <span style="font-size:15px;font-weight:800;color:#eaf0ff">New Music Cue Sheet — Step 1 of 2</span>
+            <span style="font-size:15px;font-weight:800;color:#111827">New Music Cue Sheet — Step 1 of 2</span>
           </div>
           <div style="padding:24px">
-            <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:6px">Commission Number *</label>
+            <label style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:6px">Commission Number *</label>
             <input id="mc-comm-num-confirm" value="${esc(draft.commNum)}" placeholder="e.g. 6855" autocomplete="off"
-              style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:10px 12px;border-radius:6px;font-size:15px;font-family:monospace;margin-bottom:16px">
+              style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:10px 12px;border-radius:6px;font-size:15px;font-family:monospace;margin-bottom:16px">
             ${previewComm?`
-              <div style="background:#1a2d1a;border:1px solid #2d6a2d;border-radius:8px;padding:16px;margin-bottom:20px">
+              <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:16px;margin-bottom:20px">
                 <div style="font-size:10px;font-weight:700;color:#3fb950;text-transform:uppercase;margin-bottom:10px">✓ Commission found</div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                   <div>
-                    <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:3px">Story Name</div>
-                    <div style="font-size:14px;font-weight:700;color:#eaf0ff">${esc(previewComm.storyName||'—')}</div>
+                    <div style="font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:3px">Story Name</div>
+                    <div style="font-size:14px;font-weight:700;color:#111827">${esc(previewComm.storyName||'—')}</div>
                   </div>
                   <div>
-                    <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:3px">Producer</div>
-                    <div style="font-size:14px;font-weight:700;color:#eaf0ff">${esc(previewComm.producer||'—')}</div>
+                    <div style="font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:3px">Producer</div>
+                    <div style="font-size:14px;font-weight:700;color:#111827">${esc(previewComm.producer||'—')}</div>
                   </div>
                   ${previewComm.broadcastEpisode?`<div style="grid-column:1/-1">
-                    <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:3px">Broadcast Episode</div>
+                    <div style="font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:3px">Broadcast Episode</div>
                     <div style="font-size:13px;color:#3fb950">EP ${String(previewComm.broadcastEpisode).padStart(2,'0')} · ${fmtDate(resolveDate(Number(previewComm.broadcastEpisode)))}</div>
                   </div>`:''}
                 </div>
               </div>
               <button class="btn primary" id="mc-comm-confirm-btn" style="width:100%;padding:12px;font-size:14px">✓ Confirm — Start Cue Sheet</button>
             `:hasComm?`
-              <div style="background:#2d1a00;border:1px solid #5a3e00;border-radius:8px;padding:14px;margin-bottom:20px">
-                <div style="font-size:11px;font-weight:700;color:#d29922;margin-bottom:4px">⚠ Commission not found in the Commission List</div>
-                <div style="font-size:11px;color:#8b949e">You can still proceed — story name and producer can be entered manually.</div>
+              <div style="background:#fff7ed;border:1px solid #fcd34d;border-radius:8px;padding:14px;margin-bottom:20px">
+                <div style="font-size:11px;font-weight:700;color:#b45309;margin-bottom:4px">⚠ Commission not found in the Commission List</div>
+                <div style="font-size:11px;color:#6b7280">You can still proceed — story name and producer can be entered manually.</div>
               </div>
               <button class="btn primary" id="mc-comm-confirm-btn" style="width:100%;padding:12px;font-size:14px">Proceed Anyway</button>
-            `:`<div style="font-size:12px;color:#484f58;font-style:italic">Enter a commission number above to look up story details.</div>`}
+            `:`<div style="font-size:12px;color:#9ca3af;font-style:italic">Enter a commission number above to look up story details.</div>`}
           </div>
         </div>
       </div>`;
     }
-    const inpS='background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:5px 7px;border-radius:4px;font-size:12px;white-space:nowrap;box-sizing:border-box';
-    const thS='padding:8px 8px;font-size:8px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left';
+    const inpS='background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:5px 7px;border-radius:4px;font-size:12px;white-space:nowrap;box-sizing:border-box';
+    const thS='padding:8px 8px;font-size:8px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;white-space:nowrap;text-align:left';
     const tdS='padding:4px;vertical-align:top';
 
     const rowsHTML=draft.rows.map((r,i)=>`<tr>
-      <td style="padding:4px 6px;vertical-align:middle;text-align:center;font-weight:700;color:#7a8ba0;font-size:12px;white-space:nowrap;width:1%">${i+1}</td>
+      <td style="padding:4px 6px;vertical-align:middle;text-align:center;font-weight:700;color:#6b7280;font-size:12px;white-space:nowrap;width:1%">${i+1}</td>
       <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="trackTitle" value="${esc(r.trackTitle)}" placeholder="Track title" style="${inpS};min-width:160px"></td>
       <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="composer" value="${esc(r.composer)}" placeholder="Composer" style="${inpS};min-width:130px"></td>
       <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="publisher" value="${esc(r.publisher)}" placeholder="Publisher" style="${inpS};min-width:130px"></td>
@@ -3699,7 +3733,7 @@ function renderMusicCues(epNums){
         <option value="Background Instrumental (BI)" ${r.usage==='Background Instrumental (BI)'?'selected':''}>Background Instrumental (BI)</option>
         <option value="Background Vocal (BV)" ${r.usage==='Background Vocal (BV)'?'selected':''}>Background Vocal (BV)</option>
       </select></td>
-      <td style="padding:4px;white-space:nowrap"><input value="PRODUCTION" disabled style="${inpS};min-width:90px;color:#7a8ba0;cursor:not-allowed"></td>
+      <td style="padding:4px;white-space:nowrap"><input value="PRODUCTION" disabled style="${inpS};min-width:90px;color:#6b7280;cursor:not-allowed"></td>
       <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="duration" value="${esc(r.duration)}" placeholder="00:00:00:00" style="${inpS};min-width:110px;font-family:monospace"></td>
       <td style="padding:4px;white-space:nowrap;width:1%"><button class="btn danger mc-del-row" data-row="${i}" style="padding:3px 7px;font-size:11px">✕</button></td>
     </tr>`).join('');
@@ -3709,7 +3743,7 @@ function renderMusicCues(epNums){
         <div class="ep-head" style="display:flex;align-items:center;justify-content:space-between">
           <div style="display:flex;align-items:center;gap:12px">
             <button class="btn" id="mc-back-btn" style="font-size:12px">← Back</button>
-            <span style="font-size:15px;font-weight:800;color:#eaf0ff">${mcTab==='edit'?'Edit Music Cue Sheet':'New Music Cue Sheet'}</span>
+            <span style="font-size:15px;font-weight:800;color:#111827">${mcTab==='edit'?'Edit Music Cue Sheet':'New Music Cue Sheet'}</span>
           </div>
           ${(()=>{
             const fieldNames=['trackTitle','composer','publisher','cmo','label','artist','albumTitle','trackNumber','usage','duration'];
@@ -3726,27 +3760,27 @@ function renderMusicCues(epNums){
         </div>
         <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
           <div>
-            <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">AFM Operator *</label>
-            <input id="mc-afm-name" value="${esc(draft.afmName||userName)}" placeholder="Your name" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 10px;border-radius:5px;font-size:13px">
+            <label style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">AFM Operator *</label>
+            <input id="mc-afm-name" value="${esc(draft.afmName||userName)}" placeholder="Your name" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:7px 10px;border-radius:5px;font-size:13px">
           </div>
           <div>
-            <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Commission Number *</label>
-            <input id="mc-comm-num" value="${esc(draft.commNum)}" placeholder="e.g. 6855" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 10px;border-radius:5px;font-size:13px;font-family:monospace">
+            <label style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">Commission Number *</label>
+            <input id="mc-comm-num" value="${esc(draft.commNum)}" placeholder="e.g. 6855" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:7px 10px;border-radius:5px;font-size:13px;font-family:monospace">
           </div>
           <div>
-            <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Story Name</label>
-            <input id="mc-story-name" value="${esc(draft.storyName)}" placeholder="${matchedComm?matchedComm.storyName:'Auto-fills from Commission List'}" style="width:100%;background:#1c2433;border:1px solid ${matchedComm?'#2d6a2d':'#2e3a50'};color:${matchedComm?'#3fb950':'#eaf0ff'};padding:7px 10px;border-radius:5px;font-size:13px" ${matchedComm?'readonly':''}>
+            <label style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">Story Name</label>
+            <input id="mc-story-name" value="${esc(draft.storyName)}" placeholder="${matchedComm?matchedComm.storyName:'Auto-fills from Commission List'}" style="width:100%;background:#f9fafb;border:1px solid ${matchedComm?'#2d6a2d':'#d1dae8'};color:${matchedComm?'#3fb950':'#eaf0ff'};padding:7px 10px;border-radius:5px;font-size:13px" ${matchedComm?'readonly':''}>
           </div>
           <div>
-            <label style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;display:block;margin-bottom:4px">Producer</label>
-            <input id="mc-producer" value="${esc(draft.producer)}" placeholder="${matchedComm?matchedComm.producer:'Auto-fills from Commission List'}" style="width:100%;background:#1c2433;border:1px solid ${matchedComm?'#2d6a2d':'#2e3a50'};color:${matchedComm?'#3fb950':'#eaf0ff'};padding:7px 10px;border-radius:5px;font-size:13px" ${matchedComm?'readonly':''}>
+            <label style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">Producer</label>
+            <input id="mc-producer" value="${esc(draft.producer)}" placeholder="${matchedComm?matchedComm.producer:'Auto-fills from Commission List'}" style="width:100%;background:#f9fafb;border:1px solid ${matchedComm?'#2d6a2d':'#d1dae8'};color:${matchedComm?'#3fb950':'#eaf0ff'};padding:7px 10px;border-radius:5px;font-size:13px" ${matchedComm?'readonly':''}>
           </div>
         </div>
         ${matchedComm&&matchedComm.broadcastEpisode?`<div style="padding:0 16px 12px;font-size:11px;color:#3fb950">→ Linked to Episode ${matchedComm.broadcastEpisode} · ${fmtDate(resolveDate(Number(matchedComm.broadcastEpisode)))}</div>`:''}
-        ${draft.commNum&&!matchedComm?`<div style="padding:0 16px 12px;font-size:11px;color:#d29922">⚠ Commission not found — you can still enter details manually.</div>`:''}
+        ${draft.commNum&&!matchedComm?`<div style="padding:0 16px 12px;font-size:11px;color:#b45309">⚠ Commission not found — you can still enter details manually.</div>`:''}
         <div style="padding:0 16px 16px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <span style="font-size:13px;font-weight:700;color:#eaf0ff">${draft.rows.length} cue${draft.rows.length!==1?'s':''}</span>
+            <span style="font-size:13px;font-weight:700;color:#111827">${draft.rows.length} cue${draft.rows.length!==1?'s':''}</span>
             <button class="btn primary" id="mc-add-row-btn" style="font-size:12px">+ Add Cue</button>
           </div>
           <div style="overflow-x:auto">
@@ -3769,8 +3803,8 @@ function renderMusicCues(epNums){
               <tbody id="mc-rows-body">${rowsHTML}</tbody>
             </table>
           </div>
-          ${!draft.rows.length?`<div style="text-align:center;padding:24px;color:#484f58;font-size:12px">No cues yet. Click "+ Add Cue" to start.</div>`:''}
-          <div style="padding:8px 0;font-size:10px;color:#6e7681"><span style="color:#f85149">*</span> All fields are required before submitting.</div>
+          ${!draft.rows.length?`<div style="text-align:center;padding:24px;color:#9ca3af;font-size:12px">No cues yet. Click "+ Add Cue" to start.</div>`:''}
+          <div style="padding:8px 0;font-size:10px;color:#6b7280"><span style="color:#f85149">*</span> All fields are required before submitting.</div>
         </div>
       </div>
     </div>`;
@@ -3792,20 +3826,20 @@ function renderMusicCues(epNums){
     return`<div class="ep-card" style="margin-bottom:10px;padding:0">
       <div style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between">
         <div style="display:flex;align-items:center;gap:16px;flex:1">
-          <div style="background:#1c2d4a;border-radius:6px;padding:6px 12px;text-align:center;min-width:60px">
-            <div style="font-family:monospace;font-size:13px;font-weight:900;color:#58a6ff">${esc(s.commNum||'—')}</div>
-            <div style="font-size:9px;color:#6e7681;margin-top:1px">Comm #</div>
+          <div style="background:#eff6ff;border-radius:6px;padding:6px 12px;text-align:center;min-width:60px">
+            <div style="font-family:monospace;font-size:13px;font-weight:900;color:#0066CC">${esc(s.commNum||'—')}</div>
+            <div style="font-size:9px;color:#6b7280;margin-top:1px">Comm #</div>
           </div>
           <div style="flex:1">
-            <div style="font-size:14px;font-weight:700;color:#eaf0ff">${esc(s.storyName||'Untitled')}</div>
-            <div style="font-size:11px;color:#6e7681;margin-top:2px">${esc(s.producer||'—')} · ${s.rows?.length||0} cues · AFM: ${esc(s.afmName||'—')}</div>
+            <div style="font-size:14px;font-weight:700;color:#111827">${esc(s.storyName||'Untitled')}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px">${esc(s.producer||'—')} · ${s.rows?.length||0} cues · AFM: ${esc(s.afmName||'—')}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
             ${epNum!=='—'?`<div style="text-align:right">
               <div style="font-size:11px;font-weight:700;color:#3fb950">EP ${String(epNum).padStart(2,'0')}</div>
-              <div style="font-size:10px;color:#6e7681">${date}</div>
-            </div>`:'<div style="font-size:10px;color:#484f58">Not yet assigned to episode</div>'}
-            ${s.submitted?`<span style="background:#1f4023;color:#3fb950;font-size:8px;font-weight:800;padding:2px 8px;border-radius:3px;letter-spacing:.5px;text-transform:uppercase;border:1px solid #2d6a2d">✓ Submitted${s.submittedAt?.seconds?' · '+new Date(s.submittedAt.seconds*1000).toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}):'' }</span>`:`<span style="background:#2d1a00;color:#d29922;font-size:8px;font-weight:800;padding:2px 8px;border-radius:3px;letter-spacing:.5px;text-transform:uppercase;border:1px solid #5a3e00">⏳ Draft</span>`}
+              <div style="font-size:10px;color:#6b7280">${date}</div>
+            </div>`:'<div style="font-size:10px;color:#9ca3af">Not yet assigned to episode</div>'}
+            ${s.submitted?`<span style="background:#dcfce7;color:#3fb950;font-size:8px;font-weight:800;padding:2px 8px;border-radius:3px;letter-spacing:.5px;text-transform:uppercase;border:1px solid #86efac">✓ Submitted${s.submittedAt?.seconds?' · '+new Date(s.submittedAt.seconds*1000).toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}):'' }</span>`:`<span style="background:#fff7ed;color:#b45309;font-size:8px;font-weight:800;padding:2px 8px;border-radius:3px;letter-spacing:.5px;text-transform:uppercase;border:1px solid #fcd34d">⏳ Draft</span>`}
           </div>
         </div>
         <div style="display:flex;gap:8px;margin-left:16px">
@@ -3818,11 +3852,11 @@ function renderMusicCues(epNums){
   return`<div class="ep-wrap">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:15px;font-weight:800;color:#eaf0ff">Music Cue Sheets</span>
-        <span style="font-size:12px;color:#6e7681">${allSheets.length} total</span>
+        <span style="font-size:15px;font-weight:800;color:#111827">Music Cue Sheets</span>
+        <span style="font-size:12px;color:#6b7280">${allSheets.length} total</span>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
-        <select id="mc-ep-filter" style="background:#252d3d;border:1px solid #2e3a50;color:#eaf0ff;padding:5px 10px;border-radius:5px;font-size:12px">
+        <select id="mc-ep-filter" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:5px 10px;border-radius:5px;font-size:12px">
           <option value="all">All Episodes</option>
           ${epOptions}
         </select>
@@ -3831,7 +3865,7 @@ function renderMusicCues(epNums){
         ${canImport?`<button class="btn" id="mc-import-xl-btn" style="border-color:#7a3fbf;color:#c084fc;font-size:11px">⬆ Import from Excel</button>`:''}
       </div>
     </div>
-    ${sheetRows||`<div style="text-align:center;padding:40px;color:#484f58;font-size:13px">No cue sheets yet. Click "+ New Music Cue Sheet" to get started.</div>`}
+    ${sheetRows||`<div style="text-align:center;padding:40px;color:#9ca3af;font-size:13px">No cue sheets yet. Click "+ New Music Cue Sheet" to get started.</div>`}
     ${mcImportModal?renderMusicImportModal():''}
   </div>`;
 }
@@ -3954,7 +3988,7 @@ function renderFCC(epNums){
     const fd=fccData[String(ep)]||{};
 
     const durInp=(field)=>canEdit
-      ?`<input class="fcc-dur-inp" data-ep="${ep}" data-field="${field}" value="${esc(fd[field]||'')}" placeholder="00:00:00" style="width:120px;background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#e3b341;font-size:13px;padding:5px 8px;outline:none;font-family:monospace;text-align:center">`
+      ?`<input class="fcc-dur-inp" data-ep="${ep}" data-field="${field}" value="${esc(fd[field]||'')}" placeholder="00:00:00" style="width:120px;background:#f9fafb;border:1px solid #d1dae8;border-radius:4px;color:#e3b341;font-size:13px;padding:5px 8px;outline:none;font-family:monospace;text-align:center">`
       :`<span style="font-size:13px;color:#e3b341;font-family:monospace">${esc(fd[field]||'—')}</span>`;
 
     const durItems=[
@@ -3964,54 +3998,54 @@ function renderFCC(epNums){
     ];
 
     const isOpen=fccOpenEp===ep;
-    return`<div style="background:${past?'rgba(248,81,73,0.04)':'#1c2433'};border:1px solid ${past?'#3d1f1f':'#2e3a50'};border-radius:10px;margin-bottom:12px;overflow:hidden">
-      <div data-fcc-toggle="${ep}" style="padding:12px 18px;background:${past?'#1a0f0f':'#1e2535'};border-bottom:1px solid ${past?'#3d1f1f':'#2e3a50'};display:flex;align-items:center;gap:16px;flex-wrap:wrap;cursor:pointer;user-select:none">
+    return`<div style="background:${past?'#fff5f5':'#ffffff'};border:1px solid ${past?'#fecaca':'#d1dae8'};border-radius:10px;margin-bottom:12px;overflow:hidden">
+      <div data-fcc-toggle="${ep}" style="padding:12px 18px;background:${past?'#fff5f5':'#f8fafc'};border-bottom:1px solid ${past?'#fecaca':'#d1dae8'};display:flex;align-items:center;gap:16px;flex-wrap:wrap;cursor:pointer;user-select:none">
         <span style="font-size:16px;font-weight:900;color:${past?'#f85149':'#f7768e'};font-family:monospace">S${currentSeason} EP ${String(ep).padStart(2,'0')}</span>
-        ${txFmt?`<span style="font-size:13px;color:#6e7681">${txFmt}</span>`:''}
+        ${txFmt?`<span style="font-size:13px;color:#6b7280">${txFmt}</span>`:''}
         ${uid?`<span style="font-size:13px;font-family:monospace;color:#e3b341;font-weight:700">UID: ${uid}</span>`:''}
-        <span style="font-size:11px;color:#484f58;border:1px solid #2e3a50;padding:2px 8px;border-radius:3px">${epType==='extended'?'★ EXTENDED — 7 segs / 6 breaks':epType==='repeat'?'↺ REPEAT':'NORMAL — 5 segs / 4 breaks'}</span>
+        <span style="font-size:11px;color:#9ca3af;border:1px solid #d1dae8;padding:2px 8px;border-radius:3px">${epType==='extended'?'★ EXTENDED — 7 segs / 6 breaks':epType==='repeat'?'↺ REPEAT':'NORMAL — 5 segs / 4 breaks'}</span>
         <div style="margin-left:auto;display:flex;gap:8px">
           ${canEdit?`<button class="btn fcc-save-btn" data-ep="${ep}" style="font-size:11px;padding:4px 14px;border-color:#3fb950;color:#3fb950">💾 Save</button>`:''}
-          <button class="btn fcc-print-btn" data-ep="${ep}" style="font-size:11px;padding:4px 14px;border-color:#388bfd;color:#58a6ff">⬇ Print / PDF</button>
-          <span style="font-size:14px;color:#6e7681;pointer-events:none;margin-left:4px">${isOpen?'▼':'▶'}</span>
+          <button class="btn fcc-print-btn" data-ep="${ep}" style="font-size:11px;padding:4px 14px;border-color:#388bfd;color:#0066CC">⬇ Print / PDF</button>
+          <span style="font-size:14px;color:#6b7280;pointer-events:none;margin-left:4px">${isOpen?'▼':'▶'}</span>
         </div>
       </div>
       <div style="padding:14px 18px;display:${isOpen?'flex':'none'};flex-direction:column;gap:14px">
         <!-- Segments -->
         <div>
-          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#7a8ba0;margin-bottom:6px">Segments</div>
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:6px">Segments</div>
           <table style="width:100%;border-collapse:collapse;font-size:12px">
-            <thead><tr style="background:#161b22">
-              <th style="padding:6px 10px;text-align:left;color:#7a8ba0;font-size:10px;font-weight:800;text-transform:uppercase;border-bottom:2px solid #2e3a50">Segment</th>
-              <th style="padding:6px 10px;text-align:center;color:#7a8ba0;font-size:10px;font-weight:800;text-transform:uppercase;border-bottom:2px solid #2e3a50">TC In</th>
-              <th style="padding:6px 10px;text-align:center;color:#7a8ba0;font-size:10px;font-weight:800;text-transform:uppercase;border-bottom:2px solid #2e3a50">TC Out</th>
-              <th style="padding:6px 10px;text-align:center;color:#7a8ba0;font-size:10px;font-weight:800;text-transform:uppercase;border-bottom:2px solid #2e3a50">Seg Dur</th>
+            <thead><tr style="background:#f8fafc">
+              <th style="padding:6px 10px;text-align:left;color:#6b7280;font-size:10px;font-weight:800;text-transform:uppercase;border-bottom:2px solid #d1dae8">Segment</th>
+              <th style="padding:6px 10px;text-align:center;color:#6b7280;font-size:10px;font-weight:800;text-transform:uppercase;border-bottom:2px solid #d1dae8">TC In</th>
+              <th style="padding:6px 10px;text-align:center;color:#6b7280;font-size:10px;font-weight:800;text-transform:uppercase;border-bottom:2px solid #d1dae8">TC Out</th>
+              <th style="padding:6px 10px;text-align:center;color:#6b7280;font-size:10px;font-weight:800;text-transform:uppercase;border-bottom:2px solid #d1dae8">Seg Dur</th>
             </tr></thead>
             <tbody>
               ${Array.from({length:segCount},(_,i)=>`<tr style="border-bottom:1px solid #21262d">
-                <td style="padding:7px 10px;font-weight:700;color:#eaf0ff">SEG ${i+1}</td>
-                <td style="padding:7px 10px;text-align:center;color:#484f58">—</td>
-                <td style="padding:7px 10px;text-align:center;color:#484f58">—</td>
-                <td style="padding:7px 10px;text-align:center;color:#484f58">—</td>
+                <td style="padding:7px 10px;font-weight:700;color:#111827">SEG ${i+1}</td>
+                <td style="padding:7px 10px;text-align:center;color:#9ca3af">—</td>
+                <td style="padding:7px 10px;text-align:center;color:#9ca3af">—</td>
+                <td style="padding:7px 10px;text-align:center;color:#9ca3af">—</td>
               </tr>`).join('')}
-              <tr style="background:#1e2535;border-top:2px solid #2e3a50">
+              <tr style="background:#f0f4f8;border-top:2px solid #d1dae8">
                 <td colspan="3" style="padding:7px 10px;font-weight:900;color:#f7768e">EPISODE DURATION:</td>
-                <td style="padding:7px 10px;text-align:center;color:#484f58">—</td>
+                <td style="padding:7px 10px;text-align:center;color:#9ca3af">—</td>
               </tr>
             </tbody>
           </table>
         </div>
         <!-- Durations -->
         <div>
-          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#7a8ba0;margin-bottom:6px">Durations</div>
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:6px">Durations</div>
           <table style="width:100%;border-collapse:collapse;font-size:12px">
-            <thead><tr style="background:#161b22">
-              <th style="padding:6px 10px;text-align:left;color:#7a8ba0;font-size:10px;font-weight:800;text-transform:uppercase;border-bottom:2px solid #2e3a50">Item</th>
-              <th style="padding:6px 10px;text-align:center;color:#7a8ba0;font-size:10px;font-weight:800;text-transform:uppercase;border-bottom:2px solid #2e3a50">Duration (HH:MM:SS)</th>
+            <thead><tr style="background:#f8fafc">
+              <th style="padding:6px 10px;text-align:left;color:#6b7280;font-size:10px;font-weight:800;text-transform:uppercase;border-bottom:2px solid #d1dae8">Item</th>
+              <th style="padding:6px 10px;text-align:center;color:#6b7280;font-size:10px;font-weight:800;text-transform:uppercase;border-bottom:2px solid #d1dae8">Duration (HH:MM:SS)</th>
             </tr></thead>
             <tbody>
               ${durItems.map(r=>`<tr style="border-bottom:1px solid #21262d">
-                <td style="padding:7px 10px;font-weight:700;color:#eaf0ff">${r.label}</td>
+                <td style="padding:7px 10px;font-weight:700;color:#111827">${r.label}</td>
                 <td style="padding:7px 10px;text-align:center">${durInp(r.field)}</td>
               </tr>`).join('')}
             </tbody>
@@ -4023,10 +4057,10 @@ function renderFCC(epNums){
 
   return`<div class="ep-wrap" style="padding:20px">
     <div style="margin-bottom:18px">
-      <h2 style="font-size:18px;font-weight:900;color:#eaf0ff;margin:0">Studio Script</h2>
-      <div style="font-size:12px;color:#6e7681;margin-top:3px">Segments filled in studio · Durations saved here and printed on the PDF.</div>
+      <h2 style="font-size:18px;font-weight:900;color:#111827;margin:0">Studio Script</h2>
+      <div style="font-size:12px;color:#6b7280;margin-top:3px">Segments filled in studio · Durations saved here and printed on the PDF.</div>
     </div>
-    ${cards||'<div style="color:#484f58;padding:40px;text-align:center">No episodes found.</div>'}
+    ${cards||'<div style="color:#9ca3af;padding:40px;text-align:center">No episodes found.</div>'}
   </div>`;
 }
 
@@ -4204,8 +4238,8 @@ function renderPresenterCalendar(){
     months[m].push(d);
   });
 
-  const thBase='padding:12px 16px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#eaf0ff;background:#1a2035;text-align:center;white-space:nowrap;position:sticky;top:0;z-index:10;border-bottom:2px solid #2e3a50;min-width:200px;box-shadow:0 2px 4px rgba(0,0,0,.4)';
-  const dateThBase='padding:12px 14px;font-size:13px;font-weight:700;text-align:left;white-space:nowrap;position:sticky;left:0;z-index:4;border-bottom:1px solid #21262d;min-width:130px;background:#161b22';
+  const thBase='padding:12px 16px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#111827;background:#f9fafb;text-align:center;white-space:nowrap;position:sticky;top:0;z-index:10;border-bottom:2px solid #d1dae8;min-width:200px;box-shadow:0 2px 4px rgba(0,0,0,.4)';
+  const dateThBase='padding:12px 14px;font-size:13px;font-weight:700;text-align:left;white-space:nowrap;position:sticky;left:0;z-index:4;border-bottom:1px solid #21262d;min-width:130px;background:#f8fafc';
 
   const monthEntries=Object.entries(months);
   // Clamp presCalViewMonth
@@ -4221,7 +4255,7 @@ function renderPresenterCalendar(){
       const isMon=new Date(dateStr+'T00:00:00Z').getUTCDay()===1;
       const dayName=presCalDayName(dateStr);
       const dateFmt=presCalFmt(dateStr);
-      const rowBg=isHol?'background:#2d1a00':isWE?'background:#1a1a2d':isToday?'background:rgba(56,139,253,.07)':'';
+      const rowBg=isHol?'background:#fff7ed':isWE?'background:#eef2ff':isToday?'background:rgba(56,139,253,.07)':'';
       const dayCol=isHol?'#e3b341':isWE?'#484f58':isMon?'#388bfd':'#7a8ba0';
       const dateTxtCol=isHol?'#e3b341':isWE?'#484f58':isToday?'#79c0ff':'#eaf0ff';
       const todayAccent=isToday?'border-left:3px solid #388bfd;padding-left:11px;':'';
@@ -4240,16 +4274,16 @@ function renderPresenterCalendar(){
         const hasContent=isNA||cell.studio||cell.custom||!!commNum;
         return`<td style="padding:16px 14px;border-bottom:1px solid #21262d;border-left:2px solid ${p.lane};vertical-align:top;${rowBg};min-width:200px">
           ${isNA
-            ?`<div style="background:#2d0a0a;border-radius:6px;padding:6px 14px;font-size:14px;font-weight:800;color:#f85149;text-align:center;cursor:pointer;letter-spacing:.3px" data-pres-badge="1" title="Click to edit or remove">NOT AVAILABLE</div>`
+            ?`<div style="background:#fff1f2;border-radius:6px;padding:6px 14px;font-size:14px;font-weight:800;color:#f85149;text-align:center;cursor:pointer;letter-spacing:.3px" data-pres-badge="1" title="Click to edit or remove">NOT AVAILABLE</div>`
             :cell.studio
-            ?`<div style="background:#1a2d4a;border-radius:6px;padding:6px 14px;font-size:14px;font-weight:800;color:#c084fc;text-align:center;cursor:pointer;letter-spacing:.3px" data-pres-badge="1" title="Click to edit or remove">STUDIO</div>`
+            ?`<div style="background:#eff6ff;border-radius:6px;padding:6px 14px;font-size:14px;font-weight:800;color:#c084fc;text-align:center;cursor:pointer;letter-spacing:.3px" data-pres-badge="1" title="Click to edit or remove">STUDIO</div>`
             :cell.custom
-            ?`<div style="background:#2d2a1a;border-radius:6px;padding:6px 14px;font-size:14px;font-weight:700;color:#e3b341;word-break:break-word;cursor:pointer" data-pres-badge="1" title="Click to edit or remove">${esc(cell.customNote||'Note')}</div>`
+            ?`<div style="background:#fef9c3;border-radius:6px;padding:6px 14px;font-size:14px;font-weight:700;color:#e3b341;word-break:break-word;cursor:pointer" data-pres-badge="1" title="Click to edit or remove">${esc(cell.customNote||'Note')}</div>`
             :commNum
-              ?`<div style="background:#1a2d4a;border-radius:6px;padding:8px 12px;cursor:pointer;border:1px solid #2e4a70" data-pres-badge="1" title="Click to edit or remove">
-                  <div style="font-size:15px;font-weight:900;color:#58a6ff;font-family:monospace">${esc(commNum)}</div>
-                  ${storyName?`<div style="font-size:12px;color:#9aaabe;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:175px" title="${esc(storyName)}">${esc(storyName)}</div>`:''}
-                  ${producer?`<div style="font-size:11px;color:#6e7681;margin-top:3px">${esc(producer)}</div>`:''}
+              ?`<div style="background:#eff6ff;border-radius:6px;padding:8px 12px;cursor:pointer;border:1px solid #2e4a70" data-pres-badge="1" title="Click to edit or remove">
+                  <div style="font-size:15px;font-weight:900;color:#0066CC;font-family:monospace">${esc(commNum)}</div>
+                  ${storyName?`<div style="font-size:12px;color:#4b5563;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:175px" title="${esc(storyName)}">${esc(storyName)}</div>`:''}
+                  ${producer?`<div style="font-size:11px;color:#6b7280;margin-top:3px">${esc(producer)}</div>`:''}
                 </div>`
               :''}
           ${canEd&&!hasContent?`<select class="pres-cal-sel" data-date="${dateStr}" data-pres="${p.key}" style="width:100%;background:transparent;border:none;font-size:12px;color:#3a4858;cursor:pointer;padding:2px 0;opacity:.7">
@@ -4275,10 +4309,10 @@ function renderPresenterCalendar(){
     }).join('');
 
     return`<div style="margin-bottom:4px">
-      <div style="padding:14px 20px;background:#161b22;font-size:18px;font-weight:900;color:#eaf0ff;position:sticky;top:0;z-index:6;border-left:4px solid #c084fc;border-bottom:2px solid #2e3a50">${month}</div>
+      <div style="padding:14px 20px;background:#f8fafc;font-size:18px;font-weight:900;color:#111827;position:sticky;top:0;z-index:6;border-left:4px solid #c084fc;border-bottom:2px solid #d1dae8">${month}</div>
       <table style="width:max-content;border-collapse:collapse;min-width:100%">
         <thead><tr>
-          <th style="${dateThBase};background:#1a2035;top:0;left:0;position:sticky;z-index:12;box-shadow:2px 2px 4px rgba(0,0,0,.4)">Date</th>
+          <th style="${dateThBase};background:#f9fafb;top:0;left:0;position:sticky;z-index:12;box-shadow:2px 2px 4px rgba(0,0,0,.4)">Date</th>
           ${PRESENTERS.map(p=>`<th style="${thBase};color:${p.color};background:${p.bg};border-bottom:3px solid ${p.color}">${p.label}</th>`).join('')}
         </tr></thead>
         <tbody>${rows}</tbody>
@@ -4287,26 +4321,26 @@ function renderPresenterCalendar(){
   }).join('');
 
   return`<div class="ep-wrap" style="overflow-x:auto;overflow-y:hidden;padding:0;display:flex;flex-direction:column">
-    <div style="padding:14px 20px;background:#161b22;position:sticky;left:0;border-bottom:1px solid #2e3a50;z-index:8;flex-shrink:0">
+    <div style="padding:14px 20px;background:#f8fafc;position:sticky;left:0;border-bottom:1px solid #d1dae8;z-index:8;flex-shrink:0">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
         <div>
-          <div style="font-size:20px;font-weight:900;color:#eaf0ff">Presenter Calendar</div>
-          <div style="font-size:11px;color:#6e7681;margin-top:2px">18 Jan 2026 — ${presCalFmt(PRES_CAL_END)}</div>
+          <div style="font-size:20px;font-weight:900;color:#111827">Presenter Calendar</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:2px">18 Jan 2026 — ${presCalFmt(PRES_CAL_END)}</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <button id="prescal-prev" class="btn" style="font-size:13px;padding:8px 16px" ${presCalViewMonth===0?'disabled':''}>◀ Prev</button>
-          <span style="font-size:16px;font-weight:800;color:#eaf0ff;min-width:160px;text-align:center">${Object.keys(months)[presCalViewMonth]}</span>
+          <span style="font-size:16px;font-weight:800;color:#111827;min-width:160px;text-align:center">${Object.keys(months)[presCalViewMonth]}</span>
           <button id="prescal-next" class="btn" style="font-size:13px;padding:8px 16px" ${presCalViewMonth>=Object.keys(months).length-1?'disabled':''}>Next ▶</button>
           ${canEd?`<button id="prescal-extend" class="btn" style="font-size:13px;padding:8px 16px;margin-left:8px;border-color:#388bfd;color:#388bfd">+ 3 months</button>`:''}
         </div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
-        <span style="display:flex;align-items:center;gap:6px;background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:6px 12px;font-size:12px;color:#6e7681"><span style="width:12px;height:12px;background:#1a1a2d;display:inline-block;border-radius:3px;flex-shrink:0"></span>Weekend</span>
-        <span style="display:flex;align-items:center;gap:6px;background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:6px 12px;font-size:12px;color:#e3b341"><span style="width:12px;height:12px;background:#2d1a00;display:inline-block;border-radius:3px;flex-shrink:0"></span>Public Holiday</span>
-        <span style="display:flex;align-items:center;gap:6px;background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:6px 12px;font-size:12px;color:#f85149"><span style="width:12px;height:12px;background:#2d0a0a;display:inline-block;border-radius:3px;flex-shrink:0"></span>Not Available</span>
-        <span style="display:flex;align-items:center;gap:6px;background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:6px 12px;font-size:12px;color:#c084fc"><span style="width:12px;height:12px;background:#1a2d4a;display:inline-block;border-radius:3px;border:1px solid #7a3fbf;flex-shrink:0"></span>Studio</span>
-        <span style="display:flex;align-items:center;gap:6px;background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:6px 12px;font-size:12px;color:#e3b341"><span style="width:12px;height:12px;background:#2d2a1a;display:inline-block;border-radius:3px;border:1px solid #e3b341;flex-shrink:0"></span>Custom Note</span>
-        <span style="display:flex;align-items:center;gap:6px;background:#1c2433;border:1px solid rgba(56,139,253,.4);border-radius:6px;padding:6px 12px;font-size:12px;color:#388bfd"><span style="width:12px;height:12px;background:rgba(56,139,253,.07);display:inline-block;border-radius:3px;border-left:3px solid #388bfd;flex-shrink:0"></span>Today</span>
+        <span style="display:flex;align-items:center;gap:6px;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;padding:6px 12px;font-size:12px;color:#6b7280"><span style="width:12px;height:12px;background:#eef2ff;display:inline-block;border-radius:3px;flex-shrink:0"></span>Weekend</span>
+        <span style="display:flex;align-items:center;gap:6px;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;padding:6px 12px;font-size:12px;color:#e3b341"><span style="width:12px;height:12px;background:#fff7ed;display:inline-block;border-radius:3px;flex-shrink:0"></span>Public Holiday</span>
+        <span style="display:flex;align-items:center;gap:6px;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;padding:6px 12px;font-size:12px;color:#f85149"><span style="width:12px;height:12px;background:#fff1f2;display:inline-block;border-radius:3px;flex-shrink:0"></span>Not Available</span>
+        <span style="display:flex;align-items:center;gap:6px;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;padding:6px 12px;font-size:12px;color:#c084fc"><span style="width:12px;height:12px;background:#eff6ff;display:inline-block;border-radius:3px;border:1px solid #7a3fbf;flex-shrink:0"></span>Studio</span>
+        <span style="display:flex;align-items:center;gap:6px;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;padding:6px 12px;font-size:12px;color:#e3b341"><span style="width:12px;height:12px;background:#fef9c3;display:inline-block;border-radius:3px;border:1px solid #e3b341;flex-shrink:0"></span>Custom Note</span>
+        <span style="display:flex;align-items:center;gap:6px;background:#f9fafb;border:1px solid rgba(56,139,253,.4);border-radius:6px;padding:6px 12px;font-size:12px;color:#388bfd"><span style="width:12px;height:12px;background:rgba(56,139,253,.07);display:inline-block;border-radius:3px;border-left:3px solid #388bfd;flex-shrink:0"></span>Today</span>
       </div>
     </div>
     <div style="overflow-x:auto;overflow-y:auto;flex:1;min-height:0">
@@ -4329,7 +4363,7 @@ function getStudioAnchors(ep){
 
 function renderStudioSchedule(epNums){
   const canEd=['admin','deputyadmin','prodmgmt'].includes(getEffectiveRole());
-  if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes found.</div></div>`;
+  if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6b7280;padding:32px;text-align:center">No episodes found.</div></div>`;
 
   // Build month list from TX dates
   const months={};
@@ -4347,16 +4381,16 @@ function renderStudioSchedule(epNums){
     studioSchedMonth=monthKeys.find(m=>m>=today)||monthKeys[0]||'';
   }
 
-  const monthSel=`<select id="ss-month-sel" style="background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#eaf0ff;font-size:13px;padding:5px 10px;outline:none;font-family:inherit">
+  const monthSel=`<select id="ss-month-sel" style="background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:13px;padding:5px 10px;outline:none;font-family:inherit">
     ${monthKeys.map(m=>`<option value="${m}" ${m===studioSchedMonth?'selected':''}>${new Date(m+'-01T00:00:00Z').toLocaleDateString('en-ZA',{month:'long',year:'numeric'})}</option>`).join('')}
   </select>`;
 
   const visEps=(months[studioSchedMonth]||[]).sort((a,b)=>a-b);
 
-  const thStyle='padding:8px 10px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#7a8ba0;background:#1a2235;white-space:nowrap;border-bottom:2px solid #2e3a50;text-align:left';
+  const thStyle='padding:8px 10px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;background:#f9fafb;white-space:nowrap;border-bottom:2px solid #d1dae8;text-align:left';
   const tdStyle='padding:8px 10px;border-bottom:1px solid #21262d;vertical-align:top;font-size:12px';
   const inp=(val,field,ep,ph='',w='100%')=>canEd
-    ?`<input class="ss-inp" data-ep="${ep}" data-field="${field}" value="${esc(val)}" placeholder="${ph}" style="width:${w};background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#eaf0ff;font-size:12px;padding:4px 7px;outline:none;font-family:inherit">`
+    ?`<input class="ss-inp" data-ep="${ep}" data-field="${field}" value="${esc(val)}" placeholder="${ph}" style="width:${w};background:#f9fafb;border:1px solid #d1dae8;border-radius:4px;color:#111827;font-size:12px;padding:4px 7px;outline:none;font-family:inherit">`
     :`<span style="color:${val?'#eaf0ff':'#484f58'};font-size:12px">${esc(val||'—')}</span>`;
 
   const rows=visEps.map(n=>{
@@ -4379,12 +4413,12 @@ function renderStudioSchedule(epNums){
     const bkTo=ss.bookingTo||'';
     return`<tr data-ep="${n}">
       <td style="${tdStyle};white-space:nowrap">
-        <span style="background:#1a3a6a;color:#79c0ff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:3px;font-family:monospace">EP ${String(n).padStart(2,'0')}</span>
+        <span style="background:#eff6ff;color:#0066CC;font-size:10px;font-weight:800;padding:3px 8px;border-radius:3px;font-family:monospace">EP ${String(n).padStart(2,'0')}</span>
         <span style="color:${typeColor};font-size:9px;font-weight:800;background:${typeColor}22;padding:2px 6px;border-radius:3px;margin-left:4px">${epType}</span>
       </td>
       <td style="${tdStyle};white-space:nowrap;color:#e3b341;font-size:11px">${txFmt}</td>
-      <td style="${tdStyle};color:#58a6ff;font-size:12px;font-weight:600">${esc(anchor1||'—')}</td>
-      <td style="${tdStyle};color:#58a6ff;font-size:12px;font-weight:600">${esc(anchor2||'—')}</td>
+      <td style="${tdStyle};color:#0066CC;font-size:12px;font-weight:600">${esc(anchor1||'—')}</td>
+      <td style="${tdStyle};color:#0066CC;font-size:12px;font-weight:600">${esc(anchor2||'—')}</td>
       <td style="${tdStyle}">${inp(dir,'director',n,'Director')}</td>
       <td style="${tdStyle}">${inp(asst,'asstDir',n,'Asst Director')}</td>
       <td style="${tdStyle}">${inp(mkup,'makeup',n,'Makeup & Styling')}</td>
@@ -4393,23 +4427,23 @@ function renderStudioSchedule(epNums){
       <td style="${tdStyle}">${inp(prod,'production',n,'Production')}</td>
       <td style="${tdStyle};white-space:nowrap">
         ${canEd?`<div style="display:flex;align-items:center;gap:4px">
-          <input class="ss-inp" data-ep="${n}" data-field="bookingFrom" value="${esc(bkFrom)}" placeholder="08:00" style="width:60px;background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#e3b341;font-size:12px;padding:4px 6px;outline:none;font-family:monospace;text-align:center">
-          <span style="color:#484f58">–</span>
-          <input class="ss-inp" data-ep="${n}" data-field="bookingTo" value="${esc(bkTo)}" placeholder="18:00" style="width:60px;background:#1a2235;border:1px solid #2e3a50;border-radius:4px;color:#e3b341;font-size:12px;padding:4px 6px;outline:none;font-family:monospace;text-align:center">
-        </div>`:bkFrom||bkTo?`<span style="color:#e3b341;font-family:monospace;font-size:12px">${esc(bkFrom)}–${esc(bkTo)}</span>`:`<span style="color:#484f58">—</span>`}
+          <input class="ss-inp" data-ep="${n}" data-field="bookingFrom" value="${esc(bkFrom)}" placeholder="08:00" style="width:60px;background:#f9fafb;border:1px solid #d1dae8;border-radius:4px;color:#e3b341;font-size:12px;padding:4px 6px;outline:none;font-family:monospace;text-align:center">
+          <span style="color:#9ca3af">–</span>
+          <input class="ss-inp" data-ep="${n}" data-field="bookingTo" value="${esc(bkTo)}" placeholder="18:00" style="width:60px;background:#f9fafb;border:1px solid #d1dae8;border-radius:4px;color:#e3b341;font-size:12px;padding:4px 6px;outline:none;font-family:monospace;text-align:center">
+        </div>`:bkFrom||bkTo?`<span style="color:#e3b341;font-family:monospace;font-size:12px">${esc(bkFrom)}–${esc(bkTo)}</span>`:`<span style="color:#9ca3af">—</span>`}
       </td>
       ${canEd?`<td style="${tdStyle}"><button class="btn ss-save-btn" data-ep="${n}" style="font-size:10px;padding:3px 8px">Save</button></td>`:`<td style="${tdStyle}"></td>`}
     </tr>`;
   }).join('');
 
   return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
-    <div style="padding:12px 16px;background:#161b22;border-bottom:1px solid #2e3a50;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;flex-shrink:0">
+    <div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid #d1dae8;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;flex-shrink:0">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <span style="font-size:15px;font-weight:800;color:#eaf0ff">Studio Schedule</span>
+        <span style="font-size:15px;font-weight:800;color:#111827">Studio Schedule</span>
         ${monthSel}
       </div>
       <div style="display:flex;gap:8px">
-        <button class="btn" id="ss-pdf-btn" style="font-size:12px;border-color:#388bfd;color:#58a6ff">⬇ Export PDF</button>
+        <button class="btn" id="ss-pdf-btn" style="font-size:12px;border-color:#388bfd;color:#0066CC">⬇ Export PDF</button>
       </div>
     </div>
     <div style="overflow-x:auto;overflow-y:auto;flex:1;min-height:0">
@@ -4428,7 +4462,7 @@ function renderStudioSchedule(epNums){
           <th style="${thStyle}">Studio Booking</th>
           ${canEd?`<th style="${thStyle}"></th>`:''}
         </tr></thead>
-        <tbody>${rows||'<tr><td colspan="12" style="padding:24px;color:#484f58;text-align:center">No episodes for this month.</td></tr>'}</tbody>
+        <tbody>${rows||'<tr><td colspan="12" style="padding:24px;color:#9ca3af;text-align:center">No episodes for this month.</td></tr>'}</tbody>
       </table>
     </div>
   </div>`;
@@ -4522,13 +4556,13 @@ async function exportStudioSchedPDF(){
 
 function renderStudioCrew(epNums){
   const canEd=['admin','deputyadmin','operations','production'].includes(getEffectiveRole());
-  if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6e7681;padding:32px;text-align:center">No episodes yet.</div></div>`;
+  if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6b7280;padding:32px;text-align:center">No episodes yet.</div></div>`;
   const cards=epNums.map(n=>{
     const sc=studioCrew[String(n)]||{};
     const collapsed=studioCollapsed.has(String(n));
     const hasData=STUDIO_FIELDS.some(([field])=>sc[field]);
     function labelRow(label,val){return`<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #21262d">
-      <div style="font-size:10px;font-weight:700;color:#7a8ba0;text-transform:uppercase;letter-spacing:.5px;min-width:160px">${label}</div>
+      <div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;min-width:160px">${label}</div>
       <div style="flex:1">${val}</div>
     </div>`;}
     function sci(field){return canEd
@@ -4537,12 +4571,12 @@ function renderStudioCrew(epNums){
     return`<div class="ep-card" style="margin-bottom:14px">
       <div class="ep-head studio-collapse-hdr" data-ep="${n}" style="cursor:pointer;user-select:none" title="${collapsed?'Click to expand':'Click to collapse'}">
         <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:12px;color:#7a8ba0">${collapsed?'▶':'▼'}</span>
+          <span style="font-size:12px;color:#6b7280">${collapsed?'▶':'▼'}</span>
           <span class="ep-num">EP ${n}</span>
-          <span style="font-size:13px;font-weight:600;color:#9aaabe">${fmtDate(resolveDate(n))}</span>
+          <span style="font-size:13px;font-weight:600;color:#4b5563">${fmtDate(resolveDate(n))}</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
-          ${hasData?`<span style="font-size:9px;background:#1f3a1f;color:#3fb950;padding:2px 7px;border-radius:3px;border:1px solid #2d6a2d">DATA</span>`:''}
+          ${hasData?`<span style="font-size:9px;background:#dcfce7;color:#16a34a;padding:2px 7px;border-radius:3px;border:1px solid #86efac">DATA</span>`:''}
         </div>
       </div>
       ${collapsed?'':`<div style="padding:12px 16px;display:grid;grid-template-columns:1fr 1fr;gap:0 24px">
@@ -4663,30 +4697,30 @@ function renderRunOfShow(){
       const hasSaved=!!rosData[String(ep)]?.items?.length;
       const past=d&&d<new Date().toISOString().split('T')[0];
       return`<div class="ros-ep-pick" data-ep="${ep}"
-        style="background:#1c2433;border:2px solid ${hasSaved?'#c084fc':'#2e3a50'};border-radius:10px;padding:18px 22px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;transition:all .15s"
+        style="background:#f9fafb;border:2px solid ${hasSaved?'#c084fc':'#d1dae8'};border-radius:10px;padding:18px 22px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;transition:all .15s"
         onmouseover="this.style.borderColor='#c084fc';this.style.background='#1e1e3a'"
-        onmouseout="this.style.borderColor='${hasSaved?'#c084fc':'#2e3a50'}';this.style.background='#1c2433'">
+        onmouseout="this.style.borderColor='${hasSaved?'#c084fc':'#d1dae8'}';this.style.background='#f9fafb'">
         <div>
-          <div style="font-size:20px;font-weight:900;color:#eaf0ff;font-family:monospace">S${currentSeason} EP ${String(ep).padStart(2,'0')}</div>
-          <div style="font-size:13px;color:#6e7681;margin-top:4px">${d?new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'No date set'}${past?' · <span style="color:#f85149">Broadcast</span>':''}</div>
+          <div style="font-size:20px;font-weight:900;color:#111827;font-family:monospace">S${currentSeason} EP ${String(ep).padStart(2,'0')}</div>
+          <div style="font-size:13px;color:#6b7280;margin-top:4px">${d?new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'No date set'}${past?' · <span style="color:#f85149">Broadcast</span>':''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px">
-          ${hasSaved?`<span style="font-size:11px;background:#1f3a1f;color:#3fb950;padding:4px 10px;border-radius:4px;border:1px solid #2d6a2d;font-weight:700">HAS RUN OF SHOW</span>`:''}
+          ${hasSaved?`<span style="font-size:11px;background:#dcfce7;color:#16a34a;padding:4px 10px;border-radius:4px;border:1px solid #86efac;font-weight:700">HAS RUN OF SHOW</span>`:''}
           <span style="color:#c084fc;font-size:24px;font-weight:300">→</span>
         </div>
       </div>`;
     }).join('');
     return`<div class="ep-wrap" style="padding:32px;max-width:680px;margin:0 auto">
-      <h2 style="font-size:22px;font-weight:900;color:#eaf0ff;margin:0 0 24px 0">Studio Script Build — Select Episode</h2>
-      ${epList||'<div style="color:#484f58;font-size:16px">No episodes in the Episode Register.</div>'}
+      <h2 style="font-size:22px;font-weight:900;color:#111827;margin:0 0 24px 0">Studio Script Build — Select Episode</h2>
+      ${epList||'<div style="color:#9ca3af;font-size:16px">No episodes in the Episode Register.</div>'}
     </div>`;
   }
 
   if(!rosCurrentEp){
     return`<div class="ep-wrap" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px">
       <div style="font-size:48px">📋</div>
-      <div style="font-size:22px;font-weight:900;color:#eaf0ff">Studio Script Build</div>
-      <div style="font-size:15px;color:#6e7681">Select an episode to build or view the studio script build.</div>
+      <div style="font-size:22px;font-weight:900;color:#111827">Studio Script Build</div>
+      <div style="font-size:15px;color:#6b7280">Select an episode to build or view the studio script build.</div>
       <button class="btn primary" id="ros-pick-ep-btn" style="font-size:14px;padding:12px 32px;margin-top:8px">Select Episode</button>
     </div>`;
   }
@@ -4720,30 +4754,30 @@ function renderRunOfShow(){
     // Slug display (read-only in main view)
     const slugDisplay=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean)
       .map(s=>`<div style="font-size:18px;color:#e3b341;font-weight:700;margin-bottom:4px">${esc(s)}</div>`)
-      .join('')||'<span style="color:#484f58;font-size:16px">—</span>';
+      .join('')||'<span style="color:#9ca3af;font-size:16px">—</span>';
 
     // Content (editable inline)
     const contentCell=item.type!=='fixed'&&item.type!=='break'
       ?(canEdit&&!isLocked
-        ?`<input class="ros-content" data-idx="${i}" value="${esc(item.content||'')}" placeholder="${esc(item.placeholder||'Add content…')}" style="width:100%;background:transparent;border:none;border-bottom:2px solid ${ts.border};color:#eaf0ff;font-size:18px;padding:8px 2px;outline:none;font-family:inherit">`
+        ?`<input class="ros-content" data-idx="${i}" value="${esc(item.content||'')}" placeholder="${esc(item.placeholder||'Add content…')}" style="width:100%;background:transparent;border:none;border-bottom:2px solid ${ts.border};color:#111827;font-size:18px;padding:8px 2px;outline:none;font-family:inherit">`
         :`<span style="font-size:18px;color:${item.content?'#eaf0ff':'#484f58'};font-style:${item.content?'normal':'italic'}">${esc(item.content||'—')}</span>`)
       :'';
 
     // Duration (editable inline)
     const durCell=canEdit&&!isLocked
-      ?`<input class="ros-dur" data-idx="${i}" value="${esc(item.duration||'')}" placeholder="0:00:00" style="width:120px;background:transparent;border:none;border-bottom:2px solid ${ts.border};color:#eaf0ff;font-size:20px;padding:8px 4px;outline:none;text-align:center;font-family:monospace">`
+      ?`<input class="ros-dur" data-idx="${i}" value="${esc(item.duration||'')}" placeholder="0:00:00" style="width:120px;background:transparent;border:none;border-bottom:2px solid ${ts.border};color:#111827;font-size:20px;padding:8px 4px;outline:none;text-align:center;font-family:monospace">`
       :`<span class="ros-dur-display" style="font-size:20px;font-family:monospace;color:${durSecs?'#eaf0ff':'#484f58'}">${item.duration||'—'}</span>`;
 
     return`<tr data-ros-idx="${i}" style="background:${ts.bg};border-bottom:3px solid ${ts.border}">
       <td style="padding:10px 8px;width:72px;text-align:center;vertical-align:middle">
         ${canEdit?`<div style="display:flex;flex-direction:column;align-items:center;gap:5px">
-          <button class="ros-up" data-idx="${i}" style="background:none;border:1px solid #2e3a50;border-radius:4px;color:#484f58;cursor:pointer;font-size:13px;line-height:1;padding:5px 8px" onmouseover="this.style.color='#eaf0ff';this.style.borderColor='#58a6ff'" onmouseout="this.style.color='#484f58';this.style.borderColor='#2e3a50'" ${i===0?'disabled':''}>▲</button>
-          <button class="ros-dn" data-idx="${i}" style="background:none;border:1px solid #2e3a50;border-radius:4px;color:#484f58;cursor:pointer;font-size:13px;line-height:1;padding:5px 8px" onmouseover="this.style.color='#eaf0ff';this.style.borderColor='#58a6ff'" onmouseout="this.style.color='#484f58';this.style.borderColor='#2e3a50'" ${i===items.length-1?'disabled':''}>▼</button>
-          <button class="ros-del" data-idx="${i}" style="background:none;border:1px solid #2e3a50;border-radius:4px;color:#484f58;cursor:pointer;font-size:14px;line-height:1;padding:5px 8px" onmouseover="this.style.color='#f85149';this.style.borderColor='#f85149'" onmouseout="this.style.color='#484f58';this.style.borderColor='#2e3a50'">✕</button>
+          <button class="ros-up" data-idx="${i}" style="background:none;border:1px solid #d1dae8;border-radius:4px;color:#9ca3af;cursor:pointer;font-size:13px;line-height:1;padding:5px 8px" onmouseover="this.style.color='#eaf0ff';this.style.borderColor='#58a6ff'" onmouseout="this.style.color='#484f58';this.style.borderColor='#d1dae8'" ${i===0?'disabled':''}>▲</button>
+          <button class="ros-dn" data-idx="${i}" style="background:none;border:1px solid #d1dae8;border-radius:4px;color:#9ca3af;cursor:pointer;font-size:13px;line-height:1;padding:5px 8px" onmouseover="this.style.color='#eaf0ff';this.style.borderColor='#58a6ff'" onmouseout="this.style.color='#484f58';this.style.borderColor='#d1dae8'" ${i===items.length-1?'disabled':''}>▼</button>
+          <button class="ros-del" data-idx="${i}" style="background:none;border:1px solid #d1dae8;border-radius:4px;color:#9ca3af;cursor:pointer;font-size:14px;line-height:1;padding:5px 8px" onmouseover="this.style.color='#f85149';this.style.borderColor='#f85149'" onmouseout="this.style.color='#484f58';this.style.borderColor='#d1dae8'">✕</button>
         </div>`:''}
       </td>
       <td style="padding:22px 24px;vertical-align:middle;min-width:220px;max-width:260px">
-        ${item.itemNum?`<div style="font-size:14px;color:#484f58;font-family:monospace;margin-bottom:6px;font-weight:700">${item.itemNum}.</div>`:''}
+        ${item.itemNum?`<div style="font-size:14px;color:#9ca3af;font-family:monospace;margin-bottom:6px;font-weight:700">${item.itemNum}.</div>`:''}
         ${ts.badge?`<div style="font-size:11px;font-weight:800;background:${ts.badgeBg};color:${ts.label};padding:4px 12px;border-radius:4px;margin-bottom:10px;display:inline-block;letter-spacing:.8px">${ts.badge}</div>`:''}
         <div style="font-size:22px;font-weight:${ts.weight};color:${ts.label};line-height:1.2">${esc(item.label)}</div>
       </td>
@@ -4754,7 +4788,7 @@ function renderRunOfShow(){
         <span class="ros-epdur" data-idx="${i}" style="font-size:${i===0?'26px':'20px'};font-family:monospace;color:${i===0?'#c084fc':epDurSecs?'#79c0ff':'#333'};font-weight:${i===0?'900':'400'}">${epDurSecs?rosSecsToStr(epDurSecs):'—'}</span>
       </td>
       <td style="padding:18px 20px;vertical-align:middle;width:150px;text-align:center">
-        ${(canEdit||canEditScriptOnly||canEditDirectorNotes)?`<button class="ros-edit-btn btn" data-idx="${i}" style="font-size:14px;padding:12px 18px;border-color:#388bfd;color:#58a6ff;width:100%;font-weight:700;letter-spacing:.3px">✎ EDIT ITEM</button>`:''}
+        ${(canEdit||canEditScriptOnly||canEditDirectorNotes)?`<button class="ros-edit-btn btn" data-idx="${i}" style="font-size:14px;padding:12px 18px;border-color:#388bfd;color:#0066CC;width:100%;font-weight:700;letter-spacing:.3px">✎ EDIT ITEM</button>`:''}
       </td>
     </tr>`;
   }).join('');
@@ -4766,43 +4800,43 @@ function renderRunOfShow(){
     return`<optgroup label="${g}">${groupItems.map(t=>`<option value="${t.key}">${t.label}</option>`).join('')}</optgroup>`;
   }).join('');
 
-  const emptyState=items.length===0?`<tr><td colspan="7" style="padding:80px;text-align:center;color:#484f58;font-size:18px">
+  const emptyState=items.length===0?`<tr><td colspan="7" style="padding:80px;text-align:center;color:#9ca3af;font-size:18px">
     No items yet — use "Add Item" below to start building the studio script build.
   </td></tr>`:'';
 
   return`<div style="display:flex;height:100%;overflow:hidden">
     <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
       <!-- Header bar -->
-      <div style="padding:14px 24px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:16px;flex-shrink:0;flex-wrap:wrap">
+      <div style="padding:14px 24px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:16px;flex-shrink:0;flex-wrap:wrap">
         <button class="btn" id="ros-pick-ep-btn" style="font-size:13px;padding:8px 16px">◀ Episodes</button>
         <div>
           <span style="font-size:20px;font-weight:900;color:#c084fc;font-family:monospace">${epLabel}</span>
-          <span style="font-size:14px;color:#6e7681;margin-left:14px">${epDateFmt}</span>
+          <span style="font-size:14px;color:#6b7280;margin-left:14px">${epDateFmt}</span>
         </div>
-        ${(()=>{const _ub=rosData[String(epNum)]?.updatedByName;const _ua=rosData[String(epNum)]?.updatedAtStr;return `<div style="font-size:11px;color:#6e7681;background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:5px 12px;line-height:1.5"><span style="color:#484f58;font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:9px">Last saved by</span><br><span style="color:${_ub?'#eaf0ff':'#484f58'};font-weight:700;font-style:${_ub?'normal':'italic'}">${esc(_ub||'Not yet saved')}</span>${_ua?`<span style="color:#484f58"> · ${esc(_ua)}</span>`:''}</div>`;})()}
+        ${(()=>{const _ub=rosData[String(epNum)]?.updatedByName;const _ua=rosData[String(epNum)]?.updatedAtStr;return `<div style="font-size:11px;color:#6b7280;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;padding:5px 12px;line-height:1.5"><span style="color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:9px">Last saved by</span><br><span style="color:${_ub?'#eaf0ff':'#484f58'};font-weight:700;font-style:${_ub?'normal':'italic'}">${esc(_ub||'Not yet saved')}</span>${_ua?`<span style="color:#9ca3af"> · ${esc(_ua)}</span>`:''}</div>`;})()}
         <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <span style="font-size:20px;font-weight:900;color:#c084fc;font-family:monospace" id="ros-total">Total: ${rosSecsToStr(totalSecs)}</span>
           <button class="btn" id="ros-export-pdf-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#56d364;color:#56d364">⬇ ROS PDF</button>
-          <button class="btn" id="ros-preview-word-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#58a6ff;color:#58a6ff;border-style:dashed">👁 Preview Script</button>
-          <button class="btn" id="ros-export-word-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#388bfd;color:#58a6ff">⬇ Studio Script (Word)</button>
+          <button class="btn" id="ros-preview-word-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#0066CC;color:#0066CC;border-style:dashed">👁 Preview Script</button>
+          <button class="btn" id="ros-export-word-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#388bfd;color:#0066CC">⬇ Studio Script (Word)</button>
           <button class="btn" id="ros-export-vt-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#e3b341;color:#e3b341">⬇ VT List</button>
           ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:13px;padding:8px 20px;font-weight:700;border-color:#e3b341;color:#e3b341"># Numbers</button>`:''}
           ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:14px;padding:8px 24px;font-weight:800">💾 Save</button>`:''}
-          <a href="studio-script-build-guide.html" target="_blank" class="btn" style="font-size:13px;padding:8px 16px;font-weight:700;border-color:#484f58;color:#8b949e;text-decoration:none">? Guide</a>
+          <a href="studio-script-build-guide.html" target="_blank" class="btn" style="font-size:13px;padding:8px 16px;font-weight:700;border-color:#9ca3af;color:#6b7280;text-decoration:none">? Guide</a>
         </div>
       </div>
       <!-- Table -->
       <div id="ros-scroll" style="flex:1;overflow-y:auto">
         <table style="border-collapse:collapse;width:100%">
-          <thead style="position:sticky;top:0;z-index:5;background:#0d1117">
+          <thead style="position:sticky;top:0;z-index:5;background:#f8fafc">
             <tr>
-              <th style="width:72px;padding:12px 8px;border-bottom:2px solid #2e3a50"></th>
-              <th style="padding:12px 24px;font-size:12px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Item</th>
-              <th style="padding:12px 24px;font-size:12px;font-weight:800;text-transform:uppercase;color:#e3b341;border-bottom:2px solid #2e3a50;text-align:left;min-width:200px">Slug</th>
-              <th style="padding:12px 24px;font-size:12px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left">Content</th>
-              <th style="padding:12px 24px;font-size:12px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:center;width:160px">Item Dur</th>
-              <th style="padding:12px 24px;font-size:12px;font-weight:800;text-transform:uppercase;color:#c084fc;border-bottom:2px solid #2e3a50;text-align:right;width:160px">Ep Duration ↑</th>
-              <th style="padding:12px 20px;font-size:12px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:center;width:150px"></th>
+              <th style="width:72px;padding:12px 8px;border-bottom:2px solid #d1dae8"></th>
+              <th style="padding:12px 24px;font-size:12px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:left">Item</th>
+              <th style="padding:12px 24px;font-size:12px;font-weight:800;text-transform:uppercase;color:#e3b341;border-bottom:2px solid #d1dae8;text-align:left;min-width:200px">Slug</th>
+              <th style="padding:12px 24px;font-size:12px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:left">Content</th>
+              <th style="padding:12px 24px;font-size:12px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:center;width:160px">Item Dur</th>
+              <th style="padding:12px 24px;font-size:12px;font-weight:800;text-transform:uppercase;color:#c084fc;border-bottom:2px solid #d1dae8;text-align:right;width:160px">Ep Duration ↑</th>
+              <th style="padding:12px 20px;font-size:12px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:center;width:150px"></th>
             </tr>
           </thead>
           <tbody>${emptyState}${rows}</tbody>
@@ -4810,17 +4844,17 @@ function renderRunOfShow(){
       </div>
     </div>
     <!-- Right sidebar: Add Item -->
-    ${canEdit&&!canEditScriptOnly?`<div style="width:280px;flex-shrink:0;background:#161b22;border-left:2px solid #21262d;display:flex;flex-direction:column;overflow-y:auto">
-      <div style="padding:18px 18px 10px;font-size:14px;font-weight:800;color:#eaf0ff;border-bottom:1px solid #21262d;letter-spacing:.3px">+ Add Item</div>
+    ${canEdit&&!canEditScriptOnly?`<div style="width:280px;flex-shrink:0;background:#f8fafc;border-left:2px solid #21262d;display:flex;flex-direction:column;overflow-y:auto">
+      <div style="padding:18px 18px 10px;font-size:14px;font-weight:800;color:#111827;border-bottom:1px solid #21262d;letter-spacing:.3px">+ Add Item</div>
       <div style="padding:14px 18px;display:flex;flex-direction:column;gap:12px">
-        <select id="ros-type-sel" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:12px 14px;border-radius:6px;font-size:14px">
+        <select id="ros-type-sel" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:12px 14px;border-radius:6px;font-size:14px">
           <option value="">— choose item —</option>
           ${addOpts}
         </select>
         <button class="btn primary" id="ros-add-btn" style="width:100%;font-size:15px;padding:14px;font-weight:800">+ Add Item</button>
       </div>
       <div style="padding:14px 18px;border-top:1px solid #21262d;display:flex;flex-direction:column;gap:8px">
-        <div style="font-size:10px;font-weight:700;color:#6e7681;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Colour Key</div>
+        <div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Colour Key</div>
         ${[['#1a3a5c','#79c0ff','LIVE / LINK'],['#2d2000','#e3b341','INSERT'],['#1f1040','#c084fc','COLD START'],['#142a16','#56d364','UP NEXT'],['#16161f','#9ca3af','FIXED'],['#111111','#484f58','BREAK']].map(([bg,col,lbl])=>`<div style="background:${bg};border:1px solid ${col}55;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:800;color:${col};letter-spacing:.8px;text-align:center">${lbl}</div>`).join('')}
       </div>
     </div>`:''}
@@ -4894,7 +4928,7 @@ function getHelpPages(){
       content:`<p>The <strong>Studio Script Build</strong> tab lets you build a detailed running order for each episode.</p>
       <ul>
         <li>Select an episode, then use the <strong>Add Item</strong> panel on the right to build your running order</li>
-        <li>Items are colour-coded: <span style="color:#79c0ff">■ Live/Link</span> · <span style="color:#e3b341">■ Insert</span> · <span style="color:#c084fc">■ Cold Start</span> · <span style="color:#56d364">■ UP NEXT</span> · <span style="color:#9ca3af">■ Fixed</span></li>
+        <li>Items are colour-coded: <span style="color:#0066CC">■ Live/Link</span> · <span style="color:#e3b341">■ Insert</span> · <span style="color:#c084fc">■ Cold Start</span> · <span style="color:#56d364">■ UP NEXT</span> · <span style="color:#9ca3af">■ Fixed</span></li>
         <li>Fixed items (Opening Logo, Bumpers, Credits, Breaks) have pre-set durations and cannot be changed</li>
         <li>Use the <strong>▲ ▼ arrows</strong> to reorder items, <strong>✕</strong> to delete</li>
         <li>The <strong>Ep Duration</strong> column counts up from the bottom — the top row shows the full programme duration</li>
@@ -5002,7 +5036,7 @@ function getHelpPages(){
       <li>All dates use South African format (DD MMM YYYY)</li>
       <li>If something looks wrong, try <strong>signing out and back in</strong> — this refreshes all data from Firebase</li>
     </ul>
-    <p style="margin-top:16px;color:#6e7681;font-size:12px">For technical issues or feature requests, contact your portal administrator.</p>`
+    <p style="margin-top:16px;color:#6b7280;font-size:12px">For technical issues or feature requests, contact your portal administrator.</p>`
   });
 
   return pages;
@@ -5018,7 +5052,7 @@ function renderHelp(){
   const isFirst=helpPage===0;
   const isLast=helpPage===pages.length-1;
 
-  const dots=pages.map((_,i)=>`<span style="width:8px;height:8px;border-radius:50%;background:${i===helpPage?'#c084fc':'#2e3a50'};display:inline-block;cursor:pointer;transition:background .2s" data-help-dot="${i}"></span>`).join('');
+  const dots=pages.map((_,i)=>`<span style="width:8px;height:8px;border-radius:50%;background:${i===helpPage?'#c084fc':'#d1dae8'};display:inline-block;cursor:pointer;transition:background .2s" data-help-dot="${i}"></span>`).join('');
 
   const overlay=document.createElement('div');
   overlay.id='help-overlay';
@@ -5034,15 +5068,15 @@ function renderHelp(){
             <h2 style="font-size:18px;font-weight:900;color:${appTheme==='light'?'#1a1a2e':'#eaf0ff'};margin:0">${page.title}</h2>
           </div>
         </div>
-        <button id="help-close-btn" style="background:none;border:1px solid #2e3a50;color:#7a8ba0;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center">✕</button>
+        <button id="help-close-btn" style="background:none;border:1px solid #d1dae8;color:#6b7280;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center">✕</button>
       </div>
       <!-- Content -->
       <div style="padding:20px 24px;flex:1;overflow-y:auto;font-size:14px;line-height:1.7;color:${appTheme==='light'?'#444':'#cdd9e5'}">${page.content}</div>
       <!-- Footer -->
       <div style="padding:16px 24px;border-top:1px solid ${appTheme==='light'?'#e8ecf0':'#21262d'};display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0">
-        <button id="help-prev-btn" style="background:none;border:1px solid #2e3a50;color:${isFirst?'#333':'#7a8ba0'};padding:8px 18px;border-radius:6px;cursor:${isFirst?'default':'pointer'};font-size:13px;font-weight:700;opacity:${isFirst?.3:1}">◀ Previous</button>
+        <button id="help-prev-btn" style="background:none;border:1px solid #d1dae8;color:${isFirst?'#333':'#7a8ba0'};padding:8px 18px;border-radius:6px;cursor:${isFirst?'default':'pointer'};font-size:13px;font-weight:700;opacity:${isFirst?.3:1}">◀ Previous</button>
         <div style="display:flex;gap:6px;align-items:center">${dots}</div>
-        <button id="help-next-btn" style="background:${isLast?'#c084fc':'none'};border:1px solid ${isLast?'#c084fc':'#2e3a50'};color:${isLast?'#fff':'#7a8ba0'};padding:8px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700">${isLast?'Got it! ✓':'Next ▶'}</button>
+        <button id="help-next-btn" style="background:${isLast?'#c084fc':'none'};border:1px solid ${isLast?'#c084fc':'#d1dae8'};color:${isLast?'#fff':'#7a8ba0'};padding:8px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700">${isLast?'Got it! ✓':'Next ▶'}</button>
       </div>
     </div>`;
 
@@ -5092,13 +5126,13 @@ function renderCallSheet(epNums){
     const today=new Date().toISOString().split('T')[0];
     const epList=epNums.sort((a,b)=>a-b).map(ep=>{
       const d=resolveDate(ep);const hasSaved=!!callSheetData[String(ep)];const isPast=d&&d<today;
-      return`<div class="cs-ep-pick" data-ep="${ep}" style="background:#1c2433;border:2px solid ${hasSaved?'#e3b341':'#2e3a50'};border-radius:10px;padding:20px 24px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px" onmouseover="this.style.borderColor='#e3b341';this.style.background='#1e2233'" onmouseout="this.style.borderColor='${hasSaved?'#e3b341':'#2e3a50'}';this.style.background='#1c2433'">
+      return`<div class="cs-ep-pick" data-ep="${ep}" style="background:#f9fafb;border:2px solid ${hasSaved?'#e3b341':'#d1dae8'};border-radius:10px;padding:20px 24px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px" onmouseover="this.style.borderColor='#e3b341';this.style.background='#eff6ff'" onmouseout="this.style.borderColor='${hasSaved?'#e3b341':'#d1dae8'}';this.style.background='#f9fafb'">
         <div><div style="font-size:22px;font-weight:900;color:${isPast?'#f85149':'#eaf0ff'};font-family:monospace">S${currentSeason} EP ${String(ep).padStart(2,'0')}</div>
-        <div style="font-size:13px;color:#6e7681;margin-top:4px">${d?new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'No date set'}</div></div>
+        <div style="font-size:13px;color:#6b7280;margin-top:4px">${d?new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'No date set'}</div></div>
         <div style="display:flex;align-items:center;gap:12px">${hasSaved?'<span style="font-size:11px;background:#2d2000;color:#e3b341;padding:4px 12px;border-radius:4px;border:1px solid #4a3300;font-weight:700">HAS CALL SHEET</span>':''}<span style="color:#e3b341;font-size:26px">→</span></div>
       </div>`;
     }).join('');
-    return`<div class="ep-wrap" style="padding:32px;max-width:640px;margin:0 auto"><h2 style="font-size:22px;font-weight:900;color:#eaf0ff;margin:0 0 24px 0">Studio Call Sheet — Select Episode</h2>${epList||'<div style="color:#484f58;font-size:15px">No episodes found.</div>'}</div>`;
+    return`<div class="ep-wrap" style="padding:32px;max-width:640px;margin:0 auto"><h2 style="font-size:22px;font-weight:900;color:#111827;margin:0 0 24px 0">Studio Call Sheet — Select Episode</h2>${epList||'<div style="color:#9ca3af;font-size:15px">No episodes found.</div>'}</div>`;
   }
   const ep=csCurrentEp;const epDate=resolveDate(ep);
   const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'';
@@ -5106,35 +5140,35 @@ function renderCallSheet(epNums){
   const cs=callSheetData[String(ep)]||{};
   const otherEps=epNums.filter(n=>n!==ep&&callSheetData[String(n)]);
   const allNames=csGetAllNames(cs);
-  const lbl=(t)=>`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#7a8ba0;margin-bottom:5px">${t}</div>`;
-  const finp=(f,ph)=>canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${f}" value="${esc(cs[f]||'')}" placeholder="${ph}" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#eaf0ff;font-size:15px;padding:8px 10px;outline:none;font-family:inherit">`:`<div style="font-size:15px;color:${cs[f]?'#eaf0ff':'#484f58'};padding:6px 0">${esc(cs[f]||'—')}</div>`;
-  const nameCell=(f,ph)=>canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${f}" value="${esc(cs[f]||'')}" placeholder="${ph}" style="flex:1;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#eaf0ff;font-size:15px;padding:8px 10px;outline:none;font-family:inherit">`:`<div style="flex:1;font-size:15px;color:${cs[f]?'#eaf0ff':'#484f58'};padding:6px 0">${esc(cs[f]||'—')}</div>`;
-  const cellInp=(f)=>canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${f}" value="${esc(cs[f]||'')}" placeholder="Cell number" style="width:140px;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#8b949e;font-size:14px;padding:8px 10px;outline:none;font-family:inherit">`:`<div style="width:140px;font-size:14px;color:${cs[f]?'#8b949e':'#484f58'};padding:6px 0">${esc(cs[f]||'—')}</div>`;
+  const lbl=(t)=>`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:5px">${t}</div>`;
+  const finp=(f,ph)=>canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${f}" value="${esc(cs[f]||'')}" placeholder="${ph}" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:15px;padding:8px 10px;outline:none;font-family:inherit">`:`<div style="font-size:15px;color:${cs[f]?'#eaf0ff':'#484f58'};padding:6px 0">${esc(cs[f]||'—')}</div>`;
+  const nameCell=(f,ph)=>canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${f}" value="${esc(cs[f]||'')}" placeholder="${ph}" style="flex:1;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:15px;padding:8px 10px;outline:none;font-family:inherit">`:`<div style="flex:1;font-size:15px;color:${cs[f]?'#eaf0ff':'#484f58'};padding:6px 0">${esc(cs[f]||'—')}</div>`;
+  const cellInp=(f)=>canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${f}" value="${esc(cs[f]||'')}" placeholder="Cell number" style="width:140px;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#6b7280;font-size:14px;padding:8px 10px;outline:none;font-family:inherit">`:`<div style="width:140px;font-size:14px;color:${cs[f]?'#8b949e':'#484f58'};padding:6px 0">${esc(cs[f]||'—')}</div>`;
   const contactRow=(nf,cf,label)=>`<div style="margin-bottom:10px">${lbl(label)}<div style="display:flex;gap:8px">${nameCell(nf,'Name')}${cellInp(cf)}</div></div>`;
-  const anchorBlock=(nf,pf,tf,label)=>`<div style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #2e3a50">${lbl(label)}
-    ${canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${nf}" value="${esc(cs[nf]||'')}" placeholder="Anchor name" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#eaf0ff;font-size:15px;padding:8px 10px;outline:none;font-family:inherit;display:block">`:`<div style="font-size:15px;color:${cs[nf]?'#eaf0ff':'#484f58'}">${esc(cs[nf]||'—')}</div>`}
+  const anchorBlock=(nf,pf,tf,label)=>`<div style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #d1dae8">${lbl(label)}
+    ${canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${nf}" value="${esc(cs[nf]||'')}" placeholder="Anchor name" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:15px;padding:8px 10px;outline:none;font-family:inherit;display:block">`:`<div style="font-size:15px;color:${cs[nf]?'#eaf0ff':'#484f58'}">${esc(cs[nf]||'—')}</div>`}
   </div>`;
-  const nameCell2=(v,cls,ep,idx)=>canEdit?`<input class="${cls}" data-ep="${ep}" data-idx="${idx}" value="${esc(v)}" placeholder="Name" style="flex:1;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#eaf0ff;font-size:15px;padding:8px 10px;outline:none;font-family:inherit">`:`<div style="flex:1;font-size:15px;color:${v?'#eaf0ff':'#484f58'};padding:6px 0">${esc(v||'—')}</div>`;
-  const timeCell2=(v,cls,ep,idx)=>canEdit?`<input class="${cls}" data-ep="${ep}" data-idx="${idx}" value="${esc(v)}" placeholder="00:00" style="width:100px;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#e3b341;font-size:15px;padding:8px 10px;outline:none;font-family:monospace;text-align:center">`:`<div style="width:100px;font-size:15px;color:#e3b341;font-family:monospace;text-align:center">${esc(v||'—')}</div>`;
+  const nameCell2=(v,cls,ep,idx)=>canEdit?`<input class="${cls}" data-ep="${ep}" data-idx="${idx}" value="${esc(v)}" placeholder="Name" style="flex:1;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:15px;padding:8px 10px;outline:none;font-family:inherit">`:`<div style="flex:1;font-size:15px;color:${v?'#eaf0ff':'#484f58'};padding:6px 0">${esc(v||'—')}</div>`;
+  const timeCell2=(v,cls,ep,idx)=>canEdit?`<input class="${cls}" data-ep="${ep}" data-idx="${idx}" value="${esc(v)}" placeholder="00:00" style="width:100px;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#e3b341;font-size:15px;padding:8px 10px;outline:none;font-family:monospace;text-align:center">`:`<div style="width:100px;font-size:15px;color:#e3b341;font-family:monospace;text-align:center">${esc(v||'—')}</div>`;
   const ctRow=(key,label)=>`<div style="margin-bottom:10px">${lbl(label)}<div style="display:flex;gap:8px">
     ${nameCell(key+'_name','Name')}
-    ${canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${key+'_time'}" value="${esc(cs[key+'_time']||'')}" placeholder="00:00" style="width:100px;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#e3b341;font-size:15px;padding:8px 10px;outline:none;font-family:monospace;text-align:center">`:`<div style="width:100px;font-size:15px;color:#e3b341;font-family:monospace;text-align:center">${esc(cs[key+'_time']||'—')}</div>`}
+    ${canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${key+'_time'}" value="${esc(cs[key+'_time']||'')}" placeholder="00:00" style="width:100px;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#e3b341;font-size:15px;padding:8px 10px;outline:none;font-family:monospace;text-align:center">`:`<div style="width:100px;font-size:15px;color:#e3b341;font-family:monospace;text-align:center">${esc(cs[key+'_time']||'—')}</div>`}
   </div></div>`;
   const multiSel=(key,selArr)=>{
     const sel=selArr||[];
-    if(!canEdit)return`<span style="font-size:13px;color:#8b949e">${sel.join(', ')||'—'}</span>`;
-    const badges=sel.map(n=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#1e3a5c;color:#79c0ff;font-size:12px;padding:3px 8px;border-radius:4px;margin:2px">
-      ${esc(n)}<button class="cs-resp-remove" data-ep="${ep}" data-key="${key}" data-name="${esc(n)}" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:11px;padding:0;line-height:1" onmouseover="this.style.color='#f85149'" onmouseout="this.style.color='#484f58'">✕</button>
+    if(!canEdit)return`<span style="font-size:13px;color:#6b7280">${sel.join(', ')||'—'}</span>`;
+    const badges=sel.map(n=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:#0066CC;font-size:12px;padding:3px 8px;border-radius:4px;margin:2px">
+      ${esc(n)}<button class="cs-resp-remove" data-ep="${ep}" data-key="${key}" data-name="${esc(n)}" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;padding:0;line-height:1" onmouseover="this.style.color='#f85149'" onmouseout="this.style.color='#484f58'">✕</button>
     </span>`).join('');
     return`<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
       ${badges}
-      <button class="cs-resp-add" data-ep="${ep}" data-key="${key}" style="background:#1a2235;border:1px dashed #2e3a50;color:#58a6ff;font-size:12px;padding:4px 10px;border-radius:4px;cursor:pointer" onmouseover="this.style.borderColor='#58a6ff'" onmouseout="this.style.borderColor='#2e3a50'">+ Add</button>
+      <button class="cs-resp-add" data-ep="${ep}" data-key="${key}" style="background:#f9fafb;border:1px dashed #d1dae8;color:#0066CC;font-size:12px;padding:4px 10px;border-radius:4px;cursor:pointer" onmouseover="this.style.borderColor='#58a6ff'" onmouseout="this.style.borderColor='#d1dae8'">+ Add</button>
     </div>`;
   };
   const schedData=cs.schedItems||[];
   const schedRows=CS_SCHED_ITEMS.map(si=>{const sd=schedData.find(x=>x.key===si.key)||{};return`<tr style="border-bottom:2px solid #1e2535">
-    <td style="padding:10px 12px;font-size:15px;font-weight:700;color:#eaf0ff;white-space:nowrap;min-width:200px">${si.label}</td>
-    <td style="padding:10px 12px;width:110px">${canEdit?`<input class="cs-sched-time" data-ep="${ep}" data-key="${si.key}" value="${esc(sd.time||'')}" placeholder="00:00" style="width:95px;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#e3b341;font-size:16px;padding:8px;outline:none;font-family:monospace;text-align:center">`:`<span style="font-size:16px;color:#e3b341;font-family:monospace">${esc(sd.time||'—')}</span>`}</td>
+    <td style="padding:10px 12px;font-size:15px;font-weight:700;color:#111827;white-space:nowrap;min-width:200px">${si.label}</td>
+    <td style="padding:10px 12px;width:110px">${canEdit?`<input class="cs-sched-time" data-ep="${ep}" data-key="${si.key}" value="${esc(sd.time||'')}" placeholder="00:00" style="width:95px;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#e3b341;font-size:16px;padding:8px;outline:none;font-family:monospace;text-align:center">`:`<span style="font-size:16px;color:#e3b341;font-family:monospace">${esc(sd.time||'—')}</span>`}</td>
     <td style="padding:10px 12px">${multiSel(si.key,sd.responsible||[])}</td>
   </tr>`;}).join('');
   // Responsible picker modal
@@ -5145,19 +5179,19 @@ function renderCallSheet(epNums){
     const mSel=((cs.schedItems||[]).find(x=>x.key===mkey)||{}).responsible||[];
     const allNamesWithCrew=['ALL CREW',...allNames];
     const nameOpts=allNames.length
-      ?allNamesWithCrew.map(n=>`<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #21262d;cursor:pointer;font-size:14px;color:#eaf0ff" onmouseover="this.style.background='#1e2535'" onmouseout="this.style.background='transparent'">
-          <input type="checkbox" class="cs-resp-cb" data-key="${mkey}" data-name="${esc(n)}" ${mSel.includes(n)?'checked':''} style="width:16px;height:16px;cursor:pointer;accent-color:#58a6ff">
+      ?allNamesWithCrew.map(n=>`<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #21262d;cursor:pointer;font-size:14px;color:#111827" onmouseover="this.style.background='#1e2535'" onmouseout="this.style.background='transparent'">
+          <input type="checkbox" class="cs-resp-cb" data-key="${mkey}" data-name="${esc(n)}" ${mSel.includes(n)?'checked':''} style="width:16px;height:16px;cursor:pointer;accent-color:#0066CC">
           <span style="${n==='ALL CREW'?'font-weight:800;color:#e3b341':''}">${esc(n)}</span>
         </label>`).join('')
-      :'<div style="padding:20px;color:#484f58;text-align:center;font-size:13px">No contacts added yet — fill in the contacts sections above first.</div>';
+      :'<div style="padding:20px;color:#9ca3af;text-align:center;font-size:13px">No contacts added yet — fill in the contacts sections above first.</div>';
     respModalHtml=`<div id="cs-resp-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center">
-      <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;width:380px;max-width:95vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+      <div style="background:#f8fafc;border:1px solid #d1dae8;border-radius:12px;width:380px;max-width:95vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6)">
         <div style="padding:16px 18px;border-bottom:1px solid #21262d;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
           <div>
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#7a8ba0;margin-bottom:2px">Responsible for</div>
-            <div style="font-size:15px;font-weight:800;color:#eaf0ff">${mSi.label}</div>
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:2px">Responsible for</div>
+            <div style="font-size:15px;font-weight:800;color:#111827">${mSi.label}</div>
           </div>
-          <button id="cs-resp-close" style="background:none;border:1px solid #2e3a50;color:#7a8ba0;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">✕</button>
+          <button id="cs-resp-close" style="background:none;border:1px solid #d1dae8;color:#6b7280;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">✕</button>
         </div>
         <div style="overflow-y:auto;flex:1">${nameOpts}</div>
         <div style="padding:12px 18px;border-top:1px solid #21262d;display:flex;justify-content:flex-end;gap:8px;flex-shrink:0">
@@ -5169,53 +5203,53 @@ function renderCallSheet(epNums){
   }
 
   return`<div class="ep-wrap" style="padding:0;overflow-y:auto">${respModalHtml}
-    <div style="padding:12px 20px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;flex-wrap:wrap">
+    <div style="padding:12px 20px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;flex-wrap:wrap">
       <button class="btn" id="cs-back-btn" style="font-size:12px;padding:6px 14px">◀ Episodes</button>
-      <div><span style="font-size:18px;font-weight:900;color:#e3b341;font-family:monospace">${epLabel}</span><span style="font-size:13px;color:#6e7681;margin-left:12px">${epDateFmt}</span></div>
+      <div><span style="font-size:18px;font-weight:900;color:#e3b341;font-family:monospace">${epLabel}</span><span style="font-size:13px;color:#6b7280;margin-left:12px">${epDateFmt}</span></div>
       <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        ${canEdit&&otherEps.length?`<select id="cs-copy-sel" style="background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 12px;border-radius:6px;font-size:13px"><option value="">Copy from EP…</option>${otherEps.sort((a,b)=>b-a).map(n=>`<option value="${n}">EP ${String(n).padStart(2,'0')}</option>`).join('')}</select><button class="btn" id="cs-copy-btn" style="font-size:12px;padding:6px 14px;border-color:#c084fc;color:#c084fc">Copy</button>`:''}
-        <button class="btn" id="cs-export-pdf-btn" style="font-size:12px;padding:6px 14px;border-color:#388bfd;color:#58a6ff">⬇ Print / PDF</button>
+        ${canEdit&&otherEps.length?`<select id="cs-copy-sel" style="background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:7px 12px;border-radius:6px;font-size:13px"><option value="">Copy from EP…</option>${otherEps.sort((a,b)=>b-a).map(n=>`<option value="${n}">EP ${String(n).padStart(2,'0')}</option>`).join('')}</select><button class="btn" id="cs-copy-btn" style="font-size:12px;padding:6px 14px;border-color:#c084fc;color:#c084fc">Copy</button>`:''}
+        <button class="btn" id="cs-export-pdf-btn" style="font-size:12px;padding:6px 14px;border-color:#388bfd;color:#0066CC">⬇ Print / PDF</button>
         ${canEdit?`<button class="btn" id="cs-clear-btn" data-ep="${ep}" style="font-size:12px;padding:6px 14px;border-color:#f85149;color:#f85149">🗑 Clear Call Sheet</button>`:''}
         ${canEdit?`<button class="btn primary" id="cs-save-btn" style="font-size:13px;padding:7px 20px;font-weight:800">💾 Save</button>`:''}
       </div>
     </div>
     <div style="padding:24px;display:flex;flex-direction:column;gap:20px">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;align-items:start">
-        <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:10px;padding:18px 20px">
-          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #2e3a50">Production Contacts</div>
+        <div style="background:#f9fafb;border:1px solid #d1dae8;border-radius:10px;padding:18px 20px">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #d1dae8">Production Contacts</div>
           ${contactRow('producer','producerCell','Production Coordinator')}${contactRow('editorialMgr','editorialMgrCell','Editorial Manager')}${contactRow('director','directorCell','Studio Director')}${contactRow('asstDir','asstDirCell','Assistant Director')}${contactRow('floorMgr','floorMgrCell','Floor Manager')}${contactRow('autocue','autocueCell','Autocue')}${contactRow('makeup','makeupCell','Make-Up & Styling')}
         </div>
-        <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:10px;padding:18px 20px">
-          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #2e3a50">Facilities Contacts</div>
+        <div style="background:#f9fafb;border:1px solid #d1dae8;border-radius:10px;padding:18px 20px">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #d1dae8">Facilities Contacts</div>
           ${contactRow('eng1','eng1Cell','Engineer 1')}${contactRow('eng2','eng2Cell','Engineer 2')}${contactRow('facMgr','facMgrCell','Facilities Manager')}
           <div style="margin-bottom:10px">${lbl('Studio Location')}${finp('location','Facilities name & address')}</div>
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #2e3a50">
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #d1dae8">
             <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:10px">Notes</div>
-            ${canEdit?`<textarea class="cs-field" data-ep="${ep}" data-field="notes" placeholder="Additional notes…" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#eaf0ff;font-size:14px;padding:8px 10px;outline:none;font-family:inherit;resize:vertical;min-height:80px;box-sizing:border-box">${esc(cs.notes||'')}</textarea>`:`<div style="font-size:14px;color:${cs.notes?'#eaf0ff':'#484f58'};white-space:pre-wrap">${esc(cs.notes||'—')}</div>`}
+            ${canEdit?`<textarea class="cs-field" data-ep="${ep}" data-field="notes" placeholder="Additional notes…" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:14px;padding:8px 10px;outline:none;font-family:inherit;resize:vertical;min-height:80px;box-sizing:border-box">${esc(cs.notes||'')}</textarea>`:`<div style="font-size:14px;color:${cs.notes?'#eaf0ff':'#484f58'};white-space:pre-wrap">${esc(cs.notes||'—')}</div>`}
           </div>
         </div>
-        <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:10px;padding:18px 20px">
-          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #2e3a50">Anchors</div>
+        <div style="background:#f9fafb;border:1px solid #d1dae8;border-radius:10px;padding:18px 20px">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #d1dae8">Anchors</div>
           ${anchorBlock('anchor1Name','anchor1Pres','anchor1Topics','Anchor 1')}${anchorBlock('anchor2Name','anchor2Pres','anchor2Topics','Anchor 2')}
         </div>
-        <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:10px;padding:18px 20px">
-          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #2e3a50">Call Times</div>
+        <div style="background:#f9fafb;border:1px solid #d1dae8;border-radius:10px;padding:18px 20px">
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #d1dae8">Call Times</div>
           ${ctRow('ctMakeup','Make-Up & Styling')}${ctRow('ctAnchor1','Anchor 1')}${ctRow('ctAnchor2','Anchor 2')}${ctRow('ctProd','Production')}${ctRow('ctDirector','Studio Director')}${ctRow('ctAsstDir','Assistant Director')}${ctRow('ctFloorMgr','Floor Manager')}${ctRow('ctAutocue','Autocue')}${ctRow('ctFacilities','Facilities Crew')}
-          ${(cs.extraCallTimes||[]).map((ec,idx)=>`<div style="margin-bottom:8px;border-top:1px dashed #2e3a50;padding-top:8px">${lbl(esc(ec.designation||'Additional Person'))}<div style="display:flex;gap:8px;align-items:center">${nameCell2(ec.name||'',"cs-extra-name",ep,idx)}${timeCell2(ec.time||'',"cs-extra-time",ep,idx)}${canEdit?`<button class="cs-remove-extra btn" data-ep="${ep}" data-idx="${idx}" style="font-size:11px;padding:4px 8px;border-color:#f85149;color:#f85149">✕</button>`:''}</div>${canEdit?`<div style="margin-top:4px"><input class="cs-extra-desig" data-ep="${ep}" data-idx="${idx}" value="${esc(ec.designation||'')}" placeholder="Designation / Role" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#9aaabe;font-size:12px;padding:6px 10px;outline:none;font-family:inherit"></div>`:''}</div>`).join('')}
-          ${canEdit?`<button class="cs-add-extra btn" data-ep="${ep}" style="width:100%;margin-top:8px;font-size:12px;border-style:dashed;border-color:#388bfd;color:#58a6ff">&#65291; Add Person</button>`:''}
+          ${(cs.extraCallTimes||[]).map((ec,idx)=>`<div style="margin-bottom:8px;border-top:1px dashed #d1dae8;padding-top:8px">${lbl(esc(ec.designation||'Additional Person'))}<div style="display:flex;gap:8px;align-items:center">${nameCell2(ec.name||'',"cs-extra-name",ep,idx)}${timeCell2(ec.time||'',"cs-extra-time",ep,idx)}${canEdit?`<button class="cs-remove-extra btn" data-ep="${ep}" data-idx="${idx}" style="font-size:11px;padding:4px 8px;border-color:#f85149;color:#f85149">✕</button>`:''}</div>${canEdit?`<div style="margin-top:4px"><input class="cs-extra-desig" data-ep="${ep}" data-idx="${idx}" value="${esc(ec.designation||'')}" placeholder="Designation / Role" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#4b5563;font-size:12px;padding:6px 10px;outline:none;font-family:inherit"></div>`:''}</div>`).join('')}
+          ${canEdit?`<button class="cs-add-extra btn" data-ep="${ep}" style="width:100%;margin-top:8px;font-size:12px;border-style:dashed;border-color:#388bfd;color:#0066CC">&#65291; Add Person</button>`:''}
         </div>
       </div>
-      <div style="background:#1c2433;border:1px solid #2e3a50;border-radius:10px;overflow:hidden">
-        <div style="padding:14px 20px;background:#1e2535;border-bottom:2px solid #2e3a50;display:flex;align-items:center;justify-content:space-between">
+      <div style="background:#f9fafb;border:1px solid #d1dae8;border-radius:10px;overflow:hidden">
+        <div style="padding:14px 20px;background:#f0f4f8;border-bottom:2px solid #d1dae8;display:flex;align-items:center;justify-content:space-between">
           <span style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341">Schedule &amp; Running Order</span>
           ${canEdit?`<button class="btn" id="cs-gen-sched-btn" style="font-size:11px;border-color:#e3b341;color:#e3b341;padding:4px 14px">⚡ Refresh Names</button>`:''}
         </div>
-        <div style="padding:8px 14px;background:#161b22;border-bottom:1px solid #21262d;font-size:11px;color:#484f58">Hold <kbd style="background:#1c2433;border:1px solid #2e3a50;padding:1px 5px;border-radius:3px">Ctrl</kbd> / <kbd style="background:#1c2433;border:1px solid #2e3a50;padding:1px 5px;border-radius:3px">⌘</kbd> to select multiple people</div>
+        <div style="padding:8px 14px;background:#f8fafc;border-bottom:1px solid #21262d;font-size:11px;color:#9ca3af">Hold <kbd style="background:#f9fafb;border:1px solid #d1dae8;padding:1px 5px;border-radius:3px">Ctrl</kbd> / <kbd style="background:#f9fafb;border:1px solid #d1dae8;padding:1px 5px;border-radius:3px">⌘</kbd> to select multiple people</div>
         <table style="width:100%;border-collapse:collapse">
-          <thead><tr style="background:#161b22">
-            <th style="padding:10px 12px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left;border-bottom:2px solid #2e3a50;min-width:200px">Activity</th>
-            <th style="padding:10px 12px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left;border-bottom:2px solid #2e3a50;width:110px">Time</th>
-            <th style="padding:10px 12px;font-size:11px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left;border-bottom:2px solid #2e3a50">Responsible</th>
+          <thead><tr style="background:#f8fafc">
+            <th style="padding:10px 12px;font-size:11px;font-weight:800;text-transform:uppercase;color:#6b7280;text-align:left;border-bottom:2px solid #d1dae8;min-width:200px">Activity</th>
+            <th style="padding:10px 12px;font-size:11px;font-weight:800;text-transform:uppercase;color:#6b7280;text-align:left;border-bottom:2px solid #d1dae8;width:110px">Time</th>
+            <th style="padding:10px 12px;font-size:11px;font-weight:800;text-transform:uppercase;color:#6b7280;text-align:left;border-bottom:2px solid #d1dae8">Responsible</th>
           </tr></thead>
           <tbody>${schedRows}</tbody>
         </table>
@@ -5235,15 +5269,15 @@ function renderContracts(){
 }
 
 function renderContractPicker(){
-  const card=(id,icon,title,sub)=>`<button id="${id}" style="background:#1c2433;border:2px solid #2e3a50;border-radius:12px;padding:24px 28px;cursor:pointer;text-align:left;transition:border-color .2s" onmouseover="this.style.borderColor='#58a6ff'" onmouseout="this.style.borderColor='#2e3a50'">
+  const card=(id,icon,title,sub)=>`<button id="${id}" style="background:#f9fafb;border:2px solid #d1dae8;border-radius:12px;padding:24px 28px;cursor:pointer;text-align:left;transition:border-color .2s" onmouseover="this.style.borderColor='#58a6ff'" onmouseout="this.style.borderColor='#d1dae8'">
     <div style="font-size:28px;margin-bottom:10px">${icon}</div>
-    <div style="font-size:16px;font-weight:900;color:#eaf0ff;margin-bottom:4px">${title}</div>
-    <div style="font-size:12px;color:#6e7681">${sub}</div>
+    <div style="font-size:16px;font-weight:900;color:#111827;margin-bottom:4px">${title}</div>
+    <div style="font-size:12px;color:#6b7280">${sub}</div>
   </button>`;
   return`<div class="ep-wrap" style="padding:0">
-    <div style="padding:12px 20px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:12px">
+    <div style="padding:12px 20px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:12px">
       <button class="btn" id="ct-pick-cancel" style="font-size:12px;padding:6px 14px">◀ Back</button>
-      <span style="font-size:17px;font-weight:900;color:#eaf0ff">New Contract — Select Type</span>
+      <span style="font-size:17px;font-weight:900;color:#111827">New Contract — Select Type</span>
     </div>
     <div style="padding:40px;display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:860px">
       ${card('ct-pick-presenter','🎙','Presenters','Presenter agreement & acknowledgement')}
@@ -5263,18 +5297,18 @@ function renderContractPreview(){
   if(!c){ctView='list';return renderContractList();}
   const name=esc(c.fields?.contractorName||c.fields?.performerName||c.fields?.employeeName||'Contract');
   return`<div class="ep-wrap" style="padding:0;overflow:hidden">
-    <div style="padding:12px 20px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:12px;flex-shrink:0">
+    <div style="padding:12px 20px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:12px;flex-shrink:0">
       <button class="btn" id="ct-preview-back-btn" style="font-size:12px;padding:6px 14px">◀ Contracts</button>
       <div>
-        <span style="font-size:16px;font-weight:900;color:#eaf0ff">${name}</span>
-        <span style="font-size:12px;color:#6e7681;margin-left:8px">— ${ctTypeLabel(c.type)}</span>
+        <span style="font-size:16px;font-weight:900;color:#111827">${name}</span>
+        <span style="font-size:12px;color:#6b7280;margin-left:8px">— ${ctTypeLabel(c.type)}</span>
       </div>
       <div style="margin-left:auto;display:flex;gap:8px">
         <button class="btn" id="ct-preview-edit-btn" data-id="${ctPreviewId}" style="font-size:12px;padding:6px 16px">✏ Edit</button>
         <button class="btn primary" id="ct-preview-export-btn" data-id="${ctPreviewId}" style="font-size:12px;padding:6px 16px">⬇ Export PDF</button>
       </div>
     </div>
-    <div style="flex:1;min-height:0;overflow-y:auto;padding:32px 20px;background:#0d1117">
+    <div style="flex:1;min-height:0;overflow-y:auto;padding:32px 20px;background:#f8fafc">
       <div id="ct-static-preview-pane"></div>
     </div>
   </div>`;
@@ -5290,57 +5324,57 @@ function renderContractList(){
   const archived=all.filter(([,c])=>!!c.archived);
   const isFinance=getEffectiveRole()==='finance';
 
-  const thS='padding:8px 14px;font-size:10px;font-weight:800;text-transform:uppercase;color:#7a8ba0;text-align:left;border-bottom:2px solid #2e3a50';
+  const thS='padding:8px 14px;font-size:10px;font-weight:800;text-transform:uppercase;color:#6b7280;text-align:left;border-bottom:2px solid #d1dae8';
 
   const makeRow=([id,c],isArchived)=>{
     const name=esc(c.fields?.contractorName||c.fields?.performerName||c.fields?.employeeName||'—');
     const dutyPos=esc(c.fields?.duty||c.fields?.position||'—');
     const statusBg=isArchived?'#1a1a1a':c.status==='exported'?'#0d2a0d':'#1a1a0d';
     const statusCol=isArchived?'#484f58':c.status==='exported'?'#3fb950':'#e3b341';
-    const statusBorder=isArchived?'#2e3a50':c.status==='exported'?'#2d6a2d':'#4a3300';
+    const statusBorder=isArchived?'#d1dae8':c.status==='exported'?'#2d6a2d':'#4a3300';
     const statusLabel=isArchived?'ARCHIVED':c.status==='exported'?'EXPORTED':'DRAFT';
     return`<tr style="border-bottom:1px solid #21262d;${isArchived?'opacity:.6':''}">
-      <td style="padding:10px 14px;font-size:12px;color:#7a8ba0;font-family:monospace">CB-S${currentSeason}-${id}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#6b7280;font-family:monospace">CB-S${currentSeason}-${id}</td>
       <td style="padding:10px 14px;font-size:13px;font-weight:700;color:${isArchived?'#7a8ba0':'#eaf0ff'}">${name}</td>
-      <td style="padding:10px 14px;font-size:12px;color:#9aaabe">${dutyPos}</td>
-      <td style="padding:10px 14px;font-size:12px;color:#7a8ba0">${ctTypeLabel(c.type)}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#4b5563">${dutyPos}</td>
+      <td style="padding:10px 14px;font-size:12px;color:#6b7280">${ctTypeLabel(c.type)}</td>
       <td style="padding:10px 14px">
         <span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:3px;background:${statusBg};color:${statusCol};border:1px solid ${statusBorder}">${statusLabel}</span>
       </td>
-      <td style="padding:10px 14px;font-size:11px;color:#484f58">${c.createdAt?new Date(c.createdAt.seconds*1000).toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}):''}</td>
+      <td style="padding:10px 14px;font-size:11px;color:#9ca3af">${c.createdAt?new Date(c.createdAt.seconds*1000).toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}):''}</td>
       <td style="padding:10px 14px">
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           ${!isArchived&&!isFinance?`<button class="btn ct-edit-btn" data-id="${id}" style="font-size:11px;padding:3px 10px">✏ Edit</button>`:''}
-          <button class="btn ct-preview-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#58a6ff;color:#58a6ff">👁 Preview</button>
-          <button class="btn ct-pdf-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#388bfd;color:#58a6ff">⬇ PDF</button>
+          <button class="btn ct-preview-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#0066CC;color:#0066CC">👁 Preview</button>
+          <button class="btn ct-pdf-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#388bfd;color:#0066CC">⬇ PDF</button>
           ${!isFinance?`<button class="btn ct-duplicate-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#56d364;color:#56d364">⧉ Duplicate</button>`:''}
           ${!isFinance?`<button class="btn ct-archive-btn" data-id="${id}" data-archived="${isArchived?'1':'0'}" style="font-size:11px;padding:3px 10px;border-color:${isArchived?'#e3b341':'#484f58'};color:${isArchived?'#e3b341':'#484f58'}">${isArchived?'Unarchive':'Archive'}</button>`:''}
-          ${!isFinance?`<span style="width:1px;height:18px;background:#2e3a50;display:inline-block;flex-shrink:0;margin:0 4px"></span><button class="btn ct-del-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#484f58;color:#484f58">✕</button>`:''}
+          ${!isFinance?`<span style="width:1px;height:18px;background:#d1dae8;display:inline-block;flex-shrink:0;margin:0 4px"></span><button class="btn ct-del-btn" data-id="${id}" style="font-size:11px;padding:3px 10px;border-color:#9ca3af;color:#9ca3af">✕</button>`:''}
         </div>
       </td>
     </tr>`;
   };
 
-  const thead=`<thead><tr style="background:#161b22">
+  const thead=`<thead><tr style="background:#f8fafc">
     <th style="${thS}">Ref</th><th style="${thS}">Name</th><th style="${thS}">Duty / Position</th><th style="${thS}">Type</th>
     <th style="${thS}">Status</th><th style="${thS}">Created</th><th style="${thS}">Actions</th>
   </tr></thead>`;
 
   const activeTable=active.length===0
-    ?`<div style="text-align:center;padding:60px;color:#484f58;font-size:14px">No active contracts. Click <strong>+ New Contract</strong> to create one.</div>`
+    ?`<div style="text-align:center;padding:60px;color:#9ca3af;font-size:14px">No active contracts. Click <strong>+ New Contract</strong> to create one.</div>`
     :`<table style="width:100%;border-collapse:collapse">${thead}<tbody>${active.map(e=>makeRow(e,false)).join('')}</tbody></table>`;
 
   const archivedSection=archived.length===0?'':`
-    <div style="margin-top:20px;border-top:1px solid #2e3a50;padding-top:16px">
-      <button id="ct-show-archived-btn" class="btn" style="font-size:11px;padding:4px 14px;border-color:#484f58;color:#484f58">
+    <div style="margin-top:20px;border-top:1px solid #d1dae8;padding-top:16px">
+      <button id="ct-show-archived-btn" class="btn" style="font-size:11px;padding:4px 14px;border-color:#9ca3af;color:#9ca3af">
         ${ctShowArchived?'▲ Hide':'▼ Show'} Archived (${archived.length})
       </button>
       ${ctShowArchived?`<div style="margin-top:14px;opacity:.85"><table style="width:100%;border-collapse:collapse">${thead}<tbody>${archived.map(e=>makeRow(e,true)).join('')}</tbody></table></div>`:''}
     </div>`;
 
   return`<div class="ep-wrap" style="padding:0">
-    <div style="padding:12px 20px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:12px">
-      <h2 style="font-size:17px;font-weight:900;color:#eaf0ff;margin:0">Contracts</h2>
+    <div style="padding:12px 20px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:12px">
+      <h2 style="font-size:17px;font-weight:900;color:#111827;margin:0">Contracts</h2>
       <div style="margin-left:auto">
         ${!isFinance?`<button class="btn primary" id="ct-new-btn" style="font-size:13px;padding:6px 18px;font-weight:800">+ New Contract</button>`:''}
       </div>
@@ -5358,24 +5392,24 @@ function renderContractForm(){
   const type=ctEditType;
 
   const fld=(field,label,placeholder,w)=>`<div style="margin-bottom:14px">
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#7a8ba0;margin-bottom:5px">${label}</div>
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:5px">${label}</div>
     <input class="ct-field" data-field="${field}" value="${esc(f[field]||'')}" placeholder="${placeholder}"
-      style="width:${w||'100%'};background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#eaf0ff;font-size:15px;padding:9px 12px;outline:none;font-family:inherit">
+      style="width:${w||'100%'};background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:15px;padding:9px 12px;outline:none;font-family:inherit">
   </div>`;
 
   const fta=(field,label,placeholder,rows)=>`<div style="margin-bottom:14px">
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#7a8ba0;margin-bottom:5px">${label}</div>
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:5px">${label}</div>
     <textarea class="ct-field" data-field="${field}" placeholder="${placeholder}" rows="${rows||4}"
-      style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:5px;color:#eaf0ff;font-size:14px;padding:9px 12px;outline:none;font-family:inherit;resize:vertical;box-sizing:border-box">${esc(f[field]||'')}</textarea>
+      style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:14px;padding:9px 12px;outline:none;font-family:inherit;resize:vertical;box-sizing:border-box">${esc(f[field]||'')}</textarea>
   </div>`;
 
-  const sec=(title)=>`<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin:20px 0 12px;padding-bottom:6px;border-bottom:1px solid #2e3a50">${title}</div>`;
+  const sec=(title)=>`<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin:20px 0 12px;padding-bottom:6px;border-bottom:1px solid #d1dae8">${title}</div>`;
   const prefill=(label,val)=>`<div style="margin-bottom:10px;display:flex;gap:10px;align-items:baseline">
-    <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:#484f58;white-space:nowrap;min-width:140px">${label}</span>
-    <span style="font-size:13px;color:#6e7681">${val}</span>
+    <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;white-space:nowrap;min-width:140px">${label}</span>
+    <span style="font-size:13px;color:#6b7280">${val}</span>
   </div>`;
 
-  const _pending=`<div style="margin-top:16px;padding:14px 16px;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;font-size:12px;color:#484f58;line-height:1.6">Contract text and full field set will be configured in Phase 2. Save as draft to hold your data.</div>`;
+  const _pending=`<div style="margin-top:16px;padding:14px 16px;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;font-size:12px;color:#9ca3af;line-height:1.6">Contract text and full field set will be configured in Phase 2. Save as draft to hold your data.</div>`;
   let formBody='';
   if(type==='presenter'){
     formBody=`
@@ -5436,11 +5470,11 @@ function renderContractForm(){
   }
 
   return`<div class="ep-wrap" style="padding:0;overflow:hidden">
-    <div style="padding:12px 20px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0">
+    <div style="padding:12px 20px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0">
       <button class="btn" id="ct-back-btn" style="font-size:12px;padding:6px 14px">◀ Contracts</button>
       <div>
-        <span style="font-size:16px;font-weight:900;color:#eaf0ff">${isEdit?'Edit Contract':'New Contract'}</span>
-        <span style="font-size:12px;color:#6e7681;margin-left:10px">${ctTypeLabel(type)}</span>
+        <span style="font-size:16px;font-weight:900;color:#111827">${isEdit?'Edit Contract':'New Contract'}</span>
+        <span style="font-size:12px;color:#6b7280;margin-left:10px">${ctTypeLabel(type)}</span>
       </div>
       <div style="margin-left:auto;display:flex;gap:8px">
         <button class="btn" id="ct-save-draft-btn" style="font-size:12px;padding:6px 16px;border-color:#e3b341;color:#e3b341">💾 Save Draft</button>
@@ -5448,10 +5482,10 @@ function renderContractForm(){
       </div>
     </div>
     <div style="display:flex;flex:1;min-height:0;overflow:hidden">
-      <div style="width:520px;flex-shrink:0;overflow-y:auto;padding:24px;border-right:1px solid #21262d">
+      <div style="width:520px;flex-shrink:0;overflow-y:auto;padding:24px;border-right:1px solid #e8edf5">
         <!-- Pre-filled company info -->
-        <div style="background:#161b22;border:1px solid #2e3a50;border-radius:8px;padding:14px 18px;margin-bottom:20px">
-          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#484f58;margin-bottom:10px">Pre-filled — Company Details</div>
+        <div style="background:#f8fafc;border:1px solid #d1dae8;border-radius:8px;padding:14px 18px;margin-bottom:20px">
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#9ca3af;margin-bottom:10px">Pre-filled — Company Details</div>
           ${prefill('Company',"COMBINED ARTISTIC PRODUCTIONS (PTY) LTD"+' ('+"2019/196874/07"+')')}
           ${prefill('Address',"Tulbach North, 369 Oak Avenue, Randburg, 2194, South Africa")}
           ${prefill('M-Net',"Electronic Media Network Proprietary Limited"+' ('+"1985/002853/07"+')')}
@@ -5459,8 +5493,8 @@ function renderContractForm(){
         </div>
         ${formBody}
       </div>
-      <div style="flex:1;overflow-y:auto;padding:20px;background:#0d1117;min-width:0">
-        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#484f58;margin-bottom:12px">Live Preview</div>
+      <div style="flex:1;overflow-y:auto;padding:20px;background:#f8fafc;min-width:0">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#9ca3af;margin-bottom:12px">Live Preview</div>
         <div id="ct-preview-pane"></div>
       </div>
     </div>
@@ -6014,24 +6048,24 @@ function renderBroadcastList(){
     const txLabel=txDate?new Date(txDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}):'—';
     const delDur=c.deliveredDuration||'—';
     const commDur=c.commDuration||'—';
-    const badge=(c.isLicensed?'<span style="font-size:8px;font-weight:800;background:#1c2d1c;color:#3fb950;padding:1px 5px;border-radius:2px;margin-left:4px">LIC</span>':
-                c.isInHouse?'<span style="font-size:8px;font-weight:800;background:#1a1a2e;color:#7a8ba0;padding:1px 5px;border-radius:2px;margin-left:4px">IH</span>':'')+
+    const badge=(c.isLicensed?'<span style="font-size:8px;font-weight:800;background:#dcfce7;color:#3fb950;padding:1px 5px;border-radius:2px;margin-left:4px">LIC</span>':
+                c.isInHouse?'<span style="font-size:8px;font-weight:800;background:#eef2ff;color:#6b7280;padding:1px 5px;border-radius:2px;margin-left:4px">IH</span>':'')+
                (c.onHold?'<span style="font-size:9px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 5px;border-radius:2px;margin-left:4px;vertical-align:middle">ON HOLD</span>':'');
     const rowBg=isPast?'background:rgba(248,81,73,0.06)':isFuture?'background:rgba(88,166,255,0.04)':'';
     const txColor=isPast?'#f85149':isFuture?'#3fb950':'#484f58';
 
     return`<tr style="${rowBg};border-bottom:1px solid #21262d">
-      <td style="padding:8px 10px;font-size:11px;font-weight:900;color:#58a6ff;font-family:monospace;white-space:nowrap">${esc(String(c.commNum))}${badge}</td>
-      <td style="padding:8px 10px;font-size:12px;font-weight:600;color:#eaf0ff;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.storyName)}">${esc(c.storyName)}</td>
-      <td style="padding:8px 10px;font-size:11px;color:#8b949e;white-space:nowrap">${esc(c.producer||'—')}</td>
-      <td style="padding:8px 10px;font-size:11px;color:#8b949e;white-space:nowrap">${esc(c.presenterVO||'—')}</td>
+      <td style="padding:8px 10px;font-size:11px;font-weight:900;color:#0066CC;font-family:monospace;white-space:nowrap">${esc(String(c.commNum))}${badge}</td>
+      <td style="padding:8px 10px;font-size:12px;font-weight:600;color:#111827;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.storyName)}">${esc(c.storyName)}</td>
+      <td style="padding:8px 10px;font-size:11px;color:#6b7280;white-space:nowrap">${esc(c.producer||'—')}</td>
+      <td style="padding:8px 10px;font-size:11px;color:#6b7280;white-space:nowrap">${esc(c.presenterVO||'—')}</td>
       <td style="padding:8px 10px;font-size:11px;font-weight:700;color:${epNum?'#eaf0ff':'#484f58'};white-space:nowrap;font-family:monospace">${epLabel}</td>
       <td style="padding:8px 10px;font-size:11px;font-weight:700;color:${txColor};white-space:nowrap">
         ${txLabel}
         ${isPast?'<span style="font-size:8px;font-weight:800;background:#3d0000;color:#f85149;padding:1px 5px;border-radius:2px;margin-left:4px;vertical-align:middle">BROADCAST</span>':''}
       </td>
       <td style="padding:8px 10px;font-size:11px;font-family:monospace;color:${c.deliveredDuration?'#3fb950':'#484f58'};white-space:nowrap">${esc(delDur)}</td>
-      <td style="padding:8px 10px;font-size:11px;font-family:monospace;color:#7a8ba0;white-space:nowrap">${esc(commDur)}</td>
+      <td style="padding:8px 10px;font-size:11px;font-family:monospace;color:#6b7280;white-space:nowrap">${esc(commDur)}</td>
     </tr>`;
   }).join('');
 
@@ -6040,34 +6074,34 @@ function renderBroadcastList(){
   const broadcast=allComms.filter(c=>{const d=c.broadcastEpisode?resolveDate(Number(c.broadcastEpisode)):'';return d&&d<today;}).length;
 
   return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
-    <div style="padding:10px 16px;background:#161b22;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap">
+    <div style="padding:10px 16px;background:#f8fafc;border-bottom:1px solid #21262d;display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap">
       <div style="position:relative;flex:1;max-width:420px">
         <input id="broadcast-search" value="${esc(broadcastSearch)}" placeholder="Search by comm #, story name, producer or presenter…" autocomplete="off"
-          style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 36px 7px 12px;border-radius:6px;font-size:13px;box-sizing:border-box">
-        ${broadcastSearch?`<button id="broadcast-clear" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#484f58;cursor:pointer;font-size:14px;line-height:1">✕</button>`:''}
+          style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:7px 36px 7px 12px;border-radius:6px;font-size:13px;box-sizing:border-box">
+        ${broadcastSearch?`<button id="broadcast-clear" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#9ca3af;cursor:pointer;font-size:14px;line-height:1">✕</button>`:''}
       </div>
-      <div style="display:flex;gap:16px;font-size:11px;color:#6e7681">
-        <span><span style="color:#eaf0ff;font-weight:700">${total}</span> shown</span>
-        <span><span style="color:#58a6ff;font-weight:700">${assigned}</span> scheduled</span>
+      <div style="display:flex;gap:16px;font-size:11px;color:#6b7280">
+        <span><span style="color:#111827;font-weight:700">${total}</span> shown</span>
+        <span><span style="color:#0066CC;font-weight:700">${assigned}</span> scheduled</span>
         <span><span style="color:#f85149;font-weight:700">${broadcast}</span> broadcast</span>
       </div>
     </div>
     <div style="flex:1;overflow:auto">
       <table style="width:100%;border-collapse:collapse;table-layout:auto">
-        <thead style="position:sticky;top:0;z-index:5;background:#161b22">
+        <thead style="position:sticky;top:0;z-index:5;background:#f8fafc">
           <tr>
-            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left;min-width:70px">Comm #</th>
-            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;text-align:left;min-width:200px">Story Name</th>
-            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left">Producer</th>
-            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left">Presenter</th>
-            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left">Episode</th>
-            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left">Broadcast Date</th>
-            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#3fb950;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left">Del. Duration</th>
-            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#7a8ba0;border-bottom:2px solid #2e3a50;white-space:nowrap;text-align:left">Comm. Duration</th>
+            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;white-space:nowrap;text-align:left;min-width:70px">Comm #</th>
+            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:left;min-width:200px">Story Name</th>
+            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;white-space:nowrap;text-align:left">Producer</th>
+            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;white-space:nowrap;text-align:left">Presenter</th>
+            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;white-space:nowrap;text-align:left">Episode</th>
+            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;white-space:nowrap;text-align:left">Broadcast Date</th>
+            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#3fb950;border-bottom:2px solid #d1dae8;white-space:nowrap;text-align:left">Del. Duration</th>
+            <th style="padding:6px 10px;font-size:9px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;white-space:nowrap;text-align:left">Comm. Duration</th>
           </tr>
         </thead>
         <tbody>
-          ${rows||`<tr><td colspan="8" style="padding:40px;text-align:center;color:#484f58;font-size:13px">No results for "${esc(broadcastSearch)}"</td></tr>`}
+          ${rows||`<tr><td colspan="8" style="padding:40px;text-align:center;color:#9ca3af;font-size:13px">No results for "${esc(broadcastSearch)}"</td></tr>`}
         </tbody>
       </table>
     </div>
@@ -6150,11 +6184,11 @@ function renderLineups(epNums){
         const isDelivered=c&&!!c.deliveredDuration;
         itemsHtml+=`<div style="${rowBg};padding:14px 18px;border-radius:6px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <span style="font-size:14px;font-weight:900;color:${past?'#f85149':'#58a6ff'};width:60px;font-family:monospace;flex-shrink:0">${esc(String(item.commNum))}</span>
-          <span style="font-size:14px;font-weight:700;color:${past?'#f87171':'#eaf0ff'};flex:1;min-width:100px">${esc(c?.storyName||String(item.commNum))}${c?.isLicensed?'<span style="margin-left:5px;font-size:8px;font-weight:800;background:#1c2d1c;color:#3fb950;padding:1px 4px;border-radius:2px;vertical-align:middle">LIC</span>':''}${c?.isInHouse?'<span style="margin-left:5px;font-size:8px;font-weight:800;background:#1a1a2e;color:#7a8ba0;padding:1px 4px;border-radius:2px;vertical-align:middle">IH</span>':''}${c?.onHold?'<span style="margin-left:5px;font-size:9px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 5px;border-radius:2px;vertical-align:middle">ON HOLD</span>':''}</span>
-          <span style="font-size:11px;color:#8b949e;min-width:70px">${esc(c?.presenterVO||'')}</span>
-          <span style="font-size:11px;color:#6e7681;min-width:70px">${esc(c?.producer||'')}</span>
+          <span style="font-size:14px;font-weight:700;color:${past?'#f87171':'#eaf0ff'};flex:1;min-width:100px">${esc(c?.storyName||String(item.commNum))}${c?.isLicensed?'<span style="margin-left:5px;font-size:8px;font-weight:800;background:#dcfce7;color:#3fb950;padding:1px 4px;border-radius:2px;vertical-align:middle">LIC</span>':''}${c?.isInHouse?'<span style="margin-left:5px;font-size:8px;font-weight:800;background:#eef2ff;color:#6b7280;padding:1px 4px;border-radius:2px;vertical-align:middle">IH</span>':''}${c?.onHold?'<span style="margin-left:5px;font-size:9px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 5px;border-radius:2px;vertical-align:middle">ON HOLD</span>':''}</span>
+          <span style="font-size:11px;color:#6b7280;min-width:70px">${esc(c?.presenterVO||'')}</span>
+          <span style="font-size:11px;color:#6b7280;min-width:70px">${esc(c?.producer||'')}</span>
           <span style="font-size:11px;font-family:monospace;color:${isDelivered?'#3fb950':'#8b949e'};min-width:50px;text-align:right" title="${isDelivered?'Delivered':'Commissioned'}">${decToMmSs(toDecimalMins(dur))}${isDelivered?' ✓':''}</span>
-          ${canEdit&&!past?`<button class="lu-remove-item" data-ep="${ep}" data-idx="${idx}" data-commnum="${item.commNum||''}" style="background:none;border:none;color:#484f58;cursor:pointer;font-size:14px;line-height:1">✕</button>`:''}
+          ${canEdit&&!past?`<button class="lu-remove-item" data-ep="${ep}" data-idx="${idx}" data-commnum="${item.commNum||''}" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:14px;line-height:1">✕</button>`:''}
         </div>`;
       }
     });
@@ -6164,36 +6198,36 @@ function renderLineups(epNums){
 
     let luAnc1='',luAnc2='';
     try{const _a=getStudioAnchors(ep);luAnc1=_a.anchor1||'';luAnc2=_a.anchor2||'';}catch(_e){}
-    epsHtml+=`<div data-lu-ep-block="${ep}" data-lu-past="${past?1:0}" style="${past?'background:#1a0a0a;border-color:#3d1f1f':'background:#0d1117;border-color:#21262d'};border:1px solid;border-radius:10px;margin-bottom:20px;overflow:hidden">
-      <div class="lu-ep-header" data-lu-ep="${ep}" style="${past?'background:#2d0f0f':'background:#161b22'};padding:18px 22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;cursor:pointer;user-select:none" title="${collapsed?'Click to expand':'Click to collapse'}">
+    epsHtml+=`<div data-lu-ep-block="${ep}" data-lu-past="${past?1:0}" style="${past?'background:#fff5f5;border-color:#fecaca':'background:#f8fafc;border-color:#e8edf5'};border:1px solid;border-radius:10px;margin-bottom:20px;overflow:hidden">
+      <div class="lu-ep-header" data-lu-ep="${ep}" style="${past?'background:#2d0f0f':'background:#f8fafc'};padding:18px 22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;cursor:pointer;user-select:none" title="${collapsed?'Click to expand':'Click to collapse'}">
         <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
           <span class="lu-chevron" style="font-size:16px;color:${epAccent};margin-right:2px">${collapsed?'▶':'▼'}</span>
           <span style="font-size:20px;font-weight:900;color:${epAccent};font-family:monospace">2026 | ${epLabel}</span>
           ${past?`<span style="background:#3d0000;color:#f85149;font-size:10px;font-weight:800;padding:3px 9px;border-radius:3px;border:1px solid #6b1111;letter-spacing:.5px">BROADCAST</span>`:''}
-          ${epDate?`<span style="font-size:13px;color:#6e7681">${fmtDate(epDate)}</span>`:''}
+          ${epDate?`<span style="font-size:13px;color:#6b7280">${fmtDate(epDate)}</span>`:''}
         </div>
         <span style="font-size:16px;font-weight:800;color:${tot>0?(past?'#f85149':'#3fb950'):'#484f58'};font-family:monospace">Total: ${decToMmSs(tot)}</span>
       </div>
-      <div class="lu-ep-body" style="display:${collapsed?'none':'block'}"><div style="padding:16px 22px;border-bottom:1px solid ${past?'#3d1f1f':'#21262d'};display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+      <div class="lu-ep-body" style="display:${collapsed?'none':'block'}"><div style="padding:16px 22px;border-bottom:1px solid ${past?'#fecaca':'#e8edf5'};display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
         <div>
-          <div style="font-size:11px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:6px">Director</div>
+          <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:6px">Director</div>
           ${canEdit
-            ?`<input class="lu-director" data-ep="${ep}" value="${esc(lu.director||'')}" placeholder="Director name" style="width:100%;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:7px 10px;border-radius:5px;font-size:14px;box-sizing:border-box">`
-            :`<span style="font-size:14px;font-weight:700;color:#eaf0ff">${esc(lu.director||'—')}</span>`}
+            ?`<input class="lu-director" data-ep="${ep}" value="${esc(lu.director||'')}" placeholder="Director name" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:7px 10px;border-radius:5px;font-size:14px;box-sizing:border-box">`
+            :`<span style="font-size:14px;font-weight:700;color:#111827">${esc(lu.director||'—')}</span>`}
         </div>
         <div>
-          <div style="font-size:11px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:6px">Anchor 1</div>
-          <span style="font-size:14px;font-weight:700;color:#58a6ff">${esc(luAnc1||lu.presenter1||'—')}</span>
+          <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:6px">Anchor 1</div>
+          <span style="font-size:14px;font-weight:700;color:#0066CC">${esc(luAnc1||lu.presenter1||'—')}</span>
         </div>
         <div>
-          <div style="font-size:11px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:6px">Anchor 2</div>
-          <span style="font-size:14px;font-weight:700;color:#58a6ff">${esc(luAnc2||lu.presenter2||'—')}</span>
+          <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:6px">Anchor 2</div>
+          <span style="font-size:14px;font-weight:700;color:#0066CC">${esc(luAnc2||lu.presenter2||'—')}</span>
         </div>
       </div>
       <div style="padding:16px 22px">
-        ${itemsHtml||`<div style="font-size:14px;color:#484f58;font-style:italic;padding:8px 0">No content added yet.</div>`}
+        ${itemsHtml||`<div style="font-size:14px;color:#9ca3af;font-style:italic;padding:8px 0">No content added yet.</div>`}
         ${canEdit&&!past?`<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center">
-          <select class="lu-add-comm" data-ep="${ep}" style="flex:1;min-width:220px;background:#1c2433;border:1px solid #2e3a50;color:#eaf0ff;padding:8px 12px;border-radius:5px;font-size:13px">
+          <select class="lu-add-comm" data-ep="${ep}" style="flex:1;min-width:220px;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:8px 12px;border-radius:5px;font-size:13px">
             <option value="">+ Add commission…</option>
             ${availableComms.map(c=>`<option value="${esc(String(c.commNum))}">${esc(String(c.commNum))} | ${esc(c.storyName)}${c.onHold?' [ON HOLD]':''} (${decToMmSs(toDecimalMins(durForComm(c)))})</option>`).join('')}
           </select>
@@ -6202,7 +6236,7 @@ function renderLineups(epNums){
     </div>`;
   });
 
-  if(!eps.length)epsHtml=`<div style="text-align:center;padding:40px;color:#484f58;font-size:13px">No episodes in the Commission List yet.</div>`;
+  if(!eps.length)epsHtml=`<div style="text-align:center;padding:40px;color:#9ca3af;font-size:13px">No episodes in the Commission List yet.</div>`;
 
   let sideHtml=sidebarInserts.map(c=>{
     const isLic=c.isLicensed;
@@ -6210,32 +6244,32 @@ function renderLineups(epNums){
     const borderCol=isLic?'#3fb950':isIH?'#6e7681':'#e3b341';
     const bgCol=isLic?'rgba(63,185,80,0.06)':isIH?'rgba(110,118,129,0.06)':'rgba(227,179,65,0.08)';
     const commCol=isLic?'#3fb950':isIH?'#7a8ba0':'#e3b341';
-    const typeTag=isLic?'<span style="font-size:7px;font-weight:800;background:#1c2d1c;color:#3fb950;padding:1px 4px;border-radius:2px;margin-left:4px;vertical-align:middle">LIC</span>':
-                  isIH?'<span style="font-size:7px;font-weight:800;background:#1a1a2e;color:#7a8ba0;padding:1px 4px;border-radius:2px;margin-left:4px;vertical-align:middle">IH</span>':'';
+    const typeTag=isLic?'<span style="font-size:7px;font-weight:800;background:#dcfce7;color:#3fb950;padding:1px 4px;border-radius:2px;margin-left:4px;vertical-align:middle">LIC</span>':
+                  isIH?'<span style="font-size:7px;font-weight:800;background:#eef2ff;color:#6b7280;padding:1px 4px;border-radius:2px;margin-left:4px;vertical-align:middle">IH</span>':'';
     const delDate=c.deliveryDate?new Date(c.deliveryDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'2-digit'}):'';
     const dur=decToMmSs(toDecimalMins(c.deliveredDuration||c.commDuration));
     return`<div style="background:${bgCol};border-left:3px solid ${borderCol};border-radius:5px;padding:10px 12px;margin-bottom:8px">
       <div style="font-size:12px;font-weight:900;color:${commCol};font-family:monospace">${esc(String(c.commNum))}${typeTag}</div>
-      <div style="font-size:12px;font-weight:700;color:#eaf0ff;margin-top:2px">${esc(c.storyName)}${c.onHold?'<span style="font-size:9px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 4px;border-radius:2px;margin-left:5px;vertical-align:middle">ON HOLD</span>':''}</div>
+      <div style="font-size:12px;font-weight:700;color:#111827;margin-top:2px">${esc(c.storyName)}${c.onHold?'<span style="font-size:9px;font-weight:800;background:#2d1400;color:#f97316;padding:1px 4px;border-radius:2px;margin-left:5px;vertical-align:middle">ON HOLD</span>':''}</div>
       <div style="display:flex;gap:6px;margin-top:4px;align-items:center;flex-wrap:wrap">
-        ${c.presenterVO?`<span style="font-size:11px;color:#8b949e">${esc(c.presenterVO)}</span>`:''}
-        ${c.producer?`<span style="font-size:11px;color:#6e7681">${esc(c.producer)}</span>`:''}
+        ${c.presenterVO?`<span style="font-size:11px;color:#6b7280">${esc(c.presenterVO)}</span>`:''}
+        ${c.producer?`<span style="font-size:11px;color:#6b7280">${esc(c.producer)}</span>`:''}
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;flex-wrap:wrap;gap:4px">
-        ${delDate?`<span style="font-size:10px;color:#e3b341;font-weight:700">📅 ${delDate}</span>`:'<span style="font-size:10px;color:#484f58;font-style:italic">No delivery date</span>'}
-        <span style="font-size:11px;color:#7a8ba0;font-family:monospace">${dur}</span>
+        ${delDate?`<span style="font-size:10px;color:#e3b341;font-weight:700">📅 ${delDate}</span>`:'<span style="font-size:10px;color:#9ca3af;font-style:italic">No delivery date</span>'}
+        <span style="font-size:11px;color:#6b7280;font-family:monospace">${dur}</span>
       </div>
     </div>`;
   }).join('');
-  if(!sideHtml)sideHtml=`<div style="font-size:11px;color:#484f58;font-style:italic">No inserts in production.</div>`;
+  if(!sideHtml)sideHtml=`<div style="font-size:11px;color:#9ca3af;font-style:italic">No inserts in production.</div>`;
 
   return`<div style="display:flex;gap:0;height:100%;overflow:hidden">
     <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
-      <div style="padding:14px 24px;background:#161b22;border-bottom:2px solid #21262d;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;flex-wrap:wrap;gap:10px">
-        <h2 style="font-size:22px;font-weight:900;color:#eaf0ff;margin:0">LINE-UPS · Season ${currentSeason}</h2>
+      <div style="padding:14px 24px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;flex-wrap:wrap;gap:10px">
+        <h2 style="font-size:22px;font-weight:900;color:#111827;margin:0">LINE-UPS · Season ${currentSeason}</h2>
         <div style="display:flex;align-items:center;gap:12px">
-          <span style="font-size:11px;color:#484f58">Broadcast episodes shown in red · ✓ = delivered duration</span>
-          <a href="lineups-guide.html" target="_blank" class="btn" style="font-size:13px;padding:8px 16px;font-weight:700;border-color:#484f58;color:#8b949e;text-decoration:none">? Guide</a>
+          <span style="font-size:11px;color:#9ca3af">Broadcast episodes shown in red · ✓ = delivered duration</span>
+          <a href="lineups-guide.html" target="_blank" class="btn" style="font-size:13px;padding:8px 16px;font-weight:700;border-color:#9ca3af;color:#6b7280;text-decoration:none">? Guide</a>
         </div>
       </div>
       <div style="flex:1;overflow-y:auto;padding:16px 8px 16px 16px">
@@ -6243,8 +6277,8 @@ function renderLineups(epNums){
       </div>
     </div>
     <div style="width:280px;flex-shrink:0;padding:16px 16px 16px 0;overflow-y:auto;height:100%">
-      <div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:16px">
-        <div style="font-size:11px;font-weight:800;color:#e3b341;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;border-bottom:1px solid #2e3a50;padding-bottom:10px">Inserts in Production</div>
+      <div style="background:#f8fafc;border:1px solid #e8edf5;border-radius:8px;padding:16px">
+        <div style="font-size:11px;font-weight:800;color:#e3b341;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;border-bottom:1px solid #d1dae8;padding-bottom:10px">Inserts in Production</div>
         ${sideHtml}
       </div>
     </div>
@@ -6256,22 +6290,22 @@ function renderAdmin(){
   const allRoles=Object.entries(ROLE_META);
   return`<div class="admin-wrap">
   <div class="admin-grid">
-  <div class="admin-card" style="grid-column:1/-1;background:linear-gradient(135deg,#0d1117 0%,#161b22 100%);border:1px solid #388bfd44">
+  <div class="admin-card" style="grid-column:1/-1;background:linear-gradient(135deg,#002868 0%,#0052A3 100%);border:1px solid rgba(0,102,204,.25)">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <div>
         <h4 style="margin:0 0 4px 0;color:#388bfd">Data Backup</h4>
-        <div style="font-size:11px;color:#6e7681">Downloads a full JSON snapshot of all Firebase data — commissions, lineups, post production, music cues, presenter calendar, leave records and more.</div>
+        <div style="font-size:11px;color:#6b7280">Downloads a full JSON snapshot of all Firebase data — commissions, lineups, post production, music cues, presenter calendar, leave records and more.</div>
       </div>
       <button class="btn primary" id="backup-export-btn" style="border-color:#388bfd;color:#388bfd;background:rgba(56,139,253,0.1);white-space:nowrap;padding:8px 18px;font-size:12px;font-weight:800">⬇ Export Full Backup</button>
     </div>
-    <div style="margin-top:12px;padding:10px 12px;background:#0d1117;border-radius:6px;border:1px solid #21262d;font-size:10px;color:#484f58">
-      💡 <strong style="color:#6e7681">Tip:</strong> Run a backup before major changes, and keep at least one copy offsite (Google Drive, email to yourself, etc.). The file can be used to restore data if needed.
+    <div style="margin-top:12px;padding:10px 12px;background:#f8fafc;border-radius:6px;border:1px solid #e8edf5;font-size:10px;color:#9ca3af">
+      💡 <strong style="color:#6b7280">Tip:</strong> Run a backup before major changes, and keep at least one copy offsite (Google Drive, email to yourself, etc.). The file can be used to restore data if needed.
     </div>
     <hr style="border:none;border-top:1px solid #21262d;margin:16px 0">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <div>
         <h4 style="margin:0 0 4px 0;color:#f85149">Restore from Backup</h4>
-        <div style="font-size:11px;color:#6e7681">Upload a previously exported JSON backup file to restore all data to that point in time.</div>
+        <div style="font-size:11px;color:#6b7280">Upload a previously exported JSON backup file to restore all data to that point in time.</div>
       </div>
       <label class="btn" style="cursor:pointer;border-color:#f85149;color:#f85149;background:rgba(248,81,73,.08);white-space:nowrap;padding:8px 18px;font-size:12px;font-weight:800">
         ⬆ Restore from Backup
@@ -6279,18 +6313,18 @@ function renderAdmin(){
       </label>
     </div>
     ${restorePreview?`
-    <div style="background:#160808;border:1px solid #f8514966;border-radius:6px;padding:14px 16px;margin-top:14px">
+    <div style="background:#fef2f2;border:1px solid #f8514966;border-radius:6px;padding:14px 16px;margin-top:14px">
       <div style="font-size:12px;font-weight:700;color:#f85149;margin-bottom:10px">Restore Preview — confirm before proceeding</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;margin-bottom:10px;font-size:11px;color:#8b949e">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;margin-bottom:10px;font-size:11px;color:#6b7280">
         <div>Backup date: <strong style="color:#e6edf3">${new Date(restorePreview.backup.exportedAt).toLocaleString('en-ZA')}</strong></div>
         <div>Exported by: <strong style="color:#e6edf3">${restorePreview.backup.exportedBy||'—'}</strong></div>
         <div>App version: <strong style="color:#e6edf3">${restorePreview.backup.appVersion||'—'}</strong></div>
         <div>Season: <strong style="color:#e6edf3">${restorePreview.backup.season||'—'}</strong></div>
       </div>
-      <div style="font-size:10px;color:#6e7681;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:6px">
-        ${restorePreview.summary.map(([col,count])=>`<span style="background:#21262d;padding:2px 8px;border-radius:3px;font-family:monospace">${col}: ${count}</span>`).join('')}
+      <div style="font-size:10px;color:#6b7280;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:6px">
+        ${restorePreview.summary.map(([col,count])=>`<span style="background:#e8edf5;padding:2px 8px;border-radius:3px;font-family:monospace">${col}: ${count}</span>`).join('')}
       </div>
-      <div style="background:#0d0505;border:1px solid #f85149;border-radius:4px;padding:8px 12px;margin-bottom:12px;font-size:10px;color:#f85149;line-height:1.5">
+      <div style="background:#fff1f2;border:1px solid #f85149;border-radius:4px;padding:8px 12px;margin-bottom:12px;font-size:10px;color:#f85149;line-height:1.5">
         ⚠ <strong>WARNING:</strong> This will overwrite existing data for all collections in the backup file. This cannot be undone. Export a fresh backup first if you want to preserve the current state.
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end">
@@ -6308,13 +6342,13 @@ function renderAdmin(){
       <h4 style="margin:0">Users &amp; Access</h4>
       <button class="btn primary" id="add-user-btn">+ Create User</button>
     </div>
-    ${users.length===0?`<div style="color:#6e7681;font-size:12px;padding:12px 0">No users found.</div>`:`
+    ${users.length===0?`<div style="color:#6b7280;font-size:12px;padding:12px 0">No users found.</div>`:`
     <table style="width:100%;border-collapse:collapse">
       <thead><tr>
-        <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:700;color:#6e7681;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #2e3a50">User</th>
-        <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:700;color:#6e7681;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #2e3a50">Email</th>
-        <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:700;color:#6e7681;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #2e3a50">Role</th>
-        <th style="text-align:center;padding:8px 10px;font-size:10px;font-weight:700;color:#6e7681;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #2e3a50">Actions</th>
+        <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #d1dae8">User</th>
+        <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #d1dae8">Email</th>
+        <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #d1dae8">Role</th>
+        <th style="text-align:center;padding:8px 10px;font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #d1dae8">Actions</th>
       </tr></thead>
       <tbody>
       ${[...users].sort((a,b)=>(a.displayName||a.email||'').localeCompare(b.displayName||b.email||'')).map(u=>{
@@ -6324,16 +6358,16 @@ function renderAdmin(){
           <td style="padding:10px"><div style="display:flex;align-items:center;gap:8px">
             <div class="u-av" style="background:${rm.bg};color:${rm.color};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${initials(u.displayName||u.email)}</div>
             <div class="u-name" style="font-size:13px;font-weight:600">${esc(u.displayName||'No name')}</div>
-            ${isSelf?`<span style="font-size:9px;background:#1f4023;color:#3fb950;padding:1px 6px;border-radius:3px;font-weight:700">YOU</span>`:''}
+            ${isSelf?`<span style="font-size:9px;background:#dcfce7;color:#3fb950;padding:1px 6px;border-radius:3px;font-weight:700">YOU</span>`:''}
           </div></td>
-          <td style="padding:10px;font-size:12px;color:#8b949e">${esc(u.email||'')}</td>
+          <td style="padding:10px;font-size:12px;color:#6b7280">${esc(u.email||'')}</td>
           <td style="padding:10px">
-            <select data-uid="${u.uid}" data-current-role="${u.role}" class="role-change-sel" style="background:#252d3d;border:1px solid #2e3a50;color:${rm.color};padding:4px 8px;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer" ${isSelf?'disabled':''}>
+            <select data-uid="${u.uid}" data-current-role="${u.role}" class="role-change-sel" style="background:#f0f4f8;border:1px solid #d1dae8;color:${rm.color};padding:4px 8px;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer" ${isSelf?'disabled':''}>
               ${allRoles.map(([k,v])=>`<option value="${k}" ${u.role===k?'selected':''}>${v.label}</option>`).join('')}
               </select>
               <div style="margin-top:6px">
-                <div style="font-size:9px;font-weight:700;color:#7a8ba0;text-transform:uppercase;margin-bottom:4px">Extra Access:</div>
-                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;color:#eaf0ff">
+                <div style="font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:4px">Extra Access:</div>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;color:#111827">
                   <input type="checkbox" class="extra-role-cb" data-uid="${u.uid}" data-extra="capstaff" ${(u.extraRoles||[]).includes('capstaff')?'checked':''}> CAP Leave
                 </label>
               </div>
@@ -6341,7 +6375,7 @@ function renderAdmin(){
             </select>
           </td>
           <td style="padding:10px;text-align:center">
-            ${!isSelf?`<button class="btn danger" data-delete-uid="${u.uid}" data-delete-name="${esc(u.displayName||u.email)}" style="font-size:11px;padding:4px 10px">Remove</button>`:`<span style="color:#484f58;font-size:11px">—</span>`}
+            ${!isSelf?`<button class="btn danger" data-delete-uid="${u.uid}" data-delete-name="${esc(u.displayName||u.email)}" style="font-size:11px;padding:4px 10px">Remove</button>`:`<span style="color:#9ca3af;font-size:11px">—</span>`}
           </td>
         </tr>`;
       }).join('')}
@@ -6367,7 +6401,7 @@ function renderAdmin(){
 function renderModals(epNums,nextEp){
   let out='';
   if(decomModal!==null){const c=comms.find(x=>x.id===decomModal);out+=`<div class="modal-overlay" id="decom-overlay"><div class="modal"><h3>Decommission Story</h3><p>A written motivation is required. Reversible only by Admin.</p><label>Story</label><div class="modal-story">${esc(c?.storyName||'')}</div><label>Motivation *</label><textarea id="decom-text" placeholder="Enter reason for decommissioning…">${esc(decomText)}</textarea><div class="modal-actions"><button class="btn" id="decom-cancel">Cancel</button><button class="btn danger" id="decom-confirm">Confirm Decommission</button></div></div></div>`;}
-  if(addEpModal){const autoDate=resolveDate(parseInt(newEpNum)||nextEp);const exists=epNums.includes(parseInt(newEpNum));out+=`<div class="modal-overlay" id="ep-overlay"><div class="modal"><h3>Add Episode</h3><p>Creates a new episode slot. Date is auto-calculated (+7 days) and editable after creation.</p><label>Episode Number</label><input type="number" id="new-ep-num" value="${newEpNum}" min="1" placeholder="${nextEp}">${newEpNum&&!isNaN(parseInt(newEpNum))?`<div style="margin-top:8px;font-size:12px;color:#8b949e">Date: <strong style="color:#e6edf3">${fmtDate(autoDate)}</strong></div>`:''}${exists?`<div style="color:#f85149;font-size:12px;margin-top:6px">⚠ Episode ${newEpNum} already exists.</div>`:''}<div class="modal-actions"><button class="btn" id="ep-cancel">Cancel</button><button class="btn primary" id="ep-confirm">Create Episode ${newEpNum||nextEp}</button></div></div></div>`;}
+  if(addEpModal){const autoDate=resolveDate(parseInt(newEpNum)||nextEp);const exists=epNums.includes(parseInt(newEpNum));out+=`<div class="modal-overlay" id="ep-overlay"><div class="modal"><h3>Add Episode</h3><p>Creates a new episode slot. Date is auto-calculated (+7 days) and editable after creation.</p><label>Episode Number</label><input type="number" id="new-ep-num" value="${newEpNum}" min="1" placeholder="${nextEp}">${newEpNum&&!isNaN(parseInt(newEpNum))?`<div style="margin-top:8px;font-size:12px;color:#6b7280">Date: <strong style="color:#e6edf3">${fmtDate(autoDate)}</strong></div>`:''}${exists?`<div style="color:#f85149;font-size:12px;margin-top:6px">⚠ Episode ${newEpNum} already exists.</div>`:''}<div class="modal-actions"><button class="btn" id="ep-cancel">Cancel</button><button class="btn primary" id="ep-confirm">Create Episode ${newEpNum||nextEp}</button></div></div></div>`;}
   if(addUserModal){out+=`<div class="modal-overlay" id="user-overlay"><div class="modal"><h3>Create User Account</h3><p>The user can log in immediately with these credentials. Share them securely.</p><label>Full Name</label><input type="text" id="nu-name" value="${esc(newUserData.displayName)}" placeholder="e.g. Joy Summers"><label>Email</label><input type="email" id="nu-email" value="${esc(newUserData.email)}" placeholder="user@example.com"><label>Password</label><input type="text" id="nu-pass" value="${esc(newUserData.password)}" placeholder="Minimum 6 characters"><label>Role</label><select id="nu-role">${Object.entries(ROLE_META).map(([k,v])=>`<option value="${k}"${newUserData.role===k?' selected':''}>${v.label}</option>`).join('')}</select><div id="nu-err" style="color:#f85149;font-size:12px;margin-top:8px;display:none"></div><div class="modal-actions"><button class="btn" id="user-cancel">Cancel</button><button class="btn primary" id="user-confirm">Create Account</button></div></div></div>`;}
   if(rosEditModal){
     const {epNum,itemIdx}=rosEditModal;
@@ -6385,8 +6419,8 @@ function renderModals(epNums,nextEp){
       const curSrc=_sources[si]||'';
       const rmBtn=_slugs.length>1?`<button class="ros-edit-rm-slug btn" data-itemidx="${itemIdx}" data-sidx="${si}" style="font-size:12px;padding:4px 10px;border-color:#f85149;color:#f85149;flex-shrink:0">Remove</button>`:'';
       return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <input class="ros-edit-slug" data-sidx="${si}" value="${esc(s||'')}" placeholder="Slug…" style="flex:1;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#e3b341;font-size:16px;font-weight:700;padding:10px 12px;outline:none;font-family:inherit">
-        <select class="ros-edit-slug-source" data-sidx="${si}" style="background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#56d364;font-size:14px;font-weight:700;padding:10px 12px;outline:none;font-family:inherit;cursor:pointer;width:90px;flex-shrink:0">${_srcOpts.map(o=>`<option value="${o}" ${curSrc===o?'selected':''}>${o||'— none —'}</option>`).join('')}</select>
+        <input class="ros-edit-slug" data-sidx="${si}" value="${esc(s||'')}" placeholder="Slug…" style="flex:1;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#e3b341;font-size:16px;font-weight:700;padding:10px 12px;outline:none;font-family:inherit">
+        <select class="ros-edit-slug-source" data-sidx="${si}" style="background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#56d364;font-size:14px;font-weight:700;padding:10px 12px;outline:none;font-family:inherit;cursor:pointer;width:90px;flex-shrink:0">${_srcOpts.map(o=>`<option value="${o}" ${curSrc===o?'selected':''}>${o||'— none —'}</option>`).join('')}</select>
         ${rmBtn}
       </div>`;
     }).join('');
@@ -6394,16 +6428,16 @@ function renderModals(epNums,nextEp){
     const _editFullAccess=!['content','director'].includes(getEffectiveRole());
     const _canDirectorNotes=['admin','director'].includes(getEffectiveRole());
     out+=`<div class="modal-overlay" id="ros-edit-overlay"><div class="modal" style="width:min(1600px,99vw);max-height:97vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
-      <div style="padding:20px 24px;border-bottom:1px solid #2e3a50;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div style="padding:20px 24px;border-bottom:1px solid #d1dae8;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
         <div>
           ${_ts.badge?`<span style="font-size:11px;font-weight:800;background:${_ts.badgeBg};color:${_ts.label};padding:3px 12px;border-radius:4px;margin-right:12px;letter-spacing:.8px">${_ts.badge}</span>`:''}
           <span style="font-size:20px;font-weight:800;color:${_ts.label}">${esc(_ei.label||'')}</span>
-          <span style="font-size:13px;color:#484f58;margin-left:12px">S${currentSeason} EP ${String(epNum).padStart(2,'0')}</span>
+          <span style="font-size:13px;color:#9ca3af;margin-left:12px">S${currentSeason} EP ${String(epNum).padStart(2,'0')}</span>
         </div>
         <button id="ros-edit-close" class="btn" style="font-size:13px;padding:6px 16px;flex-shrink:0">✕ Close</button>
       </div>
       <div style="display:flex;flex:1;overflow:hidden">
-        <div style="width:460px;flex-shrink:0;background:#c8d0d8;border-right:1px solid #2e3a50;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <div style="width:460px;flex-shrink:0;background:#c8d0d8;border-right:1px solid #d1dae8;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px">
           <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#4a5568">Live Preview</div>
           <div id="ros-edit-preview-pane" style="background:#fff;padding:14px;border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.3);font-family:Arial,sans-serif;min-height:300px">
             <div style="font-size:11px;color:#aaa;text-align:center;padding:48px 0;font-family:Arial,sans-serif">Click EXECUTE to preview</div>
@@ -6412,38 +6446,38 @@ function renderModals(epNums,nextEp){
         <div style="flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:28px">
           ${['live','coldstart','upnext'].includes(_ei.type)?`
           <div>
-            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:10px">Script</div>
-            <textarea id="ros-edit-script-ta" style="width:100%;min-height:260px;background:#161b27;border:1px solid #2e3a50;border-radius:8px;color:#eaf0ff;font-size:16px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*$/.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-edit-sc-wc').textContent=w;document.getElementById('ros-edit-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${esc(_ei.script||'')}</textarea>
-            <div style="margin-top:10px;font-size:13px;color:#8b949e;line-height:1.8">
-              Total words: <strong id="ros-edit-sc-wc" style="color:#79c0ff;font-size:16px">${_wc}</strong>
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px">Script</div>
+            <textarea id="ros-edit-script-ta" style="width:100%;min-height:260px;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:16px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*$/.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-edit-sc-wc').textContent=w;document.getElementById('ros-edit-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${esc(_ei.script||'')}</textarea>
+            <div style="margin-top:10px;font-size:13px;color:#6b7280;line-height:1.8">
+              Total words: <strong id="ros-edit-sc-wc" style="color:#0066CC;font-size:16px">${_wc}</strong>
               &nbsp;&nbsp;<span id="ros-edit-sc-d3" style="color:#56d364;font-weight:700">${_wc} ÷ 3 = ${_div3}</span>
             </div>
           </div>`:''}
           ${_editFullAccess?`
           <div>
-            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:10px">Slugs</div>
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px">Slugs</div>
             ${_slugRows}
             <button class="ros-edit-add-slug btn" data-itemidx="${itemIdx}" style="font-size:13px;padding:8px 16px;border-style:dashed;border-color:#e3b341;color:#e3b341;margin-top:4px">＋ Add Slug</button>
           </div>
           ${_ei.type!=='break'?`
           <div>
-            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:10px">Sound</div>
-            <select id="ros-edit-sound" style="background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#58a6ff;font-size:16px;font-weight:700;padding:10px 14px;outline:none;font-family:inherit;cursor:pointer;min-width:280px">${_soundOpts.map(o=>`<option value="${o}" ${_ei.sound===o?'selected':''}>${o||'— none —'}</option>`).join('')}</select>
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px">Sound</div>
+            <select id="ros-edit-sound" style="background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#0066CC;font-size:16px;font-weight:700;padding:10px 14px;outline:none;font-family:inherit;cursor:pointer;min-width:280px">${_soundOpts.map(o=>`<option value="${o}" ${_ei.sound===o?'selected':''}>${o||'— none —'}</option>`).join('')}</select>
           </div>`:''}
           ${_ei.type==='insert'?`
           <div>
             <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#e3b341;margin-bottom:10px;text-decoration:underline">Out Words</div>
-            <input id="ros-edit-out-words" value="${esc(_ei.outWords||'')}" placeholder="Enter out words…" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:16px;padding:10px 14px;outline:none;font-family:inherit;box-sizing:border-box">
+            <input id="ros-edit-out-words" value="${esc(_ei.outWords||'')}" placeholder="Enter out words…" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:16px;padding:10px 14px;outline:none;font-family:inherit;box-sizing:border-box">
           </div>`:''}`:
-          `<div style="font-size:13px;color:#484f58;font-style:italic">${getEffectiveRole()==='director'?'Director view — only Director\'s Notes is editable.':'Script editing only — other fields are managed by the editorial team.'}</div>`}
+          `<div style="font-size:13px;color:#9ca3af;font-style:italic">${getEffectiveRole()==='director'?'Director view — only Director\'s Notes is editable.':'Script editing only — other fields are managed by the editorial team.'}</div>`}
           <div style="border-top:2px solid #f97316;padding-top:24px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
               <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#f97316">Director's Notes</div>
-              ${!_canDirectorNotes?`<span style="font-size:10px;color:#484f58;font-style:italic">View only</span>`:''}
+              ${!_canDirectorNotes?`<span style="font-size:10px;color:#9ca3af;font-style:italic">View only</span>`:''}
             </div>
             ${_canDirectorNotes
-              ?`<textarea id="ros-edit-director-notes" style="width:100%;min-height:200px;background:#1a1500;border:1px solid #f97316;border-radius:8px;color:#eaf0ff;font-size:16px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter director's blocking notes — no character limit…">${esc(_ei.directorNotes||'')}</textarea>`
-              :`<div style="background:#1a1500;border:1px solid #2e3a50;border-radius:8px;padding:16px 18px;font-size:15px;color:${_ei.directorNotes?'#eaf0ff':'#484f58'};font-style:${_ei.directorNotes?'normal':'italic'};min-height:80px;line-height:1.75;white-space:pre-wrap">${_ei.directorNotes?esc(_ei.directorNotes):'No director\'s notes yet.'}</div>`
+              ?`<textarea id="ros-edit-director-notes" style="width:100%;min-height:200px;background:#fffbeb;border:1px solid #f97316;border-radius:8px;color:#111827;font-size:16px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter director's blocking notes — no character limit…">${esc(_ei.directorNotes||'')}</textarea>`
+              :`<div style="background:#fffbeb;border:1px solid #d1dae8;border-radius:8px;padding:16px 18px;font-size:15px;color:${_ei.directorNotes?'#eaf0ff':'#484f58'};font-style:${_ei.directorNotes?'normal':'italic'};min-height:80px;line-height:1.75;white-space:pre-wrap">${_ei.directorNotes?esc(_ei.directorNotes):'No director\'s notes yet.'}</div>`
             }
           </div>
           <div style="display:flex;justify-content:flex-end;padding-top:4px">
@@ -6451,7 +6485,7 @@ function renderModals(epNums,nextEp){
           </div>
         </div>
       </div>
-      <div style="padding:16px 24px;border-top:1px solid #2e3a50;display:flex;align-items:center;justify-content:flex-end;flex-shrink:0">
+      <div style="padding:16px 24px;border-top:1px solid #d1dae8;display:flex;align-items:center;justify-content:flex-end;flex-shrink:0">
         <button id="ros-edit-save" class="btn primary" style="font-size:15px;padding:12px 32px;font-weight:800">Save Changes</button>
       </div>
     </div></div>`;
@@ -6466,15 +6500,15 @@ function renderModals(epNums,nextEp){
     out+=`<div class="modal-overlay" id="ros-script-overlay"><div class="modal" style="width:760px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;gap:0">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
         <div>
-          <div style="font-size:10px;color:#8b949e;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">Script — S${currentSeason} EP ${String(epNum).padStart(2,'0')}</div>
-          <div style="font-size:16px;font-weight:800;color:#eaf0ff">${esc(_item.label||'')}</div>
+          <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">Script — S${currentSeason} EP ${String(epNum).padStart(2,'0')}</div>
+          <div style="font-size:16px;font-weight:800;color:#111827">${esc(_item.label||'')}</div>
         </div>
         <button id="ros-script-close" class="btn" style="font-size:12px;padding:4px 12px;flex-shrink:0;margin-left:16px">✕ Close</button>
       </div>
-      <textarea id="ros-script-ta" style="flex:1;min-height:340px;width:100%;background:#161b27;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:15px;line-height:1.75;padding:14px 16px;outline:none;resize:vertical;font-family:inherit" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*$/.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-sc-wc').textContent=w;document.getElementById('ros-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${esc(_item.script||'')}</textarea>
+      <textarea id="ros-script-ta" style="flex:1;min-height:340px;width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:15px;line-height:1.75;padding:14px 16px;outline:none;resize:vertical;font-family:inherit" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*$/.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-sc-wc').textContent=w;document.getElementById('ros-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${esc(_item.script||'')}</textarea>
       <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-        <div style="font-size:13px;color:#8b949e;line-height:1.8">
-          <div>Total words: <strong id="ros-sc-wc" style="color:#79c0ff;font-size:15px">${_wc}</strong></div>
+        <div style="font-size:13px;color:#6b7280;line-height:1.8">
+          <div>Total words: <strong id="ros-sc-wc" style="color:#0066CC;font-size:15px">${_wc}</strong></div>
           <div><span id="ros-sc-d3" style="color:#56d364;font-weight:700;font-size:13px">${_wc} ÷ 3 = ${_div3}</span></div>
         </div>
         <button id="ros-script-save" class="btn primary" style="font-size:13px;padding:8px 24px">Save Script</button>
@@ -6496,7 +6530,7 @@ function renderModals(epNums,nextEp){
       function _ci(id,field,ph,color){
         const val=esc(_c[field]||'');
         const disabled=!canEdit(_role,field);
-        return`<input id="${id}" value="${val}" placeholder="${ph}" ${disabled?'disabled':''} style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:${color||'#eaf0ff'};font-size:15px;padding:10px 12px;outline:none;font-family:inherit;box-sizing:border-box${disabled?';opacity:.45':''}">`;
+        return`<input id="${id}" value="${val}" placeholder="${ph}" ${disabled?'disabled':''} style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:${color||'#eaf0ff'};font-size:15px;padding:10px 12px;outline:none;font-family:inherit;box-sizing:border-box${disabled?';opacity:.45':''}">`;
       }
       // Deliverables
       const _delHtml=DEL_KEYS.map((k,ki)=>{
@@ -6520,21 +6554,21 @@ function renderModals(epNums,nextEp){
             <span style="background:#3d1a1a;color:#f85149;font-size:12px;font-weight:800;padding:4px 12px;border-radius:4px;letter-spacing:.5px">DECOMMISSIONED</span>
           </div>
           <div style="margin-top:12px">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8b949e;margin-bottom:6px">Motivation</div>
-            <input id="cem-motivation" value="${esc(_c.decommissionMotivation||'')}" placeholder="Decommission notes…" ${canEdit(_role,'decommissionMotivation')?'':'disabled'} style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#a855f7;font-size:15px;padding:10px 12px;outline:none;font-family:inherit;box-sizing:border-box;font-style:italic">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;margin-bottom:6px">Motivation</div>
+            <input id="cem-motivation" value="${esc(_c.decommissionMotivation||'')}" placeholder="Decommission notes…" ${canEdit(_role,'decommissionMotivation')?'':'disabled'} style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#a855f7;font-size:15px;padding:10px 12px;outline:none;font-family:inherit;box-sizing:border-box;font-style:italic">
           </div>`
         :`<div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap">
-            ${canEdit(_role,'decommissioned')||_role==='admin'?`<button id="cem-decom-trigger" class="btn danger" style="font-size:14px;padding:8px 20px;font-weight:700;flex-shrink:0">Decommission</button>`:'<span style="font-size:13px;color:#484f58;padding:8px 0">No permission to decommission</span>'}
+            ${canEdit(_role,'decommissioned')||_role==='admin'?`<button id="cem-decom-trigger" class="btn danger" style="font-size:14px;padding:8px 20px;font-weight:700;flex-shrink:0">Decommission</button>`:'<span style="font-size:13px;color:#9ca3af;padding:8px 0">No permission to decommission</span>'}
             <div style="flex:1;min-width:200px">
-              <input id="cem-motivation" value="${esc(_c.decommissionMotivation||'')}" placeholder="Motivation / notes…" ${canEdit(_role,'decommissionMotivation')?'':'disabled'} style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#a855f7;font-size:15px;padding:10px 12px;outline:none;font-family:inherit;box-sizing:border-box;font-style:italic">
+              <input id="cem-motivation" value="${esc(_c.decommissionMotivation||'')}" placeholder="Motivation / notes…" ${canEdit(_role,'decommissionMotivation')?'':'disabled'} style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#a855f7;font-size:15px;padding:10px 12px;outline:none;font-family:inherit;box-sizing:border-box;font-style:italic">
             </div>
           </div>
           ${currentRole==='admin'&&!previewRole?`<div style="margin-top:10px"><button id="cem-delete-comm" class="btn" style="border-color:#f85149;color:#f85149;font-size:12px;padding:5px 14px" title="Permanently delete commission">🗑 Delete Commission</button></div>`:''}`;
       out+=`<div class="modal-overlay" id="cem-overlay"><div class="modal" style="width:min(820px,96vw);max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
-        <div style="padding:18px 24px;border-bottom:1px solid #2e3a50;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+        <div style="padding:18px 24px;border-bottom:1px solid #d1dae8;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
           <div>
             <span style="font-size:18px;font-weight:800;color:#e6edf3">${esc(String(_c.commNum||''))}</span>
-            ${_c.storyName?`<span style="font-size:14px;color:#8b949e;margin-left:12px">· ${esc(_c.storyName)}</span>`:''}
+            ${_c.storyName?`<span style="font-size:14px;color:#6b7280;margin-left:12px">· ${esc(_c.storyName)}</span>`:''}
             ${_c.decommissioned?'<span style="background:#3d1a1a;color:#f85149;font-size:10px;font-weight:800;padding:2px 8px;border-radius:3px;margin-left:10px;letter-spacing:.5px">DECOM</span>':''}
             ${_c.onHold&&!_c.decommissioned?'<span style="background:#2d1400;color:#f97316;font-size:10px;font-weight:800;padding:2px 8px;border-radius:3px;margin-left:10px;letter-spacing:.5px">ON HOLD</span>':''}
           </div>
@@ -6544,22 +6578,22 @@ function renderModals(epNums,nextEp){
 
           <!-- Crew -->
           <div>
-            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:12px">Crew</div>
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:12px">Crew</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
               <div>
-                <div style="font-size:11px;color:#8b949e;margin-bottom:5px;font-weight:600">DOP</div>
+                <div style="font-size:11px;color:#6b7280;margin-bottom:5px;font-weight:600">DOP</div>
                 ${_ci('cem-dop','dop','Director of Photography')}
               </div>
               <div>
-                <div style="font-size:11px;color:#8b949e;margin-bottom:5px;font-weight:600">Camera Assistant</div>
+                <div style="font-size:11px;color:#6b7280;margin-bottom:5px;font-weight:600">Camera Assistant</div>
                 ${_ci('cem-ca','ca','Camera Assistant')}
               </div>
               <div>
-                <div style="font-size:11px;color:#8b949e;margin-bottom:5px;font-weight:600">Editor</div>
+                <div style="font-size:11px;color:#6b7280;margin-bottom:5px;font-weight:600">Editor</div>
                 ${_ci('cem-editor','editor','Editor')}
               </div>
               <div>
-                <div style="font-size:11px;color:#8b949e;margin-bottom:5px;font-weight:600">AFM Op</div>
+                <div style="font-size:11px;color:#6b7280;margin-bottom:5px;font-weight:600">AFM Op</div>
                 ${_ci('cem-afm','afm','AFM Operator')}
               </div>
             </div>
@@ -6567,7 +6601,7 @@ function renderModals(epNums,nextEp){
 
           <!-- Deliverables -->
           <div>
-            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:12px">Deliverables</div>
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:12px">Deliverables</div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
               ${_delHtml}
             </div>
@@ -6575,19 +6609,19 @@ function renderModals(epNums,nextEp){
 
           <!-- Payment -->
           <div>
-            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:12px">Payment</div>
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:12px">Payment</div>
             <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
               <label style="display:flex;align-items:center;gap:10px;cursor:${_paidDisabled?'default':'pointer'}">
                 <input type="checkbox" id="cem-paid" ${_paidChecked?'checked':''} ${_paidDisabled?'disabled':''} style="width:18px;height:18px;accent-color:#388bfd;cursor:${_paidDisabled?'default':'pointer'}">
                 <span style="font-size:15px;color:${_paidChecked?'#58a6ff':'#8b949e'};font-weight:${_paidChecked?'700':'400'}">Approved for Payment</span>
               </label>
               <div style="display:flex;flex-direction:column;gap:5px">
-                <div style="font-size:11px;color:#8b949e;font-weight:600">Insert Cost</div>
-                <input id="cem-insert-cost" value="${esc(_c.totalInsertCost||'')}" placeholder="R 0.00" ${_insertDisabled?'disabled':''} style="width:140px;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#3fb950;font-size:15px;padding:10px 12px;outline:none;font-family:inherit${_insertDisabled?';opacity:.45':''}">
+                <div style="font-size:11px;color:#6b7280;font-weight:600">Insert Cost</div>
+                <input id="cem-insert-cost" value="${esc(_c.totalInsertCost||'')}" placeholder="R 0.00" ${_insertDisabled?'disabled':''} style="width:140px;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#3fb950;font-size:15px;padding:10px 12px;outline:none;font-family:inherit${_insertDisabled?';opacity:.45':''}">
               </div>
               <div style="display:flex;flex-direction:column;gap:5px">
-                <div style="font-size:11px;color:#8b949e;font-weight:600">Episode Allocation</div>
-                <select id="cem-episode" ${_epDisabled?'disabled':''} style="background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#e3b341;font-size:15px;padding:10px 12px;outline:none;font-family:inherit;cursor:${_epDisabled?'default':'pointer'}${_epDisabled?';opacity:.45':''}">
+                <div style="font-size:11px;color:#6b7280;font-weight:600">Episode Allocation</div>
+                <select id="cem-episode" ${_epDisabled?'disabled':''} style="background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#e3b341;font-size:15px;padding:10px 12px;outline:none;font-family:inherit;cursor:${_epDisabled?'default':'pointer'}${_epDisabled?';opacity:.45':''}">
                   <option value="">— None —</option>
                   ${_epOpts}
                   ${_nextOpt}
@@ -6598,13 +6632,13 @@ function renderModals(epNums,nextEp){
 
           <!-- Decommission -->
           <div>
-            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:12px">Decommission</div>
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:12px">Decommission</div>
             ${_decomSection}
           </div>
 
           <!-- On Hold -->
           <div>
-            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8b949e;margin-bottom:12px">On Hold</div>
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:12px">On Hold</div>
             ${(_role==='admin'||_role==='deputyadmin')
               ? _c.onHold
                 ? `<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -6612,12 +6646,12 @@ function renderModals(epNums,nextEp){
                     <span style="background:#2d1400;color:#f97316;font-size:12px;font-weight:800;padding:4px 12px;border-radius:4px;letter-spacing:.5px">ON HOLD</span>
                   </div>`
                 : `<button id="cem-hold-on" class="btn" style="border-color:#f97316;color:#f97316;font-size:14px;padding:8px 20px;font-weight:700">Place On Hold</button>`
-              : '<span style="font-size:13px;color:#484f58;padding:8px 0">No permission to change hold status</span>'
+              : '<span style="font-size:13px;color:#9ca3af;padding:8px 0">No permission to change hold status</span>'
             }
           </div>
 
         </div>
-        <div style="padding:16px 24px;border-top:1px solid #2e3a50;display:flex;justify-content:flex-end;gap:12px;flex-shrink:0">
+        <div style="padding:16px 24px;border-top:1px solid #d1dae8;display:flex;justify-content:flex-end;gap:12px;flex-shrink:0">
           <button id="cem-close-2" class="btn" style="font-size:14px;padding:8px 22px">Close</button>
           <button id="cem-save" class="btn primary" style="font-size:14px;padding:8px 28px;font-weight:800">💾 Save Changes</button>
         </div>
@@ -6645,24 +6679,24 @@ function renderModals(epNums,nextEp){
       </label>`;
     }).join('');
     out+=`<div class="modal-overlay" id="deliv-edit-overlay"><div class="modal" style="width:min(680px,96vw);max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
-      <div style="padding:20px 24px;border-bottom:1px solid #2e3a50;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div style="padding:20px 24px;border-bottom:1px solid #d1dae8;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
         <div>
-          <div style="font-size:20px;font-weight:900;color:#eaf0ff">EP ${String(n).padStart(2,'0')} — Deliverables</div>
-          <div style="font-size:12px;color:#6e7681;margin-top:4px">${dateStr}</div>
+          <div style="font-size:20px;font-weight:900;color:#111827">EP ${String(n).padStart(2,'0')} — Deliverables</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:4px">${dateStr}</div>
         </div>
         <div style="display:flex;align-items:center;gap:16px">
           <div style="text-align:right">
             <div style="font-size:24px;font-weight:900;color:${pctCol};line-height:1">${pct}%</div>
-            <div style="font-size:11px;color:#6e7681;margin-top:3px">${done} / ${total} done</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:3px">${done} / ${total} done</div>
           </div>
           <button id="deliv-edit-close" class="btn" style="font-size:13px;padding:6px 16px;flex-shrink:0">✕ Close</button>
         </div>
       </div>
-      <div style="height:5px;background:#2e3a50;flex-shrink:0"><div style="height:5px;background:${pctCol};width:${pct}%"></div></div>
+      <div style="height:5px;background:#d1dae8;flex-shrink:0"><div style="height:5px;background:${pctCol};width:${pct}%"></div></div>
       <div style="flex:1;overflow-y:auto">
         ${taskList}
       </div>
-      <div style="padding:16px 24px;border-top:1px solid #2e3a50;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+      <div style="padding:16px 24px;border-top:1px solid #d1dae8;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
         <button id="deliv-reset-btn" class="btn" style="font-size:13px;padding:8px 20px;border-color:#f85149;color:#f85149">Reset Episode</button>
         <button id="deliv-edit-close2" class="btn primary" style="font-size:14px;padding:8px 28px;font-weight:800">Done</button>
       </div>
@@ -6679,7 +6713,7 @@ function renderTranscripts(epNums){
       inprogress:{label:'IN PROGRESS', bg:'#0d2246',color:'#58a6ff'},
       draft:     {label:'DRAFT',       bg:'#3a2a0a',color:'#e3b341'},
     };
-    const s=map[status]||{label:'NO TRANSCRIPT',bg:'#1c2433',color:'#484f58'};
+    const s=map[status]||{label:'NO TRANSCRIPT',bg:'#f4f4f5',color:'#9ca3af'};
     return`<span style="background:${s.bg};color:${s.color};font-size:9px;font-weight:800;padding:2px 7px;border-radius:3px;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap">${s.label}</span>`;
   }
   const sidebarToggle=`<div style="display:flex;gap:6px;margin-bottom:10px">
@@ -6695,14 +6729,14 @@ function renderTranscripts(epNums){
       const td=commTranscripts[String(transcriptSelectedComm)]||{};
       const status=td.status||'';
       rightPanel=`<div style="display:flex;flex-direction:column;height:100%">
-        <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #2e3a50;flex-shrink:0;background:#141c2b">
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #d1dae8;flex-shrink:0;background:#ffffff">
           <button class="btn" id="tr-back-btn" style="font-size:12px;padding:4px 10px">← Back</button>
           <div style="flex:1;min-width:0">
-            <span style="font-size:16px;font-weight:800;color:#eaf0ff">${esc(String(comm?.commNum||transcriptSelectedComm))}</span>
-            ${comm?.storyName?`<span style="font-size:13px;color:#8b949e;margin-left:10px">· ${esc(comm.storyName)}</span>`:''}
-            ${comm?.broadcastEpisode?`<span style="font-size:10px;background:#1c2f1c;color:#4ade80;padding:2px 6px;border-radius:3px;font-weight:700;margin-left:8px">EP${comm.broadcastEpisode}</span>`:''}
+            <span style="font-size:16px;font-weight:800;color:#111827">${esc(String(comm?.commNum||transcriptSelectedComm))}</span>
+            ${comm?.storyName?`<span style="font-size:13px;color:#6b7280;margin-left:10px">· ${esc(comm.storyName)}</span>`:''}
+            ${comm?.broadcastEpisode?`<span style="font-size:10px;background:#dcfce7;color:#4ade80;padding:2px 6px;border-radius:3px;font-weight:700;margin-left:8px">EP${comm.broadcastEpisode}</span>`:''}
           </div>
-          <select id="tr-status-sel" style="background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:12px;padding:6px 10px;font-family:inherit;cursor:pointer">
+          <select id="tr-status-sel" style="background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:12px;padding:6px 10px;font-family:inherit;cursor:pointer">
             <option value="" ${!status?'selected':''}>No Transcript</option>
             <option value="draft" ${status==='draft'?'selected':''}>Draft</option>
             <option value="inprogress" ${status==='inprogress'?'selected':''}>In Progress</option>
@@ -6710,30 +6744,30 @@ function renderTranscripts(epNums){
           </select>
         </div>
         <div style="flex:1;padding:20px;display:flex;flex-direction:column;min-height:0;overflow:hidden">
-          <textarea id="tr-comm-text" placeholder="Start typing the commission transcript here…" style="flex:1;width:100%;background:#131c2b;border:1px solid #2e3a50;border-radius:8px;color:#eaf0ff;font-size:14px;padding:16px;resize:none;outline:none;font-family:inherit;line-height:1.7;box-sizing:border-box">${esc(td.transcript||'')}</textarea>
-          ${td.updatedByName?`<div style="margin-top:8px;font-size:11px;color:#484f58">Last saved by <strong style="color:#6e7681">${esc(td.updatedByName)}</strong>${td.updatedAtStr?` · ${esc(td.updatedAtStr)}`:''}</div>`:''}
+          <textarea id="tr-comm-text" placeholder="Start typing the commission transcript here…" style="flex:1;width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:14px;padding:16px;resize:none;outline:none;font-family:inherit;line-height:1.7;box-sizing:border-box">${esc(td.transcript||'')}</textarea>
+          ${td.updatedByName?`<div style="margin-top:8px;font-size:11px;color:#9ca3af">Last saved by <strong style="color:#6b7280">${esc(td.updatedByName)}</strong>${td.updatedAtStr?` · ${esc(td.updatedAtStr)}`:''}</div>`:''}
         </div>
       </div>`;
     } else {
-      rightPanel=`<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#484f58;font-size:14px;font-style:italic">Select a commission from the list to open its transcript</div>`;
+      rightPanel=`<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#9ca3af;font-size:14px;font-style:italic">Select a commission from the list to open its transcript</div>`;
     }
-    return`<div style="display:flex;height:calc(100vh - 110px);overflow:hidden;background:#0d1117">
-      <div style="width:300px;flex-shrink:0;border-right:1px solid #2e3a50;display:flex;flex-direction:column;background:#141c2b">
-        <div style="padding:12px 14px;border-bottom:1px solid #2e3a50;flex-shrink:0">
+    return`<div style="display:flex;flex:1;min-height:0;overflow:hidden;background:#f8fafc">
+      <div style="width:300px;flex-shrink:0;border-right:1px solid #d1dae8;display:flex;flex-direction:column;background:#ffffff">
+        <div style="padding:12px 14px;border-bottom:1px solid #d1dae8;flex-shrink:0">
           ${sidebarToggle}
-          <input id="tr-comm-search" placeholder="Search commissions…" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:12px;padding:7px 10px;outline:none;font-family:inherit;box-sizing:border-box">
+          <input id="tr-comm-search" placeholder="Search commissions…" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:12px;padding:7px 10px;outline:none;font-family:inherit;box-sizing:border-box">
         </div>
         <div id="tr-comm-list" style="overflow-y:auto;flex:1">
           ${activeComms.map(c=>{
             const td=commTranscripts[String(c.commNum)]||{};
             const sel=String(c.commNum)===String(transcriptSelectedComm);
-            return`<div class="tr-comm-row${sel?' tr-selected':''}" data-commnum="${esc(String(c.commNum))}" style="padding:10px 14px;border-bottom:1px solid #1c2433;cursor:pointer;background:${sel?'#1a2d48':'transparent'}">
+            return`<div class="tr-comm-row${sel?' tr-selected':''}" data-commnum="${esc(String(c.commNum))}" style="padding:10px 14px;border-bottom:1px solid #e8edf5;cursor:pointer;background:${sel?'#eff6ff':'transparent'}">
               <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">
-                <span style="font-size:13px;font-weight:800;color:#eaf0ff">${esc(String(c.commNum))}</span>
-                ${c.broadcastEpisode?`<span style="font-size:9px;background:#1c2f1c;color:#4ade80;padding:1px 5px;border-radius:3px;font-weight:700">EP${c.broadcastEpisode}</span>`:''}
+                <span style="font-size:13px;font-weight:800;color:#111827">${esc(String(c.commNum))}</span>
+                ${c.broadcastEpisode?`<span style="font-size:9px;background:#dcfce7;color:#4ade80;padding:1px 5px;border-radius:3px;font-weight:700">EP${c.broadcastEpisode}</span>`:''}
                 <span style="margin-left:auto">${statusBadge(td.status)}</span>
               </div>
-              <div style="font-size:11px;color:#8b949e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName||'Untitled')}</div>
+              <div style="font-size:11px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName||'Untitled')}</div>
             </div>`;
           }).join('')}
         </div>
@@ -6748,40 +6782,40 @@ function renderTranscripts(epNums){
   const lt=ep?(liveTranscripts[String(ep)]||{}):{};
   const epComms=ep?comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0)):[];
   function insertComm(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComms[Number(m[1])-1]||null;}
-  function blockBg(type){return{fixed:'#1c1c28',break:'#1c1c28',live:'#0d1f3c',insert:'#0e1f10',coldstart:'#160d24',upnext:'#0a1c14'}[type]||'#1a2235';}
+  function blockBg(type){return{fixed:'#f8fafc',break:'#f8fafc',live:'#eff6ff',insert:'#f0fdf4',coldstart:'#faf5ff',upnext:'#f0fdf4'}[type]||'#f9fafb';}
   function blockAccent(type){return{fixed:'#484f58',break:'#484f58',live:'#1f6feb',insert:'#3fb950',coldstart:'#8957e5',upnext:'#2ea043'}[type]||'#484f58';}
   const rosItems=ep?(rosData[String(ep)]?.items||[]):[];
   const displayBlocks=(lt.blocks&&lt.blocks.length)?lt.blocks:rosItems.map(item=>({
     itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',content:'',
     commNum:item.type==='insert'?(insertComm(item.key)?.commNum||null):null
   }));
-  return`<div style="display:flex;height:calc(100vh - 110px);overflow:hidden;background:#0d1117">
-    <div style="width:300px;flex-shrink:0;border-right:1px solid #2e3a50;display:flex;flex-direction:column;background:#141c2b">
-      <div style="padding:12px 14px;border-bottom:1px solid #2e3a50;flex-shrink:0">
+  return`<div style="display:flex;flex:1;min-height:0;overflow:hidden;background:#f8fafc">
+    <div style="width:300px;flex-shrink:0;border-right:1px solid #d1dae8;display:flex;flex-direction:column;background:#ffffff">
+      <div style="padding:12px 14px;border-bottom:1px solid #d1dae8;flex-shrink:0">
         ${sidebarToggle}
-        <div style="font-size:10px;color:#8b949e;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Episode</div>
-        <select id="tr-live-ep" style="width:100%;background:#1a2235;border:1px solid #2e3a50;border-radius:6px;color:#eaf0ff;font-size:13px;padding:7px 10px;font-family:inherit;box-sizing:border-box">
+        <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Episode</div>
+        <select id="tr-live-ep" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:13px;padding:7px 10px;font-family:inherit;box-sizing:border-box">
           ${epNums.map(n=>`<option value="${n}" ${String(n)===String(ep)?'selected':''}>EP ${n}${settings.epDates?.[n]?' · '+fmtDate(settings.epDates[n]):''}</option>`).join('')}
         </select>
         <button id="tr-build-btn" class="btn primary" style="width:100%;margin-top:8px;font-size:12px;padding:7px 0">⚙ BUILD FROM SCRIPT</button>
-        ${lt.updatedByName?`<div style="margin-top:10px;font-size:10px;color:#484f58;line-height:1.5">Last saved by <strong style="color:#6e7681">${esc(lt.updatedByName)}</strong>${lt.updatedAtStr?`<br>${esc(lt.updatedAtStr)}`:''}</div>`:''}
+        ${lt.updatedByName?`<div style="margin-top:10px;font-size:10px;color:#9ca3af;line-height:1.5">Last saved by <strong style="color:#6b7280">${esc(lt.updatedByName)}</strong>${lt.updatedAtStr?`<br>${esc(lt.updatedAtStr)}`:''}</div>`:''}
       </div>
       <div style="padding:10px 14px;flex:1;overflow-y:auto">
-        <div style="font-size:10px;color:#8b949e;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">EP${ep} Commissions</div>
+        <div style="font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">EP${ep} Commissions</div>
         ${epComms.length?epComms.map(c=>{
           const td=commTranscripts[String(c.commNum)]||{};
-          return`<div style="padding:6px 0;border-bottom:1px solid #1c2433">
+          return`<div style="padding:6px 0;border-bottom:1px solid #e8edf5">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-              <span style="font-size:12px;font-weight:700;color:#eaf0ff">${esc(String(c.commNum))}</span>
+              <span style="font-size:12px;font-weight:700;color:#111827">${esc(String(c.commNum))}</span>
               ${statusBadge(td.status)}
             </div>
-            <div style="font-size:10px;color:#8b949e;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName||'Untitled')}</div>
+            <div style="font-size:10px;color:#6b7280;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName||'Untitled')}</div>
           </div>`;
-        }).join(''):`<div style="font-size:11px;color:#484f58;font-style:italic">No commissions assigned to EP${ep}</div>`}
+        }).join(''):`<div style="font-size:11px;color:#9ca3af;font-style:italic">No commissions assigned to EP${ep}</div>`}
       </div>
     </div>
     <div id="tr-live-blocks" style="flex:1;min-width:0;overflow-y:auto;padding:16px 20px">
-      ${!displayBlocks.length?`<div style="color:#484f58;font-size:14px;padding:60px 0;text-align:center">No script items yet.<br><br>Select an episode and click <strong style="color:#eaf0ff">BUILD FROM SCRIPT</strong> to get started.</div>`:
+      ${!displayBlocks.length?`<div style="color:#9ca3af;font-size:14px;padding:60px 0;text-align:center">No script items yet.<br><br>Select an episode and click <strong style="color:#111827">BUILD FROM SCRIPT</strong> to get started.</div>`:
       displayBlocks.map((block,bi)=>{
         const isFixed=['fixed','break'].includes(block.itemType);
         const accent=blockAccent(block.itemType);
@@ -6793,12 +6827,12 @@ function renderTranscripts(epNums){
             <span style="font-size:9px;background:${accent}20;color:${accent};padding:2px 6px;border-radius:3px;font-weight:700;text-transform:uppercase">${esc(block.itemType)}</span>
           </div>
           ${linked?`<div style="padding:6px 14px;background:${accent}08;border-bottom:1px solid ${accent}25;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span style="font-size:11px;color:#8b949e">Comm <strong style="color:#eaf0ff">${esc(String(linked.commNum))}</strong> · ${esc(linked.storyName||'')}</span>
+            <span style="font-size:11px;color:#6b7280">Comm <strong style="color:#111827">${esc(String(linked.commNum))}</strong> · ${esc(linked.storyName||'')}</span>
             ${statusBadge(linkedTd?.status)}
-            ${linkedTd?.status==='ready'&&linkedTd?.transcript?`<button class="btn tr-copy-in" data-bi="${bi}" data-commnum="${esc(String(linked.commNum))}" style="font-size:10px;padding:3px 9px;margin-left:auto;background:#1a3a1a;color:#3fb950;border-color:#3fb950">↓ Copy In Transcript</button>`:''}
+            ${linkedTd?.status==='ready'&&linkedTd?.transcript?`<button class="btn tr-copy-in" data-bi="${bi}" data-commnum="${esc(String(linked.commNum))}" style="font-size:10px;padding:3px 9px;margin-left:auto;background:#dcfce7;color:#16a34a;border-color:#86efac">↓ Copy In Transcript</button>`:''}
           </div>`:''}
-          ${isFixed?`<div style="padding:8px 14px;font-size:11px;color:#484f58;font-style:italic">Fixed/break item — no dialogue</div>`:
-            `<textarea class="tr-live-area" data-bi="${bi}" placeholder="Enter dialogue / transcript here…" style="width:100%;min-height:70px;background:transparent;border:none;color:#eaf0ff;font-size:13px;padding:12px 14px;resize:vertical;outline:none;font-family:inherit;line-height:1.7;box-sizing:border-box">${esc(block.content||'')}</textarea>`}
+          ${isFixed?`<div style="padding:8px 14px;font-size:11px;color:#9ca3af;font-style:italic">Fixed/break item — no dialogue</div>`:
+            `<textarea class="tr-live-area" data-bi="${bi}" placeholder="Enter dialogue / transcript here…" style="width:100%;min-height:70px;background:transparent;border:none;color:#111827;font-size:13px;padding:12px 14px;resize:vertical;outline:none;font-family:inherit;line-height:1.7;box-sizing:border-box">${esc(block.content||'')}</textarea>`}
         </div>`;
       }).join('')}
     </div>
@@ -6828,7 +6862,7 @@ function bindApp(){
     if(contentEl){
       const paid=getPaidMins(),contracted=settings.contractedMinutes||438,remaining=contracted-paid;
       const epNums=getEpNums(),maxEp=epNums.length?Math.max(...epNums):0,nextEp=maxEp+1;
-      contentEl.style.background=tab==='home'?'#ffffff':'';
+      contentEl.style.background='';
       contentEl.innerHTML=renderContent(epNums,nextEp,paid,remaining);
     }
     bindApp();
@@ -8012,7 +8046,7 @@ function bindApp(){
       if(contentEl){
         const paid=getPaidMins(),contracted=settings.contractedMinutes||438,remaining=contracted-paid;
         const epNums=getEpNums(),maxEp=epNums.length?Math.max(...epNums):0,nextEp=maxEp+1;
-        contentEl.style.background=tab==='home'?'#ffffff':'';
+        contentEl.style.background='';
       contentEl.innerHTML=renderContent(epNums,nextEp,paid,remaining);
         bindApp();
         // Re-focus and restore cursor
@@ -8093,21 +8127,21 @@ function bindApp(){
         const previewEl=document.getElementById('mc-import-comm-preview');
         if(previewEl){
           if(!val){
-            previewEl.innerHTML='<div style="font-size:11px;color:#484f58;font-style:italic;margin-bottom:14px">Enter a commission number above to preview story details.</div>';
+            previewEl.innerHTML='<div style="font-size:11px;color:#9ca3af;font-style:italic;margin-bottom:14px">Enter a commission number above to preview story details.</div>';
           } else if(pc){
-            previewEl.innerHTML=`<div style="background:#1a2d1a;border:1px solid #2d6a2d;border-radius:7px;padding:14px;margin-bottom:14px">
+            previewEl.innerHTML=`<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:7px;padding:14px;margin-bottom:14px">
               <div style="font-size:9px;font-weight:700;color:#3fb950;text-transform:uppercase;margin-bottom:8px">✓ Commission found</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-                <div><div style="font-size:9px;color:#7a8ba0;text-transform:uppercase;margin-bottom:2px">Story Name</div><div style="font-size:13px;font-weight:700;color:#eaf0ff">${esc(pc.storyName||'—')}</div></div>
-                <div><div style="font-size:9px;color:#7a8ba0;text-transform:uppercase;margin-bottom:2px">Producer</div><div style="font-size:13px;font-weight:700;color:#eaf0ff">${esc(pc.producer||'—')}</div></div>
+                <div><div style="font-size:9px;color:#6b7280;text-transform:uppercase;margin-bottom:2px">Story Name</div><div style="font-size:13px;font-weight:700;color:#111827">${esc(pc.storyName||'—')}</div></div>
+                <div><div style="font-size:9px;color:#6b7280;text-transform:uppercase;margin-bottom:2px">Producer</div><div style="font-size:13px;font-weight:700;color:#111827">${esc(pc.producer||'—')}</div></div>
               </div>
               <button class="btn primary" id="mc-import-comm-confirm-btn" style="font-size:12px">✓ Confirm Details</button>
             </div>`;
           } else {
-            previewEl.innerHTML=`<div style="background:#2d1a00;border:1px solid #5a3e00;border-radius:7px;padding:12px;margin-bottom:14px">
-              <div style="font-size:11px;font-weight:700;color:#d29922;margin-bottom:3px">⚠ Commission not found in Commission List</div>
-              <div style="font-size:11px;color:#8b949e">Story name and producer can be entered manually after import.</div>
-              <button class="btn" id="mc-import-comm-confirm-btn" style="font-size:12px;margin-top:8px;border-color:#d29922;color:#d29922">Proceed Without Auto-fill</button>
+            previewEl.innerHTML=`<div style="background:#fff7ed;border:1px solid #fcd34d;border-radius:7px;padding:12px;margin-bottom:14px">
+              <div style="font-size:11px;font-weight:700;color:#b45309;margin-bottom:3px">⚠ Commission not found in Commission List</div>
+              <div style="font-size:11px;color:#6b7280">Story name and producer can be entered manually after import.</div>
+              <button class="btn" id="mc-import-comm-confirm-btn" style="font-size:12px;margin-top:8px;border-color:#b45309;color:#b45309">Proceed Without Auto-fill</button>
             </div>`;
           }
           // Re-bind the confirm button
@@ -8966,7 +9000,7 @@ document.addEventListener('click',function presCalBadgeHandler(e){
       // Rebuild td contents with a fresh working select
       const commOptions=comms.filter(c=>!c.decommissioned&&c.commNum)
         .map(c=>`<option value="${esc(c.commNum)}">${esc(c.commNum)} ${esc(c.storyName||'')}</option>`).join('');
-      td.innerHTML=`<select class="pres-cal-sel" data-date="${dateStr}" data-pres="${presKey}" style="width:100%;background:transparent;border:none;font-size:11px;color:#484f58;cursor:pointer;padding:2px 0">
+      td.innerHTML=`<select class="pres-cal-sel" data-date="${dateStr}" data-pres="${presKey}" style="width:100%;background:transparent;border:none;font-size:11px;color:#9ca3af;cursor:pointer;padding:2px 0">
         <option value="">— assign —</option>
         <option value="na">Not Available</option>
         <option value="studio">Studio</option>
@@ -9003,11 +9037,11 @@ document.addEventListener('click',function presCalBadgeHandler(e){
   badge.style.display='none';
   const confirm=document.createElement('div');
   confirm.setAttribute('data-pres-confirm','1');
-  confirm.style.cssText='background:#2d0a0a;border:1px solid #f85149;border-radius:4px;padding:5px 7px;display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px';
+  confirm.style.cssText='background:#fff1f2;border:1px solid #f85149;border-radius:4px;padding:5px 7px;display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px';
   confirm.innerHTML=`<span style="font-size:10px;font-weight:700;color:#f85149">Remove?</span>`+
     `<div style="display:flex;gap:4px">`+
     `<button class="pres-cal-confirm-clear" data-date="${dateStr}" data-pres="${presKey}" style="background:#f85149;border:none;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;cursor:pointer">✕ Yes</button>`+
-    `<button class="pres-cal-cancel-clear" style="background:#2e3a50;border:none;color:#8b949e;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;cursor:pointer">Keep</button>`+
+    `<button class="pres-cal-cancel-clear" style="background:#d1dae8;border:none;color:#6b7280;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;cursor:pointer">Keep</button>`+
     `</div>`;
   td.insertBefore(confirm, badge);
 });
@@ -9054,19 +9088,19 @@ function updatePresCalCell(dateStr,presKey,cell){
     badge.title='Click to edit or remove';
     badge.style.cursor='pointer';
     if(cell.notAvailable){
-      badge.style.cssText='background:#2d0a0a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#f85149;text-align:center;margin-bottom:2px;cursor:pointer';
+      badge.style.cssText='background:#fff1f2;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#f85149;text-align:center;margin-bottom:2px;cursor:pointer';
       badge.textContent='NOT AVAILABLE';
     } else if(cell.studio){
-      badge.style.cssText='background:#1a2d4a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#7a3fbf;text-align:center;margin-bottom:2px;cursor:pointer';
+      badge.style.cssText='background:#eff6ff;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#7a3fbf;text-align:center;margin-bottom:2px;cursor:pointer';
       badge.textContent='STUDIO';
     } else if(cell.custom){
-      badge.style.cssText='background:#2d2a1a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#e3b341;word-break:break-word;margin-bottom:2px;cursor:pointer';
+      badge.style.cssText='background:#fef9c3;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:700;color:#e3b341;word-break:break-word;margin-bottom:2px;cursor:pointer';
       badge.textContent=cell.customNote||'Note';
     } else if(cell.commNum){
-      badge.style.cssText='background:#1a2d4a;border-radius:4px;padding:5px 8px;margin-bottom:2px;cursor:pointer';
-      badge.innerHTML=`<div style="font-size:11px;font-weight:900;color:#58a6ff;font-family:monospace">${cell.commNum}</div>`+
-        (cell.storyName?`<div style="font-size:10px;color:#9aaabe;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px">${cell.storyName}</div>`:'')+
-        (cell.producer?`<div style="font-size:10px;color:#6e7681;margin-top:2px">${cell.producer}</div>`:'');
+      badge.style.cssText='background:#eff6ff;border-radius:4px;padding:5px 8px;margin-bottom:2px;cursor:pointer';
+      badge.innerHTML=`<div style="font-size:11px;font-weight:900;color:#0066CC;font-family:monospace">${cell.commNum}</div>`+
+        (cell.storyName?`<div style="font-size:10px;color:#4b5563;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px">${cell.storyName}</div>`:'')+
+        (cell.producer?`<div style="font-size:10px;color:#6b7280;margin-top:2px">${cell.producer}</div>`:'');
     }
     td.insertBefore(badge,sel);
     sel.style.display='none';
@@ -9243,7 +9277,7 @@ function ppCellStyle(val){
   if(v.includes('mix'))return'background:#804000;color:#ffffff';
   if(v.includes('vo'))return'background:#005566;color:#ffffff';
   if(v.includes('amf')||v.includes('afm'))return'background:#8b0000;color:#ffffff';
-  return'background:#1c2433;color:#cdd9e5';
+  return'background:#f9fafb;color:#374151';
 }
 
 
