@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.195';
+const BUILD_VERSION='3.10.196';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -176,6 +176,7 @@ let mcCommConfirmed=false;   // true after user confirms comm details on new/edi
 let mcImportCommConfirmed=false; // true after user confirms comm details in import modal
 let mcImportCommNum='';          // tracks typed commission number in import modal
 let creditsExpandedEp=null;
+let ecLocalWrite=false,ecSaveTimers={},ecDirty={},ecDefaultCredits=[],ecShowDefModal=false;
 let expandedEps=new Set(); // Episode Register expanded episodes
 let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,tempDate='';
 let commEditModal=null; // commission id — edit crew/deliverables modal
@@ -819,12 +820,31 @@ async function saveEndCreditsRich(ep,html){
 async function saveEndCredits(ep,data){
   setSyncDot('saving');
   try{
-    // Use merge:true so concurrent edits from multiple users don't overwrite each other
     await setDoc(doc(db,'end_credits',String(ep)),{...data,ep:Number(ep),updatedAt:serverTimestamp()},{merge:true});
     if(!endCredits[ep])endCredits[ep]={};
     Object.assign(endCredits[ep],data);
     setSyncDot('live');
   }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}
+}
+async function saveECBlocks(ep,credits){
+  ecLocalWrite=true;
+  setSyncDot('saving');
+  ecDirty[ep]='saving';
+  try{
+    await setDoc(doc(db,'end_credits',String(ep)),{credits,ep:Number(ep),updatedAt:serverTimestamp()});
+    if(!endCredits[ep])endCredits[ep]={};
+    endCredits[ep].credits=credits;
+    setSyncDot('live');
+    ecDirty[ep]=false;
+  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}
+  finally{ecLocalWrite=false;}
+}
+async function saveECDefaults(credits){
+  try{
+    await setDoc(doc(db,'settings','defaultCredits'),{credits,updatedAt:serverTimestamp()});
+    ecDefaultCredits=[...credits];
+    showToast('Default credits saved ✓');
+  }catch(e){showToast('Save failed: '+e.message,true);}
 }
 
 function exportCreditsPDF(epNum){
@@ -940,11 +960,88 @@ function exportCreditsPDF(epNum){
   }
 }
 
+function collectECBlocks(ep){
+  const blocks=JSON.parse(JSON.stringify(
+    ep==='default'?ecDefaultCredits
+    :(Array.isArray((endCredits[String(ep)]||{}).credits)?(endCredits[String(ep)].credits):[])
+  ));
+  document.querySelectorAll(`input.ec-inp[data-ec-ep="${ep}"]`).forEach(inp=>{
+    const bi=parseInt(inp.dataset.ecBi,10);
+    if(isNaN(bi)||bi<0||bi>=blocks.length)return;
+    const field=inp.dataset.ecField;
+    const ni=inp.dataset.ecNi!==undefined?parseInt(inp.dataset.ecNi,10):null;
+    if(field==='text')blocks[bi].text=inp.value;
+    else if(field==='discipline')blocks[bi].discipline=inp.value;
+    else if(field==='name'&&ni!==null){if(!blocks[bi].names)blocks[bi].names=[];blocks[bi].names[ni]=inp.value;}
+  });
+  return blocks;
+}
+
+function ecExportPDF(ep){
+  const saved=endCredits[String(ep)]||{};
+  const credits=Array.isArray(saved.credits)?saved.credits:[];
+  const date=fmtDate(resolveDate(Number(ep)));
+  const epStr=String(ep).padStart(2,'0');
+  let rows='';
+  credits.forEach(b=>{
+    if(b.type==='heading'){
+      rows+=`<tr><td colspan="2" style="background:#002868;color:#fff;font-weight:800;font-size:11pt;text-transform:uppercase;letter-spacing:1px;padding:8pt 12pt">${esc(b.text||'')}</td></tr>`;
+    } else {
+      const names=(b.names||[]).filter(Boolean).map(n=>`<div>${esc(n)}</div>`).join('');
+      rows+=`<tr style="border-bottom:1px solid #f0f0f0"><td style="font-weight:700;text-transform:uppercase;color:#c92a2a;font-size:9pt;padding:5pt 12pt;width:38%;vertical-align:top">${esc(b.discipline||'')}</td><td style="font-size:10pt;color:#111;padding:5pt 12pt;line-height:1.6">${names}</td></tr>`;
+    }
+  });
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carte Blanche End Credits EP ${epStr}</title>
+    <style>@page{size:A4 portrait;margin:15mm 18mm}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;font-size:10pt;color:#000;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}table{width:100%;border-collapse:collapse}.footer{margin-top:12pt;padding-top:6pt;border-top:.5pt solid #ccc;text-align:center;font-size:7pt;color:#999}</style>
+    </head><body>
+    <table style="margin-bottom:16pt;width:100%"><tr>
+      <td style="width:30%;vertical-align:middle"><img src="${BAKED_CB_LOGO}" style="height:28pt;width:auto" onerror="this.style.display='none'"></td>
+      <td style="text-align:center;vertical-align:middle">
+        <div style="font-size:14pt;font-weight:900;text-transform:uppercase;letter-spacing:1pt;color:#002868">Carte Blanche End Credits</div>
+        <div style="font-size:8pt;color:#555;margin-top:3pt;font-weight:600;text-transform:uppercase;letter-spacing:.5pt">Season ${currentSeason} &middot; Episode ${epStr} &middot; ${date}</div>
+      </td>
+      <td style="width:30%;text-align:right;vertical-align:middle"><img src="${BAKED_CAP_LOGO}" style="height:22pt;width:auto" onerror="this.style.display='none'"></td>
+    </tr></table>
+    <table>${rows}</table>
+    <div class="footer">Electronic Media Network Proprietary Limited &copy; All rights reserved.</div>
+    <script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);})<\/script>
+    </body></html>`;
+  const win=window.open('','_blank');
+  if(!win){showToast('Popup blocked — allow popups for this site',true);return;}
+  win.document.write(html);
+  win.document.close();
+}
+
+function ecExportTXT(ep){
+  const saved=endCredits[String(ep)]||{};
+  const credits=Array.isArray(saved.credits)?saved.credits:[];
+  if(!credits.length){showToast('No credits to export',true);return;}
+  const epStr=String(ep).padStart(2,'0');
+  let txt=`CARTE BLANCHE S${currentSeason} EP${epStr} END CREDITS\n`;
+  credits.forEach(b=>{
+    if(b.type==='heading'){
+      txt+=`\n${(b.text||'').toUpperCase()}\n`;
+    } else {
+      txt+=`\n${(b.discipline||'').toUpperCase()}\n`;
+      (b.names||[]).filter(Boolean).forEach(nm=>{txt+=`${nm}\n`;});
+    }
+  });
+  const blob=new Blob([txt],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`CB-EndCredits-S${currentSeason}-EP${epStr}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 async function loadEndCredits(){
   try{
-    const snap=await getDocs(collection(db,'end_credits'));
+    const [snap,defDoc]=await Promise.all([
+      getDocs(collection(db,'end_credits')),
+      getDoc(doc(db,'settings','defaultCredits'))
+    ]);
     snap.docs.forEach(d=>{endCredits[d.id]={...d.data()};});
+    if(defDoc.exists())ecDefaultCredits=defDoc.data().credits||[];
   }catch(e){console.error('End credits load error:',e);}
 }
 function subscribeEndCredits(){
@@ -952,14 +1049,15 @@ function subscribeEndCredits(){
   return new Promise(resolve=>{
     let resolved=false;
     unsubEndCredits=onSnapshot(collection(db,'end_credits'),snap=>{
+      if(ecLocalWrite){if(!resolved){resolved=true;resolve();}return;}
       const active=document.activeElement;
       snap.docs.forEach(d=>{
         const ep=d.id;
-        const editingThis=active&&active.classList.contains('ec-inp')&&active.closest('[data-ep]')?.dataset.ep===ep;
+        const editingThis=active&&active.classList.contains('ec-inp')&&active.dataset.ecEp===ep;
         if(!editingThis)endCredits[ep]={...d.data()};
       });
       if(!resolved){resolved=true;resolve();}
-      else if(tab==='credits'){if(!document.activeElement?.classList.contains('ec-inp'))render();}
+      else if(tab==='credits'){if(!active?.classList.contains('ec-inp'))render();}
     },e=>{console.error('EndCredits snapshot:',e);if(!resolved){resolved=true;resolve();}});
   });
 }
@@ -2094,77 +2192,116 @@ function saveECValue(epNum, sectionId, key, val){
 }
 
 
+function renderECBlock(b,bi,total,ep,canEd){
+  const isH=b.type==='heading';
+  const BS='background:#f0f4f8;border:1px solid #d1dae8;border-radius:3px;font-size:11px;padding:2px 5px;cursor:pointer;color:#4b5563;line-height:1;font-family:inherit';
+  const epAttr=`data-ec-ep="${ep}"`;
+  const biAttr=`data-ec-bi="${bi}"`;
+  const actBtns=canEd?`<div style="display:flex;gap:2px;flex-shrink:0;margin-left:8px;align-items:flex-start;padding-top:2px">
+    ${bi>0?`<button ${epAttr} data-ec-action="block-up" ${biAttr} style="${BS}" title="Move up">↑</button>`:`<span style="width:22px;display:inline-block"></span>`}
+    ${bi<total-1?`<button ${epAttr} data-ec-action="block-dn" ${biAttr} style="${BS}" title="Move down">↓</button>`:`<span style="width:22px;display:inline-block"></span>`}
+    <button ${epAttr} data-ec-action="ins-heading" ${biAttr} style="${BS}" title="Insert heading below">+H</button>
+    <button ${epAttr} data-ec-action="ins-entry" ${biAttr} style="${BS}" title="Insert entry below">+E</button>
+    <button ${epAttr} data-ec-action="block-del" ${biAttr} style="${BS};color:#ef4444;border-color:#fca5a5" title="Delete block">✕</button>
+  </div>`:'';
+  if(isH)return`<div style="display:flex;align-items:center;background:#dbe4ff;border-left:4px solid #3b5bdb;border-radius:4px;padding:8px 12px;margin-bottom:6px">
+    <input class="ec-inp" ${epAttr} ${biAttr} data-ec-field="text" value="${esc(b.text||'')}" placeholder="HEADING TEXT…"
+      style="flex:1;background:transparent;border:none;font-weight:800;font-size:15px;color:#3b5bdb;text-transform:uppercase;outline:none;font-family:inherit;letter-spacing:.5px;min-width:0"${canEd?'':' readonly'}>
+    ${actBtns}
+  </div>`;
+  return`<div style="display:flex;align-items:flex-start;border:1px solid #f5c2c7;border-left:4px solid #c92a2a;border-radius:4px;padding:8px 12px;margin-bottom:6px;background:#fff">
+    <div style="width:36%;padding-right:12px;flex-shrink:0">
+      <input class="ec-inp" ${epAttr} ${biAttr} data-ec-field="discipline" value="${esc(b.discipline||'')}" placeholder="DISCIPLINE"
+        style="width:100%;background:transparent;border:none;font-weight:700;font-size:13px;color:#c92a2a;text-transform:uppercase;outline:none;font-family:inherit"${canEd?'':' readonly'}>
+    </div>
+    <div style="flex:1;min-width:0">
+      ${(b.names||[]).map((nm,ni)=>`<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+        <input class="ec-inp" ${epAttr} ${biAttr} data-ec-field="name" data-ec-ni="${ni}" value="${esc(nm)}" placeholder="Name"
+          style="flex:1;background:transparent;border:none;border-bottom:1px solid #e5e7eb;font-size:14px;color:#111827;outline:none;font-family:inherit;padding:1px 0;min-width:0"${canEd?'':' readonly'}>
+        ${canEd?`<button ${epAttr} data-ec-action="del-name" ${biAttr} data-ec-ni="${ni}" style="background:none;border:none;color:#d1d5db;cursor:pointer;font-size:11px;padding:0;line-height:1;flex-shrink:0" title="Remove">✕</button>`:''}
+      </div>`).join('')}
+      ${canEd?`<button ${epAttr} data-ec-action="add-name" ${biAttr} style="background:none;border:none;color:#c92a2a;font-size:12px;cursor:pointer;padding:2px 0;font-family:inherit;font-weight:600">+ Name</button>`:''}
+    </div>
+    ${actBtns}
+  </div>`;
+}
+
 function renderEndCredits(epNums){
-  const canEd=['admin','deputyadmin','operations','production'].includes(getEffectiveRole());
+  const role=getEffectiveRole();
+  const canEd=['admin','deputyadmin','operations','production'].includes(role);
   if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6b7280;padding:32px;text-align:center">No episodes yet.</div></div>`;
+
+  if(ecShowDefModal){
+    const defs=ecDefaultCredits;
+    return`<div class="ep-wrap" style="overflow-y:auto;padding:16px">
+      <div style="background:#ffffff;border:1px solid #d1dae8;border-radius:8px;display:flex;flex-direction:column;min-height:300px">
+        <div style="padding:12px 16px;border-bottom:1px solid #d1dae8;display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border-radius:8px 8px 0 0;flex-wrap:wrap;gap:8px">
+          <span style="font-size:16px;font-weight:800;color:#111827">Edit Default Credits Template</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button data-ec-action="def-ins-heading" data-ec-bi="-1" class="btn" style="font-size:13px;padding:4px 10px">+H Heading</button>
+            <button data-ec-action="def-ins-entry" data-ec-bi="-1" class="btn" style="font-size:13px;padding:4px 10px">+E Entry</button>
+            <button data-ec-action="save-defaults" class="btn primary" style="font-size:13px;padding:4px 10px">💾 Save Defaults</button>
+            <button data-ec-action="close-defaults" class="btn" style="font-size:13px;padding:4px 10px">✕ Close</button>
+          </div>
+        </div>
+        <div style="padding:12px 16px;flex:1">
+          ${defs.length?defs.map((b,bi)=>renderECBlock(b,bi,defs.length,'default',true)).join('')
+            :`<div style="color:#9ca3af;text-align:center;padding:40px;font-style:italic">No default credits yet. Add +H or +E blocks.</div>`}
+        </div>
+      </div>
+    </div>`;
+  }
 
   const cards=epNums.map(n=>{
     const isExp=creditsExpandedEp===String(n);
     const saved=endCredits[String(n)]||{};
-    const html=saved.richText||'';
+    const credits=Array.isArray(saved.credits)?saved.credits:[];
+    const dirty=ecDirty[String(n)];
     const epDate=resolveDate(n);
     const isPast=epDate&&epDate<new Date().toISOString().split('T')[0];
-    return`<div class="ep-card" style="margin-bottom:8px${isPast?';opacity:0.75':''}">
+    const statusHtml=dirty==='saving'
+      ?`<span style="font-size:12px;color:#e3b341;font-weight:700">⟳ Saving…</span>`
+      :dirty
+      ?`<span style="font-size:12px;color:#f59e0b;font-weight:700">● Unsaved</span>`
+      :`<span style="font-size:12px;color:#16a34a;font-weight:700">✓ Saved</span>`;
+    return`<div class="ep-card" style="margin-bottom:8px">
       <div class="ep-head" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between" data-credits-toggle="${n}">
         <div style="display:flex;align-items:center;gap:12px">
-          <span class="ep-num"${isPast?' style="background:#3d0000;color:#f85149"':''}>EP ${n}</span>
-          <span style="font-size:15px;font-weight:600;color:${isPast?'#f85149':'#9aaabe'}">${fmtDate(epDate)}</span>
+          <span class="ep-num"${isPast?' style="background:#fef2f2;color:#b91c1c;border-color:#fca5a5"':''}>EP ${n}</span>
+          <span style="font-size:15px;font-weight:600;color:${isPast?'#b91c1c':'#4b5563'}">${fmtDate(epDate)}</span>
+          ${isExp?`<span style="font-size:13px;color:#9ca3af">${credits.length} block${credits.length===1?'':'s'}</span>`:''}
           <span style="font-size:13px;color:#9ca3af">${isExp?'▲':'▼'}</span>
         </div>
-        <div style="display:flex;gap:8px" onclick="event.stopPropagation()">
-          ${isExp?`
-          `:''}\n        </div>
+        <div style="display:flex;gap:8px;align-items:center" onclick="event.stopPropagation()">
+          ${isExp?statusHtml:''}
+        </div>
       </div>
-      ${isExp?`
-      <div style="overflow-y:auto;display:flex;flex-direction:column;flex:1;min-height:0">
-      <div style="padding:10px 16px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid #d1dae8;background:#f0f4f8;position:sticky;top:0;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.3);flex-shrink:0">
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('bold')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;font-weight:900;font-size:15px" title="Bold">B</button>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('italic')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;font-style:italic;font-size:15px" title="Italic">I</button>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('underline')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;text-decoration:underline;font-size:15px" title="Underline">U</button>
-        <div style="width:1px;background:#d1dae8;margin:0 2px"></div>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('justifyLeft')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:14px" title="Align Left">≡L</button>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('justifyCenter')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:14px" title="Centre">≡C</button>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('justifyRight')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:14px" title="Align Right">≡R</button>
-        <div style="width:1px;background:#d1dae8;margin:0 2px"></div>
-        <span style="font-size:13px;color:#6b7280;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-          <span style="font-size:12px;color:#6b7280">Colour:</span>
-          ${['#000000','#1a3a6a','#cc0000','#006600','#cc6600','#666666','#ffffff'].map(c=>
-            `<button onmousedown="event.preventDefault();applyCredColour('${c}','${n}')" style="width:20px;height:20px;background:${c};border:2px solid #555;border-radius:3px;cursor:pointer;padding:0" title="${c}"></button>`
-          ).join('')}
-          <label style="cursor:pointer;font-size:12px;color:#6b7280;display:flex;align-items:center;gap:2px" title="Custom colour">
-            Custom:<input type="color" value="#000000" onmousedown="event.preventDefault()" onchange="applyCredColour(this.value,'${n}')" style="width:22px;height:20px;border:none;cursor:pointer;padding:0;background:none">
-          </label>
-        </span>
-        <label style="font-size:13px;color:#6b7280;display:flex;align-items:center;gap:4px">Size:
-          <select onmousedown="event.preventDefault();event.stopPropagation()" onchange="refocusEditor(${n});document.execCommand('fontSize',false,this.value)" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:2px 4px;border-radius:4px;font-size:13px">
-            <option value="2">Small</option>
-            <option value="3" selected>Normal</option>
-            <option value="4">Large</option>
-            <option value="5">X-Large</option>
-            <option value="6">XX-Large</option>
-          </select>
-        </label>
-        <div style="width:1px;background:#d1dae8;margin:0 2px"></div>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('insertUnorderedList')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:14px" title="Bullet List">• List</button>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('removeFormat')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#6b7280;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:13px" title="Clear Formatting">Clear</button>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('undo')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:15px" title="Undo (⌘Z)">↩</button>
-        <button onmousedown="event.preventDefault()" onclick="refocusEditor(${n});document.execCommand('redo')" style="background:#f0f4f8;border:1px solid #d1dae8;color:#111827;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:15px" title="Redo (⌘⇧Z)">↪</button>
-        <div style="width:1px;background:#d1dae8;margin:0 4px"></div>
-        <button class="btn" data-credits-copy="${n}" style="font-size:13px;border-color:#7a3fbf;color:#c084fc" onmousedown="event.preventDefault()">Copy from EP…</button>
-        <button class="btn" data-credits-print="${n}" style="font-size:13px;border-color:#388bfd;color:#0066CC" onmousedown="event.preventDefault()">⬇ Print / PDF</button>
-        ${canEd?`<button class="btn primary" data-credits-save="${n}" style="font-size:13px" onmousedown="event.preventDefault()">💾 Save</button>`:''}
-      </div>
-      <div id="credits-editor-${n}"
-        contenteditable="${canEd?'true':'false'}"
-        data-ep="${n}"
-        style="min-height:900px;padding:20px 24px;font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.8;color:#111111;background:#ffffff;outline:none;overflow-y:auto;caret-color:#111111;flex:1"
-        spellcheck="false">${html||""}</div>
-      </div>
-      `:''}
+      ${isExp?`<div style="display:flex;flex-direction:column">
+        <div style="padding:8px 14px;display:flex;gap:7px;flex-wrap:wrap;align-items:center;background:#f8fafc;border-bottom:1px solid #d1dae8;border-top:1px solid #e5e7eb">
+          ${canEd?`<button data-ec-ep="${n}" data-ec-action="load-default" class="btn" style="font-size:13px;padding:4px 10px" title="Replace blocks with the default template">Load from Default</button>
+          <div style="width:1px;height:18px;background:#d1dae8"></div>
+          <button data-ec-ep="${n}" data-ec-action="ins-heading" data-ec-bi="-1" class="btn" style="font-size:13px;padding:4px 10px">+H Heading</button>
+          <button data-ec-ep="${n}" data-ec-action="ins-entry" data-ec-bi="-1" class="btn" style="font-size:13px;padding:4px 10px">+E Entry</button>
+          <div style="width:1px;height:18px;background:#d1dae8"></div>
+          <button data-ec-ep="${n}" data-ec-action="save" class="btn primary" style="font-size:13px;padding:4px 10px">💾 Save</button>`:''}
+          <button data-ec-ep="${n}" data-ec-action="export-pdf" class="btn" style="font-size:13px;padding:4px 10px;color:#0066CC;border-color:#bfdbfe">PDF ↗</button>
+          <button data-ec-ep="${n}" data-ec-action="export-txt" class="btn" style="font-size:13px;padding:4px 10px">TXT ↓</button>
+          <span style="margin-left:auto">${statusHtml}</span>
+        </div>
+        <div style="padding:12px 16px">
+          ${credits.length?credits.map((b,bi)=>renderECBlock(b,bi,credits.length,n,canEd)).join('')
+            :`<div style="color:#9ca3af;text-align:center;padding:40px;font-style:italic">No credits yet.${canEd?' Click +H or +E above to add blocks.':''}</div>`}
+        </div>
+      </div>`:''}
     </div>`;
   }).join('');
 
-  return`<div class="ep-wrap" style="padding-bottom:40px;overflow-y:auto">${cards}</div>`;
+  return`<div class="ep-wrap" style="overflow-y:auto;padding-bottom:40px">
+    ${canEd?`<div style="padding:8px 16px;background:#f8fafc;border-bottom:1px solid #d1dae8;display:flex;justify-content:flex-end">
+      <button data-ec-action="show-defaults" class="btn" style="font-size:13px;padding:4px 10px">⚙ Edit Default Credits</button>
+    </div>`:''}
+    ${cards}
+  </div>`;
 }
 
 
@@ -8169,94 +8306,90 @@ function bindApp(){
     });
   });
 
-  // Add page guide labels to credits editors
-
-
-  // Credits Save button — delegated to survive re-renders
-  // (moved to global delegated handler)
-
-  // Credits Copy from EP
-  document.querySelectorAll('[data-credits-copy]').forEach(btn=>{
-    btn.addEventListener('click',e=>{
-      e.stopPropagation();
-      const n=btn.dataset.creditsCopy;
-      const epNums=getEpNums();
-      const others=epNums.filter(x=>String(x)!==String(n));
-      if(!others.length){showToast('No other episodes to copy from',true);return;}
-      const sel=prompt('Copy credits from which episode?\nAvailable: '+others.join(', '));
-      if(!sel)return;
-      const src=endCredits[String(sel.trim())];
-      if(!src||!src.richText){showToast('No saved credits for Episode '+sel,true);return;}
-      const editor=document.getElementById('credits-editor-'+n);
-      if(editor){
-        editor.innerHTML=src.richText;
-        showToast('Copied from EP '+sel+' — click Save to keep');
-      }
-    });
-  });
-
-  // Credits Print button — proper PDF via browser print
-  document.querySelectorAll('[data-credits-print]').forEach(btn=>{
+  // End Credits block actions (add/delete/move/save/export) via data-ec-action
+  document.querySelectorAll('[data-ec-action]').forEach(btn=>{
     btn.addEventListener('click',async e=>{
       e.stopPropagation();
-      const n=btn.dataset.creditsPrint;
-      const editor=document.getElementById('credits-editor-'+n);
-      if(!editor){showToast('Open the episode first',true);return;}
-      const date=fmtDate(resolveDate(Number(n)));
-      const epStr=String(n).padStart(2,'0');
-      const bodyContent=editor.innerHTML;
-      // Clean up bodyContent — convert legacy <font size> tags to pt sizes
-      const sizeMap={'1':'7pt','2':'9pt','3':'11pt','4':'13pt','5':'16pt','6':'20pt','7':'26pt'};
-      let printBody=bodyContent
-        .replace(/<font size="([1-7])">/gi,(_,s)=>'<span style="font-size:'+( sizeMap[s]||'11pt')+';">')
-        .replace(/<\/font>/gi,'</span>')
-        .replace(/class="page-guide-label"[^>]*>.*?<\/div>/gi,''); // strip page guides
+      const action=btn.dataset.ecAction;
+      const ep=btn.dataset.ecEp||'';
+      const bi=parseInt(btn.dataset.ecBi??'-1',10);
+      const ni=btn.dataset.ecNi!==undefined?parseInt(btn.dataset.ecNi,10):null;
 
-      const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
-        <title>Carte Blanche End Credits EP ${epStr}</title>
-        <style>
-          @page{size:A4 portrait;margin:15mm 18mm}
-          *{box-sizing:border-box}
-          body{font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.8;color:#000;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-          .header{display:flex;align-items:center;justify-content:space-between;padding-bottom:8pt;margin-bottom:12pt;border-bottom:1.5pt solid #1a3a6a}
-          .header-logo{height:30pt;width:auto}
-          .header-centre{text-align:center}
-          .header-title{font-size:14pt;font-weight:900;text-transform:uppercase;letter-spacing:1pt;color:#1a3a6a}
-          .header-sub{font-size:8pt;color:#555;margin-top:2pt;font-weight:600;text-transform:uppercase;letter-spacing:.5pt}
-          .content{font-size:11pt;line-height:1.8;word-wrap:break-word}
-          .content p{margin:0;padding:0}
-          .content br{line-height:1.8}
-          .footer{margin-top:12pt;padding-top:6pt;border-top:.5pt solid #ccc;text-align:center;font-size:7pt;color:#999}
-          /* Prevent page breaks inside paragraphs */
-          p,div{orphans:2;widows:2}
-          @media print{
-            body{font-size:11pt}
-            .header-logo{max-height:28pt}
-          }
-        </style>
-      </head><body>
-      <div class="header">
-        <img class="header-logo" src="https://cb-commissions-portal.github.io/cb-commissions-portal/cb_logo.png" onerror="this.style.display='none'">
-        <div class="header-centre">
-          <div class="header-title">Carte Blanche End Credits</div>
-          <div class="header-sub">Season ${currentSeason} &nbsp;&middot;&nbsp; Episode ${epStr} &nbsp;&middot;&nbsp; ${date}</div>
-        </div>
-        <img class="header-logo" src="https://cb-commissions-portal.github.io/cb-commissions-portal/cap_logo.jpg" onerror="this.style.display='none'" style="height:24pt">
-      </div>
-      <div class="content">${printBody}</div>
-      <div class="footer">Electronic Media Network Proprietary Limited &copy;. All rights reserved.</div>
-      <scr'+'ipt>window.addEventListener('load',function(){setTimeout(function(){window.print();},500);})<\/scr'+'ipt>
-      </body></html>`;
-      // Download as HTML file — open in browser, Cmd+P → Save as PDF
-      const blob=new Blob([html],{type:'text/html;charset=utf-8'});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');
-      a.href=url;
-      a.download='CB-End-Credits-S'+currentSeason+'-EP'+n+'.html';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},3000);
-      showToast('Downloaded — open the file in your browser, then Cmd+P → Save as PDF');
+      // ── Default credits modal ──────────────────────────────────
+      if(action==='show-defaults'){ecShowDefModal=true;render();return;}
+      if(action==='close-defaults'){ecShowDefModal=false;render();return;}
+      if(action==='save-defaults'){
+        const blocks=collectECBlocks('default');
+        ecDefaultCredits=blocks;
+        await saveECDefaults(blocks);
+        ecShowDefModal=false;render();return;
+      }
+      if(action==='def-ins-heading'){
+        const blocks=collectECBlocks('default');
+        const pos=bi<0?blocks.length:bi+1;
+        blocks.splice(pos,0,{type:'heading',text:''});
+        ecDefaultCredits=blocks;render();return;
+      }
+      if(action==='def-ins-entry'){
+        const blocks=collectECBlocks('default');
+        const pos=bi<0?blocks.length:bi+1;
+        blocks.splice(pos,0,{type:'entry',discipline:'',names:['']});
+        ecDefaultCredits=blocks;render();return;
+      }
+
+      // ── Per-episode actions ────────────────────────────────────
+      if(action==='load-default'){
+        if(!ecDefaultCredits.length){showToast('No default credits saved yet',true);return;}
+        if(!confirm('Replace all credits for EP '+ep+' with the default template?'))return;
+        const copy=JSON.parse(JSON.stringify(ecDefaultCredits));
+        if(!endCredits[ep])endCredits[ep]={};
+        endCredits[ep].credits=copy;
+        ecDirty[ep]=true;
+        await saveECBlocks(ep,copy);
+        render();return;
+      }
+      if(action==='save'){
+        const blocks=collectECBlocks(ep);
+        clearTimeout(ecSaveTimers[ep]);
+        delete ecSaveTimers[ep];
+        await saveECBlocks(ep,blocks);
+        render();return;
+      }
+      if(action==='export-pdf'){ecExportPDF(ep);return;}
+      if(action==='export-txt'){ecExportTXT(ep);return;}
+
+      // Structural mutations — collect current DOM state, mutate, (save +) render
+      const blocks=collectECBlocks(ep);
+      if(action==='ins-heading'){
+        const pos=bi<0?blocks.length:bi+1;
+        blocks.splice(pos,0,{type:'heading',text:''});
+      } else if(action==='ins-entry'){
+        const pos=bi<0?blocks.length:bi+1;
+        blocks.splice(pos,0,{type:'entry',discipline:'',names:['']});
+      } else if(action==='block-del'){
+        blocks.splice(bi,1);
+      } else if(action==='block-up'&&bi>0){
+        [blocks[bi-1],blocks[bi]]=[blocks[bi],blocks[bi-1]];
+      } else if(action==='block-dn'&&bi<blocks.length-1){
+        [blocks[bi],blocks[bi+1]]=[blocks[bi+1],blocks[bi]];
+      } else if(action==='add-name'){
+        if(blocks[bi]&&blocks[bi].type==='entry'){
+          blocks[bi].names=[...(blocks[bi].names||[]),''];
+        }
+      } else if(action==='del-name'&&ni!==null){
+        if(blocks[bi]&&blocks[bi].type==='entry'){
+          blocks[bi].names=blocks[bi].names.filter((_,i)=>i!==ni);
+        }
+      } else {return;}
+
+      if(ep==='default'){
+        ecDefaultCredits=blocks;render();return;
+      }
+      if(!endCredits[ep])endCredits[ep]={};
+      endCredits[ep].credits=blocks;
+      ecDirty[ep]=true;
+      await saveECBlocks(ep,blocks);
+      render();
     });
   });
 
@@ -10570,37 +10703,25 @@ document.addEventListener('click',function studioCollapseHandler(e){
   else studioCollapsed.add(ep);
   render();
 });
-// ── END CREDITS delegated handlers (survive all re-renders) ──────
-document.addEventListener('click',function creditsSaveHandler(e){
-  const btn=e.target.closest('[data-credits-save]');
-  if(!btn)return;
-  e.stopPropagation();
-  const n=btn.dataset.creditsSave;
-  const editor=document.getElementById('credits-editor-'+n);
-  if(editor){
-    saveEndCreditsRich(n,editor.innerHTML);
-    showToast('End credits saved ✓');
-  } else {
-    showToast('Editor not found — try expanding the episode first',true);
-  }
-});
-document.addEventListener('blur',function ecInpBlur(e){
+// ── END CREDITS global input handlers (survive all re-renders) ───
+document.addEventListener('input',function ecInpInput(e){
   if(!e.target.classList.contains('ec-inp'))return;
   const inp=e.target;
-  saveECValue(inp.dataset.ep,inp.dataset.sec,inp.dataset.key,inp.value);
-},true);
+  const ep=inp.dataset.ecEp;
+  if(!ep||ep==='default')return;
+  ecDirty[ep]=true;
+  clearTimeout(ecSaveTimers[ep]);
+  ecSaveTimers[ep]=setTimeout(async()=>{
+    const blocks=collectECBlocks(ep);
+    await saveECBlocks(ep,blocks);
+    render();
+  },1500);
+});
 document.addEventListener('keydown',function ecInpKeydown(e){
   if(!e.target.classList.contains('ec-inp'))return;
   const inp=e.target;
-  if(e.key==='Enter'){
-    e.preventDefault();
-    saveECValue(inp.dataset.ep,inp.dataset.sec,inp.dataset.key,inp.value);
-    showToast('Saved ✓',false);
-    return;
-  }
   if(e.key==='Tab'){
     e.preventDefault();
-    saveECValue(inp.dataset.ep,inp.dataset.sec,inp.dataset.key,inp.value);
     const all=Array.from(document.querySelectorAll('input.ec-inp'));
     const idx=all.indexOf(inp);
     const next=all[idx+(e.shiftKey?-1:1)];
