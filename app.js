@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.196';
+const BUILD_VERSION='3.10.197';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -6515,16 +6515,16 @@ function renderModals(epNums,nextEp){
       function _ci(id,field,ph,color){
         const val=esc(_c[field]||'');
         const disabled=!canEdit(_role,field);
-        return`<input id="${id}" value="${val}" placeholder="${ph}" ${disabled?'disabled':''} style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:${color||'#eaf0ff'};font-size:17px;padding:10px 12px;outline:none;font-family:inherit;box-sizing:border-box${disabled?';opacity:.45':''}">`;
+        return`<input id="${id}" value="${val}" placeholder="${ph}" ${disabled?'disabled':''} style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:${color||'#111827'};font-size:17px;padding:10px 12px;outline:none;font-family:inherit;box-sizing:border-box${disabled?';opacity:.55':''}">`;
       }
       // Deliverables
       const _delHtml=DEL_KEYS.map((k,ki)=>{
         const isIHGrey=((_c.isInHouse||_c.isLicensed)&&k==='callSheets');
         const disabled=!canEdit(_role,k)||isIHGrey;
         const checked=!!_c[k];
-        return`<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${checked?'rgba(56,139,253,.1)':'#161b22'};border:1px solid ${checked?'#388bfd':'#21262d'};border-radius:8px;cursor:${disabled?'default':'pointer'};opacity:${isIHGrey?'.35':'1'}">
-          <input type="checkbox" id="cem-del-${k}" ${checked?'checked':''} ${disabled?'disabled':''} style="width:18px;height:18px;cursor:${disabled?'default':'pointer'};accent-color:#388bfd;flex-shrink:0">
-          <span style="font-size:16px;color:${checked?'#58a6ff':'#8b949e'};font-weight:${checked?'700':'400'}">${DEL_LABELS[ki]}</span>
+        return`<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${checked?'#eff6ff':'#f9fafb'};border:1px solid ${checked?'#93c5fd':'#d1dae8'};border-radius:8px;cursor:${disabled?'default':'pointer'};opacity:${isIHGrey?'.4':'1'}">
+          <input type="checkbox" id="cem-del-${k}" ${checked?'checked':''} ${disabled?'disabled':''} style="width:18px;height:18px;cursor:${disabled?'default':'pointer'};accent-color:#0066CC;flex-shrink:0">
+          <span style="font-size:16px;color:${checked?'#1d4ed8':'#374151'};font-weight:${checked?'700':'500'}">${DEL_LABELS[ki]}</span>
         </label>`;
       }).join('');
       // Payment section
@@ -6536,7 +6536,7 @@ function renderModals(epNums,nextEp){
       const _decomSection=_c.decommissioned
         ?`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
             ${currentRole==='admin'?`<button id="cem-undo-decom" class="btn" style="border-color:#3fb950;color:#3fb950;font-size:16px;padding:8px 20px;font-weight:700">↩ Undo Decommission</button>`:''}
-            <span style="background:#3d1a1a;color:#f85149;font-size:14px;font-weight:800;padding:4px 12px;border-radius:4px;letter-spacing:.5px">DECOMMISSIONED</span>
+            <span style="background:#fee2e2;color:#b91c1c;font-size:14px;font-weight:800;padding:4px 12px;border-radius:4px;letter-spacing:.5px;border:1px solid #fca5a5">DECOMMISSIONED</span>
           </div>
           <div style="margin-top:12px">
             <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;margin-bottom:6px">Motivation</div>
@@ -6552,7 +6552,7 @@ function renderModals(epNums,nextEp){
       out+=`<div class="modal-overlay" id="cem-overlay"><div class="modal" style="width:min(820px,96vw);max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
         <div style="padding:18px 24px;border-bottom:1px solid #d1dae8;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
           <div>
-            <span style="font-size:18px;font-weight:800;color:#e6edf3">${esc(String(_c.commNum||''))}</span>
+            <span style="font-size:18px;font-weight:800;color:#111827">${esc(String(_c.commNum||''))}</span>
             ${_c.storyName?`<span style="font-size:16px;color:#6b7280;margin-left:12px">· ${esc(_c.storyName)}</span>`:''}
             ${_c.decommissioned?'<span style="background:#fee2e2;color:#b91c1c;font-size:12px;font-weight:800;padding:2px 8px;border-radius:3px;margin-left:10px;letter-spacing:.5px;border:1px solid #fca5a5">DECOM</span>':''}
             ${_c.onHold&&!_c.decommissioned?'<span style="background:#fff7ed;color:#c2410c;font-size:12px;font-weight:800;padding:2px 8px;border-radius:3px;margin-left:10px;letter-spacing:.5px;border:1px solid #fed7aa">ON HOLD</span>':''}
@@ -6598,7 +6598,7 @@ function renderModals(epNums,nextEp){
             <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
               <label style="display:flex;align-items:center;gap:10px;cursor:${_paidDisabled?'default':'pointer'}">
                 <input type="checkbox" id="cem-paid" ${_paidChecked?'checked':''} ${_paidDisabled?'disabled':''} style="width:18px;height:18px;accent-color:#388bfd;cursor:${_paidDisabled?'default':'pointer'}">
-                <span style="font-size:17px;color:${_paidChecked?'#58a6ff':'#8b949e'};font-weight:${_paidChecked?'700':'400'}">Approved for Payment</span>
+                <span style="font-size:17px;color:${_paidChecked?'#1d4ed8':'#374151'};font-weight:${_paidChecked?'700':'500'}">Approved for Payment</span>
               </label>
               <div style="display:flex;flex-direction:column;gap:5px">
                 <div style="font-size:13px;color:#6b7280;font-weight:600">Insert Cost</div>
