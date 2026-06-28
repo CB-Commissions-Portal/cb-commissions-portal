@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.190';
+const BUILD_VERSION='3.10.191';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -8622,30 +8622,18 @@ function bindApp(){
       if(!ep){showToast('Select an episode first',true);return;}
       const lt=liveTranscripts[String(ep)]||{};
       const blocks=lt.blocks&&lt.blocks.length?lt.blocks:[];
-      if(!blocks.length){
-        // fall back to live textarea values
-        const tas=document.querySelectorAll('.tr-live-area');
-        if(!tas.length){showToast('No transcript content to export',true);return;}
-      }
-      const divider='─'.repeat(60);
-      let txt=`CARTE BLANCHE — EP${String(ep).padStart(2,'0')} LIVE SHOW TRANSCRIPT\n`;
-      txt+=`Exported: ${new Date().toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})}\n\n`;
-      // collect current textarea values (live DOM) if available, otherwise use saved blocks
+      if(!blocks.length){showToast('No transcript content to export',true);return;}
+      // collect live textarea values first (in case of unsaved keystrokes)
       const taMap={};
       document.querySelectorAll('.tr-live-area').forEach(ta=>{taMap[ta.dataset.bi]=ta.value;});
-      const epComs=comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0));
+      const parts=[];
       blocks.forEach((block,bi)=>{
-        const content=taMap[String(bi)]!==undefined?taMap[String(bi)]:block.content||'';
-        const isFixed=['fixed','break'].includes(block.itemType);
-        txt+=`${divider}\n[${(block.itemType||'live').toUpperCase()}] ${block.itemLabel}\n`;
-        if(block.commNum){
-          const comm=comms.find(c=>String(c.commNum)===String(block.commNum));
-          if(comm)txt+=`Comm ${comm.commNum} · ${comm.storyName||''}\n`;
-        }
-        txt+=`${divider}\n`;
-        txt+=isFixed?'[Fixed / break — no dialogue]\n\n':(content||'[No transcript entered]\n')+'\n\n';
+        if(['fixed','break'].includes(block.itemType))return;
+        const content=(taMap[String(bi)]!==undefined?taMap[String(bi)]:block.content||'').trim();
+        if(content)parts.push(content);
       });
-      const blob=new Blob([txt],{type:'text/plain;charset=utf-8'});
+      if(!parts.length){showToast('No transcript text to export',true);return;}
+      const blob=new Blob([parts.join('\n\n')],{type:'text/plain;charset=utf-8'});
       const a=document.createElement('a');
       a.href=URL.createObjectURL(blob);
       a.download=`EP${String(ep).padStart(2,'0')}_Live_Transcript.txt`;
