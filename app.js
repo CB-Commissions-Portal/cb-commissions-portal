@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.177';
+const BUILD_VERSION='3.10.178';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -2972,21 +2972,24 @@ function moveStory(id,dir){
   }
   if(epStories.length<2){showToast('Only one story — nothing to reorder',true);return;}
   epStories.sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
-  if(epStories.every(c=>!c.broadcastOrder)){epStories.forEach((c,i)=>{c.broadcastOrder=i+1;});}
+  if(epStories.some(c=>!c.broadcastOrder)){
+    epStories.forEach((c,i)=>{c.broadcastOrder=i+1;});
+    epStories.forEach(c=>saveComm(c));
+  }
   const idx=epStories.findIndex(c=>Number(c.id)===Number(id));
   if(idx<0){showToast('Story not in list',true);return;}
   if(dir==='up'){
     if(idx===0){showToast('Already first',true);return;}
     const prev=epStories[idx-1];
-    const tmp=prev.broadcastOrder||idx;
-    prev.broadcastOrder=comm.broadcastOrder||(idx+1);
+    const tmp=prev.broadcastOrder;
+    prev.broadcastOrder=comm.broadcastOrder;
     comm.broadcastOrder=tmp;
     saveComm(comm);saveComm(prev);showToast('Moved up ✓');
   } else {
     if(idx>=epStories.length-1){showToast('Already last',true);return;}
     const next=epStories[idx+1];
-    const tmp=next.broadcastOrder||(idx+2);
-    next.broadcastOrder=comm.broadcastOrder||(idx+1);
+    const tmp=next.broadcastOrder;
+    next.broadcastOrder=comm.broadcastOrder;
     comm.broadcastOrder=tmp;
     saveComm(comm);saveComm(next);showToast('Moved down ✓');
   }
@@ -3523,9 +3526,9 @@ function renderPromoScheduling(epNums){
       const combined=uid&&!isPulled?`${uid} ${slug}`:'';
       const bg=i%2===0?'':'background:#f9fafb';
       return`<tr style="${bg}${isPulled?';opacity:.55':''}">
-        <td style="${tdB};font-weight:700;color:${isPulled?'#484f58':'#eaf0ff'};width:120px;${isPulled?'text-decoration:line-through':''}">${pt.label}</td>
-        <td style="${tdB};width:100px"><input class="ci promo-date-inp" value="${esc(pd['txFrom_'+pt.key]||txD.from)}" data-ep="${n}" data-field="txFrom_${pt.key}" style="font-size:13px;width:100%" ${!canEd||isPulled?'disabled':''}></td>
-        <td style="${tdB};width:100px"><input class="ci promo-date-inp" value="${esc(pd['txTo_'+pt.key]||txD.to)}" data-ep="${n}" data-field="txTo_${pt.key}" style="font-size:13px;width:100%" ${!canEd||isPulled?'disabled':''}></td>
+        <td style="${tdB};font-weight:700;color:${isPulled?'#9ca3af':'#111827'};width:120px;${isPulled?'text-decoration:line-through':''}">${pt.label}</td>
+        <td style="${tdB};width:78px"><input class="ci promo-date-inp" value="${esc(pd['txFrom_'+pt.key]||txD.from)}" data-ep="${n}" data-field="txFrom_${pt.key}" style="font-size:13px;width:100%" ${!canEd||isPulled?'disabled':''}></td>
+        <td style="${tdB};width:78px"><input class="ci promo-date-inp" value="${esc(pd['txTo_'+pt.key]||txD.to)}" data-ep="${n}" data-field="txTo_${pt.key}" style="font-size:13px;width:100%" ${!canEd||isPulled?'disabled':''}></td>
         <td style="${tdB};width:110px"><span style="font-family:monospace;font-size:14px;font-weight:700;color:${isPulled?'#484f58':'#58a6ff'};letter-spacing:1px;text-decoration:${isPulled?'line-through':'none'}">${uid||'<span style="color:#9ca3af">—</span>'}</span></td>
         <td style="${tdB};width:90px;text-align:center">${canEd?`<label style="display:flex;align-items:center;gap:5px;cursor:pointer;justify-content:center">
           <input type="checkbox" class="promo-pulled-cb" data-ep="${n}" data-key="${pt.key}" ${isPulled?'checked':''} tabindex="-1">
