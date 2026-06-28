@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.186';
+const BUILD_VERSION='3.10.187';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -2110,9 +2110,9 @@ const canEd=currentRole==='admin';
 function epci(field,w){return canEd?`<input class="ci ep-ci" value="${esc(String(s[field]||''))}" data-id="${s.id}" data-field="${field}" style="width:${w}px">`:esc(String(s[field]||'—'));}
 return`<tr data-ep-row="${s.id}">
 <td style="text-align:center;vertical-align:middle;white-space:nowrap">
-  ${canEd?`<div style="display:flex;flex-direction:column;gap:1px;align-items:center" onclick="event.stopPropagation()">
-    <button onclick="event.stopPropagation();moveStory(${s.id},'up')" style="background:#fef9c3;border:1px solid #fcd34d;color:#e3b341;width:22px;height:16px;cursor:pointer;font-size:11px;line-height:1;border-radius:3px 3px 0 0;padding:0" title="Move up">▲</button>
-    <button onclick="event.stopPropagation();moveStory(${s.id},'dn')" style="background:#fef9c3;border:1px solid #fcd34d;color:#e3b341;width:22px;height:16px;cursor:pointer;font-size:11px;line-height:1;border-radius:0 0 3px 3px;padding:0" title="Move down">▼</button>
+  ${canEd?`<div style="display:flex;flex-direction:column;gap:1px;align-items:center">
+    <button class="ep-story-up" data-story-id="${s.id}" style="background:#fef9c3;border:1px solid #fcd34d;color:#e3b341;width:22px;height:16px;cursor:pointer;font-size:11px;line-height:1;border-radius:3px 3px 0 0;padding:0" title="Move up">▲</button>
+    <button class="ep-story-dn" data-story-id="${s.id}" style="background:#fef9c3;border:1px solid #fcd34d;color:#e3b341;width:22px;height:16px;cursor:pointer;font-size:11px;line-height:1;border-radius:0 0 3px 3px;padding:0" title="Move down">▼</button>
   </div>`:`<span style="color:#e3b341;font-weight:700;font-size:13px">${s.broadcastOrder||''}</span>`}
 </td>
 <td class="story" style="font-weight:600;color:#111827;font-size:16px;white-space:normal">${esc(s.storyName||'')}</td>
@@ -10858,6 +10858,11 @@ document.addEventListener('input',function contractFieldHandler(e){
 });
 // ── One-time global handlers (set up once, survive renders) ─────
 document.addEventListener('click',function epToggleHandler(e){
+  // Story reorder arrows (module-scope delegation — onclick attrs can't reach module functions)
+  const upBtn=e.target.closest('.ep-story-up');
+  const dnBtn=e.target.closest('.ep-story-dn');
+  if(upBtn){e.stopPropagation();moveStory(Number(upBtn.dataset.storyId),'up');return;}
+  if(dnBtn){e.stopPropagation();moveStory(Number(dnBtn.dataset.storyId),'dn');return;}
   // Expand All button
   if(e.target.closest('#ep-expand-all-btn')){
     const epNums=getEpNums();
