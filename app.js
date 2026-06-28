@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.188';
+const BUILD_VERSION='3.10.189';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -6784,6 +6784,7 @@ function renderTranscripts(epNums){
   const lt=ep?(liveTranscripts[String(ep)]||{}):{};
   const epComms=ep?comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0)):[];
   function insertComm(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComms[Number(m[1])-1]||null;}
+  const readyEpComms=epComms.filter(c=>commTranscripts[String(c.commNum)]?.status==='ready');
   function blockBg(type){return{fixed:'#f8fafc',break:'#f8fafc',live:'#eff6ff',insert:'#f0fdf4',coldstart:'#faf5ff',upnext:'#f0fdf4'}[type]||'#f9fafb';}
   function blockAccent(type){return{fixed:'#484f58',break:'#484f58',live:'#1f6feb',insert:'#3fb950',coldstart:'#8957e5',upnext:'#2ea043'}[type]||'#484f58';}
   const rosItems=ep?(rosData[String(ep)]?.items||[]):[];
@@ -6804,6 +6805,7 @@ function renderTranscripts(epNums){
           <button id="tr-build-btn" class="btn primary" style="flex:1;font-size:14px;padding:7px 0">⚙ Build from Script</button>
           <button id="tr-export-txt-btn" class="btn" style="font-size:14px;padding:7px 10px" title="Export as TXT (UTF-8)">⬇ TXT</button>
         </div>
+        <button id="tr-rebuild-btn" class="btn" style="width:100%;font-size:13px;padding:5px 0;margin-top:5px;color:#b45309;border-color:#fde68a;background:#fffbeb" title="Discard typed content and rebuild fresh from the current script">🔄 Clear &amp; Rebuild from Script</button>
         ${lt.updatedByName?`<div style="margin-top:10px;font-size:12px;color:#9ca3af;line-height:1.5">Last saved by <strong style="color:#6b7280">${esc(lt.updatedByName)}</strong>${lt.updatedAtStr?`<br>${esc(lt.updatedAtStr)}`:''}</div>`:''}
       </div>
       <div style="padding:10px 14px;flex:1;overflow-y:auto">
@@ -6836,7 +6838,9 @@ function renderTranscripts(epNums){
             <span style="font-size:13px;color:#6b7280">Comm <strong style="color:#111827">${esc(String(linked.commNum))}</strong> · ${esc(linked.storyName||'')}</span>
             ${statusBadge(linkedTd?.status)}
             ${linkedTd?.status==='ready'&&linkedTd?.transcript?`<button class="btn tr-copy-in" data-bi="${bi}" data-commnum="${esc(String(linked.commNum))}" style="font-size:12px;padding:3px 9px;margin-left:auto;background:#dcfce7;color:#16a34a;border-color:#86efac">↓ Copy In Transcript</button>`:''}
-          </div>`:''}
+          </div>`:(block.itemType==='insert'?`<div style="padding:6px 14px;background:${accent}08;border-bottom:1px solid ${accent}25;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            ${readyEpComms.length?`<select class="tr-insert-pick" data-bi="${bi}" style="flex:1;min-width:0;background:#f9fafb;border:1px solid #d1dae8;border-radius:4px;color:#111827;font-size:13px;padding:4px 8px;font-family:inherit"><option value="">— select commission transcript —</option>${readyEpComms.map(c=>`<option value="${esc(String(c.commNum))}">${esc(String(c.commNum))} · ${esc(c.storyName||'')}</option>`).join('')}</select><button class="btn tr-add-trans-btn" data-bi="${bi}" style="font-size:12px;padding:3px 9px;background:#dcfce7;color:#16a34a;border-color:#86efac;white-space:nowrap">ADD TRANSCRIPT</button>`:`<span style="font-size:13px;color:#9ca3af;font-style:italic">No commission transcripts marked Ready for EP${ep}</span>`}
+          </div>`:'')}
           ${isFixed?`<div style="padding:10px 14px;font-size:15px;color:#9ca3af;font-style:italic">Fixed/break item — no dialogue</div>`:
             `<textarea class="tr-live-area" data-bi="${bi}" placeholder="Enter dialogue / transcript here…" style="width:100%;min-height:60px;height:auto;background:transparent;border:none;color:#111827;font-size:17px;padding:12px 14px;resize:none;outline:none;font-family:inherit;line-height:1.8;box-sizing:border-box;overflow:hidden;display:block">${esc(block.content||'')}</textarea>`}
         </div>`;
@@ -8572,6 +8576,22 @@ function bindApp(){
       showToast(`Live Show Transcript built — ${newBlocks.length} items from EP${ep} script`);
       render();
     });
+    document.getElementById('tr-rebuild-btn')?.addEventListener('click',async()=>{
+      const ep=transcriptLiveEp;if(!ep){showToast('Select an episode first',true);return;}
+      if(!confirm('This will clear all typed transcript content and rebuild fresh from the current script. Continue?'))return;
+      const rosItems=(rosData[String(ep)]?.items)||[];
+      if(!rosItems.length){showToast('No script items found for EP'+ep+'. Add items in Studio Script Build first.',true);return;}
+      const epComs=comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0));
+      function iComm2(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComs[Number(m[1])-1]?.commNum||null;}
+      const newBlocks=rosItems.map(item=>({
+        itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',
+        content:item.script||'',
+        commNum:item.type==='insert'?iComm2(item.key):null
+      }));
+      await saveLiveTranscript(ep,{epNum:ep,blocks:newBlocks});
+      showToast(`Transcript cleared and rebuilt — ${newBlocks.length} items from EP${ep} script`);
+      render();
+    });
     // Auto-resize all live-area textareas to fit content
     function autoResizeTa(ta){ta.style.height='0px';ta.style.height=Math.max(60,ta.scrollHeight)+'px';}
     document.querySelectorAll('.tr-live-area').forEach(ta=>{
@@ -8643,6 +8663,26 @@ function bindApp(){
           if(ta)ta.value=td.transcript||'';
           showToast('Commission transcript copied in');
         }
+      });
+    });
+    document.querySelectorAll('.tr-add-trans-btn').forEach(btn=>{
+      btn.addEventListener('click',async()=>{
+        const bi=Number(btn.dataset.bi);
+        const sel=document.querySelector(`.tr-insert-pick[data-bi="${bi}"]`);
+        const commNum=sel?.value;
+        if(!commNum){showToast('Select a commission first',true);return;}
+        const td=commTranscripts[String(commNum)];
+        if(td?.status!=='ready'||!td?.transcript){showToast('Commission transcript not marked Ready',true);return;}
+        const ep=transcriptLiveEp;if(!ep)return;
+        const lt=liveTranscripts[String(ep)]||{};
+        const blocks=JSON.parse(JSON.stringify(lt.blocks||[]));
+        if(blocks[bi]){
+          blocks[bi].content=td.transcript;
+          blocks[bi].commNum=commNum;
+        }
+        await saveLiveTranscript(ep,{epNum:ep,blocks});
+        showToast('Comm '+commNum+' transcript added');
+        render();
       });
     });
   }
