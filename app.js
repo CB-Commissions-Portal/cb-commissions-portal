@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.185';
+const BUILD_VERSION='3.10.186';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -4738,12 +4738,12 @@ function renderRunOfShow(){
 
   // Type styling
   const TS={
-    fixed:    {bg:'#16161f',border:'#2e2e44',label:'#9ca3af',weight:'600',badge:'',badgeBg:''},
-    live:     {bg:'#0d1e35',border:'#1e3a5f',label:'#79c0ff',weight:'800',badge:'LIVE',badgeBg:'#1a3a5c'},
-    insert:   {bg:'#1a1200',border:'#4a3300',label:'#e3b341',weight:'900',badge:'INSERT',badgeBg:'#2d2000'},
-    coldstart:{bg:'#110d1f',border:'#2e2e50',label:'#c084fc',weight:'700',badge:'COLD START',badgeBg:'#1f1040'},
-    upnext:   {bg:'#0d1f10',border:'#2d4a30',label:'#56d364',weight:'700',badge:'UP NEXT',badgeBg:'#142a16'},
-    break:    {bg:'#080808',border:'#1a1a1a',label:'#484f58',weight:'700',badge:'BREAK',badgeBg:'#111'},
+    fixed:    {bg:'#f9fafb',border:'#e2e8f0',label:'#6b7280',weight:'600',badge:'',badgeBg:'#f3f4f6'},
+    live:     {bg:'#eff6ff',border:'#bfdbfe',label:'#1d4ed8',weight:'800',badge:'LIVE',badgeBg:'#dbeafe'},
+    insert:   {bg:'#fffbeb',border:'#fde68a',label:'#b45309',weight:'900',badge:'INSERT',badgeBg:'#fef3c7'},
+    coldstart:{bg:'#faf5ff',border:'#e9d5ff',label:'#7c3aed',weight:'700',badge:'COLD START',badgeBg:'#ede9fe'},
+    upnext:   {bg:'#f0fdf4',border:'#bbf7d0',label:'#15803d',weight:'700',badge:'UP NEXT',badgeBg:'#dcfce7'},
+    break:    {bg:'#f3f4f6',border:'#d1d5db',label:'#9ca3af',weight:'700',badge:'BREAK',badgeBg:'#f3f4f6'},
   };
 
   const rows=items.map((item,i)=>{
@@ -4754,27 +4754,27 @@ function renderRunOfShow(){
 
     // Slug display (read-only in main view)
     const slugDisplay=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean)
-      .map(s=>`<div style="font-size:18px;color:#e3b341;font-weight:700;margin-bottom:4px">${esc(s)}</div>`)
+      .map(s=>`<div style="font-size:18px;color:#b45309;font-weight:700;margin-bottom:4px">${esc(s)}</div>`)
       .join('')||'<span style="color:#9ca3af;font-size:18px">—</span>';
 
     // Content (editable inline)
     const contentCell=item.type!=='fixed'&&item.type!=='break'
       ?(canEdit&&!isLocked
         ?`<input class="ros-content" data-idx="${i}" value="${esc(item.content||'')}" placeholder="${esc(item.placeholder||'Add content…')}" style="width:100%;background:transparent;border:none;border-bottom:2px solid ${ts.border};color:#111827;font-size:18px;padding:8px 2px;outline:none;font-family:inherit">`
-        :`<span style="font-size:18px;color:${item.content?'#eaf0ff':'#484f58'};font-style:${item.content?'normal':'italic'}">${esc(item.content||'—')}</span>`)
+        :`<span style="font-size:18px;color:${item.content?'#111827':'#9ca3af'};font-style:${item.content?'normal':'italic'}">${esc(item.content||'—')}</span>`)
       :'';
 
     // Duration (editable inline)
     const durCell=canEdit&&!isLocked
       ?`<input class="ros-dur" data-idx="${i}" value="${esc(item.duration||'')}" placeholder="0:00:00" style="width:120px;background:transparent;border:none;border-bottom:2px solid ${ts.border};color:#111827;font-size:20px;padding:8px 4px;outline:none;text-align:center;font-family:monospace">`
-      :`<span class="ros-dur-display" style="font-size:20px;font-family:monospace;color:${durSecs?'#eaf0ff':'#484f58'}">${item.duration||'—'}</span>`;
+      :`<span class="ros-dur-display" style="font-size:20px;font-family:monospace;color:${durSecs?'#111827':'#9ca3af'}">${item.duration||'—'}</span>`;
 
     return`<tr data-ros-idx="${i}" style="background:${ts.bg};border-bottom:3px solid ${ts.border}">
       <td style="padding:10px 8px;width:72px;text-align:center;vertical-align:middle">
         ${canEdit?`<div style="display:flex;flex-direction:column;align-items:center;gap:5px">
-          <button class="ros-up" data-idx="${i}" style="background:none;border:1px solid #d1dae8;border-radius:4px;color:#9ca3af;cursor:pointer;font-size:15px;line-height:1;padding:5px 8px" onmouseover="this.style.color='#eaf0ff';this.style.borderColor='#58a6ff'" onmouseout="this.style.color='#484f58';this.style.borderColor='#d1dae8'" ${i===0?'disabled':''}>▲</button>
-          <button class="ros-dn" data-idx="${i}" style="background:none;border:1px solid #d1dae8;border-radius:4px;color:#9ca3af;cursor:pointer;font-size:15px;line-height:1;padding:5px 8px" onmouseover="this.style.color='#eaf0ff';this.style.borderColor='#58a6ff'" onmouseout="this.style.color='#484f58';this.style.borderColor='#d1dae8'" ${i===items.length-1?'disabled':''}>▼</button>
-          <button class="ros-del" data-idx="${i}" style="background:none;border:1px solid #d1dae8;border-radius:4px;color:#9ca3af;cursor:pointer;font-size:16px;line-height:1;padding:5px 8px" onmouseover="this.style.color='#f85149';this.style.borderColor='#f85149'" onmouseout="this.style.color='#484f58';this.style.borderColor='#d1dae8'">✕</button>
+          <button class="ros-up" data-idx="${i}" style="background:none;border:1px solid #d1dae8;border-radius:4px;color:#9ca3af;cursor:pointer;font-size:15px;line-height:1;padding:5px 8px" onmouseover="this.style.color='#111827';this.style.borderColor='#0066CC'" onmouseout="this.style.color='#9ca3af';this.style.borderColor='#d1dae8'" ${i===0?'disabled':''}>▲</button>
+          <button class="ros-dn" data-idx="${i}" style="background:none;border:1px solid #d1dae8;border-radius:4px;color:#9ca3af;cursor:pointer;font-size:15px;line-height:1;padding:5px 8px" onmouseover="this.style.color='#111827';this.style.borderColor='#0066CC'" onmouseout="this.style.color='#9ca3af';this.style.borderColor='#d1dae8'" ${i===items.length-1?'disabled':''}>▼</button>
+          <button class="ros-del" data-idx="${i}" style="background:none;border:1px solid #d1dae8;border-radius:4px;color:#9ca3af;cursor:pointer;font-size:16px;line-height:1;padding:5px 8px" onmouseover="this.style.color='#dc2626';this.style.borderColor='#dc2626'" onmouseout="this.style.color='#9ca3af';this.style.borderColor='#d1dae8'">✕</button>
         </div>`:''}
       </td>
       <td style="padding:22px 24px;vertical-align:middle;min-width:220px;max-width:260px">
@@ -4786,7 +4786,7 @@ function renderRunOfShow(){
       <td style="padding:18px 24px;vertical-align:middle">${contentCell}</td>
       <td style="padding:18px 24px;vertical-align:middle;width:160px;text-align:center">${durCell}</td>
       <td style="padding:18px 24px;vertical-align:middle;width:160px;text-align:right">
-        <span class="ros-epdur" data-idx="${i}" style="font-size:${i===0?'26px':'20px'};font-family:monospace;color:${i===0?'#c084fc':epDurSecs?'#79c0ff':'#333'};font-weight:${i===0?'900':'400'}">${epDurSecs?rosSecsToStr(epDurSecs):'—'}</span>
+        <span class="ros-epdur" data-idx="${i}" style="font-size:${i===0?'26px':'20px'};font-family:monospace;color:${i===0?'#7c3aed':epDurSecs?'#1d4ed8':'#9ca3af'};font-weight:${i===0?'900':'400'}">${epDurSecs?rosSecsToStr(epDurSecs):'—'}</span>
       </td>
       <td style="padding:18px 20px;vertical-align:middle;width:150px;text-align:center">
         ${(canEdit||canEditScriptOnly||canEditDirectorNotes)?`<button class="ros-edit-btn btn" data-idx="${i}" style="font-size:16px;padding:12px 18px;border-color:#388bfd;color:#0066CC;width:100%;font-weight:700;letter-spacing:.3px">✎ EDIT ITEM</button>`:''}
@@ -4811,17 +4811,17 @@ function renderRunOfShow(){
       <div style="padding:14px 24px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:16px;flex-shrink:0;flex-wrap:wrap">
         <button class="btn" id="ros-pick-ep-btn" style="font-size:15px;padding:8px 16px">◀ Episodes</button>
         <div>
-          <span style="font-size:20px;font-weight:900;color:#c084fc;font-family:monospace">${epLabel}</span>
+          <span style="font-size:20px;font-weight:900;color:#7c3aed;font-family:monospace">${epLabel}</span>
           <span style="font-size:16px;color:#6b7280;margin-left:14px">${epDateFmt}</span>
         </div>
-        ${(()=>{const _ub=rosData[String(epNum)]?.updatedByName;const _ua=rosData[String(epNum)]?.updatedAtStr;return `<div style="font-size:13px;color:#6b7280;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;padding:5px 12px;line-height:1.5"><span style="color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:11px">Last saved by</span><br><span style="color:${_ub?'#eaf0ff':'#484f58'};font-weight:700;font-style:${_ub?'normal':'italic'}">${esc(_ub||'Not yet saved')}</span>${_ua?`<span style="color:#9ca3af"> · ${esc(_ua)}</span>`:''}</div>`;})()}
+        ${(()=>{const _ub=rosData[String(epNum)]?.updatedByName;const _ua=rosData[String(epNum)]?.updatedAtStr;return `<div style="font-size:13px;color:#6b7280;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;padding:5px 12px;line-height:1.5"><span style="color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:11px">Last saved by</span><br><span style="color:${_ub?'#111827':'#9ca3af'};font-weight:700;font-style:${_ub?'normal':'italic'}">${esc(_ub||'Not yet saved')}</span>${_ua?`<span style="color:#9ca3af"> · ${esc(_ua)}</span>`:''}</div>`;})()}
         <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <span style="font-size:20px;font-weight:900;color:#c084fc;font-family:monospace" id="ros-total">Total: ${rosSecsToStr(totalSecs)}</span>
-          <button class="btn" id="ros-export-pdf-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#56d364;color:#56d364">⬇ ROS PDF</button>
+          <span style="font-size:20px;font-weight:900;color:#7c3aed;font-family:monospace" id="ros-total">Total: ${rosSecsToStr(totalSecs)}</span>
+          <button class="btn" id="ros-export-pdf-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#16a34a;color:#16a34a">⬇ ROS PDF</button>
           <button class="btn" id="ros-preview-word-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#0066CC;color:#0066CC;border-style:dashed">👁 Preview Script</button>
           <button class="btn" id="ros-export-word-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#388bfd;color:#0066CC">⬇ Studio Script (Word)</button>
-          <button class="btn" id="ros-export-vt-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#e3b341;color:#e3b341">⬇ VT List</button>
-          ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#e3b341;color:#e3b341"># Numbers</button>`:''}
+          <button class="btn" id="ros-export-vt-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#b45309;color:#b45309">⬇ VT List</button>
+          ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#b45309;color:#b45309"># Numbers</button>`:''}
           ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:16px;padding:8px 24px;font-weight:800">💾 Save</button>`:''}
           <a href="studio-script-build-guide.html" target="_blank" class="btn" style="font-size:15px;padding:8px 16px;font-weight:700;border-color:#9ca3af;color:#6b7280;text-decoration:none">? Guide</a>
         </div>
@@ -4833,10 +4833,10 @@ function renderRunOfShow(){
             <tr>
               <th style="width:72px;padding:12px 8px;border-bottom:2px solid #d1dae8"></th>
               <th style="padding:12px 24px;font-size:14px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:left">Item</th>
-              <th style="padding:12px 24px;font-size:14px;font-weight:800;text-transform:uppercase;color:#e3b341;border-bottom:2px solid #d1dae8;text-align:left;min-width:200px">Slug</th>
+              <th style="padding:12px 24px;font-size:14px;font-weight:800;text-transform:uppercase;color:#b45309;border-bottom:2px solid #d1dae8;text-align:left;min-width:200px">Slug</th>
               <th style="padding:12px 24px;font-size:14px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:left">Content</th>
               <th style="padding:12px 24px;font-size:14px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:center;width:160px">Item Dur</th>
-              <th style="padding:12px 24px;font-size:14px;font-weight:800;text-transform:uppercase;color:#c084fc;border-bottom:2px solid #d1dae8;text-align:right;width:160px">Ep Duration ↑</th>
+              <th style="padding:12px 24px;font-size:14px;font-weight:800;text-transform:uppercase;color:#7c3aed;border-bottom:2px solid #d1dae8;text-align:right;width:160px">Ep Duration ↑</th>
               <th style="padding:12px 20px;font-size:14px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:center;width:150px"></th>
             </tr>
           </thead>
@@ -4845,8 +4845,8 @@ function renderRunOfShow(){
       </div>
     </div>
     <!-- Right sidebar: Add Item -->
-    ${canEdit&&!canEditScriptOnly?`<div style="width:280px;flex-shrink:0;background:#f8fafc;border-left:2px solid #21262d;display:flex;flex-direction:column;overflow-y:auto">
-      <div style="padding:18px 18px 10px;font-size:16px;font-weight:800;color:#111827;border-bottom:1px solid #21262d;letter-spacing:.3px">+ Add Item</div>
+    ${canEdit&&!canEditScriptOnly?`<div style="width:280px;flex-shrink:0;background:#f8fafc;border-left:2px solid #e8edf5;display:flex;flex-direction:column;overflow-y:auto">
+      <div style="padding:18px 18px 10px;font-size:16px;font-weight:800;color:#111827;border-bottom:1px solid #e8edf5;letter-spacing:.3px">+ Add Item</div>
       <div style="padding:14px 18px;display:flex;flex-direction:column;gap:12px">
         <select id="ros-type-sel" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:12px 14px;border-radius:6px;font-size:16px">
           <option value="">— choose item —</option>
@@ -4854,9 +4854,9 @@ function renderRunOfShow(){
         </select>
         <button class="btn primary" id="ros-add-btn" style="width:100%;font-size:17px;padding:14px;font-weight:800">+ Add Item</button>
       </div>
-      <div style="padding:14px 18px;border-top:1px solid #21262d;display:flex;flex-direction:column;gap:8px">
+      <div style="padding:14px 18px;border-top:1px solid #e8edf5;display:flex;flex-direction:column;gap:8px">
         <div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Colour Key</div>
-        ${[['#1a3a5c','#79c0ff','LIVE / LINK'],['#2d2000','#e3b341','INSERT'],['#1f1040','#c084fc','COLD START'],['#142a16','#56d364','UP NEXT'],['#16161f','#9ca3af','FIXED'],['#111111','#484f58','BREAK']].map(([bg,col,lbl])=>`<div style="background:${bg};border:1px solid ${col}55;border-radius:6px;padding:6px 14px;font-size:14px;font-weight:800;color:${col};letter-spacing:.8px;text-align:center">${lbl}</div>`).join('')}
+        ${[['#dbeafe','#1d4ed8','LIVE / LINK'],['#fef3c7','#b45309','INSERT'],['#ede9fe','#7c3aed','COLD START'],['#dcfce7','#15803d','UP NEXT'],['#f3f4f6','#6b7280','FIXED'],['#f3f4f6','#9ca3af','BREAK']].map(([bg,col,lbl])=>`<div style="background:${bg};border:1px solid ${col}55;border-radius:6px;padding:6px 14px;font-size:14px;font-weight:800;color:${col};letter-spacing:.8px;text-align:center">${lbl}</div>`).join('')}
       </div>
     </div>`:''}
   </div>`;
@@ -6407,7 +6407,7 @@ function renderModals(epNums,nextEp){
   if(rosEditModal){
     const {epNum,itemIdx}=rosEditModal;
     const _ei=(rosData[String(epNum)]?.items||[])[itemIdx]||{};
-    const _eTS={fixed:{label:'#9ca3af',badge:'',badgeBg:''},live:{label:'#79c0ff',badge:'LIVE',badgeBg:'#1a3a5c'},insert:{label:'#e3b341',badge:'INSERT',badgeBg:'#2d2000'},coldstart:{label:'#c084fc',badge:'COLD START',badgeBg:'#1f1040'},upnext:{label:'#56d364',badge:'UP NEXT',badgeBg:'#142a16'},break:{label:'#484f58',badge:'BREAK',badgeBg:'#111'}};
+    const _eTS={fixed:{label:'#6b7280',badge:'',badgeBg:'#f3f4f6'},live:{label:'#1d4ed8',badge:'LIVE',badgeBg:'#dbeafe'},insert:{label:'#b45309',badge:'INSERT',badgeBg:'#fef3c7'},coldstart:{label:'#7c3aed',badge:'COLD START',badgeBg:'#ede9fe'},upnext:{label:'#15803d',badge:'UP NEXT',badgeBg:'#dcfce7'},break:{label:'#9ca3af',badge:'BREAK',badgeBg:'#f3f4f6'}};
     const _ts=_eTS[_ei.type]||_eTS.live;
     const _srcOpts=['','A','B','C','D','BLUE'];
     const _slugs=_ei.slugs||(_ei.slug?[_ei.slug]:['']);
