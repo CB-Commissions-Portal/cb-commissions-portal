@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.194';
+const BUILD_VERSION='3.10.195';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -3021,7 +3021,7 @@ function renderPostProd(){
                (c.onHold?'<span style="font-size:11px;font-weight:800;background:#fff7ed;color:#c2410c;padding:1px 4px;border-radius:2px;margin-left:3px;border:1px solid #fed7aa;vertical-align:middle">ON HOLD</span>':'');
 
     rowsHtml+=`<tr style="background:${rowBg}${pp.editComplete?';opacity:0.75':''}">`;
-    rowsHtml+=`<td style="${tdFix};position:sticky;left:0;z-index:2;background:${rowBg};font-weight:900;color:${pp.editComplete?'#3fb950':'#58a6ff'};font-family:monospace;font-size:13px">${esc(String(c.commNum))}${badge}${canRemove?`<br><button class="pp-remove-btn" data-commnum="${esc(String(c.commNum))}" style="background:none;border:none;color:#9ca3af;font-size:10px;cursor:pointer;padding:0;margin-top:2px;font-family:inherit;font-weight:400">✕ remove</button>`:''}</td>`;
+    rowsHtml+=`<td style="${tdFix};position:sticky;left:0;z-index:2;background:${rowBg};font-weight:900;color:${pp.editComplete?'#3fb950':'#58a6ff'};font-family:monospace;font-size:13px">${esc(String(c.commNum))}${badge?`<br><span style="font-family:inherit;font-weight:400">${badge}</span>`:''}${canRemove?`<br><button class="pp-remove-btn" data-commnum="${esc(String(c.commNum))}" style="background:none;border:none;color:#9ca3af;font-size:10px;cursor:pointer;padding:0;margin-top:2px;font-family:inherit;font-weight:400">✕ remove</button>`:''}</td>`;
     rowsHtml+=`<td style="${tdFix};position:sticky;left:52px;z-index:2;background:${rowBg};color:${pp.editComplete?'#16a34a':'#111827'};font-weight:600;min-width:40ch;max-width:40ch;overflow:hidden;text-overflow:ellipsis" title="${esc(c.storyName)}">${esc(c.storyName)}</td>`;
     // Edit Complete checkbox — between Story and Producer
     rowsHtml+=`<td style="${tdFix};text-align:center;min-width:60px;position:sticky;left:calc(74px + 40ch);z-index:2;background:${rowBg}">`;
