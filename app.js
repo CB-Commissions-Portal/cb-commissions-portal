@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.180';
+const BUILD_VERSION='3.10.181';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -3400,7 +3400,7 @@ function renderDeliverables(epNums){
     const finalised=isEpFinalised(n);
     return`<div class="ep-card" style="padding:16px 18px;display:flex;align-items:center;gap:16px">
       <div style="min-width:56px;text-align:center">
-        <div style="font-size:22px;font-weight:900;color:${finalised?'#4ade80':'#eaf0ff'};line-height:1">EP ${String(n).padStart(2,'0')}</div>
+        <div style="font-size:22px;font-weight:900;color:${finalised?'#16a34a':'#0066CC'};line-height:1">EP ${String(n).padStart(2,'0')}</div>
         ${finalised?`<div style="font-size:11px;font-weight:800;color:#4ade80;margin-top:3px;letter-spacing:.5px">DONE</div>`:''}
       </div>
       <div style="flex:1;min-width:0">
@@ -3522,16 +3522,16 @@ function renderPromoScheduling(epNums){
       const isPulled=pulled[pt.key]||false;
       const slug=buildSlug(currentSeason,n,pt.slug);
       const combined=uid&&!isPulled?`${uid} ${slug}`:'';
-      const bg=i%2===0?'':'background:#f9fafb';
-      return`<tr style="${bg}${isPulled?';opacity:.55':''}">
+      const rowBg=isPulled?(i%2===0?'#fff5f5':'#fff0f0'):(i%2===0?'#fff':'#f9fafb');
+      return`<tr style="background:${rowBg}">
         <td style="${tdB};font-weight:700;color:${isPulled?'#9ca3af':'#111827'};width:120px;${isPulled?'text-decoration:line-through':''}">${pt.label}</td>
         <td style="${tdB};width:78px"><input class="ci promo-date-inp" value="${esc(pd['txFrom_'+pt.key]||txD.from)}" data-ep="${n}" data-field="txFrom_${pt.key}" style="font-size:13px;width:100%" ${!canEd||isPulled?'disabled':''}></td>
         <td style="${tdB};width:78px"><input class="ci promo-date-inp" value="${esc(pd['txTo_'+pt.key]||txD.to)}" data-ep="${n}" data-field="txTo_${pt.key}" style="font-size:13px;width:100%" ${!canEd||isPulled?'disabled':''}></td>
-        <td style="${tdB};width:110px"><span style="font-family:monospace;font-size:14px;font-weight:700;color:${isPulled?'#484f58':'#58a6ff'};letter-spacing:1px;text-decoration:${isPulled?'line-through':'none'}">${uid||'<span style="color:#9ca3af">—</span>'}</span></td>
-        <td style="${tdB};width:90px;text-align:center">${canEd?`<label style="display:flex;align-items:center;gap:5px;cursor:pointer;justify-content:center">
-          <input type="checkbox" class="promo-pulled-cb" data-ep="${n}" data-key="${pt.key}" ${isPulled?'checked':''} tabindex="-1">
-          <span style="font-size:11px;font-weight:700;color:${isPulled?'#f85149':'#6e7681'};text-transform:uppercase">Pulled</span>
-        </label>`:''}</td>
+        <td style="${tdB};width:110px"><span style="font-family:monospace;font-size:14px;font-weight:700;color:${isPulled?'#b0b8c4':'#0066CC'};letter-spacing:1px;text-decoration:${isPulled?'line-through':'none'}">${uid||'<span style="color:#9ca3af">—</span>'}</span></td>
+        <td style="${tdB};width:100px;text-align:center">${canEd?`<label style="display:flex;align-items:center;gap:6px;cursor:pointer;justify-content:center">
+          <input type="checkbox" class="promo-pulled-cb" data-ep="${n}" data-key="${pt.key}" ${isPulled?'checked':''} tabindex="-1" style="width:16px;height:16px;accent-color:#dc2626;cursor:pointer">
+          <span style="font-size:12px;font-weight:800;color:${isPulled?'#dc2626':'#9ca3af'};text-transform:uppercase;letter-spacing:.5px">${isPulled?'PULLED':'–'}</span>
+        </label>`:`<span style="font-size:12px;font-weight:800;color:${isPulled?'#dc2626':'#9ca3af'}">${isPulled?'PULLED':'–'}</span>`}</td>
         <td style="${tdB};font-family:monospace;font-size:13px;font-weight:700;color:#3fb950;letter-spacing:.5px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(combined)}">
           ${isPulled?'<span style="color:#f85149;font-size:12px">PULLED</span>':combined?esc(combined):'<span style="color:#9ca3af">—</span>'}
         </td>
@@ -6671,12 +6671,13 @@ function renderModals(epNums,nextEp){
     const finalised=isEpFinalised(n);
     const taskList=DELIVERABLE_TASKS.map((task,ti)=>{
       const checked=!!d[task.key];
-      const bg=ti%2===0?'#1e2535':'#1a2035';
-      return`<label style="display:flex;align-items:center;gap:18px;padding:18px 24px;background:${bg};cursor:pointer;border-bottom:1px solid #161b22;user-select:none">
+      const bg=checked?'#f0fdf4':'#fff';
+      const altBg=checked?'#e8faf0':'#f9fafb';
+      return`<label style="display:flex;align-items:center;gap:18px;padding:16px 24px;background:${ti%2===0?bg:altBg};cursor:pointer;border-bottom:1px solid #e8edf5;user-select:none">
         <input type="checkbox" class="deliv-cb" data-ep="${n}" data-key="${task.key}" ${checked?'checked':''}
-          style="width:22px;height:22px;flex-shrink:0;cursor:pointer;accent-color:${finalised?'#4ade80':'#58a6ff'}">
-        <span style="font-size:17px;font-weight:600;color:${checked?'#eaf0ff':'#7a8ba0'}">${task.label}</span>
-        ${checked?`<span style="margin-left:auto;font-size:15px;font-weight:900;color:#4ade80">✓</span>`:''}
+          style="width:22px;height:22px;flex-shrink:0;cursor:pointer;accent-color:#0066CC">
+        <span style="font-size:16px;font-weight:600;color:${checked?'#111827':'#6b7280'};text-decoration:${checked?'none':'none'}">${task.label}</span>
+        ${checked?`<span style="margin-left:auto;font-size:15px;font-weight:900;color:#16a34a">✓</span>`:''}
       </label>`;
     }).join('');
     out+=`<div class="modal-overlay" id="deliv-edit-overlay"><div class="modal" style="width:min(680px,96vw);max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
