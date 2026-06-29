@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.222';
+const BUILD_VERSION='3.10.223';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -6498,7 +6498,7 @@ function renderModals(epNums,nextEp){
     const _srcOpts=['','A','B','C','D','BLUE'];
     const _slugs=_ei.slugs||(_ei.slug?[_ei.slug]:['']);
     const _sources=_ei.slugSources||[];
-    const _isCue=l=>/^[^:]+:\s*(CAM\s+\S+\s*)?$/i.test(l.trim());
+    const _isCue=l=>/^[^:]+:\s*(CAM\s*\S.*)?\s*$/i.test(l.trim());
     const _sw=(_ei.script||'').split('\n').filter(l=>!_isCue(l)).join(' ').trim();
     const _wc=_sw?_sw.split(/\s+/).length:0;
     const _div3=(_wc/3).toFixed(1);
@@ -6543,7 +6543,7 @@ function renderModals(epNums,nextEp){
           ${['live','coldstart','upnext'].includes(_ei.type)?`
           <div>
             <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px">Script</div>
-            <textarea id="ros-edit-script-ta" style="width:100%;min-height:260px;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:18px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*(CAM\\s+\\S+\\s*)?$/i.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-edit-sc-wc').textContent=w;document.getElementById('ros-edit-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)" data-prev-script="${esc(_ei.script||'')}">${esc(_ei.script||'')}</textarea>
+            <textarea id="ros-edit-script-ta" style="width:100%;min-height:260px;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:18px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*(CAM\\s*\\S.*)?\\s*$/i.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-edit-sc-wc').textContent=w;document.getElementById('ros-edit-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)" data-prev-script="${esc(_ei.script||'')}">${esc(_ei.script||'')}</textarea>
             <div style="margin-top:10px;font-size:15px;color:#6b7280;line-height:1.8">
               Total words: <strong id="ros-edit-sc-wc" style="color:#0066CC;font-size:18px">${_wc}</strong>
               &nbsp;&nbsp;<span id="ros-edit-sc-d3" style="color:#56d364;font-weight:700">${_wc} ÷ 3 = ${_div3}</span>
@@ -6614,7 +6614,7 @@ function renderModals(epNums,nextEp){
   if(rosScriptModal){
     const {epNum,itemIdx}=rosScriptModal;
     const _item=(rosData[String(epNum)]?.items||[])[itemIdx]||{};
-    const _isCue=l=>/^[^:]+:\s*(CAM\s+\S+\s*)?$/i.test(l.trim());
+    const _isCue=l=>/^[^:]+:\s*(CAM\s*\S.*)?\s*$/i.test(l.trim());
     const _scriptWords=(_item.script||'').split('\n').filter(l=>!_isCue(l)).join(' ').trim();
     const _wc=_scriptWords?_scriptWords.split(/\s+/).length:0;
     const _div3=(_wc/3).toFixed(1);
@@ -6626,7 +6626,7 @@ function renderModals(epNums,nextEp){
         </div>
         <button id="ros-script-close" class="btn" style="font-size:14px;padding:4px 12px;flex-shrink:0;margin-left:16px">✕ Close</button>
       </div>
-      <textarea id="ros-script-ta" style="flex:1;min-height:340px;width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:17px;line-height:1.75;padding:14px 16px;outline:none;resize:vertical;font-family:inherit" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*(CAM\\s+\\S+\\s*)?$/i.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-sc-wc').textContent=w;document.getElementById('ros-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${esc(_item.script||'')}</textarea>
+      <textarea id="ros-script-ta" style="flex:1;min-height:340px;width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:17px;line-height:1.75;padding:14px 16px;outline:none;resize:vertical;font-family:inherit" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*(CAM\\s*\\S.*)?\\s*$/i.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-sc-wc').textContent=w;document.getElementById('ros-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${esc(_item.script||'')}</textarea>
       <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div style="font-size:15px;color:#6b7280;line-height:1.8">
           <div>Total words: <strong id="ros-sc-wc" style="color:#0066CC;font-size:17px">${_wc}</strong></div>
@@ -10008,7 +10008,7 @@ function rosExportVTList(){
 // Returns ordered array of camera designations (e.g. ['CAM 3','CAM 1']) from a script string
 function parseCamCues(script){
   return (script||'').split('\n').reduce((arr,line)=>{
-    const m=line.trim().match(/^[^:]+:\s+(CAM\s+\S+)\s*$/i);
+    const m=line.trim().match(/^[^:]+:\s+(CAM\s*\S.*?)\s*$/i);
     if(m)arr.push(m[1].toUpperCase().replace(/\s+/g,' '));
     return arr;
   },[]);
@@ -10047,19 +10047,21 @@ function buildRosWordHtml(ep,items,highlightIdx=-1){
     if(slugCell){_addSep();_prod+=slugCell;}
     _addLines('CGEN:',item.cgen);
     _addLines('STORY TITLE:',item.storyTitle);
+    // Camera blocking — production column, in script order
+    if(['live','coldstart','upnext'].includes(item.type)&&item.script){
+      const _cCues=parseCamCues(item.script);
+      const _cDs=item.cameraDescs||[];
+      _cCues.forEach((cam,i)=>{_addSep();_prod+=_pSm(`<u><b>${escHtml(cam)}</b></u>`);const d=_cDs[i]||'';if(d)_prod+=_pSm(escHtml(d));});
+    }
     let desc=_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
     if(item.content) desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
     if(item.type==='insert'&&item.outWords)desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
     if(['live','coldstart','upnext'].includes(item.type)&&item.script){
       desc+=_p('&nbsp;');
-      let _ci=0;const _cd=item.cameraDescs||[];
       item.script.split('\n').forEach(line=>{
         const tr=line.trim();
-        if(/^[^:]+:\s+CAM\s+\S+\s*$/i.test(tr)){
+        if(/^[^:]+:\s+CAM\s*\S.*\s*$/i.test(tr)){
           desc+=_p(`<u><b>${escHtml(tr)}</b></u>`,'color:#000');
-          const d=_cd[_ci]||'';
-          if(d)desc+=_p(`<span style="color:#555;font-style:italic;font-size:9pt;padding-left:14px">&#x2192; ${escHtml(d)}</span>`);
-          _ci++;
         } else if(/^[^:]+:\s*$/.test(tr)){
           desc+=_p(`<u><b>${escHtml(tr)}</b></u>`,'color:#000');
         } else {
@@ -10300,6 +10302,17 @@ async function rosExportDocx(ep,items){
       }
       _addField('CGEN:',item.cgen);
       _addField('STORY TITLE:',item.storyTitle);
+      // Camera blocking — production column, in script order
+      if(['live','coldstart','upnext'].includes(item.type)&&item.script){
+        const _cCues=parseCamCues(item.script);
+        const _cDs=item.cameraDescs||[];
+        _cCues.forEach((cam,i)=>{
+          if(prodParas.length)prodParas.push(emptyPara());
+          prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:cam,bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ_SM,color:'000000'})]}));
+          const d=_cDs[i]||'';
+          if(d)prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:d,font:FONT,size:SZ_SM,color:'000000'})]}));
+        });
+      }
       const prodCell=new TableCell({width:{size:COL_W[1],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:prodParas});
 
       // SOUND
@@ -10318,15 +10331,11 @@ async function rosExportDocx(ep,items){
       const _hasScript=['live','coldstart','upnext'].includes(item.type)&&item.script;
       if(_hasScript){
         descParas.push(emptyPara());
-        let _ci=0;const _cd=item.cameraDescs||[];
         item.script.split('\n').forEach(line=>{
           const tr=line.trim();
           if(!line){descParas.push(emptyPara());}
-          else if(/^[^:]+:\s+CAM\s+\S+\s*$/i.test(tr)){
+          else if(/^[^:]+:\s+CAM\s*\S.*\s*$/i.test(tr)){
             descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:tr,bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ,color:'000000'})]}));
-            const d=_cd[_ci]||'';
-            if(d)descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:'   → '+d,italics:true,font:FONT,size:SZ_SM,color:'555555'})]}));
-            _ci++;
           } else if(/^[^:]+:\s*$/.test(tr)){
             descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:tr,bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ,color:'000000'})]}))}
           else{descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:line,font:FONT,size:SZ,color:'000000'})]}))}
