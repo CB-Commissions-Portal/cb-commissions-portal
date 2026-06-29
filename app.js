@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.217';
+const BUILD_VERSION='3.10.218';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -10007,10 +10007,10 @@ function buildRosWordHtml(ep,items,highlightIdx=-1){
       return _p(`<span style="background:#39FF14;font-weight:bold">${txt}</span>`);
     }).join('')||'';
     let desc=_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
-    if(item.content){desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');desc+=_p('&nbsp;');}
-    else{desc+=_p('&nbsp;');}
+    if(item.content) desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
     if(item.type==='insert'&&item.outWords)desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
     if(['live','coldstart','upnext'].includes(item.type)&&item.script){
+      desc+=_p('&nbsp;');
       item.script.split('\n').forEach(line=>{
         if(/^[^:]+:\s*$/.test(line.trim())){desc+=_p(`<u><b>${escHtml(line.trim())}</b></u>`,'color:#000');}
         else{desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');}
@@ -10181,6 +10181,7 @@ async function rosExportDocx(ep,items){
     const SZ=22;    // 11pt in half-points
     const SZ_SM=18; // 9pt
     const SP0={before:0,after:0};
+    const CELL_M={top:80,bottom:80,left:100,right:80}; // consistent cell padding, twips
 
     // Empty paragraph with explicit font run — holds line height whether ¶ is visible or not
     const emptyPara=(sz=SZ)=>new Paragraph({spacing:SP0,children:[new TextRun({text:'',size:sz,font:FONT})]});
@@ -10218,13 +10219,12 @@ async function rosExportDocx(ep,items){
       const shd={type:ShadingType.CLEAR,color:'auto',fill};
 
       // ITEM
-      const itemCell=new TableCell({width:{size:COL_W[0],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,children:[
-        emptyPara(),
+      const itemCell=new TableCell({width:{size:COL_W[0],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:[
         new Paragraph({alignment:AlignmentType.CENTER,spacing:SP0,children:[new TextRun({text:String(num),bold:true,font:FONT,size:SZ})]})
       ]});
 
       // PRODUCTION
-      const prodParas=[emptyPara()];
+      const prodParas=[];
       slugs.forEach((s,si)=>{
         const src=sources[si]||'';
         const txt=src?`${src} - ${s}`:s;
@@ -10244,28 +10244,24 @@ async function rosExportDocx(ep,items){
           );
         }
       });
-      const prodCell=new TableCell({width:{size:COL_W[1],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,children:prodParas});
+      const prodCell=new TableCell({width:{size:COL_W[1],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:prodParas});
 
       // SOUND
-      const soundCell=new TableCell({width:{size:COL_W[2],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,children:[
-        emptyPara(),
+      const soundCell=new TableCell({width:{size:COL_W[2],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:[
         new Paragraph({spacing:SP0,children:[new TextRun({text:item.sound||'',bold:true,font:FONT,size:SZ})]})
       ]});
 
       // DESCRIPTION
-      const descParas=[emptyPara()];
+      const descParas=[];
       descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.label||'',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ,color:'000000'})]}));
-      if(item.content){
-        descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.content,font:FONT,size:SZ,color:'000000'})]}));
-        descParas.push(emptyPara());
-      } else {
-        descParas.push(emptyPara());
-      }
+      if(item.content) descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.content,font:FONT,size:SZ,color:'000000'})]}));
       if(item.type==='insert'&&item.outWords) descParas.push(new Paragraph({spacing:SP0,children:[
         new TextRun({text:'OUT WORDS: ',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ}),
         new TextRun({text:item.outWords,font:FONT,size:SZ,color:'000000'})
       ]}));
-      if(['live','coldstart','upnext'].includes(item.type)&&item.script){
+      const _hasScript=['live','coldstart','upnext'].includes(item.type)&&item.script;
+      if(_hasScript){
+        descParas.push(emptyPara());
         item.script.split('\n').forEach(line=>{
           if(!line){descParas.push(emptyPara());}
           else if(/^[^:]+:\s*$/.test(line.trim())){descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:line.trim(),bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ,color:'000000'})]}))}
@@ -10273,11 +10269,10 @@ async function rosExportDocx(ep,items){
         });
         descParas.push(emptyPara());
       }
-      const descCell=new TableCell({width:{size:COL_W[3],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,children:descParas});
+      const descCell=new TableCell({width:{size:COL_W[3],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:descParas});
 
       // DUR
-      const durCell=new TableCell({width:{size:COL_W[4],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,children:[
-        emptyPara(),
+      const durCell=new TableCell({width:{size:COL_W[4],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:[
         new Paragraph({alignment:AlignmentType.CENTER,spacing:SP0,children:[new TextRun({text:durFmt(item.duration)||'',font:'Courier New',size:SZ})]})
       ]});
 
