@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.224';
+const BUILD_VERSION='3.10.225';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -5012,20 +5012,87 @@ function getHelpPages(){
   }
 
   // ── Studio Script Build ──
-  if(['admin','deputyadmin','editorial'].includes(role)){
+  if(['admin','deputyadmin','editorial','content','director'].includes(role)){
     pages.push({
-      title:'Studio Script Build',
+      title:'Studio Script Build — Overview',
       icon:'🎬',
-      content:`<p>The <strong>Studio Script Build</strong> tab lets you build a detailed running order for each episode.</p>
+      content:`<p>The <strong>Studio Script Build</strong> tab is where you construct and manage the complete studio running order for each episode. It feeds directly into the Word studio script, the ROS PDF, and the VT list.</p>
+      <p><strong>Selecting an episode:</strong> When you open the tab you see the episode picker. Each tile shows the episode code, broadcast date, and a <span style="color:#16a34a;font-weight:700">HAS RUN OF SHOW</span> badge if a script has been saved. Click a tile to open it.</p>
+      <p><strong>Item types &amp; colours:</strong></p>
       <ul>
-        <li>Select an episode, then use the <strong>Add Item</strong> panel on the right to build your running order</li>
-        <li>Items are colour-coded: <span style="color:#0066CC">■ Live/Link</span> · <span style="color:#e3b341">■ Insert</span> · <span style="color:#c084fc">■ Cold Start</span> · <span style="color:#56d364">■ UP NEXT</span> · <span style="color:#9ca3af">■ Fixed</span></li>
-        <li>Fixed items (Opening Logo, Bumpers, Credits, Breaks) have pre-set durations and cannot be changed</li>
-        <li>Use the <strong>▲ ▼ arrows</strong> to reorder items, <strong>✕</strong> to delete</li>
-        <li>The <strong>Ep Duration</strong> column counts up from the bottom — the top row shows the full programme duration</li>
-        <li>Click <strong># Generate Item Numbers</strong> to number all items (Commercial Breaks are excluded)</li>
-        <li>Click <strong>⬇ Export PDF</strong> to download a print-ready version</li>
+        <li><span style="color:#0066CC;font-weight:700">■ Live/Link</span> — Opening Link, Links to Inserts, Studio Interview, Closing Link. Has script, slugs &amp; sound.</li>
+        <li><span style="color:#e3b341;font-weight:700">■ Insert</span> — Insert 1–8. Has slugs, sound &amp; <strong>Out Words</strong>.</li>
+        <li><span style="color:#c084fc;font-weight:700">■ Cold Start</span> — Cold Start Clips 1–8. Has script, slugs, sound &amp; audio options (Upsound/VO).</li>
+        <li><span style="color:#56d364;font-weight:700">■ UP NEXT</span> — Visual (no presenter mic) or Upsound (presenter live). Has script, slugs, sound &amp; audio options.</li>
+        <li><span style="color:#9ca3af;font-weight:700">■ Fixed</span> — Opening Logo, Bumpers, Closing Credits. Pre-assigned slug, source &amp; sound. Duration locked.</li>
+        <li><span style="color:#484f58;font-weight:700">■ Break</span> — Commercial Break 1–6. No editable fields. Never numbered.</li>
       </ul>`
+    });
+    pages.push({
+      title:'Studio Script Build — Running Order',
+      icon:'🎬',
+      content:`<p><strong>Running order table columns:</strong></p>
+      <ul>
+        <li><strong>▲ ▼ ✕</strong> — Move item up, down, or delete it (Admin/Editorial only)</li>
+        <li><strong>Item</strong> — Item number, type badge, and label</li>
+        <li><strong>Slug</strong> — All slugs assigned to this item (shown in gold)</li>
+        <li><strong>Content</strong> — Click directly in the table to type a short description or story name. Also shows <span style="background:#ede9fe;color:#7c3aed;font-size:11px;font-weight:800;padding:1px 5px;border-radius:3px">UPS</span> / <span style="background:#ede9fe;color:#7c3aed;font-size:11px;font-weight:800;padding:1px 5px;border-radius:3px">VO</span> badges for Cold Start and Up Next items.</li>
+        <li><strong>Item Duration</strong> — Click to type. Format: <code>M:SS</code> or <code>H:MM:SS</code>. Updates the episode total instantly.</li>
+        <li><strong>Ep Duration ↑</strong> — Cumulative time from this item to the end of the episode. The top row = full programme duration.</li>
+        <li><strong>✎ EDIT ITEM</strong> — Opens the full edit modal for all detail fields.</li>
+      </ul>
+      <p><strong>Header bar actions:</strong> <strong># Numbers</strong> assigns sequential numbers to all items (skips Commercial Breaks — always regenerate after adding, deleting, or reordering). <strong>💾 Save</strong> commits everything to the database. The <strong>Last saved by</strong> panel always shows who saved last and when.</p>`
+    });
+    pages.push({
+      title:'Studio Script Build — Writing Scripts',
+      icon:'🎬',
+      content:`<p>Click <strong>✎ EDIT ITEM</strong> on any Live, Cold Start, or Up Next row to open the edit modal. The <strong>Script</strong> field is the first section on the right panel.</p>
+      <p><strong>Cue lines</strong> — any line ending with a colon <code>:</code> is a speaker cue. It appears <strong>bold and underlined</strong> in the Word export and is <strong>excluded from the word count</strong>.</p>
+      <pre style="background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:12px 16px;margin:8px 0;font-size:12px;line-height:1.8;color:#cdd9e5">GOVAN:
+Good evening and welcome to Carte Blanche.
+
+LOURENSA:
+Tonight we investigate…</pre>
+      <p><strong>Camera cue lines</strong> — write <code>PRESENTER: CAM X</code> on its own line to mark a camera shot. Use the full designation including any suffix:</p>
+      <pre style="background:#1c2433;border:1px solid #2e3a50;border-radius:6px;padding:12px 16px;margin:8px 0;font-size:12px;line-height:1.8;color:#cdd9e5">GOVAN: CAM 3 JIB
+Good evening…
+
+LOURENSA: CAM 1
+Tonight we investigate…
+
+GOVAN: CAM 2
+But first…</pre>
+      <p>Camera cue lines are bold/underlined in the export and excluded from the word count. Each one generates a row in the <strong>Camera Block</strong> section below the script.</p>
+      <p>Below the textarea: <strong>Total words</strong> counts only dialogue lines. <strong>÷ 3</strong> gives an approximate read time in seconds (words ÷ 3 ≈ seconds at broadcast pace).</p>`
+    });
+    pages.push({
+      title:'Studio Script Build — Camera Blocking',
+      icon:'🎬',
+      content:`<p>The <strong>Camera Block</strong> section appears automatically below the script whenever the script contains camera cue lines (<code>PRESENTER: CAM X</code>). It is available for Live, Cold Start, and Up Next items.</p>
+      <p><strong>How it works:</strong></p>
+      <ul>
+        <li>Every camera cue line in the script generates its own row in the Camera Block — in the exact order the cues appear in the script</li>
+        <li>If the same camera appears three times, it appears as three separate rows</li>
+        <li>Each row shows the <span style="background:#ede9fe;color:#7c3aed;font-size:11px;font-weight:800;padding:2px 8px;border-radius:4px">CAM 3 JIB</span> designation in a purple badge, plus a text input for the shot description (e.g. <em>MWS into 2SHOT + screen between</em>)</li>
+        <li>The block <strong>refreshes live</strong> as you type in the script — existing shot descriptions are preserved when you edit a cue line, only cleared if you remove the cue entirely</li>
+      </ul>
+      <p><strong>In the Word export:</strong> Camera descriptions appear in the <strong>PRODUCTION column (column 2)</strong>, listed in script order below the Screen / Slug / CGEN / Story Title entries. Read across the page — the camera cue in column 4 corresponds to the shot description in column 2 at the same position in the reading order.</p>
+      <p>Click <strong>▶ EXECUTE</strong> to refresh the left-side preview with your latest edits before saving.</p>`
+    });
+    pages.push({
+      title:'Studio Script Build — Edit Fields &amp; Exports',
+      icon:'🎬',
+      content:`<p><strong>Other fields in the EDIT ITEM modal:</strong></p>
+      <ul>
+        <li><strong>Slugs &amp; Sources</strong> — the playout identifier (e.g. <code>CB2026_OPENING_LINK</code>) and the source channel (A / B / C / D / BLUE). Click <strong>＋ Add Slug</strong> for multiple slugs. Slugs appear in <span style="background:#39FF14;color:#000;padding:1px 5px;border-radius:3px;font-size:12px;font-weight:700">lumo green</span> in the Word export.</li>
+        <li><strong>Sound</strong> — the audio feed: A, B, COLD START, CLEAN, GENERIC, or channel + COLD START CONT'D variants.</li>
+        <li><strong>Audio Options</strong> (Cold Start &amp; Up Next only) — tick <strong>UPSOUND</strong> when the clip plays with natural/location audio; tick <strong>VOICE OVER</strong> when the presenter reads over the clip. Both can be active simultaneously.</li>
+        <li><strong>Out Words</strong> (Insert only) — the last words heard before the clip ends, used by the director as a return-to-studio cue.</li>
+        <li><strong>Screen</strong> — text for the studio video wall (e.g. <code>BLUE + LOGO</code>).</li>
+        <li><strong>CGEN</strong> — character generator / lower-third names. Put each name on its own line — each gets its own label in the export.</li>
+        <li><strong>Story Title</strong> — the on-screen story heading.</li>
+      </ul>
+      <p><strong>Exports:</strong> <strong>⬇ ROS PDF</strong> — colour-coded A4 landscape running order. <strong>👁 Preview Script</strong> — see the Word layout in the browser first. <strong>⬇ Studio Script (Word)</strong> — full script as a <code>.doc</code> file. <strong>⬇ VT List</strong> — slug sheet for playout (only items with slugs appear).</p>`
     });
   }
 
