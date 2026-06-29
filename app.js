@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.218';
+const BUILD_VERSION='3.10.219';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -10006,6 +10006,14 @@ function buildRosWordHtml(ep,items,highlightIdx=-1){
       const txt=src?`${escHtml(src)} - ${escHtml(s)}`:escHtml(s);
       return _p(`<span style="background:#39FF14;font-weight:bold">${txt}</span>`);
     }).join('')||'';
+    // Production column: Screen → Slug → CGEN → Story Title
+    let _prod='';
+    const _pSm=(html)=>_p(html,'font-size:9pt');
+    const _sep=()=>{if(_prod)_prod+=_p('&nbsp;');};
+    if(item.screen){_prod+=_pSm(`<u><b>SCREEN:</b></u>`);item.screen.split('\n').forEach(l=>{_prod+=_pSm(escHtml(l)||'&nbsp;');});}
+    if(slugCell){_sep();_prod+=slugCell;}
+    if(item.cgen){_sep();_prod+=_pSm(`<u><b>CGEN:</b></u>`);item.cgen.split('\n').forEach(l=>{_prod+=_pSm(escHtml(l)||'&nbsp;');});}
+    if(item.storyTitle){_sep();_prod+=_pSm(`<u><b>STORY TITLE:</b></u>`)+_pSm(escHtml(item.storyTitle));}
     let desc=_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
     if(item.content) desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
     if(item.type==='insert'&&item.outWords)desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
@@ -10022,7 +10030,7 @@ function buildRosWordHtml(ep,items,highlightIdx=-1){
     const _br=_p('&nbsp;');
     return`<tr${_isHL?' id="preview-current-item" style="'+_rowBg+'outline:3px solid #003366;outline-offset:-3px;"':' style="'+_rowBg+'"'}>
       <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%;${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
-      <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;${_rowBg}">${_br}${slugCell}${item.screen?_p('&nbsp;')+_p('<u><b>SCREEN:</b></u>','color:#000;font-size:9pt')+item.screen.split('\n').map(l=>_p(escHtml(l)||'&nbsp;','font-weight:normal;color:#000;font-size:9pt')).join(''):''}${item.cgen?_p('&nbsp;')+_p('<u><b>CGEN:</b></u>','color:#000;font-size:9pt')+item.cgen.split('\n').map(l=>_p(escHtml(l)||'&nbsp;','font-weight:normal;color:#000;font-size:9pt')).join(''):''}${item.storyTitle?_p('&nbsp;')+_p('<u><b>STORY TITLE:</b></u>','color:#000;font-size:9pt')+_p(escHtml(item.storyTitle),'font-weight:normal;color:#000;font-size:9pt'):''}
+      <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;${_rowBg}">${_br}${_prod}
       </td>
       <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%;${_rowBg}">${_br}${_p(escHtml(item.sound||''),'font-weight:bold')}</td>
       <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%;${_rowBg}">${_br}${desc}</td>
@@ -10223,27 +10231,25 @@ async function rosExportDocx(ep,items){
         new Paragraph({alignment:AlignmentType.CENTER,spacing:SP0,children:[new TextRun({text:String(num),bold:true,font:FONT,size:SZ})]})
       ]});
 
-      // PRODUCTION
+      // PRODUCTION: Screen → Slug → CGEN → Story Title
       const prodParas=[];
-      slugs.forEach((s,si)=>{
-        const src=sources[si]||'';
-        const txt=src?`${src} - ${s}`:s;
-        prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({
-          text:txt,bold:true,font:FONT,size:SZ,
-          shading:{type:ShadingType.CLEAR,color:'auto',fill:'39FF14'}
-        })]}));
-      });
-      [['screen','SCREEN:'],['cgen','CGEN:'],['storyTitle','STORY TITLE:']].forEach(([field,label])=>{
-        if(item[field]){
-          prodParas.push(emptyPara());
-          prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:label,bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ_SM,color:'000000'})]}));
-          String(item[field]).split('\n').forEach(line=>
-            prodParas.push(line.trim()
-              ?new Paragraph({spacing:SP0,children:[new TextRun({text:line,font:FONT,size:SZ_SM,color:'000000'})]})
-              :emptyPara(SZ_SM))
-          );
-        }
-      });
+      const _addField=(label,value)=>{
+        if(!value)return;
+        if(prodParas.length)prodParas.push(emptyPara());
+        prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:label,bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ_SM,color:'000000'})]}));
+        String(value).split('\n').forEach(line=>prodParas.push(line.trim()?new Paragraph({spacing:SP0,children:[new TextRun({text:line,font:FONT,size:SZ_SM,color:'000000'})]}):emptyPara(SZ_SM)));
+      };
+      _addField('SCREEN:',item.screen);
+      if(slugs.length){
+        if(prodParas.length)prodParas.push(emptyPara());
+        slugs.forEach((s,si)=>{
+          const src=sources[si]||'';
+          const txt=src?`${src} - ${s}`:s;
+          prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:txt,bold:true,font:FONT,size:SZ,shading:{type:ShadingType.CLEAR,color:'auto',fill:'39FF14'}})]}));
+        });
+      }
+      _addField('CGEN:',item.cgen);
+      _addField('STORY TITLE:',item.storyTitle);
       const prodCell=new TableCell({width:{size:COL_W[1],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:prodParas});
 
       // SOUND
