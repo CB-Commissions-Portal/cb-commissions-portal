@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.209';
+const BUILD_VERSION='3.10.210';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -4875,7 +4875,7 @@ function renderRunOfShow(){
         <span class="ros-epdur" data-idx="${i}" style="font-size:${i===0?'26px':'20px'};font-family:monospace;color:${i===0?'#7c3aed':epDurSecs?'#1d4ed8':'#9ca3af'};font-weight:${i===0?'900':'400'}">${epDurSecs?rosSecsToStr(epDurSecs):'—'}</span>
       </td>
       <td style="padding:18px 20px;vertical-align:middle;width:150px;text-align:center">
-        ${(canEdit||canEditScriptOnly||canEditDirectorNotes)?`<button class="ros-edit-btn btn" data-idx="${i}" style="font-size:16px;padding:12px 18px;border-color:#388bfd;color:#0066CC;width:100%;font-weight:700;letter-spacing:.3px">✎ EDIT ITEM</button>`:''}
+        ${(canEdit||canEditScriptOnly||canEditDirectorNotes)?`<button class="ros-edit-btn btn" data-idx="${i}" style="font-size:13px;padding:8px 12px;border-color:#388bfd;color:#0066CC;width:100%;font-weight:700;letter-spacing:.3px;white-space:nowrap">✎ EDIT ITEM</button>`:''}
       </td>
     </tr>`;
   }).join('');
