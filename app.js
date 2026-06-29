@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.206';
+const BUILD_VERSION='3.10.207';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -1597,7 +1597,7 @@ function renderSidebar(){
   ].filter(Boolean);
   const adm=[
     item('contracts','Contracts',(currentRole==='admin'&&!previewRole)||currentRole==='finance'),
-    item('admin','Admin',currentRole==='admin'&&!previewRole),
+    item('admin','Users',currentRole==='admin'&&!previewRole),
   ].filter(Boolean);
   return`
 <div class="sidebar no-print">
@@ -6340,10 +6340,6 @@ function renderAdmin(){
     </div>`:''}
   </div>
   <div class="admin-card" style="grid-column:1/-1">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <h4 style="margin:0">Users &amp; Access</h4>
-      <button class="btn primary" id="add-user-btn">+ Create User</button>
-    </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <h4 style="margin:0">Users &amp; Access</h4>
       <button class="btn primary" id="add-user-btn">+ Create User</button>
