@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.213';
+const BUILD_VERSION='3.10.214';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -6512,7 +6512,6 @@ function renderModals(epNums,nextEp){
     }).join('');
     const _soundOpts=["","A","B","C","D","COLD START","CLEAN","GENERIC","A+ COLD START CONT'D","B+ COLD START CONT'D","C+ COLD START CONT'D","D+ COLD START CONT'D","VOICE+ COLD START CONT'D"];
     const _editFullAccess=!['content','director'].includes(getEffectiveRole());
-    const _canDirectorNotes=['admin','director'].includes(getEffectiveRole());
     out+=`<div class="modal-overlay" id="ros-edit-overlay"><div class="modal" style="width:min(1600px,99vw);max-height:97vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
       <div style="padding:20px 24px;border-bottom:1px solid #d1dae8;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
         <div>
@@ -6570,16 +6569,22 @@ function renderModals(epNums,nextEp){
             <input id="ros-edit-out-words" value="${esc(_ei.outWords||'')}" placeholder="Enter out words…" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:18px;padding:10px 14px;outline:none;font-family:inherit;box-sizing:border-box">
           </div>`:''}`:
           `<div style="font-size:15px;color:#9ca3af;font-style:italic">${getEffectiveRole()==='director'?'Director view — only Director\'s Notes is editable.':'Script editing only — other fields are managed by the editorial team.'}</div>`}
-          <div style="border-top:2px solid #f97316;padding-top:24px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-              <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#f97316">Director's Notes</div>
-              ${!_canDirectorNotes?`<span style="font-size:12px;color:#9ca3af;font-style:italic">View only</span>`:''}
+          ${_editFullAccess?`
+          <div style="border-top:1px solid #d1dae8;padding-top:20px;display:flex;flex-direction:column;gap:18px">
+            <div>
+              <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px">Screen</div>
+              <textarea id="ros-edit-screen" style="width:100%;min-height:80px;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:17px;line-height:1.6;padding:12px 14px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Screen text…">${esc(_ei.screen||'')}</textarea>
             </div>
-            ${_canDirectorNotes
-              ?`<textarea id="ros-edit-director-notes" style="width:100%;min-height:200px;background:#fffbeb;border:1px solid #f97316;border-radius:8px;color:#111827;font-size:18px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter director's blocking notes — no character limit…">${esc(_ei.directorNotes||'')}</textarea>`
-              :`<div style="background:#fffbeb;border:1px solid #d1dae8;border-radius:8px;padding:16px 18px;font-size:17px;color:${_ei.directorNotes?'#eaf0ff':'#484f58'};font-style:${_ei.directorNotes?'normal':'italic'};min-height:80px;line-height:1.75;white-space:pre-wrap">${_ei.directorNotes?esc(_ei.directorNotes):'No director\'s notes yet.'}</div>`
-            }
-          </div>
+            <div>
+              <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px">CGEN</div>
+              <textarea id="ros-edit-cgen" style="width:100%;min-height:80px;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:17px;line-height:1.6;padding:12px 14px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Character generator text…">${esc(_ei.cgen||'')}</textarea>
+            </div>
+            <div>
+              <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px">Story Title</div>
+              <textarea id="ros-edit-story-title" style="width:100%;min-height:80px;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:17px;line-height:1.6;padding:12px 14px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Story title…">${esc(_ei.storyTitle||'')}</textarea>
+            </div>
+          </div>`:''}
+
           <div style="display:flex;justify-content:flex-end;padding-top:4px">
             <button id="ros-edit-execute" class="btn" style="font-size:16px;padding:12px 36px;font-weight:800;border-color:#3fb950;color:#3fb950;letter-spacing:.5px">▶ EXECUTE</button>
           </div>
@@ -10017,7 +10022,7 @@ function buildRosWordHtml(ep,items,highlightIdx=-1){
     const _br=_p('&nbsp;');
     return`<tr${_isHL?' id="preview-current-item" style="'+_rowBg+'outline:3px solid #003366;outline-offset:-3px;"':' style="'+_rowBg+'"'}>
       <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%;${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
-      <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;${_rowBg}">${_br}${slugCell}${item.directorNotes?_p('&nbsp;')+_p('<u><b>DIRECTOR\'S NOTES:</b></u>','color:#000;font-size:9pt')+item.directorNotes.split('\n').map(l=>_p(escHtml(l)||'&nbsp;','font-weight:normal;color:#555;font-style:italic;font-size:9pt')).join(''):''}
+      <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;${_rowBg}">${_br}${slugCell}${item.screen?_p('&nbsp;')+_p('<u><b>SCREEN:</b></u>','color:#000;font-size:9pt')+item.screen.split('\n').map(l=>_p(escHtml(l)||'&nbsp;','font-weight:normal;color:#000;font-size:9pt')).join(''):''}${item.cgen?_p('&nbsp;')+_p('<u><b>CGEN:</b></u>','color:#000;font-size:9pt')+item.cgen.split('\n').map(l=>_p(escHtml(l)||'&nbsp;','font-weight:normal;color:#000;font-size:9pt')).join(''):''}${item.storyTitle?_p('&nbsp;')+_p('<u><b>STORY TITLE:</b></u>','color:#000;font-size:9pt')+_p(escHtml(item.storyTitle),'font-weight:normal;color:#000;font-size:9pt'):''}
       </td>
       <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%;${_rowBg}">${_br}${_p(escHtml(item.sound||''),'font-weight:bold')}</td>
       <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%;${_rowBg}">${_br}${desc}</td>
@@ -10082,8 +10087,12 @@ function updateRosEditPreview(){
     if(_sd)it.sound=_sd.value;
     const _ow=document.getElementById('ros-edit-out-words');
     if(_ow)it.outWords=_ow.value;
-    const _dn=document.getElementById('ros-edit-director-notes');
-    if(_dn)it.directorNotes=_dn.value;
+    const _sc=document.getElementById('ros-edit-screen');
+    if(_sc)it.screen=_sc.value;
+    const _cg=document.getElementById('ros-edit-cgen');
+    if(_cg)it.cgen=_cg.value;
+    const _st=document.getElementById('ros-edit-story-title');
+    if(_st)it.storyTitle=_st.value;
   }
   // Build the full Word-export HTML with the active item highlighted
   const html=buildRosWordHtml(epNum,items,itemIdx);
@@ -10224,15 +10233,17 @@ async function rosExportDocx(ep,items){
           shading:{type:ShadingType.CLEAR,color:'auto',fill:'39FF14'}
         })]}));
       });
-      if(item.directorNotes){
-        prodParas.push(emptyPara());
-        prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:"DIRECTOR'S NOTES:",bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ_SM,color:'000000'})]}));
-        item.directorNotes.split('\n').forEach(line=>
-          prodParas.push(line.trim()
-            ?new Paragraph({spacing:SP0,children:[new TextRun({text:line,italics:true,font:FONT,size:SZ_SM,color:'555555'})]})
-            :emptyPara(SZ_SM))
-        );
-      }
+      [['screen','SCREEN:'],['cgen','CGEN:'],['storyTitle','STORY TITLE:']].forEach(([field,label])=>{
+        if(item[field]){
+          prodParas.push(emptyPara());
+          prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:label,bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ_SM,color:'000000'})]}));
+          String(item[field]).split('\n').forEach(line=>
+            prodParas.push(line.trim()
+              ?new Paragraph({spacing:SP0,children:[new TextRun({text:line,font:FONT,size:SZ_SM,color:'000000'})]})
+              :emptyPara(SZ_SM))
+          );
+        }
+      });
       const prodCell=new TableCell({width:{size:COL_W[1],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,children:prodParas});
 
       // SOUND
@@ -10503,9 +10514,13 @@ document.addEventListener('click',function rosHandler(e){
       // out words
       const _ow=document.getElementById('ros-edit-out-words');
       if(_ow) it.outWords=_ow.value;
-      // director's notes (admin + director only)
-      const _dn=document.getElementById('ros-edit-director-notes');
-      if(_dn&&['admin','director'].includes(getEffectiveRole())) it.directorNotes=_dn.value;
+      // screen / cgen / story title
+      const _sc=document.getElementById('ros-edit-screen');
+      if(_sc) it.screen=_sc.value;
+      const _cg=document.getElementById('ros-edit-cgen');
+      if(_cg) it.cgen=_cg.value;
+      const _st=document.getElementById('ros-edit-story-title');
+      if(_st) it.storyTitle=_st.value;
       // cold start options
       const _ups=document.getElementById('ros-edit-upsound');
       const _vo=document.getElementById('ros-edit-voiceover');
