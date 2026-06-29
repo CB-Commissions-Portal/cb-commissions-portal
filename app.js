@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.220';
+const BUILD_VERSION='3.10.221';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -10011,7 +10011,7 @@ function buildRosWordHtml(ep,items,highlightIdx=-1){
     let _prod='';
     const _pSm=(html)=>_p(html,'font-size:9pt');
     const _addSep=()=>{if(_prod)_prod+=_p('&nbsp;');};
-    const _addLines=(label,val)=>{if(!val)return;val.split('\n').filter(l=>l.trim()).forEach(l=>{_addSep();_prod+=_pSm(`<u><b>${label}</b></u> ${escHtml(l)}`);});};
+    const _addLines=(label,val)=>{if(!val)return;val.split('\n').filter(l=>l.trim()).forEach(l=>{_addSep();_prod+=_pSm(`<u><b>${label}</b></u>`);_prod+=_pSm(escHtml(l));});};
     _addLines('SCREEN:',item.screen);
     if(slugCell){_addSep();_prod+=slugCell;}
     _addLines('CGEN:',item.cgen);
@@ -10240,10 +10240,8 @@ async function rosExportDocx(ep,items){
         if(!value)return;
         String(value).split('\n').filter(l=>l.trim()).forEach(line=>{
           if(prodParas.length)prodParas.push(emptyPara());
-          prodParas.push(new Paragraph({spacing:SP0,children:[
-            new TextRun({text:label+' ',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ_SM,color:'000000'}),
-            new TextRun({text:line,font:FONT,size:SZ_SM,color:'000000'})
-          ]}));
+          prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:label,bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ_SM,color:'000000'})]}));
+          prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:line,font:FONT,size:SZ_SM,color:'000000'})]}));
         });
       };
       _addField('SCREEN:',item.screen);
