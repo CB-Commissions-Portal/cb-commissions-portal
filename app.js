@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.219';
+const BUILD_VERSION='3.10.220';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -10007,13 +10007,15 @@ function buildRosWordHtml(ep,items,highlightIdx=-1){
       return _p(`<span style="background:#39FF14;font-weight:bold">${txt}</span>`);
     }).join('')||'';
     // Production column: Screen → Slug → CGEN → Story Title
+    // Each non-empty line gets its own label repeated inline: "LABEL: value"
     let _prod='';
     const _pSm=(html)=>_p(html,'font-size:9pt');
-    const _sep=()=>{if(_prod)_prod+=_p('&nbsp;');};
-    if(item.screen){_prod+=_pSm(`<u><b>SCREEN:</b></u>`);item.screen.split('\n').forEach(l=>{_prod+=_pSm(escHtml(l)||'&nbsp;');});}
-    if(slugCell){_sep();_prod+=slugCell;}
-    if(item.cgen){_sep();_prod+=_pSm(`<u><b>CGEN:</b></u>`);item.cgen.split('\n').forEach(l=>{_prod+=_pSm(escHtml(l)||'&nbsp;');});}
-    if(item.storyTitle){_sep();_prod+=_pSm(`<u><b>STORY TITLE:</b></u>`)+_pSm(escHtml(item.storyTitle));}
+    const _addSep=()=>{if(_prod)_prod+=_p('&nbsp;');};
+    const _addLines=(label,val)=>{if(!val)return;val.split('\n').filter(l=>l.trim()).forEach(l=>{_addSep();_prod+=_pSm(`<u><b>${label}</b></u> ${escHtml(l)}`);});};
+    _addLines('SCREEN:',item.screen);
+    if(slugCell){_addSep();_prod+=slugCell;}
+    _addLines('CGEN:',item.cgen);
+    _addLines('STORY TITLE:',item.storyTitle);
     let desc=_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
     if(item.content) desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
     if(item.type==='insert'&&item.outWords)desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
@@ -10232,12 +10234,17 @@ async function rosExportDocx(ep,items){
       ]});
 
       // PRODUCTION: Screen → Slug → CGEN → Story Title
+      // Each non-empty line gets its own label repeated inline: "LABEL: value"
       const prodParas=[];
       const _addField=(label,value)=>{
         if(!value)return;
-        if(prodParas.length)prodParas.push(emptyPara());
-        prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:label,bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ_SM,color:'000000'})]}));
-        String(value).split('\n').forEach(line=>prodParas.push(line.trim()?new Paragraph({spacing:SP0,children:[new TextRun({text:line,font:FONT,size:SZ_SM,color:'000000'})]}):emptyPara(SZ_SM)));
+        String(value).split('\n').filter(l=>l.trim()).forEach(line=>{
+          if(prodParas.length)prodParas.push(emptyPara());
+          prodParas.push(new Paragraph({spacing:SP0,children:[
+            new TextRun({text:label+' ',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ_SM,color:'000000'}),
+            new TextRun({text:line,font:FONT,size:SZ_SM,color:'000000'})
+          ]}));
+        });
       };
       _addField('SCREEN:',item.screen);
       if(slugs.length){
