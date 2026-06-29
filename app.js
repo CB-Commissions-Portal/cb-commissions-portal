@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.207';
+const BUILD_VERSION='3.10.208';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -4704,7 +4704,7 @@ function renderRunOfShow(){
       const past=d&&d<new Date().toISOString().split('T')[0];
       return`<div class="ros-ep-pick" data-ep="${ep}"
         style="background:#f9fafb;border:2px solid ${hasSaved?'#c084fc':'#d1dae8'};border-radius:10px;padding:18px 22px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;transition:all .15s"
-        onmouseover="this.style.borderColor='#c084fc';this.style.background='#1e1e3a'"
+        onmouseover="this.style.borderColor='#c084fc';this.style.background='#f3e8ff'"
         onmouseout="this.style.borderColor='${hasSaved?'#c084fc':'#d1dae8'}';this.style.background='#f9fafb'">
         <div>
           <div style="font-size:20px;font-weight:900;color:#111827;font-family:monospace">S${currentSeason} EP ${String(ep).padStart(2,'0')}</div>
