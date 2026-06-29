@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.205';
+const BUILD_VERSION='3.10.206';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -5335,13 +5335,13 @@ function renderContractList(){
   const makeRow=([id,c],isArchived)=>{
     const name=esc(c.fields?.contractorName||c.fields?.performerName||c.fields?.employeeName||'—');
     const dutyPos=esc(c.fields?.duty||c.fields?.position||'—');
-    const statusBg=isArchived?'#1a1a1a':c.status==='exported'?'#0d2a0d':'#1a1a0d';
-    const statusCol=isArchived?'#484f58':c.status==='exported'?'#3fb950':'#e3b341';
-    const statusBorder=isArchived?'#d1dae8':c.status==='exported'?'#2d6a2d':'#4a3300';
+    const statusBg=isArchived?'#f3f4f6':c.status==='exported'?'#dcfce7':'#fef9c3';
+    const statusCol=isArchived?'#6b7280':c.status==='exported'?'#16a34a':'#b45309';
+    const statusBorder=isArchived?'#d1dae8':c.status==='exported'?'#86efac':'#fde068';
     const statusLabel=isArchived?'ARCHIVED':c.status==='exported'?'EXPORTED':'DRAFT';
     return`<tr style="border-bottom:1px solid #d1dae8;${isArchived?'opacity:.6':''}">
       <td style="padding:10px 14px;font-size:14px;color:#6b7280;font-family:monospace">CB-S${currentSeason}-${id}</td>
-      <td style="padding:10px 14px;font-size:15px;font-weight:700;color:${isArchived?'#7a8ba0':'#eaf0ff'}">${name}</td>
+      <td style="padding:10px 14px;font-size:15px;font-weight:700;color:${isArchived?'#6b7280':'#111827'}">${name}</td>
       <td style="padding:10px 14px;font-size:14px;color:#4b5563">${dutyPos}</td>
       <td style="padding:10px 14px;font-size:14px;color:#6b7280">${ctTypeLabel(c.type)}</td>
       <td style="padding:10px 14px">
