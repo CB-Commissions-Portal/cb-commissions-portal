@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.214';
+const BUILD_VERSION='3.10.215';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -772,7 +772,7 @@ async function saveLineup(epNum,data){
   luLocalWrite=true;
   try{await setDoc(doc(db,'lineups',String(epNum)),{...data,updatedAt:serverTimestamp()});lineups[epNum]={...data};setSyncDot('live');}
   catch(e){setSyncDot('offline');showToast('Lineup save failed: '+e.message,true);}
-  finally{luLocalWrite=false;}
+  finally{setTimeout(()=>{luLocalWrite=false;},1500);}
 }
 async function loadLineups(){
   try{const snap=await getDocs(collection(db,'lineups'));snap.docs.forEach(d=>{lineups[d.id]={...d.data()};});}
@@ -9373,25 +9373,26 @@ document.addEventListener('click',function luHeaderToggle(e){
   if(e.target.closest('button,input,select'))return;
   const ep=String(hdr.dataset.luEp);
 
-  // Flush any pending saves for director/presenter before toggling
-  ['director','presenter1','presenter2'].forEach(f=>{
-    clearTimeout(window['_luSave_'+ep]);
-  });
-  if(lineups[ep])saveLineup(ep,lineups[ep]);
+  const wasCollapsed=luCollapsed.has(ep);
 
-  if(luCollapsed.has(ep)){
+  if(wasCollapsed){
+    // Expanding — just show, no save needed (avoids snapshot → render → jump)
+    clearTimeout(window['_luSave_'+ep]);
+    delete window['_luSave_'+ep];
     luCollapsed.delete(ep);
   } else {
-    // Before collapsing, capture current input values into lineups state
+    // Collapsing — capture current input values and save once
     const block=document.querySelector(`[data-lu-ep-block="${ep}"]`);
     if(block){
       ['director','presenter1','presenter2'].forEach(f=>{
         const inp=block.querySelector(`.lu-${f}`);
         if(inp&&lineups[ep])lineups[ep][f]=inp.value;
       });
-      if(lineups[ep])saveLineup(ep,lineups[ep]);
     }
+    clearTimeout(window['_luSave_'+ep]);
+    delete window['_luSave_'+ep];
     luCollapsed.add(ep);
+    if(lineups[ep])saveLineup(ep,lineups[ep]);
   }
 
   // ── Targeted DOM swap — no scroll jump ──
@@ -9399,10 +9400,6 @@ document.addEventListener('click',function luHeaderToggle(e){
   if(!block){render();return;}
 
   const isNowCollapsed=luCollapsed.has(ep);
-  const role=getEffectiveRole();
-  const canEdit=['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role);
-  const past=block.querySelector('.lu-ep-header')?.style.background?.includes('2d0f0f')||
-              block.dataset.luPast==='1';
 
   // Update chevron
   const chevron=block.querySelector('.lu-chevron');
