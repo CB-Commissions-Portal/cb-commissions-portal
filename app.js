@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.210';
+const BUILD_VERSION='3.10.211';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -4844,10 +4844,14 @@ function renderRunOfShow(){
       .join('')||'<span style="color:#9ca3af;font-size:18px">—</span>';
 
     // Content (editable inline)
+    const csBadges=item.type==='coldstart'?[
+      item.upsound?`<span style="font-size:11px;font-weight:800;background:#ede9fe;color:#7c3aed;padding:2px 7px;border-radius:3px;border:1px solid #c4b5fd;letter-spacing:.5px;margin-right:4px">UPS</span>`:'',
+      item.voiceOver?`<span style="font-size:11px;font-weight:800;background:#ede9fe;color:#7c3aed;padding:2px 7px;border-radius:3px;border:1px solid #c4b5fd;letter-spacing:.5px">VO</span>`:''
+    ].filter(Boolean).join(''):'';
     const contentCell=item.type!=='fixed'&&item.type!=='break'
-      ?(canEdit&&!isLocked
+      ?`<div>${canEdit&&!isLocked
         ?`<input class="ros-content" data-idx="${i}" value="${esc(item.content||'')}" placeholder="${esc(item.placeholder||'Add content…')}" style="width:100%;background:transparent;border:none;border-bottom:2px solid ${ts.border};color:#111827;font-size:18px;padding:8px 2px;outline:none;font-family:inherit">`
-        :`<span style="font-size:18px;color:${item.content?'#111827':'#9ca3af'};font-style:${item.content?'normal':'italic'}">${esc(item.content||'—')}</span>`)
+        :`<span style="font-size:18px;color:${item.content?'#111827':'#9ca3af'};font-style:${item.content?'normal':'italic'}">${esc(item.content||'—')}</span>`}${csBadges?`<div style="margin-top:6px">${csBadges}</div>`:''}</div>`
       :'';
 
     // Duration (editable inline)
@@ -6546,6 +6550,20 @@ function renderModals(epNums,nextEp){
           <div>
             <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px">Sound</div>
             <select id="ros-edit-sound" style="background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#0066CC;font-size:18px;font-weight:700;padding:10px 14px;outline:none;font-family:inherit;cursor:pointer;min-width:280px">${_soundOpts.map(o=>`<option value="${o}" ${_ei.sound===o?'selected':''}>${o||'— none —'}</option>`).join('')}</select>
+          </div>`:''}
+          ${_ei.type==='coldstart'?`
+          <div>
+            <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#8957e5;margin-bottom:12px">Cold Start Options</div>
+            <div style="display:flex;gap:24px">
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:17px;font-weight:700;color:#111827;user-select:none">
+                <input type="checkbox" id="ros-edit-upsound" ${_ei.upsound?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:#8957e5">
+                UPSOUND
+              </label>
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:17px;font-weight:700;color:#111827;user-select:none">
+                <input type="checkbox" id="ros-edit-voiceover" ${_ei.voiceOver?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:#8957e5">
+                VOICE OVER
+              </label>
+            </div>
           </div>`:''}
           ${_ei.type==='insert'?`
           <div>
@@ -10489,6 +10507,10 @@ document.addEventListener('click',function rosHandler(e){
       // director's notes (admin + director only)
       const _dn=document.getElementById('ros-edit-director-notes');
       if(_dn&&['admin','director'].includes(getEffectiveRole())) it.directorNotes=_dn.value;
+      // cold start options
+      const _ups=document.getElementById('ros-edit-upsound');
+      const _vo=document.getElementById('ros-edit-voiceover');
+      if(it.type==='coldstart'){it.upsound=!!(_ups?.checked);it.voiceOver=!!(_vo?.checked);}
       rosData[String(epNum)].items=items;
       saveROS(epNum,{items,epNum});
       showToast('Item saved ✓');
