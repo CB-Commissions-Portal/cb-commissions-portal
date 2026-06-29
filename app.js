@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.216';
+const BUILD_VERSION='3.10.217';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -10007,8 +10007,8 @@ function buildRosWordHtml(ep,items,highlightIdx=-1){
       return _p(`<span style="background:#39FF14;font-weight:bold">${txt}</span>`);
     }).join('')||'';
     let desc=_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
-    desc+=_p('&nbsp;');
-    if(item.content)desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
+    if(item.content){desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');desc+=_p('&nbsp;');}
+    else{desc+=_p('&nbsp;');}
     if(item.type==='insert'&&item.outWords)desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
     if(['live','coldstart','upnext'].includes(item.type)&&item.script){
       item.script.split('\n').forEach(line=>{
@@ -10255,8 +10255,12 @@ async function rosExportDocx(ep,items){
       // DESCRIPTION
       const descParas=[emptyPara()];
       descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.label||'',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ,color:'000000'})]}));
-      descParas.push(emptyPara());
-      if(item.content) descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.content,font:FONT,size:SZ,color:'000000'})]}));
+      if(item.content){
+        descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.content,font:FONT,size:SZ,color:'000000'})]}));
+        descParas.push(emptyPara());
+      } else {
+        descParas.push(emptyPara());
+      }
       if(item.type==='insert'&&item.outWords) descParas.push(new Paragraph({spacing:SP0,children:[
         new TextRun({text:'OUT WORDS: ',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ}),
         new TextRun({text:item.outWords,font:FONT,size:SZ,color:'000000'})
