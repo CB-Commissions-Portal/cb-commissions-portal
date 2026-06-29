@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.197';
+const BUILD_VERSION='3.10.198';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -986,6 +986,8 @@ function ecExportPDF(ep){
   credits.forEach(b=>{
     if(b.type==='heading'){
       rows+=`<tr><td colspan="2" style="background:#002868;color:#fff;font-weight:800;font-size:11pt;text-transform:uppercase;letter-spacing:1px;padding:8pt 12pt">${esc(b.text||'')}</td></tr>`;
+    } else if(b.type==='empty'){
+      rows+=`<tr><td colspan="2" style="padding:8pt 0">&nbsp;</td></tr>`;
     } else {
       const names=(b.names||[]).filter(Boolean).map(n=>`<div>${esc(n)}</div>`).join('');
       rows+=`<tr style="border-bottom:1px solid #f0f0f0"><td style="font-weight:700;text-transform:uppercase;color:#c92a2a;font-size:9pt;padding:5pt 12pt;width:38%;vertical-align:top">${esc(b.discipline||'')}</td><td style="font-size:10pt;color:#111;padding:5pt 12pt;line-height:1.6">${names}</td></tr>`;
@@ -1021,6 +1023,8 @@ function ecExportTXT(ep){
   credits.forEach(b=>{
     if(b.type==='heading'){
       txt+=`\n${(b.text||'').toUpperCase()}\n`;
+    } else if(b.type==='empty'){
+      txt+=`\n`;
     } else {
       txt+=`\n${(b.discipline||'').toUpperCase()}\n`;
       (b.names||[]).filter(Boolean).forEach(nm=>{txt+=`${nm}\n`;});
@@ -2194,6 +2198,7 @@ function saveECValue(epNum, sectionId, key, val){
 
 function renderECBlock(b,bi,total,ep,canEd){
   const isH=b.type==='heading';
+  const isEmpty=b.type==='empty';
   const BS='background:#f0f4f8;border:1px solid #d1dae8;border-radius:3px;font-size:11px;padding:2px 5px;cursor:pointer;color:#4b5563;line-height:1;font-family:inherit';
   const epAttr=`data-ec-ep="${ep}"`;
   const biAttr=`data-ec-bi="${bi}"`;
@@ -2202,8 +2207,13 @@ function renderECBlock(b,bi,total,ep,canEd){
     ${bi<total-1?`<button ${epAttr} data-ec-action="block-dn" ${biAttr} style="${BS}" title="Move down">↓</button>`:`<span style="width:22px;display:inline-block"></span>`}
     <button ${epAttr} data-ec-action="ins-heading" ${biAttr} style="${BS}" title="Insert heading below">+H</button>
     <button ${epAttr} data-ec-action="ins-entry" ${biAttr} style="${BS}" title="Insert entry below">+E</button>
+    <button ${epAttr} data-ec-action="ins-empty" ${biAttr} style="${BS}" title="Insert empty row below">+—</button>
     <button ${epAttr} data-ec-action="block-del" ${biAttr} style="${BS};color:#ef4444;border-color:#fca5a5" title="Delete block">✕</button>
   </div>`:'';
+  if(isEmpty)return`<div style="display:flex;align-items:center;background:#f9fafb;border:1px dashed #cbd5e1;border-radius:4px;padding:4px 12px;margin-bottom:6px">
+    <span style="flex:1;color:#9ca3af;font-size:12px;font-style:italic;letter-spacing:.3px">— empty row —</span>
+    ${actBtns}
+  </div>`;
   if(isH)return`<div style="display:flex;align-items:center;background:#dbe4ff;border-left:4px solid #3b5bdb;border-radius:4px;padding:8px 12px;margin-bottom:6px">
     <input class="ec-inp" ${epAttr} ${biAttr} data-ec-field="text" value="${esc(b.text||'')}" placeholder="HEADING TEXT…"
       style="flex:1;background:transparent;border:none;font-weight:800;font-size:15px;color:#3b5bdb;text-transform:uppercase;outline:none;font-family:inherit;letter-spacing:.5px;min-width:0"${canEd?'':' readonly'}>
@@ -2240,6 +2250,7 @@ function renderEndCredits(epNums){
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button data-ec-action="def-ins-heading" data-ec-bi="-1" class="btn" style="font-size:13px;padding:4px 10px">+H Heading</button>
             <button data-ec-action="def-ins-entry" data-ec-bi="-1" class="btn" style="font-size:13px;padding:4px 10px">+E Entry</button>
+            <button data-ec-action="def-ins-empty" data-ec-bi="-1" class="btn" style="font-size:13px;padding:4px 10px">+Empty Row</button>
             <button data-ec-action="save-defaults" class="btn primary" style="font-size:13px;padding:4px 10px">💾 Save Defaults</button>
             <button data-ec-action="close-defaults" class="btn" style="font-size:13px;padding:4px 10px">✕ Close</button>
           </div>
@@ -2282,6 +2293,7 @@ function renderEndCredits(epNums){
           <div style="width:1px;height:18px;background:#d1dae8"></div>
           <button data-ec-ep="${n}" data-ec-action="ins-heading" data-ec-bi="-1" class="btn" style="font-size:13px;padding:4px 10px">+H Heading</button>
           <button data-ec-ep="${n}" data-ec-action="ins-entry" data-ec-bi="-1" class="btn" style="font-size:13px;padding:4px 10px">+E Entry</button>
+          <button data-ec-ep="${n}" data-ec-action="ins-empty" data-ec-bi="-1" class="btn" style="font-size:13px;padding:4px 10px">+Empty Row</button>
           <div style="width:1px;height:18px;background:#d1dae8"></div>
           <button data-ec-ep="${n}" data-ec-action="save" class="btn primary" style="font-size:13px;padding:4px 10px">💾 Save</button>`:''}
           <button data-ec-ep="${n}" data-ec-action="export-pdf" class="btn" style="font-size:13px;padding:4px 10px;color:#0066CC;border-color:#bfdbfe">PDF ↗</button>
@@ -8336,6 +8348,12 @@ function bindApp(){
         blocks.splice(pos,0,{type:'entry',discipline:'',names:['']});
         ecDefaultCredits=blocks;render();return;
       }
+      if(action==='def-ins-empty'){
+        const blocks=collectECBlocks('default');
+        const pos=bi<0?blocks.length:bi+1;
+        blocks.splice(pos,0,{type:'empty'});
+        ecDefaultCredits=blocks;render();return;
+      }
 
       // ── Per-episode actions ────────────────────────────────────
       if(action==='load-default'){
@@ -8366,6 +8384,9 @@ function bindApp(){
       } else if(action==='ins-entry'){
         const pos=bi<0?blocks.length:bi+1;
         blocks.splice(pos,0,{type:'entry',discipline:'',names:['']});
+      } else if(action==='ins-empty'){
+        const pos=bi<0?blocks.length:bi+1;
+        blocks.splice(pos,0,{type:'empty'});
       } else if(action==='block-del'){
         blocks.splice(bi,1);
       } else if(action==='block-up'&&bi>0){
