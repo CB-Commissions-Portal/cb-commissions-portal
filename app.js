@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.221';
+const BUILD_VERSION='3.10.222';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -211,6 +211,7 @@ let mcImportCommNum='';          // tracks typed commission number in import mod
 let creditsExpandedEp=null;
 let ecLocalWrite=false,ecSaveTimers={},ecDirty={},ecDefaultCredits=[],ecShowDefModal=false;
 let luLocalWrite=false,scLocalWrite=false;
+let rosCamDescs=[]; // camera block descriptions during EDIT ITEM modal session
 let showPermModal=false;
 let expandedEps=new Set(); // Episode Register expanded episodes
 let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,tempDate='';
@@ -6497,7 +6498,7 @@ function renderModals(epNums,nextEp){
     const _srcOpts=['','A','B','C','D','BLUE'];
     const _slugs=_ei.slugs||(_ei.slug?[_ei.slug]:['']);
     const _sources=_ei.slugSources||[];
-    const _isCue=l=>/^[^:]+:\s*$/.test(l.trim());
+    const _isCue=l=>/^[^:]+:\s*(CAM\s+\S+\s*)?$/i.test(l.trim());
     const _sw=(_ei.script||'').split('\n').filter(l=>!_isCue(l)).join(' ').trim();
     const _wc=_sw?_sw.split(/\s+/).length:0;
     const _div3=(_wc/3).toFixed(1);
@@ -6512,6 +6513,15 @@ function renderModals(epNums,nextEp){
     }).join('');
     const _soundOpts=["","A","B","C","D","COLD START","CLEAN","GENERIC","A+ COLD START CONT'D","B+ COLD START CONT'D","C+ COLD START CONT'D","D+ COLD START CONT'D","VOICE+ COLD START CONT'D"];
     const _editFullAccess=!['content','director'].includes(getEffectiveRole());
+    // Init camera block state — preserve DOM values on re-render, else load from stored data
+    const _domCamDescs={};
+    document.querySelectorAll('.ros-cam-desc').forEach(inp=>{_domCamDescs[Number(inp.dataset.idx)]=inp.value;});
+    const _hasDomCams=Object.keys(_domCamDescs).length>0;
+    const _scriptCams=parseCamCues(_ei.script||'');
+    if(!_hasDomCams) rosCamDescs=_scriptCams.map((_,i)=>(_ei.cameraDescs||[])[i]||'');
+    else rosCamDescs=_scriptCams.map((_,i)=>_domCamDescs[i]!==undefined?_domCamDescs[i]:(rosCamDescs[i]||''));
+    const _camBlockHtml=buildRosCamBlockHtml(_scriptCams,rosCamDescs);
+    const _canCamBlock=['live','coldstart','upnext'].includes(_ei.type)&&getEffectiveRole()!=='content';
     out+=`<div class="modal-overlay" id="ros-edit-overlay"><div class="modal" style="width:min(1600px,99vw);max-height:97vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
       <div style="padding:20px 24px;border-bottom:1px solid #d1dae8;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
         <div>
@@ -6533,7 +6543,7 @@ function renderModals(epNums,nextEp){
           ${['live','coldstart','upnext'].includes(_ei.type)?`
           <div>
             <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px">Script</div>
-            <textarea id="ros-edit-script-ta" style="width:100%;min-height:260px;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:18px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*$/.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-edit-sc-wc').textContent=w;document.getElementById('ros-edit-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${esc(_ei.script||'')}</textarea>
+            <textarea id="ros-edit-script-ta" style="width:100%;min-height:260px;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:18px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*(CAM\\s+\\S+\\s*)?$/i.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-edit-sc-wc').textContent=w;document.getElementById('ros-edit-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)" data-prev-script="${esc(_ei.script||'')}">${esc(_ei.script||'')}</textarea>
             <div style="margin-top:10px;font-size:15px;color:#6b7280;line-height:1.8">
               Total words: <strong id="ros-edit-sc-wc" style="color:#0066CC;font-size:18px">${_wc}</strong>
               &nbsp;&nbsp;<span id="ros-edit-sc-d3" style="color:#56d364;font-weight:700">${_wc} ÷ 3 = ${_div3}</span>
@@ -6586,6 +6596,11 @@ function renderModals(epNums,nextEp){
             </div>
           </div>`:''}
 
+          ${_canCamBlock?`
+          <div style="border-top:1px solid #d1dae8;padding-top:20px">
+            <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#7c3aed;margin-bottom:14px">Camera Block</div>
+            <div id="ros-edit-camblock">${_camBlockHtml}</div>
+          </div>`:''}
           <div style="display:flex;justify-content:flex-end;padding-top:4px">
             <button id="ros-edit-execute" class="btn" style="font-size:16px;padding:12px 36px;font-weight:800;border-color:#3fb950;color:#3fb950;letter-spacing:.5px">▶ EXECUTE</button>
           </div>
@@ -6599,7 +6614,7 @@ function renderModals(epNums,nextEp){
   if(rosScriptModal){
     const {epNum,itemIdx}=rosScriptModal;
     const _item=(rosData[String(epNum)]?.items||[])[itemIdx]||{};
-    const _isCue=l=>/^[^:]+:\s*$/.test(l.trim());
+    const _isCue=l=>/^[^:]+:\s*(CAM\s+\S+\s*)?$/i.test(l.trim());
     const _scriptWords=(_item.script||'').split('\n').filter(l=>!_isCue(l)).join(' ').trim();
     const _wc=_scriptWords?_scriptWords.split(/\s+/).length:0;
     const _div3=(_wc/3).toFixed(1);
@@ -6611,7 +6626,7 @@ function renderModals(epNums,nextEp){
         </div>
         <button id="ros-script-close" class="btn" style="font-size:14px;padding:4px 12px;flex-shrink:0;margin-left:16px">✕ Close</button>
       </div>
-      <textarea id="ros-script-ta" style="flex:1;min-height:340px;width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:17px;line-height:1.75;padding:14px 16px;outline:none;resize:vertical;font-family:inherit" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*$/.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-sc-wc').textContent=w;document.getElementById('ros-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${esc(_item.script||'')}</textarea>
+      <textarea id="ros-script-ta" style="flex:1;min-height:340px;width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:17px;line-height:1.75;padding:14px 16px;outline:none;resize:vertical;font-family:inherit" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*(CAM\\s+\\S+\\s*)?$/i.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-sc-wc').textContent=w;document.getElementById('ros-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${esc(_item.script||'')}</textarea>
       <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div style="font-size:15px;color:#6b7280;line-height:1.8">
           <div>Total words: <strong id="ros-sc-wc" style="color:#0066CC;font-size:17px">${_wc}</strong></div>
@@ -9990,6 +10005,22 @@ function rosExportVTList(){
   showToast('VT List ready to print/save as PDF ✓');
 }
 
+// Returns ordered array of camera designations (e.g. ['CAM 3','CAM 1']) from a script string
+function parseCamCues(script){
+  return (script||'').split('\n').reduce((arr,line)=>{
+    const m=line.trim().match(/^[^:]+:\s+(CAM\s+\S+)\s*$/i);
+    if(m)arr.push(m[1].toUpperCase().replace(/\s+/g,' '));
+    return arr;
+  },[]);
+}
+// Renders the camera block rows inside #ros-edit-camblock
+function buildRosCamBlockHtml(cams,descs){
+  if(!cams.length)return'<div style="font-size:14px;color:#9ca3af;font-style:italic;padding:6px 0">No camera cues yet — use <strong>PRESENTER: CAM #</strong> in the script.</div>';
+  return cams.map((cam,i)=>`<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+    <div style="min-width:72px;font-size:13px;font-weight:800;background:#ede9fe;color:#7c3aed;padding:5px 10px;border-radius:6px;text-align:center;letter-spacing:.5px;flex-shrink:0">${esc(cam)}</div>
+    <input class="ros-cam-desc" data-idx="${i}" value="${esc(descs[i]||'')}" placeholder="Shot description…" style="flex:1;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:16px;padding:8px 12px;outline:none;font-family:inherit;box-sizing:border-box">
+  </div>`).join('');
+}
 function buildRosWordHtml(ep,items,highlightIdx=-1){
   const epDate=resolveDate(ep);
   const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'}):'';
@@ -10021,9 +10052,19 @@ function buildRosWordHtml(ep,items,highlightIdx=-1){
     if(item.type==='insert'&&item.outWords)desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
     if(['live','coldstart','upnext'].includes(item.type)&&item.script){
       desc+=_p('&nbsp;');
+      let _ci=0;const _cd=item.cameraDescs||[];
       item.script.split('\n').forEach(line=>{
-        if(/^[^:]+:\s*$/.test(line.trim())){desc+=_p(`<u><b>${escHtml(line.trim())}</b></u>`,'color:#000');}
-        else{desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');}
+        const tr=line.trim();
+        if(/^[^:]+:\s+CAM\s+\S+\s*$/i.test(tr)){
+          desc+=_p(`<u><b>${escHtml(tr)}</b></u>`,'color:#000');
+          const d=_cd[_ci]||'';
+          if(d)desc+=_p(`<span style="color:#555;font-style:italic;font-size:9pt;padding-left:14px">&#x2192; ${escHtml(d)}</span>`);
+          _ci++;
+        } else if(/^[^:]+:\s*$/.test(tr)){
+          desc+=_p(`<u><b>${escHtml(tr)}</b></u>`,'color:#000');
+        } else {
+          desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');
+        }
       });
       desc+=_p('&nbsp;');
     }
@@ -10103,6 +10144,10 @@ function updateRosEditPreview(){
     if(_cg)it.cgen=_cg.value;
     const _st=document.getElementById('ros-edit-story-title');
     if(_st)it.storyTitle=_st.value;
+    // camera block
+    const _camDescs=[];
+    document.querySelectorAll('.ros-cam-desc').forEach(inp=>{_camDescs[Number(inp.dataset.idx)]=inp.value;});
+    if(_camDescs.length){it.cameraCues=parseCamCues(it.script||'');it.cameraDescs=_camDescs;}
   }
   // Build the full Word-export HTML with the active item highlighted
   const html=buildRosWordHtml(epNum,items,itemIdx);
@@ -10273,9 +10318,17 @@ async function rosExportDocx(ep,items){
       const _hasScript=['live','coldstart','upnext'].includes(item.type)&&item.script;
       if(_hasScript){
         descParas.push(emptyPara());
+        let _ci=0;const _cd=item.cameraDescs||[];
         item.script.split('\n').forEach(line=>{
+          const tr=line.trim();
           if(!line){descParas.push(emptyPara());}
-          else if(/^[^:]+:\s*$/.test(line.trim())){descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:line.trim(),bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ,color:'000000'})]}))}
+          else if(/^[^:]+:\s+CAM\s+\S+\s*$/i.test(tr)){
+            descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:tr,bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ,color:'000000'})]}));
+            const d=_cd[_ci]||'';
+            if(d)descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:'   → '+d,italics:true,font:FONT,size:SZ_SM,color:'555555'})]}));
+            _ci++;
+          } else if(/^[^:]+:\s*$/.test(tr)){
+            descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:tr,bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ,color:'000000'})]}))}
           else{descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:line,font:FONT,size:SZ,color:'000000'})]}))}
         });
         descParas.push(emptyPara());
@@ -10537,6 +10590,11 @@ document.addEventListener('click',function rosHandler(e){
       const _ups=document.getElementById('ros-edit-upsound');
       const _vo=document.getElementById('ros-edit-voiceover');
       if(['coldstart','upnext'].includes(it.type)){it.upsound=!!(_ups?.checked);it.voiceOver=!!(_vo?.checked);}
+      // camera block
+      const _camDescs=[];
+      document.querySelectorAll('.ros-cam-desc').forEach(inp=>{_camDescs[Number(inp.dataset.idx)]=inp.value;});
+      it.cameraCues=parseCamCues(it.script||'');
+      it.cameraDescs=_camDescs;
       rosData[String(epNum)].items=items;
       saveROS(epNum,{items,epNum});
       showToast('Item saved ✓');
@@ -10696,6 +10754,22 @@ document.addEventListener('input',function rosInputHandler(e){
   }
 });
 
+// Camera block live refresh when script textarea changes
+document.addEventListener('input',function rosCamRefresh(e){
+  if(e.target.id!=='ros-edit-script-ta')return;
+  // Preserve current descriptions keyed by position
+  const prevDescs={};
+  document.querySelectorAll('.ros-cam-desc').forEach(inp=>{prevDescs[Number(inp.dataset.idx)]=inp.value;});
+  const prevCams=rosCamDescs.length?[...rosCamDescs.map((_,i)=>i)]:[];
+  const newCams=parseCamCues(e.target.value);
+  const oldCams=parseCamCues(e.target.dataset.prevScript||'');
+  // Merge: keep description if same cam at same index
+  const newDescs=newCams.map((cam,i)=>(oldCams[i]===cam?(prevDescs[i]||''):''));
+  rosCamDescs=newDescs;
+  e.target.dataset.prevScript=e.target.value;
+  const camBlockEl=document.getElementById('ros-edit-camblock');
+  if(camBlockEl)camBlockEl.innerHTML=buildRosCamBlockHtml(newCams,newDescs);
+});
 // ── POST PRODUCTION SCHEDULE handlers ──────────────────────────────
 // ── Add commission modal ──
 document.addEventListener('click',function ppAddHandler(e){
