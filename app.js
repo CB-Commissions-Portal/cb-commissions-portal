@@ -9,6 +9,39 @@ function getCfg(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||null
 function saveCfg(c){localStorage.setItem(STORAGE_KEY,JSON.stringify(c));}
 
 const ROLE_META={admin:{label:'Super Admin',color:'#58a6ff',bg:'rgba(88,166,255,.12)'},deputyadmin:{label:'Admin',color:'#a5b4fc',bg:'rgba(165,180,252,.12)'},editorial:{label:'Editorial',color:'#3fb950',bg:'rgba(63,185,80,.12)'},operations:{label:'Operations',color:'#d29922',bg:'rgba(210,153,34,.12)'},production:{label:'Production',color:'#bc8cff',bg:'rgba(188,140,255,.12)'},afm:{label:'AFM Operator',color:'#f7768e',bg:'rgba(247,118,142,.12)'},prodmgmt:{label:'Production Mgmt',color:'#fb923c',bg:'rgba(251,146,60,.12)'},capstaff:{label:'CAP Staff',color:'#34d399',bg:'rgba(52,211,153,.12)'},content:{label:'Content',color:'#67e8f9',bg:'rgba(103,232,249,.12)'},finance:{label:'Finance',color:'#a3e635',bg:'rgba(163,230,53,.12)'},director:{label:'Director',color:'#f97316',bg:'rgba(249,115,22,.12)'}};
+// Permission matrix: what each role can do in each section
+// Values: 'Full Edit' | 'Edit' | 'View' | string (partial) | '—'
+const PERM_MAP=[
+  {group:'CONTENT',rows:[
+    {label:'Commission List',   admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'View',           operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'—'},
+    {label:'Line-Ups',          admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'Full Edit',       operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'View'},
+    {label:'Broadcast List',    admin:'View',       deputyadmin:'View',       editorial:'View',            operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'View'},
+    {label:'Episode Register',  admin:'View',       deputyadmin:'View',       editorial:'View',            operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'View'},
+  ]},
+  {group:'PRODUCTION',rows:[
+    {label:'Post Production',   admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'View',            operations:'Full Edit', production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'—'},
+    {label:'Presenter Calendar',admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'Full Edit',       operations:'Full Edit', production:'Full Edit', prodmgmt:'Full Edit',afm:'—',        capstaff:'—',         content:'View',     finance:'View',  director:'View'},
+    {label:'Deliverables',      admin:'Full Edit',  deputyadmin:'—',          editorial:'—',               operations:'—',         production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'—',     director:'—'},
+    {label:'Promo Scheduling',  admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'View',            operations:'View',      production:'—',         prodmgmt:'View',    afm:'—',         capstaff:'—',         content:'—',        finance:'View',  director:'—'},
+    {label:'Music Cue Sheets',  admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'—',               operations:'View',      production:'View',      prodmgmt:'—',       afm:'Full Edit', capstaff:'—',         content:'—',        finance:'View',  director:'—'},
+  ]},
+  {group:'STUDIO',rows:[
+    {label:'Studio Script Build',admin:'Full Edit', deputyadmin:'Full Edit',  editorial:'Full Edit',       operations:'View',      production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'Edit scripts',finance:'View',director:'Edit notes'},
+    {label:'Script Cover Page', admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'—',               operations:'—',         production:'Full Edit', prodmgmt:'Full Edit',afm:'—',        capstaff:'—',         content:'—',        finance:'View',  director:'—'},
+    {label:'Transcripts',       admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'—',               operations:'—',         production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'—',     director:'—'},
+    {label:'Studio Call Sheet', admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'—',               operations:'Full Edit', production:'Full Edit', prodmgmt:'Full Edit',afm:'—',        capstaff:'—',         content:'—',        finance:'View',  director:'—'},
+    {label:'End Credits',       admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'—',               operations:'Full Edit', production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'View',  director:'—'},
+    {label:'Studio Crew',       admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'—',               operations:'Full Edit', production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'View',  director:'—'},
+    {label:'Studio Schedule',   admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'View',            operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'—',         content:'View',     finance:'View',  director:'—'},
+  ]},
+  {group:'CAP',rows:[
+    {label:'CAP Leave',         admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'View',            operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'Full Edit', content:'View',     finance:'View',  director:'View'},
+  ]},
+  {group:'ADMIN',rows:[
+    {label:'Contracts',         admin:'Full Edit',  deputyadmin:'—',          editorial:'—',               operations:'—',         production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'View',  director:'—'},
+    {label:'Users',             admin:'Full Edit',  deputyadmin:'—',          editorial:'—',               operations:'—',         production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'—',     director:'—'},
+  ]},
+];
 const DEL_KEYS=['callSheets','insertScripts','releaseForms','footageAgreement','musicCueSheet','footageDeclaration','carpUpload'];
 const DEL_LABELS=['Call Sheets','Insert Scripts','Release Forms','Footage Agr.','Music Cue','Footage Decl.','CARP Upload'];
 const OPS_ED=['dop','ca','editor','afm'];
@@ -92,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.208';
+const BUILD_VERSION='3.10.209';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -178,6 +211,7 @@ let mcImportCommNum='';          // tracks typed commission number in import mod
 let creditsExpandedEp=null;
 let ecLocalWrite=false,ecSaveTimers={},ecDirty={},ecDefaultCredits=[],ecShowDefModal=false;
 let luLocalWrite=false,scLocalWrite=false;
+let showPermModal=false;
 let expandedEps=new Set(); // Episode Register expanded episodes
 let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,tempDate='';
 let commEditModal=null; // commission id — edit crew/deliverables modal
@@ -1524,11 +1558,58 @@ function renderHome(){
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px">${s.items.map(cardHtml).join('')}</div>
       </div>`).join('')}
     </div>
-    <div style="margin-top:16px;margin-bottom:24px;text-align:center;font-size:13px;color:#9ca3af">
+    <div style="margin-top:24px;margin-bottom:8px">
+      <button id="view-perms-btn" class="btn" style="font-size:14px;padding:8px 20px;color:#6b7280;border-color:#d1dae8">🔑 View My Permissions</button>
+    </div>
+    <div style="margin-top:8px;margin-bottom:24px;text-align:center;font-size:13px;color:#9ca3af">
       Combined Artists Productions · Carte Blanche Production Portal<br>
       <span style="font-size:12px">Build v${BUILD_VERSION} &nbsp;·&nbsp; ${BUILD_DATE}</span>
     </div>
-  </div>`;
+  </div>
+  ${showPermModal?(()=>{
+    const rm=ROLE_META[role]||ROLE_META.editorial;
+    function accessCell(val){
+      if(!val||val==='—')return`<span style="color:#d1dae8">—</span>`;
+      if(val==='Full Edit')return`<span style="color:#16a34a;font-weight:700">Full Edit</span>`;
+      if(val==='View')return`<span style="color:#6b7280">View</span>`;
+      return`<span style="color:#0066CC;font-weight:600">${val}</span>`;
+    }
+    const tableRows=PERM_MAP.map(g=>`
+      <tr><td colspan="2" style="background:#f1f5f9;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#64748b;padding:8px 14px">${g.group}</td></tr>
+      ${g.rows.map(r=>`<tr style="border-bottom:1px solid #f1f5f9">
+        <td style="padding:8px 14px;font-size:14px;color:#374151">${r.label}</td>
+        <td style="padding:8px 14px;font-size:14px;text-align:right">${accessCell(r[role]||'—')}</td>
+      </tr>`).join('')}
+    `).join('');
+    return`<div id="perm-modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px">
+      <div style="background:#fff;border-radius:12px;max-width:520px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+        <div style="padding:20px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:flex-start;justify-content:space-between">
+          <div>
+            <div style="font-size:19px;font-weight:900;color:#111827">Permissions Guide</div>
+            <div style="font-size:13px;color:#6b7280;margin-top:3px">Your role and what you can access on this portal</div>
+          </div>
+          <button id="perm-modal-close" style="background:none;border:none;font-size:20px;color:#9ca3af;cursor:pointer;line-height:1;padding:2px 6px">✕</button>
+        </div>
+        <div style="padding:16px 24px;background:#f8fafc;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:12px">
+          <div style="width:40px;height:40px;border-radius:50%;background:${rm.bg};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:${rm.color};flex-shrink:0">${(currentUser?.displayName||'?')[0].toUpperCase()}</div>
+          <div>
+            <div style="font-size:15px;font-weight:800;color:#111827">Your role: ${rm.label}</div>
+            <div style="font-size:13px;color:#6b7280;margin-top:1px">${role==='admin'?'Full system access — all sections, all actions, including user management.':role==='deputyadmin'?'Full edit access across all tabs. Cannot create users or change roles.':role==='finance'?'View-only access across all accessible tabs. No edit rights.':'Access varies by section — see the table below.'}</div>
+          </div>
+        </div>
+        <div style="overflow-y:auto;flex:1">
+          <table style="width:100%;border-collapse:collapse">
+            <thead><tr style="border-bottom:2px solid #e5e7eb">
+              <th style="text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px">Section</th>
+              <th style="text-align:right;padding:10px 14px;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px">Your Access</th>
+            </tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+  })():''}`;
+}
 }
 
 function renderAuth(){return`<div class="auth-wrap"><div class="auth-card">
@@ -6918,6 +6999,9 @@ function bindApp(){
     switchTab(el.dataset.tab);
   });
   document.querySelectorAll('[data-home-tab]').forEach(el=>el.addEventListener('click',()=>{switchTab(el.dataset.homeTab);}));
+  document.getElementById('view-perms-btn')?.addEventListener('click',()=>{showPermModal=true;render();});
+  document.getElementById('perm-modal-close')?.addEventListener('click',()=>{showPermModal=false;render();});
+  document.getElementById('perm-modal-overlay')?.addEventListener('click',e=>{if(e.target.id==='perm-modal-overlay'){showPermModal=false;render();}});
   document.getElementById('contracted-input')?.addEventListener('change',e=>{settings.contractedMinutes=Number(e.target.value);saveSettings();render();});
   // Commission List delivery date handler
   document.querySelectorAll('.comm-del-date').forEach(inp=>{
