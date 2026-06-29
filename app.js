@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.200';
+const BUILD_VERSION='3.10.201';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -985,12 +985,12 @@ function ecExportPDF(ep){
   let rows='';
   credits.forEach(b=>{
     if(b.type==='heading'){
-      rows+=`<tr><td colspan="2" style="background:#0000FF;color:#fff;font-weight:800;font-size:11pt;text-transform:uppercase;letter-spacing:1px;padding:8pt 12pt">${esc(b.text||'')}</td></tr>`;
+      rows+=`<tr style="page-break-inside:avoid;break-inside:avoid"><td colspan="2" style="color:#0000FF;font-weight:800;font-size:11pt;text-transform:uppercase;letter-spacing:1px;padding:8pt 12pt 4pt">${esc(b.text||'')}</td></tr>`;
     } else if(b.type==='empty'){
       rows+=`<tr><td colspan="2" style="padding:8pt 0">&nbsp;</td></tr>`;
     } else {
       const names=(b.names||[]).filter(Boolean).map(n=>`<div>${esc(n)}</div>`).join('');
-      rows+=`<tr style="border-bottom:1px solid #f0f0f0"><td style="font-weight:700;text-transform:uppercase;color:#0000FF;font-size:9pt;padding:5pt 12pt;width:38%;vertical-align:top">${esc(b.discipline||'')}</td><td style="font-size:10pt;color:#111;padding:5pt 12pt;line-height:1.6">${names}</td></tr>`;
+      rows+=`<tr style="border-bottom:1px solid #f0f0f0;page-break-inside:avoid;break-inside:avoid"><td style="font-weight:700;text-transform:uppercase;color:#0000FF;font-size:9pt;padding:5pt 12pt;width:38%;vertical-align:top">${esc(b.discipline||'')}</td><td style="font-size:10pt;color:#111;padding:5pt 12pt;line-height:1.6">${names}</td></tr>`;
     }
   });
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carte Blanche End Credits EP ${epStr}</title>
