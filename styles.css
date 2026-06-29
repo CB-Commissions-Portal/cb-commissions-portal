@@ -108,7 +108,7 @@ tr:hover td{background:#f8fafc}
 /* ── COMMISSION TABLE ───────────────────────────────────────────── */
 table.comm-tbl td{font-size:17px}
 table.comm-tbl .ci{font-size:17px}
-table.comm-tbl .sc{font-size:17px}
+table.comm-tbl .sc{font-size:13px}
 /* Sticky columns */
 .st{position:sticky;z-index:4;background:#fff}
 th.st{background:#f0f4f8;z-index:12}
