@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.215';
+const BUILD_VERSION='3.10.216';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -6515,7 +6515,8 @@ function renderModals(epNums,nextEp){
     out+=`<div class="modal-overlay" id="ros-edit-overlay"><div class="modal" style="width:min(1600px,99vw);max-height:97vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
       <div style="padding:20px 24px;border-bottom:1px solid #d1dae8;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
         <div>
-          ${_ts.badge?`<span style="font-size:13px;font-weight:800;background:${_ts.badgeBg};color:${_ts.label};padding:3px 12px;border-radius:4px;margin-right:12px;letter-spacing:.8px">${_ts.badge}</span>`:''}
+          ${_ts.badge?`<span style="font-size:13px;font-weight:800;background:${_ts.badgeBg};color:${_ts.label};padding:3px 12px;border-radius:4px;margin-right:8px;letter-spacing:.8px">${_ts.badge}</span>`:''}
+          <span style="font-size:13px;font-weight:800;background:#f3f4f6;color:#374151;padding:3px 10px;border-radius:4px;margin-right:12px;letter-spacing:.6px">ITEM ${itemIdx+1}</span>
           <span style="font-size:20px;font-weight:800;color:${_ts.label}">${esc(_ei.label||'')}</span>
           <span style="font-size:15px;color:#9ca3af;margin-left:12px">S${currentSeason} EP ${String(epNum).padStart(2,'0')}</span>
         </div>
@@ -10006,6 +10007,7 @@ function buildRosWordHtml(ep,items,highlightIdx=-1){
       return _p(`<span style="background:#39FF14;font-weight:bold">${txt}</span>`);
     }).join('')||'';
     let desc=_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
+    desc+=_p('&nbsp;');
     if(item.content)desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
     if(item.type==='insert'&&item.outWords)desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
     if(['live','coldstart','upnext'].includes(item.type)&&item.script){
@@ -10013,6 +10015,7 @@ function buildRosWordHtml(ep,items,highlightIdx=-1){
         if(/^[^:]+:\s*$/.test(line.trim())){desc+=_p(`<u><b>${escHtml(line.trim())}</b></u>`,'color:#000');}
         else{desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');}
       });
+      desc+=_p('&nbsp;');
     }
     const _rowBg=['fixed','insert','coldstart','upnext','break'].includes(item.type)?'background:#D9D9D9;':'';
     const _isHL=i===highlightIdx;
@@ -10252,6 +10255,7 @@ async function rosExportDocx(ep,items){
       // DESCRIPTION
       const descParas=[emptyPara()];
       descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.label||'',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ,color:'000000'})]}));
+      descParas.push(emptyPara());
       if(item.content) descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.content,font:FONT,size:SZ,color:'000000'})]}));
       if(item.type==='insert'&&item.outWords) descParas.push(new Paragraph({spacing:SP0,children:[
         new TextRun({text:'OUT WORDS: ',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ}),
@@ -10263,6 +10267,7 @@ async function rosExportDocx(ep,items){
           else if(/^[^:]+:\s*$/.test(line.trim())){descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:line.trim(),bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ,color:'000000'})]}))}
           else{descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:line,font:FONT,size:SZ,color:'000000'})]}))}
         });
+        descParas.push(emptyPara());
       }
       const descCell=new TableCell({width:{size:COL_W[3],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,children:descParas});
 
