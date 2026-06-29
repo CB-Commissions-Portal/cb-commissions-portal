@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.204';
+const BUILD_VERSION='3.10.205';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -177,7 +177,7 @@ let mcImportCommConfirmed=false; // true after user confirms comm details in imp
 let mcImportCommNum='';          // tracks typed commission number in import modal
 let creditsExpandedEp=null;
 let ecLocalWrite=false,ecSaveTimers={},ecDirty={},ecDefaultCredits=[],ecShowDefModal=false;
-let luLocalWrite=false;
+let luLocalWrite=false,scLocalWrite=false;
 let expandedEps=new Set(); // Episode Register expanded episodes
 let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,tempDate='';
 let commEditModal=null; // commission id — edit crew/deliverables modal
@@ -1095,11 +1095,13 @@ function subscribeStudioSched(){
 
 async function saveStudioCrew(ep,data){
   setSyncDot('saving');
+  scLocalWrite=true;
   try{
     await setDoc(doc(db,'studio_crew',String(ep)),{...data,ep:Number(ep),updatedAt:serverTimestamp()});
     studioCrew[ep]={...data};
     setSyncDot('live');
   }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}
+  finally{scLocalWrite=false;}
 }
 
 async function loadStudioCrew(){
@@ -1113,6 +1115,7 @@ function subscribeStudioCrew(){
   return new Promise(resolve=>{
     let resolved=false;
     unsubStudioCrew=onSnapshot(collection(db,'studio_crew'),snap=>{
+      if(scLocalWrite){if(!resolved){resolved=true;resolve();}return;}
       const active=document.activeElement;
       snap.docs.forEach(d=>{
         const ep=d.id;
@@ -4571,10 +4574,10 @@ function renderStudioCrew(epNums){
     function sci(field){return canEd
       ?`<input class="ci studio-ci" value="${esc(sc[field]||'')}" data-ep="${n}" data-field="${field}" style="width:100%;font-size:15px">`
       :esc(sc[field]||'—');}
-    return`<div class="ep-card" style="margin-bottom:14px">
+    return`<div class="ep-card" data-sc-ep-block="${n}" style="margin-bottom:14px">
       <div class="ep-head studio-collapse-hdr" data-ep="${n}" style="cursor:pointer;user-select:none" title="${collapsed?'Click to expand':'Click to collapse'}">
         <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:14px;color:#6b7280">${collapsed?'▶':'▼'}</span>
+          <span class="sc-chevron" style="font-size:14px;color:#6b7280">${collapsed?'▶':'▼'}</span>
           <span class="ep-num">EP ${n}</span>
           <span style="font-size:15px;font-weight:600;color:#4b5563">${fmtDate(resolveDate(n))}</span>
         </div>
@@ -4582,9 +4585,9 @@ function renderStudioCrew(epNums){
           ${hasData?`<span style="font-size:11px;background:#dcfce7;color:#16a34a;padding:2px 7px;border-radius:3px;border:1px solid #86efac">DATA</span>`:''}
         </div>
       </div>
-      ${collapsed?'':`<div style="padding:12px 16px;display:grid;grid-template-columns:1fr 1fr;gap:0 24px">
+      <div class="studio-crew-body" style="${collapsed?'display:none':'display:grid'};padding:12px 16px;grid-template-columns:1fr 1fr;gap:0 24px">
         ${STUDIO_FIELDS.map(([field,label])=>labelRow(label,sci(field))).join('')}
-      </div>`}
+      </div>
     </div>`;
   }).join('');
   return`<div class="ep-wrap">${cards}</div>`;
@@ -10728,7 +10731,15 @@ document.addEventListener('click',function studioCollapseHandler(e){
   const ep=String(hdr.dataset.ep);
   if(studioCollapsed.has(ep))studioCollapsed.delete(ep);
   else studioCollapsed.add(ep);
-  render();
+
+  const block=document.querySelector(`[data-sc-ep-block="${ep}"]`);
+  if(!block){render();return;}
+  const isNowCollapsed=studioCollapsed.has(ep);
+  const chevron=block.querySelector('.sc-chevron');
+  if(chevron)chevron.textContent=isNowCollapsed?'▶':'▼';
+  hdr.title=isNowCollapsed?'Click to expand':'Click to collapse';
+  const body=block.querySelector('.studio-crew-body');
+  if(body)body.style.display=isNowCollapsed?'none':'grid';
 });
 // ── END CREDITS global input handlers (survive all re-renders) ───
 document.addEventListener('input',function ecInpInput(e){
