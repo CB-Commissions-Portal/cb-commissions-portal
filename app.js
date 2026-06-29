@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.203';
+const BUILD_VERSION='3.10.204';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -6065,7 +6065,7 @@ function renderBroadcastList(){
       <td style="padding:8px 10px;font-size:13px;font-weight:700;color:${epNum?'#eaf0ff':'#484f58'};white-space:nowrap;font-family:monospace">${epLabel}</td>
       <td style="padding:8px 10px;font-size:13px;font-weight:700;color:${txColor};white-space:nowrap">
         ${txLabel}
-        ${isPast?'<span style="font-size:10px;font-weight:800;background:#3d0000;color:#f85149;padding:1px 5px;border-radius:2px;margin-left:4px;vertical-align:middle">BROADCAST</span>':''}
+        ${isPast?'<span style="font-size:10px;font-weight:800;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;padding:1px 5px;border-radius:2px;margin-left:4px;vertical-align:middle">BROADCAST</span>':''}
       </td>
       <td style="padding:8px 10px;font-size:13px;font-family:monospace;color:${c.deliveredDuration?'#3fb950':'#484f58'};white-space:nowrap">${esc(delDur)}</td>
       <td style="padding:8px 10px;font-size:13px;font-family:monospace;color:#6b7280;white-space:nowrap">${esc(commDur)}</td>
