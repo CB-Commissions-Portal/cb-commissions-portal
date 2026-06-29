@@ -92,7 +92,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.202';
+const BUILD_VERSION='3.10.203';
 const BUILD_DATE='28 Jun 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -177,6 +177,7 @@ let mcImportCommConfirmed=false; // true after user confirms comm details in imp
 let mcImportCommNum='';          // tracks typed commission number in import modal
 let creditsExpandedEp=null;
 let ecLocalWrite=false,ecSaveTimers={},ecDirty={},ecDefaultCredits=[],ecShowDefModal=false;
+let luLocalWrite=false;
 let expandedEps=new Set(); // Episode Register expanded episodes
 let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,tempDate='';
 let commEditModal=null; // commission id — edit crew/deliverables modal
@@ -734,8 +735,10 @@ async function savePPActiveComms(){
 }
 async function saveLineup(epNum,data){
   setSyncDot('saving');
+  luLocalWrite=true;
   try{await setDoc(doc(db,'lineups',String(epNum)),{...data,updatedAt:serverTimestamp()});lineups[epNum]={...data};setSyncDot('live');}
   catch(e){setSyncDot('offline');showToast('Lineup save failed: '+e.message,true);}
+  finally{luLocalWrite=false;}
 }
 async function loadLineups(){
   try{const snap=await getDocs(collection(db,'lineups'));snap.docs.forEach(d=>{lineups[d.id]={...d.data()};});}
@@ -746,6 +749,7 @@ function subscribeLineups(){
   return new Promise(resolve=>{
     let resolved=false;
     unsubLineups=onSnapshot(collection(db,'lineups'),snap=>{
+      if(luLocalWrite){if(!resolved){resolved=true;resolve();}return;}
       const active=document.activeElement;
       snap.docs.forEach(d=>{
         const ep=d.id;
