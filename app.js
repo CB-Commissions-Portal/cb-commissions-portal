@@ -125,8 +125,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.228';
-const BUILD_DATE='30 Jun 2026';
+const BUILD_VERSION='3.10.229';
+const BUILD_DATE='1 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -5063,7 +5063,8 @@ Tonight we investigate…
 GOVAN: CAM 2
 But first…</pre>
       <p>Camera cue lines are bold/underlined in the export and excluded from the word count. Each one generates a row in the <strong>Camera Block</strong> section below the script.</p>
-      <p>Below the textarea: <strong>Total words</strong> counts only dialogue lines. <strong>÷ 3</strong> gives an approximate read time in seconds (words ÷ 3 ≈ seconds at broadcast pace).</p>`
+      <p>Below the textarea: <strong>Total words</strong> counts only dialogue lines. <strong>÷ 3</strong> gives an approximate read time in seconds (words ÷ 3 ≈ seconds at broadcast pace).</p>
+      <p><strong>Brackets</strong> — any text inside <code>( )</code> is a director/production note and is <strong>excluded from the word count</strong> (it still appears in the script and export).</p>`
     });
     pages.push({
       title:'Studio Script Build — Camera Blocking',
@@ -6566,7 +6567,7 @@ function renderModals(epNums,nextEp){
     const _slugs=_ei.slugs||(_ei.slug?[_ei.slug]:['']);
     const _sources=_ei.slugSources||[];
     const _isCue=l=>/^[^:]+:\s*(CAM\s*\S.*)?\s*$/i.test(l.trim());
-    const _sw=(_ei.script||'').split('\n').filter(l=>!_isCue(l)).join(' ').trim();
+    const _sw=(_ei.script||'').split('\n').filter(l=>!_isCue(l)).join(' ').replace(/\([^)]*\)/g,' ').trim();
     const _wc=_sw?_sw.split(/\s+/).length:0;
     const _div3=(_wc/3).toFixed(1);
     const _slugRows=_slugs.map((s,si)=>{
@@ -6610,7 +6611,7 @@ function renderModals(epNums,nextEp){
           ${['live','coldstart','upnext'].includes(_ei.type)?`
           <div>
             <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px">Script</div>
-            <textarea id="ros-edit-script-ta" style="width:100%;min-height:260px;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:18px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*(CAM\\s*\\S.*)?\\s*$/i.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-edit-sc-wc').textContent=w;document.getElementById('ros-edit-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)" data-prev-script="${esc(_ei.script||'')}">${esc(_ei.script||'')}</textarea>
+            <textarea id="ros-edit-script-ta" style="width:100%;min-height:260px;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:18px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*(CAM\\s*\\S.*)?\\s*$/i.test(l.trim())).join(' ').replace(/\\([^)]*\\)/g,' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-edit-sc-wc').textContent=w;document.getElementById('ros-edit-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)" data-prev-script="${esc(_ei.script||'')}">${esc(_ei.script||'')}</textarea>
             <div style="margin-top:10px;font-size:15px;color:#6b7280;line-height:1.8">
               Total words: <strong id="ros-edit-sc-wc" style="color:#0066CC;font-size:18px">${_wc}</strong>
               &nbsp;&nbsp;<span id="ros-edit-sc-d3" style="color:#56d364;font-weight:700">${_wc} ÷ 3 = ${_div3}</span>
@@ -6682,7 +6683,7 @@ function renderModals(epNums,nextEp){
     const {epNum,itemIdx}=rosScriptModal;
     const _item=(rosData[String(epNum)]?.items||[])[itemIdx]||{};
     const _isCue=l=>/^[^:]+:\s*(CAM\s*\S.*)?\s*$/i.test(l.trim());
-    const _scriptWords=(_item.script||'').split('\n').filter(l=>!_isCue(l)).join(' ').trim();
+    const _scriptWords=(_item.script||'').split('\n').filter(l=>!_isCue(l)).join(' ').replace(/\([^)]*\)/g,' ').trim();
     const _wc=_scriptWords?_scriptWords.split(/\s+/).length:0;
     const _div3=(_wc/3).toFixed(1);
     out+=`<div class="modal-overlay" id="ros-script-overlay"><div class="modal" style="width:760px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;gap:0">
@@ -6693,7 +6694,7 @@ function renderModals(epNums,nextEp){
         </div>
         <button id="ros-script-close" class="btn" style="font-size:14px;padding:4px 12px;flex-shrink:0;margin-left:16px">✕ Close</button>
       </div>
-      <textarea id="ros-script-ta" style="flex:1;min-height:340px;width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:17px;line-height:1.75;padding:14px 16px;outline:none;resize:vertical;font-family:inherit" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*(CAM\\s*\\S.*)?\\s*$/i.test(l.trim())).join(' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-sc-wc').textContent=w;document.getElementById('ros-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${esc(_item.script||'')}</textarea>
+      <textarea id="ros-script-ta" style="flex:1;min-height:340px;width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:17px;line-height:1.75;padding:14px 16px;outline:none;resize:vertical;font-family:inherit" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*(CAM\\s*\\S.*)?\\s*$/i.test(l.trim())).join(' ').replace(/\\([^)]*\\)/g,' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-sc-wc').textContent=w;document.getElementById('ros-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${esc(_item.script||'')}</textarea>
       <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div style="font-size:15px;color:#6b7280;line-height:1.8">
           <div>Total words: <strong id="ros-sc-wc" style="color:#0066CC;font-size:17px">${_wc}</strong></div>
