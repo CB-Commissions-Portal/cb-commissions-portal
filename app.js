@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.229';
+const BUILD_VERSION='3.10.230';
 const BUILD_DATE='1 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -4870,6 +4870,7 @@ function renderRunOfShow(){
       <td style="padding:22px 24px;vertical-align:middle;min-width:220px;max-width:260px">
         ${item.itemNum?`<div style="font-size:16px;color:#9ca3af;font-family:monospace;margin-bottom:6px;font-weight:700">${item.itemNum}.</div>`:''}
         ${ts.badge?`<div style="font-size:13px;font-weight:800;background:${ts.badgeBg};color:${ts.label};padding:4px 12px;border-radius:4px;margin-bottom:10px;display:inline-block;letter-spacing:.8px">${ts.badge}</div>`:''}
+        ${getEffectiveRole()==='admin'&&item.scriptPendingChange?`<div style="margin-bottom:10px"><span style="font-size:11px;font-weight:800;background:#fef3c7;color:#b45309;padding:2px 7px;border-radius:3px;border:1px solid #fde68a;letter-spacing:.5px" title="${esc(item.scriptChangeNote||'')}">SCRIPT CHANGED</span></div>`:''}
         <div style="font-size:22px;font-weight:${ts.weight};color:${ts.label};line-height:1.2">${esc(item.label)}</div>
       </td>
       <td style="padding:22px 24px;vertical-align:middle;min-width:200px;max-width:260px">${slugDisplay}</td>
@@ -6616,6 +6617,19 @@ function renderModals(epNums,nextEp){
               Total words: <strong id="ros-edit-sc-wc" style="color:#0066CC;font-size:18px">${_wc}</strong>
               &nbsp;&nbsp;<span id="ros-edit-sc-d3" style="color:#56d364;font-weight:700">${_wc} ÷ 3 = ${_div3}</span>
             </div>
+            ${['admin','director'].includes(getEffectiveRole())?`
+            <div style="margin-top:14px">
+              <div style="font-size:13px;font-weight:700;color:#6b7280;margin-bottom:6px">Explain this script change (required if editing existing dialogue)</div>
+              <input id="ros-edit-change-note" type="text" value="${esc(_ei.scriptChangeNote||'')}" placeholder="e.g. Changed presenter GOVAN → LOURENSA in scene 2" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:15px;padding:8px 12px;outline:none;font-family:inherit;box-sizing:border-box">
+            </div>`:''}
+            ${getEffectiveRole()==='admin'&&_ei.scriptPendingChange?`
+            <div style="margin-top:16px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:14px 16px">
+              <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#c2410c;margin-bottom:8px">⚠ Unreviewed Script Change</div>
+              <div style="font-size:14px;color:#7c2d12;margin-bottom:10px">By ${esc(_ei.scriptChangedBy||'')} · ${esc(_ei.scriptChangedAt||'')}</div>
+              <div style="font-size:14px;color:#111827;margin-bottom:12px"><strong>Note:</strong> ${esc(_ei.scriptChangeNote||'')}</div>
+              <div style="background:#fff;border:1px solid #fde68a;border-radius:6px;padding:12px 14px;font-size:15px;line-height:1.7;white-space:pre-wrap;margin-bottom:12px">${diffWordsHtml(_ei.scriptBaseline||'',_ei.script||'')}</div>
+              <button id="ros-edit-mark-reviewed" class="btn" data-itemidx="${itemIdx}" style="font-size:14px;padding:8px 20px;font-weight:800;border-color:#16a34a;color:#16a34a">✓ Mark Reviewed</button>
+            </div>`:''}
           </div>`:''}
           ${_editFullAccess?`
           <div>
@@ -10073,6 +10087,24 @@ function rosExportVTList(){
   showToast('VT List ready to print/save as PDF ✓');
 }
 
+// Word-level diff between two script strings, rendered as HTML with additions/deletions highlighted
+function diffWordsHtml(oldStr,newStr){
+  const a=(oldStr||'').split(/(\s+)/), b=(newStr||'').split(/(\s+)/);
+  const n=a.length,m=b.length;
+  const dp=Array.from({length:n+1},()=>new Array(m+1).fill(0));
+  for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)
+    dp[i][j]=a[i]===b[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);
+  let i=0,j=0,out='';
+  while(i<n&&j<m){
+    if(a[i]===b[j]){out+=esc(b[j]);i++;j++;}
+    else if(dp[i+1][j]>=dp[i][j+1]){out+=`<span style="background:#fee2e2;color:#b91c1c;text-decoration:line-through">${esc(a[i])}</span>`;i++;}
+    else{out+=`<span style="background:#dcfce7;color:#15803d">${esc(b[j])}</span>`;j++;}
+  }
+  while(i<n){out+=`<span style="background:#fee2e2;color:#b91c1c;text-decoration:line-through">${esc(a[i])}</span>`;i++;}
+  while(j<m){out+=`<span style="background:#dcfce7;color:#15803d">${esc(b[j])}</span>`;j++;}
+  return out;
+}
+
 // Returns ordered array of camera designations (e.g. ['CAM 3','CAM 1']) from a script string
 function parseCamCues(script){
   return (script||'').split('\n').reduce((arr,line)=>{
@@ -10641,7 +10673,24 @@ document.addEventListener('click',function rosHandler(e){
       const it=items[itemIdx];
       // script
       const _ta=document.getElementById('ros-edit-script-ta');
-      if(_ta) it.script=_ta.value;
+      if(_ta){
+        const _newScript=_ta.value;
+        const _oldScript=it.script||'';
+        if(_newScript!==_oldScript && _oldScript.trim()!=='' && ['admin','director'].includes(getEffectiveRole())){
+          const _noteEl=document.getElementById('ros-edit-change-note');
+          const _noteVal=(_noteEl?.value||'').trim();
+          if(!_noteVal){
+            showToast('Please explain the script change before saving',true);
+            return;
+          }
+          if(!it.scriptPendingChange) it.scriptBaseline=_oldScript;
+          it.scriptPendingChange=true;
+          it.scriptChangeNote=_noteVal;
+          it.scriptChangedBy=currentUser?.displayName||currentUser?.email||'Unknown';
+          it.scriptChangedAt=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+        }
+        it.script=_newScript;
+      }
       // slugs + sources (only overwrite if slug inputs are actually rendered)
       const _slugInps=document.querySelectorAll('.ros-edit-slug');
       if(_slugInps.length>0){
@@ -10681,6 +10730,24 @@ document.addEventListener('click',function rosHandler(e){
     render();
     const _editRow=document.querySelector(`tr[data-ros-idx="${_savedEditIdx}"]`);
     if(_editRow)_editRow.scrollIntoView({block:'nearest',behavior:'smooth'});
+    return;
+  }
+  // Edit Item modal — mark script change reviewed (Super Admin only)
+  if(e.target.id==='ros-edit-mark-reviewed'&&rosEditModal&&getEffectiveRole()==='admin'){
+    const {epNum,itemIdx}=rosEditModal;
+    const items=(rosData[String(epNum)]?.items)||[];
+    const it=items[itemIdx];
+    if(it){
+      it.scriptBaseline=it.script;
+      it.scriptPendingChange=false;
+      it.scriptChangeNote='';
+      it.scriptChangedBy='';
+      it.scriptChangedAt='';
+      rosData[String(epNum)].items=items;
+      saveROS(epNum,{items,epNum});
+      showToast('Change marked reviewed ✓');
+      render();
+    }
     return;
   }
   // Edit Item modal — close
