@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.235';
+const BUILD_VERSION='3.10.236';
 const BUILD_DATE='1 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -6652,7 +6652,7 @@ function renderModals(epNums,nextEp){
               Total words: <strong id="ros-edit-sc-wc" style="color:#0066CC;font-size:18px">${_wc}</strong>
               &nbsp;&nbsp;<span id="ros-edit-sc-d3" style="color:#56d364;font-weight:700">${_wc} ÷ 3 = ${_div3}</span>
             </div>
-            ${['admin','director'].includes(getEffectiveRole())?`
+            ${getEffectiveRole()==='director'?`
             <div style="margin-top:14px">
               <div style="font-size:13px;font-weight:700;color:#6b7280;margin-bottom:6px">Explain this script change (required if editing existing dialogue)</div>
               <input id="ros-edit-change-note" type="text" value="${esc(_ei.scriptChangeNote||'')}" placeholder="e.g. Changed presenter GOVAN → LOURENSA in scene 2" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:15px;padding:8px 12px;outline:none;font-family:inherit;box-sizing:border-box">
@@ -10743,7 +10743,7 @@ document.addEventListener('click',function rosHandler(e){
       if(_ta){
         const _newScript=_ta.value;
         const _oldScript=it.script||'';
-        if(_newScript!==_oldScript && _oldScript.trim()!=='' && ['admin','director'].includes(getEffectiveRole())){
+        if(_newScript!==_oldScript && _oldScript.trim()!=='' && getEffectiveRole()==='director'){
           const _noteEl=document.getElementById('ros-edit-change-note');
           const _noteVal=(_noteEl?.value||'').trim();
           if(!_noteVal){
