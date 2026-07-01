@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.234';
+const BUILD_VERSION='3.10.235';
 const BUILD_DATE='1 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -7022,8 +7022,8 @@ function renderTranscripts(epNums){
   const epComms=ep?comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0)):[];
   function insertComm(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComms[Number(m[1])-1]||null;}
   const readyEpComms=epComms.filter(c=>commTranscripts[String(c.commNum)]?.status==='ready');
-  function blockBg(type){return{fixed:'#f8fafc',break:'#f8fafc',live:'#eff6ff',insert:'#f0fdf4',coldstart:'#faf5ff',upnext:'#f0fdf4'}[type]||'#f9fafb';}
-  function blockAccent(type){return{fixed:'#484f58',break:'#484f58',live:'#1f6feb',insert:'#3fb950',coldstart:'#8957e5',upnext:'#2ea043'}[type]||'#484f58';}
+  function blockBg(type,status){if(status==='approved')return'#dcfce7';if(status==='inprogress')return'#fffbeb';return{fixed:'#f8fafc',break:'#f8fafc',live:'#eff6ff',insert:'#f0fdf4',coldstart:'#faf5ff',upnext:'#f0fdf4'}[type]||'#f9fafb';}
+  function blockAccent(type,status){if(status==='approved')return'#16a34a';if(status==='inprogress')return'#d97706';return{fixed:'#484f58',break:'#484f58',live:'#1f6feb',insert:'#3fb950',coldstart:'#8957e5',upnext:'#2ea043'}[type]||'#484f58';}
   const rosItems=ep?(rosData[String(ep)]?.items||[]):[];
   const displayBlocks=(lt.blocks&&lt.blocks.length)?lt.blocks:rosItems.map(item=>({
     itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',
@@ -7063,13 +7063,20 @@ function renderTranscripts(epNums){
       ${!displayBlocks.length?`<div style="color:#9ca3af;font-size:16px;padding:60px 0;text-align:center">No script items yet.<br><br>Select an episode and click <strong style="color:#111827">BUILD FROM SCRIPT</strong> to get started.</div>`:
       displayBlocks.map((block,bi)=>{
         const isFixed=['fixed','break'].includes(block.itemType);
-        const accent=blockAccent(block.itemType);
+        const checkStatus=block.checkStatus||'';
+        const accent=blockAccent(block.itemType,checkStatus);
         const linked=block.commNum?comms.find(c=>String(c.commNum)===String(block.commNum)):null;
         const linkedTd=block.commNum?commTranscripts[String(block.commNum)]:null;
-        return`<div style="margin-bottom:10px;border:1px solid ${accent}40;border-radius:8px;overflow:hidden;background:${blockBg(block.itemType)}">
+        const canCheck=['admin','deputyadmin'].includes(getEffectiveRole());
+        const checkBtns=canCheck?`<div style="display:flex;gap:4px;flex-shrink:0">
+          <button class="btn tr-status-btn" data-bi="${bi}" data-status="inprogress" style="font-size:11px;padding:3px 8px;font-weight:800;letter-spacing:.3px;white-space:nowrap;${checkStatus==='inprogress'?'background:#d97706;border-color:#d97706;color:#fff':'color:#d97706;border-color:#fde68a'}">◐ IN PROGRESS</button>
+          <button class="btn tr-status-btn" data-bi="${bi}" data-status="approved" style="font-size:11px;padding:3px 8px;font-weight:800;letter-spacing:.3px;white-space:nowrap;${checkStatus==='approved'?'background:#16a34a;border-color:#16a34a;color:#fff':'color:#16a34a;border-color:#86efac'}">✓ APPROVED</button>
+        </div>`:'';
+        return`<div style="margin-bottom:10px;border:1px solid ${accent}40;border-radius:8px;overflow:hidden;background:${blockBg(block.itemType,checkStatus)}">
           <div style="padding:7px 14px;border-bottom:1px solid ${accent}30;display:flex;align-items:center;gap:10px">
             <span style="font-size:12px;font-weight:800;color:${accent};text-transform:uppercase;letter-spacing:.5px;flex:1">${esc(block.itemLabel)}</span>
             <span style="font-size:11px;background:${accent}20;color:${accent};padding:2px 6px;border-radius:3px;font-weight:700;text-transform:uppercase">${esc(block.itemType)}</span>
+            ${checkBtns}
           </div>
           ${linked?`<div style="padding:6px 14px;background:${accent}08;border-bottom:1px solid ${accent}25;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span style="font-size:13px;color:#6b7280">Comm <strong style="color:#111827">${esc(String(linked.commNum))}</strong> · ${esc(linked.storyName||'')}</span>
@@ -8836,6 +8843,31 @@ function bindApp(){
       await saveLiveTranscript(ep,{epNum:ep,blocks:newBlocks});
       showToast(`Transcript cleared and rebuilt — ${newBlocks.length} items from EP${ep} script`);
       render();
+    });
+    document.querySelectorAll('.tr-status-btn').forEach(btn=>{
+      btn.addEventListener('click',async()=>{
+        const ep=transcriptLiveEp;if(!ep)return;
+        const bi=Number(btn.dataset.bi);
+        const status=btn.dataset.status;
+        const lt=liveTranscripts[String(ep)]||{};
+        let blocks;
+        if(lt.blocks&&lt.blocks.length){
+          blocks=JSON.parse(JSON.stringify(lt.blocks));
+        }else{
+          const rosItems=(rosData[String(ep)]?.items)||[];
+          const epComs=comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0));
+          function iComm3(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComs[Number(m[1])-1]?.commNum||null;}
+          blocks=rosItems.map(item=>({
+            itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',
+            content:scriptToTranscriptText(item.script||''),
+            commNum:item.type==='insert'?iComm3(item.key):null
+          }));
+        }
+        if(!blocks[bi])return;
+        blocks[bi].checkStatus=blocks[bi].checkStatus===status?'':status;
+        await saveLiveTranscript(ep,{epNum:ep,blocks});
+        render();
+      });
     });
     // Auto-resize all live-area textareas to fit content
     function autoResizeTa(ta){ta.style.height='0px';ta.style.height=Math.max(60,ta.scrollHeight)+'px';}
