@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.233';
+const BUILD_VERSION='3.10.234';
 const BUILD_DATE='1 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -3970,6 +3970,41 @@ const PRESENTERS = [
   {key:'xola',       label:'Xola (VO)', color:'#56d364', bg:'rgba(86,211,100,.12)',  lane:'rgba(86,211,100,.3)'},
 ];
 
+// Maps a script cue name (e.g. "GOVAN") to its proper display casing — known presenters
+// use their canonical PRESENTERS label, anything else falls back to simple Title Case.
+function properCaseName(raw){
+  const key=(raw||'').trim().toLowerCase();
+  const p=PRESENTERS.find(p=>p.key===key||p.label.toLowerCase()===key);
+  if(p)return p.label;
+  return (raw||'').trim().toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+}
+
+// Converts a Studio Script Build script (cue lines + dialogue + bracketed notes) into
+// Transcript-tab format: "(Name) dialogue…" per speaker turn, camera cues and notes stripped.
+function scriptToTranscriptText(script){
+  const noBrackets=(script||'').replace(/\([^)]*\)/g,'');
+  const CUE_RE=/^([^:]+):\s*(CAM\s*\S.*)?\s*$/i;
+  const blocks=[];
+  noBrackets.split('\n').forEach(line=>{
+    const trimmed=line.trim();
+    if(!trimmed)return;
+    const m=trimmed.match(CUE_RE);
+    if(m){
+      const name=properCaseName(m[1]);
+      const last=blocks[blocks.length-1];
+      if(!last||last.name!==name)blocks.push({name,text:''});
+      // else: same speaker continuing after a camera-only cue change — keep appending below
+    }else{
+      if(!blocks.length)blocks.push({name:null,text:''});
+      const cur=blocks[blocks.length-1];
+      cur.text=(cur.text?cur.text+' ':'')+trimmed;
+    }
+  });
+  return blocks.filter(b=>b.text.trim())
+    .map(b=>b.name?`(${b.name}) ${b.text.trim()}`:b.text.trim())
+    .join('\n\n');
+}
+
 const PRES_CAL_START = '2026-01-18';
 let PRES_CAL_END = '2027-03-31'; // extended via 'Extend +3 months' button, saved to Firebase
 
@@ -6992,7 +7027,7 @@ function renderTranscripts(epNums){
   const rosItems=ep?(rosData[String(ep)]?.items||[]):[];
   const displayBlocks=(lt.blocks&&lt.blocks.length)?lt.blocks:rosItems.map(item=>({
     itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',
-    content:item.script||'',
+    content:scriptToTranscriptText(item.script||''),
     commNum:item.type==='insert'?(insertComm(item.key)?.commNum||null):null
   }));
   return`<div style="display:flex;flex:1;min-height:0;overflow:hidden;background:#f8fafc">
@@ -8779,7 +8814,7 @@ function bindApp(){
       const existMap={};existing.forEach(b=>{existMap[b.itemKey]=b;});
       const newBlocks=rosItems.map(item=>({
         itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',
-        content:existMap[item.key]?.content||item.script||'',
+        content:existMap[item.key]?.content||scriptToTranscriptText(item.script||''),
         commNum:(item.type==='insert'?iComm(item.key):null)||(existMap[item.key]?.commNum||null)
       }));
       await saveLiveTranscript(ep,{epNum:ep,blocks:newBlocks});
@@ -8795,7 +8830,7 @@ function bindApp(){
       function iComm2(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComs[Number(m[1])-1]?.commNum||null;}
       const newBlocks=rosItems.map(item=>({
         itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',
-        content:item.script||'',
+        content:scriptToTranscriptText(item.script||''),
         commNum:item.type==='insert'?iComm2(item.key):null
       }));
       await saveLiveTranscript(ep,{epNum:ep,blocks:newBlocks});
