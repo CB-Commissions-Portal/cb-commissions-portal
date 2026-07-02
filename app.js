@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.237';
+const BUILD_VERSION='3.10.238';
 const BUILD_DATE='2 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -4902,13 +4902,13 @@ function renderRunOfShow(){
           <button class="ros-del" data-idx="${i}" style="background:none;border:1px solid #d1dae8;border-radius:4px;color:#9ca3af;cursor:pointer;font-size:16px;line-height:1;padding:5px 8px" onmouseover="this.style.color='#dc2626';this.style.borderColor='#dc2626'" onmouseout="this.style.color='#9ca3af';this.style.borderColor='#d1dae8'">✕</button>
         </div>`:''}
       </td>
-      <td style="padding:22px 24px;vertical-align:middle;min-width:220px;max-width:260px">
+      <td style="padding:22px 24px;vertical-align:middle;overflow-wrap:break-word">
         ${item.itemNum?`<div style="font-size:16px;color:#9ca3af;font-family:monospace;margin-bottom:6px;font-weight:700">${item.itemNum}.</div>`:''}
         ${ts.badge?`<div style="font-size:13px;font-weight:800;background:${ts.badgeBg};color:${ts.label};padding:4px 12px;border-radius:4px;margin-bottom:10px;display:inline-block;letter-spacing:.8px">${ts.badge}</div>`:''}
         ${getEffectiveRole()==='admin'&&item.scriptPendingChange?`<div style="margin-bottom:10px"><span style="font-size:11px;font-weight:800;background:#fef3c7;color:#b45309;padding:2px 7px;border-radius:3px;border:1px solid #fde68a;letter-spacing:.5px" title="${esc(item.scriptChangeNote||'')}">SCRIPT CHANGED</span></div>`:''}
         <div style="font-size:22px;font-weight:${ts.weight};color:${ts.label};line-height:1.2">${esc(item.label)}</div>
       </td>
-      <td style="padding:22px 24px;vertical-align:middle;min-width:200px;max-width:260px">${slugDisplay}</td>
+      <td style="padding:22px 24px;vertical-align:middle;overflow-wrap:break-word">${slugDisplay}</td>
       <td style="padding:18px 24px;vertical-align:middle">${contentCell}</td>
       <td style="padding:18px 24px;vertical-align:middle;width:160px;text-align:center">${durCell}</td>
       <td style="padding:18px 24px;vertical-align:middle;width:160px;text-align:right">
@@ -4954,16 +4954,16 @@ function renderRunOfShow(){
       </div>
       <!-- Table -->
       <div id="ros-scroll" style="flex:1;overflow-x:auto;overflow-y:auto">
-        <table style="border-collapse:collapse;width:max-content;min-width:100%">
+        <table style="border-collapse:collapse;table-layout:fixed;width:100%;min-width:1300px">
           <thead style="position:sticky;top:0;z-index:5;background:#f8fafc">
             <tr>
               <th style="width:72px;padding:12px 8px;border-bottom:2px solid #d1dae8"></th>
-              <th style="padding:12px 24px;font-size:14px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:left">Item</th>
-              <th style="padding:12px 24px;font-size:14px;font-weight:800;text-transform:uppercase;color:#b45309;border-bottom:2px solid #d1dae8;text-align:left;min-width:200px">Slug</th>
+              <th style="width:260px;padding:12px 24px;font-size:14px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:left">Item</th>
+              <th style="width:220px;padding:12px 24px;font-size:14px;font-weight:800;text-transform:uppercase;color:#b45309;border-bottom:2px solid #d1dae8;text-align:left">Slug</th>
               <th style="padding:12px 24px;font-size:14px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:left">Content</th>
-              <th style="padding:12px 24px;font-size:14px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:center;width:160px">Item Dur</th>
-              <th style="padding:12px 24px;font-size:14px;font-weight:800;text-transform:uppercase;color:#7c3aed;border-bottom:2px solid #d1dae8;text-align:right;width:160px">Ep Duration ↑</th>
-              <th style="padding:12px 20px;font-size:14px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:center;width:150px"></th>
+              <th style="width:160px;padding:12px 24px;font-size:14px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:center">Item Dur</th>
+              <th style="width:160px;padding:12px 24px;font-size:14px;font-weight:800;text-transform:uppercase;color:#7c3aed;border-bottom:2px solid #d1dae8;text-align:right">Ep Duration ↑</th>
+              <th style="width:150px;padding:12px 20px;font-size:14px;font-weight:800;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:center"></th>
             </tr>
           </thead>
           <tbody>${emptyState}${rows}</tbody>
