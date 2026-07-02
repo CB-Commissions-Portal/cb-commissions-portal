@@ -125,8 +125,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.236';
-const BUILD_DATE='1 Jul 2026';
+const BUILD_VERSION='3.10.237';
+const BUILD_DATE='2 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -4953,8 +4953,8 @@ function renderRunOfShow(){
         </div>
       </div>
       <!-- Table -->
-      <div id="ros-scroll" style="flex:1;overflow-y:auto">
-        <table style="border-collapse:collapse;width:100%">
+      <div id="ros-scroll" style="flex:1;overflow-x:auto;overflow-y:auto">
+        <table style="border-collapse:collapse;width:max-content;min-width:100%">
           <thead style="position:sticky;top:0;z-index:5;background:#f8fafc">
             <tr>
               <th style="width:72px;padding:12px 8px;border-bottom:2px solid #d1dae8"></th>
