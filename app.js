@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.238';
+const BUILD_VERSION='3.10.239';
 const BUILD_DATE='2 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -4902,14 +4902,14 @@ function renderRunOfShow(){
           <button class="ros-del" data-idx="${i}" style="background:none;border:1px solid #d1dae8;border-radius:4px;color:#9ca3af;cursor:pointer;font-size:16px;line-height:1;padding:5px 8px" onmouseover="this.style.color='#dc2626';this.style.borderColor='#dc2626'" onmouseout="this.style.color='#9ca3af';this.style.borderColor='#d1dae8'">✕</button>
         </div>`:''}
       </td>
-      <td style="padding:22px 24px;vertical-align:middle;overflow-wrap:break-word">
+      <td style="padding:22px 24px;vertical-align:middle;white-space:normal;overflow-wrap:break-word">
         ${item.itemNum?`<div style="font-size:16px;color:#9ca3af;font-family:monospace;margin-bottom:6px;font-weight:700">${item.itemNum}.</div>`:''}
         ${ts.badge?`<div style="font-size:13px;font-weight:800;background:${ts.badgeBg};color:${ts.label};padding:4px 12px;border-radius:4px;margin-bottom:10px;display:inline-block;letter-spacing:.8px">${ts.badge}</div>`:''}
         ${getEffectiveRole()==='admin'&&item.scriptPendingChange?`<div style="margin-bottom:10px"><span style="font-size:11px;font-weight:800;background:#fef3c7;color:#b45309;padding:2px 7px;border-radius:3px;border:1px solid #fde68a;letter-spacing:.5px" title="${esc(item.scriptChangeNote||'')}">SCRIPT CHANGED</span></div>`:''}
         <div style="font-size:22px;font-weight:${ts.weight};color:${ts.label};line-height:1.2">${esc(item.label)}</div>
       </td>
-      <td style="padding:22px 24px;vertical-align:middle;overflow-wrap:break-word">${slugDisplay}</td>
-      <td style="padding:18px 24px;vertical-align:middle">${contentCell}</td>
+      <td style="padding:22px 24px;vertical-align:middle;white-space:normal;overflow-wrap:break-word">${slugDisplay}</td>
+      <td style="padding:18px 24px;vertical-align:middle;white-space:normal;overflow-wrap:break-word">${contentCell}</td>
       <td style="padding:18px 24px;vertical-align:middle;width:160px;text-align:center">${durCell}</td>
       <td style="padding:18px 24px;vertical-align:middle;width:160px;text-align:right">
         <span class="ros-epdur" data-idx="${i}" style="font-size:${i===0?'26px':'20px'};font-family:monospace;color:${i===0?'#7c3aed':epDurSecs?'#1d4ed8':'#9ca3af'};font-weight:${i===0?'900':'400'}">${epDurSecs?rosSecsToStr(epDurSecs):'—'}</span>
