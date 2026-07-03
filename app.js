@@ -125,8 +125,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.239';
-const BUILD_DATE='2 Jul 2026';
+const BUILD_VERSION='3.10.240';
+const BUILD_DATE='3 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -6562,8 +6562,6 @@ function renderAdmin(){
                   <input type="checkbox" class="extra-role-cb" data-uid="${u.uid}" data-extra="capstaff" ${(u.extraRoles||[]).includes('capstaff')?'checked':''}> CAP Leave
                 </label>
               </div>
-              <select style="display:none
-            </select>
           </td>
           <td style="padding:10px;text-align:center">
             ${!isSelf?`<button class="btn danger" data-delete-uid="${u.uid}" data-delete-name="${esc(u.displayName||u.email)}" style="font-size:13px;padding:4px 10px">Remove</button>`:`<span style="color:#9ca3af;font-size:13px">—</span>`}
