@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.241';
+const BUILD_VERSION='3.10.242';
 const BUILD_DATE='5 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -6947,7 +6947,7 @@ function renderTranscripts(epNums){
   function statusBadge(status){
     const map={
       ready:     {label:'READY',       bg:'#67BCF7',color:'#111827'},
-      inprogress:{label:'IN PROGRESS', bg:'#FC6168', color:'#111827'},
+      inprogress:{label:'IN PROGRESS', bg:'#FD8086', color:'#111827'},
       draft:     {label:'DRAFT',       bg:'#B9B9B9', color:'#111827'},
     };
     const s=map[status]||{label:'NO TRANSCRIPT',bg:'#f4f4f5',color:'#9ca3af'};
@@ -7021,7 +7021,7 @@ function renderTranscripts(epNums){
   const epComms=ep?comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0)):[];
   function insertComm(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComms[Number(m[1])-1]||null;}
   const readyEpComms=epComms.filter(c=>commTranscripts[String(c.commNum)]?.status==='ready');
-  function blockBg(type,status){if(status==='approved')return'#67BCF7';if(status==='inprogress')return'#FC6168';return{fixed:'#f8fafc',break:'#f8fafc',live:'#eff6ff',insert:'#f0fdf4',coldstart:'#faf5ff',upnext:'#f0fdf4'}[type]||'#f9fafb';}
+  function blockBg(type,status){if(status==='approved')return'#67BCF7';if(status==='inprogress')return'#FD8086';return{fixed:'#f8fafc',break:'#f8fafc',live:'#eff6ff',insert:'#f0fdf4',coldstart:'#faf5ff',upnext:'#f0fdf4'}[type]||'#f9fafb';}
   function blockAccent(type,status){if(status==='approved')return'#34A6F4';if(status==='inprogress')return'#FB2C36';return{fixed:'#484f58',break:'#484f58',live:'#1f6feb',insert:'#3fb950',coldstart:'#8957e5',upnext:'#2ea043'}[type]||'#484f58';}
   const rosItems=ep?(rosData[String(ep)]?.items||[]):[];
   const displayBlocks=(lt.blocks&&lt.blocks.length)?lt.blocks:rosItems.map(item=>({
