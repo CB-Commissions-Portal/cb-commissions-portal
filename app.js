@@ -125,8 +125,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.240';
-const BUILD_DATE='3 Jul 2026';
+const BUILD_VERSION='3.10.241';
+const BUILD_DATE='5 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -6946,9 +6946,9 @@ function renderTranscripts(epNums){
   const activeComms=comms.filter(c=>!c.decommissioned).sort((a,b)=>Number(b.commNum||0)-Number(a.commNum||0));
   function statusBadge(status){
     const map={
-      ready:     {label:'READY',       bg:'#dcfce7',color:'#16a34a'},
-      inprogress:{label:'IN PROGRESS', bg:'#eff6ff', color:'#0066CC'},
-      draft:     {label:'DRAFT',       bg:'#fffbeb', color:'#b45309'},
+      ready:     {label:'READY',       bg:'#67BCF7',color:'#111827'},
+      inprogress:{label:'IN PROGRESS', bg:'#FC6168', color:'#111827'},
+      draft:     {label:'DRAFT',       bg:'#B9B9B9', color:'#111827'},
     };
     const s=map[status]||{label:'NO TRANSCRIPT',bg:'#f4f4f5',color:'#9ca3af'};
     return`<span style="background:${s.bg};color:${s.color};font-size:11px;font-weight:800;padding:2px 7px;border-radius:3px;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap">${s.label}</span>`;
@@ -6979,6 +6979,7 @@ function renderTranscripts(epNums){
             <option value="inprogress" ${status==='inprogress'?'selected':''}>In Progress</option>
             <option value="ready" ${status==='ready'?'selected':''}>Ready</option>
           </select>
+          <button class="btn primary" id="tr-comm-save-btn" style="font-size:14px;padding:6px 16px;font-weight:700">💾 Save</button>
         </div>
         <div style="flex:1;padding:20px;display:flex;flex-direction:column;min-height:0;overflow:hidden">
           <textarea id="tr-comm-text" placeholder="Start typing the commission transcript here…" style="flex:1;width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:16px;padding:16px;resize:none;outline:none;font-family:inherit;line-height:1.7;box-sizing:border-box">${esc(td.transcript||'')}</textarea>
@@ -7020,8 +7021,8 @@ function renderTranscripts(epNums){
   const epComms=ep?comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0)):[];
   function insertComm(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComms[Number(m[1])-1]||null;}
   const readyEpComms=epComms.filter(c=>commTranscripts[String(c.commNum)]?.status==='ready');
-  function blockBg(type,status){if(status==='approved')return'#dcfce7';if(status==='inprogress')return'#fffbeb';return{fixed:'#f8fafc',break:'#f8fafc',live:'#eff6ff',insert:'#f0fdf4',coldstart:'#faf5ff',upnext:'#f0fdf4'}[type]||'#f9fafb';}
-  function blockAccent(type,status){if(status==='approved')return'#16a34a';if(status==='inprogress')return'#d97706';return{fixed:'#484f58',break:'#484f58',live:'#1f6feb',insert:'#3fb950',coldstart:'#8957e5',upnext:'#2ea043'}[type]||'#484f58';}
+  function blockBg(type,status){if(status==='approved')return'#67BCF7';if(status==='inprogress')return'#FC6168';return{fixed:'#f8fafc',break:'#f8fafc',live:'#eff6ff',insert:'#f0fdf4',coldstart:'#faf5ff',upnext:'#f0fdf4'}[type]||'#f9fafb';}
+  function blockAccent(type,status){if(status==='approved')return'#34A6F4';if(status==='inprogress')return'#FB2C36';return{fixed:'#484f58',break:'#484f58',live:'#1f6feb',insert:'#3fb950',coldstart:'#8957e5',upnext:'#2ea043'}[type]||'#484f58';}
   const rosItems=ep?(rosData[String(ep)]?.items||[]):[];
   const displayBlocks=(lt.blocks&&lt.blocks.length)?lt.blocks:rosItems.map(item=>({
     itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',
@@ -7041,6 +7042,7 @@ function renderTranscripts(epNums){
           <button id="tr-export-txt-btn" class="btn" style="font-size:14px;padding:7px 10px" title="Export as TXT (UTF-8)">⬇ TXT</button>
         </div>
         <button id="tr-rebuild-btn" class="btn" style="width:100%;font-size:13px;padding:5px 0;margin-top:5px;color:#b45309;border-color:#fde68a;background:#fffbeb" title="Discard typed content and rebuild fresh from the current script">🔄 Clear &amp; Rebuild from Script</button>
+        <button id="tr-live-save-btn" class="btn primary" style="width:100%;font-size:14px;padding:7px 0;margin-top:6px;font-weight:700">💾 Save Now</button>
         ${lt.updatedByName?`<div style="margin-top:10px;font-size:12px;color:#9ca3af;line-height:1.5">Last saved by <strong style="color:#6b7280">${esc(lt.updatedByName)}</strong>${lt.updatedAtStr?`<br>${esc(lt.updatedAtStr)}`:''}</div>`:''}
       </div>
       <div style="padding:10px 14px;flex:1;overflow-y:auto">
@@ -7063,17 +7065,18 @@ function renderTranscripts(epNums){
         const isFixed=['fixed','break'].includes(block.itemType);
         const checkStatus=block.checkStatus||'';
         const accent=blockAccent(block.itemType,checkStatus);
+        const labelColor=(checkStatus==='approved'||checkStatus==='inprogress')?'#111827':accent;
         const linked=block.commNum?comms.find(c=>String(c.commNum)===String(block.commNum)):null;
         const linkedTd=block.commNum?commTranscripts[String(block.commNum)]:null;
         const canCheck=['admin','deputyadmin'].includes(getEffectiveRole());
         const checkBtns=canCheck?`<div style="display:flex;gap:4px;flex-shrink:0">
-          <button class="btn tr-status-btn" data-bi="${bi}" data-status="inprogress" style="font-size:11px;padding:3px 8px;font-weight:800;letter-spacing:.3px;white-space:nowrap;${checkStatus==='inprogress'?'background:#d97706;border-color:#d97706;color:#fff':'color:#d97706;border-color:#fde68a'}">◐ IN PROGRESS</button>
-          <button class="btn tr-status-btn" data-bi="${bi}" data-status="approved" style="font-size:11px;padding:3px 8px;font-weight:800;letter-spacing:.3px;white-space:nowrap;${checkStatus==='approved'?'background:#16a34a;border-color:#16a34a;color:#fff':'color:#16a34a;border-color:#86efac'}">✓ APPROVED</button>
+          <button class="btn tr-status-btn" data-bi="${bi}" data-status="inprogress" style="font-size:11px;padding:3px 8px;font-weight:800;letter-spacing:.3px;white-space:nowrap;${checkStatus==='inprogress'?'background:#FB2C36;border-color:#FB2C36;color:#fff':'color:#FB2C36;border-color:#fecaca'}">◐ IN PROGRESS</button>
+          <button class="btn tr-status-btn" data-bi="${bi}" data-status="approved" style="font-size:11px;padding:3px 8px;font-weight:800;letter-spacing:.3px;white-space:nowrap;${checkStatus==='approved'?'background:#34A6F4;border-color:#34A6F4;color:#fff':'color:#34A6F4;border-color:#bfdbfe'}">✓ APPROVED</button>
         </div>`:'';
         return`<div style="margin-bottom:10px;border:1px solid ${accent}40;border-radius:8px;overflow:hidden;background:${blockBg(block.itemType,checkStatus)}">
           <div style="padding:7px 14px;border-bottom:1px solid ${accent}30;display:flex;align-items:center;gap:10px">
-            <span style="font-size:12px;font-weight:800;color:${accent};text-transform:uppercase;letter-spacing:.5px;flex:1">${esc(block.itemLabel)}</span>
-            <span style="font-size:11px;background:${accent}20;color:${accent};padding:2px 6px;border-radius:3px;font-weight:700;text-transform:uppercase">${esc(block.itemType)}</span>
+            <span style="font-size:12px;font-weight:800;color:${labelColor};text-transform:uppercase;letter-spacing:.5px;flex:1">${esc(block.itemLabel)}</span>
+            <span style="font-size:11px;background:${accent}20;color:${labelColor};padding:2px 6px;border-radius:3px;font-weight:700;text-transform:uppercase">${esc(block.itemType)}</span>
             ${checkBtns}
           </div>
           ${linked?`<div style="padding:6px 14px;background:${accent}08;border-bottom:1px solid ${accent}25;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -8806,6 +8809,15 @@ function bindApp(){
         await saveCommTranscript(transcriptSelectedComm,{commNum:String(transcriptSelectedComm),transcript:e.target.value,status});
       },1500);
     });
+    document.getElementById('tr-comm-save-btn')?.addEventListener('click',async()=>{
+      if(transcriptSelectedComm===null)return;
+      clearTimeout(_trCommTimer);
+      const text=document.getElementById('tr-comm-text')?.value||'';
+      const status=document.getElementById('tr-status-sel')?.value||'';
+      await saveCommTranscript(transcriptSelectedComm,{commNum:String(transcriptSelectedComm),transcript:text,status});
+      showToast('Transcript saved ✓');
+      render();
+    });
     document.getElementById('tr-live-ep')?.addEventListener('change',e=>{
       transcriptLiveEp=Number(e.target.value)||e.target.value;render();
     });
@@ -8886,6 +8898,19 @@ function bindApp(){
           await saveLiveTranscript(ep,{epNum:ep,blocks});
         },1500);
       });
+    });
+    document.getElementById('tr-live-save-btn')?.addEventListener('click',async()=>{
+      const ep=transcriptLiveEp;if(!ep){showToast('Select an episode first',true);return;}
+      clearTimeout(_trLiveTimer);
+      const lt=liveTranscripts[String(ep)]||{};
+      const blocks=JSON.parse(JSON.stringify(lt.blocks||[]));
+      document.querySelectorAll('.tr-live-area').forEach(ta=>{
+        const bi=Number(ta.dataset.bi);
+        if(blocks[bi])blocks[bi].content=ta.value;
+      });
+      await saveLiveTranscript(ep,{epNum:ep,blocks});
+      showToast('Live Show Transcript saved ✓');
+      render();
     });
     // TXT export
     document.getElementById('tr-export-txt-btn')?.addEventListener('click',()=>{
