@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.242';
+const BUILD_VERSION='3.10.243';
 const BUILD_DATE='5 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -8932,7 +8932,9 @@ function bindApp(){
       const blob=new Blob([parts.join('\n\n')],{type:'text/plain;charset=utf-8'});
       const a=document.createElement('a');
       a.href=URL.createObjectURL(blob);
-      a.download=`EP${String(ep).padStart(2,'0')}_Live_Transcript.txt`;
+      const epStr=String(ep).padStart(2,'0');
+      const txDate=settings.epDates?.[ep]||new Date().toISOString().split('T')[0];
+      a.download=`Carte Blanche S${currentSeason}E${epStr} - Live Show Transcript - ${txDate}.txt`;
       a.click();
       URL.revokeObjectURL(a.href);
     });
