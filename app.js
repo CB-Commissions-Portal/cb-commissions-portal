@@ -125,8 +125,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.243';
-const BUILD_DATE='5 Jul 2026';
+const BUILD_VERSION='3.10.244';
+const BUILD_DATE='7 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -6613,7 +6613,7 @@ function renderModals(epNums,nextEp){
         ${rmBtn}
       </div>`;
     }).join('');
-    const _soundOpts=["","A","B","C","D","COLD START","CLEAN","GENERIC","A+ COLD START CONT'D","B+ COLD START CONT'D","C+ COLD START CONT'D","D+ COLD START CONT'D","VOICE+ COLD START CONT'D"];
+    const _soundOpts=["","A","B","C","D","COLD START","CLEAN","GENERIC","A+ COLD START CONT'D","B+ COLD START CONT'D","C+ COLD START CONT'D","D+ COLD START CONT'D","VOICE+ COLD START CONT'D","VOICE + COLD START IN"];
     const _editFullAccess=!['content'].includes(getEffectiveRole());
     // Init camera block state — preserve DOM values on re-render, else load from stored data
     const _domCamDescs={};
