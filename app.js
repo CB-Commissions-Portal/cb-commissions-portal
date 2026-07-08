@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.245';
+const BUILD_VERSION='3.10.246';
 const BUILD_DATE='8 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -1180,7 +1180,10 @@ async function saveSettings(){setSyncDot('saving');try{await setDoc(doc(db,'sett
 function subscribeData(){
   if(unsubComms)unsubComms();if(unsubSettings)unsubSettings();
   unsubComms=onSnapshot(collection(db,'commissions'),snap=>{
-    const incoming=snap.docs.map(d=>d.data()).sort((a,b)=>a.id>b.id?1:-1);
+    // Guard against phantom docs missing their `id` field (e.g. commissions/undefined) —
+    // without this, every id comparison against such a row silently fails (undefined!==NaN)
+    // and edits to it never save, with no error shown.
+    const incoming=snap.docs.map(d=>d.data()).filter(c=>c.id!=null&&!Number.isNaN(Number(c.id))).sort((a,b)=>a.id>b.id?1:-1);
     setSyncDot('live');
     const active=document.activeElement;
     const editRow=active?.closest('tr[data-id]');
