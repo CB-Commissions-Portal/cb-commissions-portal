@@ -125,8 +125,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.244';
-const BUILD_DATE='7 Jul 2026';
+const BUILD_VERSION='3.10.245';
+const BUILD_DATE='8 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -218,6 +218,10 @@ let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,t
 let commEditModal=null; // commission id — edit crew/deliverables modal
 let addUserModal=false,newUserData={email:'',password:'',displayName:'',role:'editorial'},editUserModal=null,deleteUserModal=null;
 let toast=null,toastTimer=null,pendingFocusId=null;
+let draftCommIds=new Set(); // commission ids added locally but not yet saved to Firestore (still fully blank)
+function isCommBlank(c){
+  return !c.commNum&&!c.shortName&&!c.storyName&&!c.commDuration&&!c.deliveredDuration&&!c.paidDuration&&!c.producer&&!c.presenterVO&&!c.dop&&!c.ca&&!c.editor&&!c.afm&&!c.deliveryDate&&!c.broadcastEpisode&&!c.portal&&!c.isInHouse&&!c.isLicensed&&!c.onHold&&!c.decommissioned&&!DEL_KEYS.some(k=>c[k]);
+}
 
 let storage;
 function initFB(cfg){try{fbApp=initializeApp(cfg);auth=getAuth(fbApp);db=getFirestore(fbApp);storage=getStorage(fbApp);return true;}catch(e){console.error(e);return false;}}
@@ -1182,9 +1186,12 @@ function subscribeData(){
     const editRow=active?.closest('tr[data-id]');
     const editId=editRow?Number(editRow.dataset.id):null;
     const editingLineup=active?.classList.contains('lu-director')||active?.classList.contains('lu-pres1')||active?.classList.contains('lu-pres2')||active?.classList.contains('lu-live-note')||active?.classList.contains('lu-live-dur')||active?.classList.contains('pp-cell')||active?.classList.contains('pp-del-date')||active?.classList.contains('ec-inp')||active?.classList.contains('studio-ci');
-    if(editId){comms=incoming.map(c=>c.id===editId?(comms.find(x=>x.id===editId)||c):c);updateTicker();}
-    else if(editingLineup){comms=incoming;updateTicker();}
-    else{comms=incoming;render();}
+    // Local draft rows (added via + Add Commission but not yet saved) never appear in `incoming` —
+    // carry them across so a live update elsewhere doesn't wipe out an in-progress unsaved row.
+    const drafts=comms.filter(c=>draftCommIds.has(c.id));
+    if(editId){comms=[...incoming.map(c=>c.id===editId?(comms.find(x=>x.id===editId)||c):c),...drafts];updateTicker();}
+    else if(editingLineup){comms=[...incoming,...drafts];updateTicker();}
+    else{comms=[...incoming,...drafts];render();}
   },()=>setSyncDot('offline'));
   unsubSettings=onSnapshot(doc(db,'settings','main'),snap=>{
     if(snap.exists())settings={...settings,...snap.data()};
@@ -1262,7 +1269,18 @@ async function createUser(email,pass,displayName,role){try{const cred=await crea
 function updateComm(id,field,val){
   comms=comms.map(c=>c.id===id?{...c,[field]:val}:c);
   const updated=comms.find(c=>c.id===id);
-  if(updated)saveComm(updated);
+  if(updated){
+    if(draftCommIds.has(id)){
+      if(isCommBlank(updated)){
+        // Still fully blank — don't create a permanent record just because a field was touched/blurred
+      } else {
+        draftCommIds.delete(id);
+        saveComm(updated);
+      }
+    } else {
+      saveComm(updated);
+    }
+  }
   // Update row class and checkbox styles in-place without re-render
   const row=document.querySelector(`tr[data-id="${id}"]`);
   if(row&&updated){
@@ -1313,6 +1331,14 @@ function updateTicker(){
 
 async function deleteComm(id){
   if(!confirm('Permanently delete this commission? This cannot be undone.'))return;
+  if(draftCommIds.has(id)){
+    // Never saved to Firestore — just drop it locally
+    draftCommIds.delete(id);
+    comms=comms.filter(c=>c.id!==id);
+    showToast('Commission deleted');
+    render();
+    return;
+  }
   try{
     const {deleteDoc}=await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
     await deleteDoc(doc(db,'commissions',String(id)));
@@ -1322,11 +1348,16 @@ async function deleteComm(id){
   }catch(e){showToast('Delete failed: '+e.message,true);}
 }
 
-async function addRow(){
+function addRow(){
   const maxId=comms.length?Math.max(...comms.map(c=>Number(c.id)||0)):0;
   const newId=maxId+1;
   const blank={id:newId,broadcastOrder:0,portal:false,commNum:'',shortName:'',storyName:'',commDuration:'',deliveredDuration:'',paidDuration:'',producer:'',presenterVO:'',dop:'',ca:'',editor:'',afm:'',callSheets:false,insertScripts:false,releaseForms:false,footageAgreement:false,musicCueSheet:false,footageDeclaration:false,carpUpload:false,approvedForPayment:false,decommissioned:false,decommissionMotivation:'',onHold:false,broadcastEpisode:'',isInHouse:false,isLicensed:false,totalInsertCost:''};
-  pendingFocusId=newId;await saveComm(blank);
+  // Not saved to Firestore yet — stays local-only until the row actually has data in it,
+  // so an abandoned "+ Add Commission" click never leaves a permanent blank record behind.
+  draftCommIds.add(newId);
+  comms=[...comms,blank];
+  pendingFocusId=newId;
+  render();
 }
 
 function getEpNums(){const s=new Set();comms.forEach(c=>{if(c.broadcastEpisode)s.add(Number(c.broadcastEpisode));});Object.keys(settings.epDates||{}).forEach(k=>s.add(Number(k)));return Array.from(s).sort((a,b)=>a-b);}
@@ -1384,7 +1415,14 @@ function getFiltered(){
   if(filter==='hold')list=list.filter(c=>c.onHold);
   if(filter==='inhouse')list=list.filter(c=>c.isInHouse);
   if(filter==='ready')list=list.filter(c=>allDel(c)&&!c.approvedForPayment&&!c.decommissioned&&!c.onHold);
-  list.sort((a,b)=>{let av=a[sortField],bv=b[sortField];if(typeof av==='boolean')av=av?1:0;if(typeof bv==='boolean')bv=bv?1:0;if(typeof av==='string')av=av.toLowerCase();if(typeof bv==='string')bv=bv.toLowerCase();return av<bv?(sortDir==='asc'?-1:1):av>bv?(sortDir==='asc'?1:-1):0;});
+  list.sort((a,b)=>{
+    // Rows with no Comm # yet (new/unfinished commissions) always float to the top,
+    // regardless of the active sort column, so they're never buried at the bottom.
+    const aNew=!a.commNum,bNew=!b.commNum;
+    if(aNew&&bNew)return(Number(b.id)||0)-(Number(a.id)||0);
+    if(aNew!==bNew)return aNew?-1:1;
+    let av=a[sortField],bv=b[sortField];if(typeof av==='boolean')av=av?1:0;if(typeof bv==='boolean')bv=bv?1:0;if(typeof av==='string')av=av.toLowerCase();if(typeof bv==='string')bv=bv.toLowerCase();return av<bv?(sortDir==='asc'?-1:1):av>bv?(sortDir==='asc'?1:-1):0;
+  });
   return list;
 }
 
@@ -7177,8 +7215,9 @@ function bindApp(){
       // Update visible label immediately
       const label=e.target.closest('div')?.querySelector('.comm-del-label');
       if(label)label.textContent=val?new Date(val+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'2-digit'}):'—';
-      // Save full commission object to Firebase
-      saveComm(c);
+      // Save full commission object to Firebase (unless it's still a fully-blank draft row)
+      if(draftCommIds.has(id)&&isCommBlank(c)){/* still blank — don't persist */}
+      else{draftCommIds.delete(id);saveComm(c);}
     });
   });
   document.querySelectorAll('[data-sort]').forEach(th=>th.addEventListener('click',()=>{const f=th.dataset.sort;if(sortField===f)sortDir=sortDir==='asc'?'desc':'asc';else{sortField=f;sortDir='asc';}render();}));
