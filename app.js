@@ -125,8 +125,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.246';
-const BUILD_DATE='8 Jul 2026';
+const BUILD_VERSION='3.10.247';
+const BUILD_DATE='10 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -210,7 +210,7 @@ let mcImportCommConfirmed=false; // true after user confirms comm details in imp
 let mcImportCommNum='';          // tracks typed commission number in import modal
 let creditsExpandedEp=null;
 let ecLocalWrite=false,ecSaveTimers={},ecDirty={},ecDefaultCredits=[],ecShowDefModal=false;
-let luLocalWrite=false,scLocalWrite=false;
+let luLocalWrite=false,scLocalWrite=false,rosLocalWrite=false;
 let rosCamDescs=[]; // camera block descriptions during EDIT ITEM modal session
 let showPermModal=false;
 let expandedEps=new Set(); // Episode Register expanded episodes
@@ -569,17 +569,20 @@ function subscribeContracts(){
 }
 async function saveROS(epNum,data){
   setSyncDot('saving');
+  rosLocalWrite=true;
   const updatedByName=currentUser?.displayName||currentUser?.email||'Unknown';
   const updatedAtStr=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
   rosData[epNum]={...data,updatedByName,updatedAtStr};
   try{await setDoc(doc(db,'run_of_show',String(epNum)),{...data,updatedAt:serverTimestamp(),updatedByName,updatedAtStr});setSyncDot('live');}
   catch(e){setSyncDot('offline');showToast('ROS save failed: '+e.message,true);}
+  finally{setTimeout(()=>{rosLocalWrite=false;},1500);}
 }
 function subscribeROS(){
   if(unsubROS)unsubROS();
   return new Promise(resolve=>{
     let resolved=false;
     unsubROS=onSnapshot(collection(db,'run_of_show'),snap=>{
+      if(rosLocalWrite){if(!resolved){resolved=true;resolve();}return;}
       snap.docs.forEach(d=>{
         const epId=d.id;
         const editingThisEp=(rosEditModal&&String(rosEditModal.epNum)===epId)||(rosScriptModal&&String(rosScriptModal.epNum)===epId);
@@ -6704,6 +6707,18 @@ function renderModals(epNums,nextEp){
               <div style="background:#fff;border:1px solid #fde68a;border-radius:6px;padding:12px 14px;font-size:15px;line-height:1.7;white-space:pre-wrap;margin-bottom:12px">${diffWordsHtml(_ei.scriptBaseline||'',_ei.script||'')}</div>
               <button id="ros-edit-mark-reviewed" class="btn" data-itemidx="${itemIdx}" style="font-size:14px;padding:8px 20px;font-weight:800;border-color:#16a34a;color:#16a34a">✓ Mark Reviewed</button>
             </div>`:''}
+            ${getEffectiveRole()==='admin'&&Array.isArray(_ei.scriptHistory)&&_ei.scriptHistory.length?`
+            <div style="margin-top:16px;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;padding:14px 16px">
+              <div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Script Edit History (${_ei.scriptHistory.length})</div>
+              <div style="max-height:220px;overflow-y:auto">
+                ${_ei.scriptHistory.slice().reverse().map(h=>`
+                <div style="padding:7px 0;border-bottom:1px solid #e5e7eb;font-size:13px;line-height:1.5">
+                  <span style="font-weight:700;color:#111827">${esc(h.by||'Unknown')}</span>
+                  <span style="color:#9ca3af"> · ${esc(h.at||'')}</span>
+                  ${h.note?`<div style="color:#6b7280;margin-top:2px">${esc(h.note)}</div>`:''}
+                </div>`).join('')}
+              </div>
+            </div>`:''}
           </div>`:''}
           ${_editFullAccess?`
           <div>
@@ -10810,7 +10825,11 @@ document.addEventListener('click',function rosHandler(e){
       if(_ta){
         const _newScript=_ta.value;
         const _oldScript=it.script||'';
-        if(_newScript!==_oldScript && _oldScript.trim()!=='' && getEffectiveRole()==='director'){
+        const _scriptChanged=_newScript!==_oldScript && _oldScript.trim()!=='';
+        const _who=currentUser?.displayName||currentUser?.email||'Unknown';
+        const _when=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+        let _histNote='';
+        if(_scriptChanged && getEffectiveRole()==='director'){
           const _noteEl=document.getElementById('ros-edit-change-note');
           const _noteVal=(_noteEl?.value||'').trim();
           if(!_noteVal){
@@ -10820,8 +10839,14 @@ document.addEventListener('click',function rosHandler(e){
           if(!it.scriptPendingChange) it.scriptBaseline=_oldScript;
           it.scriptPendingChange=true;
           it.scriptChangeNote=_noteVal;
-          it.scriptChangedBy=currentUser?.displayName||currentUser?.email||'Unknown';
-          it.scriptChangedAt=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+          it.scriptChangedBy=_who;
+          it.scriptChangedAt=_when;
+          _histNote=_noteVal;
+        }
+        if(_scriptChanged){
+          if(!Array.isArray(it.scriptHistory)) it.scriptHistory=[];
+          it.scriptHistory.push({by:_who,at:_when,note:_histNote});
+          if(it.scriptHistory.length>20) it.scriptHistory=it.scriptHistory.slice(-20);
         }
         it.script=_newScript;
       }
