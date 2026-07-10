@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.249';
+const BUILD_VERSION='3.10.250';
 const BUILD_DATE='10 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -1462,6 +1462,8 @@ function render(){
   const _rosScrollTop=_rosScroll?_rosScroll.scrollTop:0;
   const _trBlocks=document.getElementById('tr-live-blocks');
   const _trBlocksTop=_trBlocks?_trBlocks.scrollTop:0;
+  const _delivScroll=document.getElementById('deliv-checklist-scroll');
+  const _delivScrollTop=_delivScroll?_delivScroll.scrollTop:0;
   const root=document.getElementById('root');
   const cfg=getCfg();
   if(!cfg){root.innerHTML=renderSetup();bindSetup();return;}
@@ -1483,6 +1485,8 @@ function render(){
   if(_rosScroll2&&_rosScrollTop)_rosScroll2.scrollTop=_rosScrollTop;
   const _trBlocks2=document.getElementById('tr-live-blocks');
   if(_trBlocks2&&_trBlocksTop)_trBlocks2.scrollTop=_trBlocksTop;
+  const _delivScroll2=document.getElementById('deliv-checklist-scroll');
+  if(_delivScroll2&&_delivScrollTop)_delivScroll2.scrollTop=_delivScrollTop;
   if(pendingFocusId!==null){
     const newRow=document.querySelector(`tr[data-id="${pendingFocusId}"]`);
     if(newRow){
@@ -6990,7 +6994,7 @@ function renderModals(epNums,nextEp){
         </div>
       </div>
       <div style="height:5px;background:#d1dae8;flex-shrink:0"><div style="height:5px;background:${pctCol};width:${pct}%"></div></div>
-      <div style="flex:1;overflow-y:auto">
+      <div id="deliv-checklist-scroll" style="flex:1;overflow-y:auto">
         ${taskList}
       </div>
       <div style="padding:16px 24px;border-top:1px solid #d1dae8;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
