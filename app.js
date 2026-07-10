@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.247';
+const BUILD_VERSION='3.10.248';
 const BUILD_DATE='10 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -4950,6 +4950,7 @@ function renderRunOfShow(){
         ${item.itemNum?`<div style="font-size:16px;color:#9ca3af;font-family:monospace;margin-bottom:6px;font-weight:700">${item.itemNum}.</div>`:''}
         ${ts.badge?`<div style="font-size:13px;font-weight:800;background:${ts.badgeBg};color:${ts.label};padding:4px 12px;border-radius:4px;margin-bottom:10px;display:inline-block;letter-spacing:.8px">${ts.badge}</div>`:''}
         ${getEffectiveRole()==='admin'&&item.scriptPendingChange?`<div style="margin-bottom:10px"><span style="font-size:11px;font-weight:800;background:#fef3c7;color:#b45309;padding:2px 7px;border-radius:3px;border:1px solid #fde68a;letter-spacing:.5px" title="${esc(item.scriptChangeNote||'')}">SCRIPT CHANGED</span></div>`:''}
+        ${item.finalised?`<div style="margin-bottom:10px"><span style="font-size:11px;font-weight:800;background:#dcfce7;color:#15803d;padding:2px 7px;border-radius:3px;border:1px solid #bbf7d0;letter-spacing:.5px" title="${esc(item.finalisedAt||'')}">✓ FINALISED BY ${esc((item.finalisedBy||'').toUpperCase())}</span></div>`:item.changedSinceFinalised?`<div style="margin-bottom:10px"><span style="font-size:11px;font-weight:800;background:#ffedd5;color:#c2410c;padding:2px 7px;border-radius:3px;border:1px solid #fed7aa;letter-spacing:.5px" title="${esc(item.changedAt||'')}">CHANGED BY ${esc((item.changedBy||'').toUpperCase())}</span></div>`:''}
         <div style="font-size:22px;font-weight:${ts.weight};color:${ts.label};line-height:1.2">${esc(item.label)}</div>
       </td>
       <td style="padding:22px 24px;vertical-align:middle;white-space:normal;overflow-wrap:break-word">${slugDisplay}</td>
@@ -4960,6 +4961,7 @@ function renderRunOfShow(){
       </td>
       <td style="padding:18px 20px;vertical-align:middle;width:150px;text-align:center">
         ${(canEdit||canEditScriptOnly||canEditDirectorNotes)?`<button class="ros-edit-btn btn" data-idx="${i}" style="font-size:13px;padding:8px 12px;border-color:#388bfd;color:#0066CC;width:100%;font-weight:700;letter-spacing:.3px;white-space:nowrap">✎ EDIT ITEM</button>`:''}
+        ${canEdit?`<button class="ros-finalise-btn btn" data-idx="${i}" style="margin-top:8px;font-size:13px;padding:8px 12px;width:100%;font-weight:700;letter-spacing:.3px;white-space:nowrap;${item.finalised?'border-color:#d1dae8;color:#6b7280':'border-color:#16a34a;color:#16a34a'}">${item.finalised?'↩ Un-finalise':'✓ FINALISE'}</button>`:''}
       </td>
     </tr>`;
   }).join('');
@@ -10104,7 +10106,7 @@ document.addEventListener('click',function fccHandler(e){
 function rosGetCurrentItems(){
   return rosData[String(rosCurrentEp)]?.items||[];
 }
-function rosFlushAndSave(items){
+function rosFlushDomToItems(items){
   // Capture any unsaved DOM values first
   const _slugMap={};
   document.querySelectorAll('.ros-slug').forEach(inp=>{
@@ -10133,7 +10135,15 @@ function rosFlushAndSave(items){
   });
   document.querySelectorAll('.ros-dur').forEach(inp=>{
     const idx=Number(inp.dataset.idx);
-    if(items[idx]!==undefined)items[idx].duration=inp.value;
+    if(items[idx]!==undefined){
+      if(items[idx].finalised && items[idx].duration!==inp.value){
+        items[idx].finalised=false;items[idx].finalisedBy='';items[idx].finalisedAt='';
+        items[idx].changedSinceFinalised=true;
+        items[idx].changedBy=currentUser?.displayName||currentUser?.email||'Unknown';
+        items[idx].changedAt=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      }
+      items[idx].duration=inp.value;
+    }
   });
   // Preserve script field if script modal is open (don't overwrite with stale data)
   const _sTA=document.getElementById('ros-script-ta');
@@ -10141,6 +10151,9 @@ function rosFlushAndSave(items){
     const si=rosScriptModal.itemIdx;
     if(items[si]!==undefined)items[si].script=_sTA.value;
   }
+}
+function rosFlushAndSave(items){
+  rosFlushDomToItems(items);
   if(!rosData[String(rosCurrentEp)])rosData[String(rosCurrentEp)]={};
   rosData[String(rosCurrentEp)].items=items;
   saveROS(rosCurrentEp,{items,epNum:rosCurrentEp});
@@ -10847,6 +10860,10 @@ document.addEventListener('click',function rosHandler(e){
           if(!Array.isArray(it.scriptHistory)) it.scriptHistory=[];
           it.scriptHistory.push({by:_who,at:_when,note:_histNote});
           if(it.scriptHistory.length>20) it.scriptHistory=it.scriptHistory.slice(-20);
+          if(it.finalised){
+            it.finalised=false;it.finalisedBy='';it.finalisedAt='';
+            it.changedSinceFinalised=true;it.changedBy=_who;it.changedAt=_when;
+          }
         }
         it.script=_newScript;
       }
@@ -11037,6 +11054,31 @@ document.addEventListener('click',function rosHandler(e){
     if(!rosData[String(rosCurrentEp)])rosData[String(rosCurrentEp)]={};
     rosData[String(rosCurrentEp)].items=items;
     render();
+    return;
+  }
+  // Finalise / un-finalise toggle
+  const finBtn=e.target.closest('.ros-finalise-btn');
+  if(finBtn){
+    const idx=Number(finBtn.dataset.idx);
+    const items=rosGetCurrentItems();
+    rosFlushDomToItems(items);
+    const it=items[idx];
+    if(it!==undefined){
+      if(it.finalised){
+        it.finalised=false;it.finalisedBy='';it.finalisedAt='';
+      }else{
+        const _who=currentUser?.displayName||currentUser?.email||'Unknown';
+        it.finalised=true;
+        it.finalisedBy=_who;
+        it.finalisedAt=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+        it.changedSinceFinalised=false;it.changedBy='';it.changedAt='';
+      }
+      if(!rosData[String(rosCurrentEp)])rosData[String(rosCurrentEp)]={};
+      rosData[String(rosCurrentEp)].items=items;
+      saveROS(rosCurrentEp,{items,epNum:rosCurrentEp});
+      showToast(it.finalised?'Item finalised ✓':'Item un-finalised');
+      render();
+    }
     return;
   }
 });
