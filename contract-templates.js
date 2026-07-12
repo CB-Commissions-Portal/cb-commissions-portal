@@ -113,6 +113,9 @@ function _ctFoot(logo){
     <span>${_CT_CO_NAME}</span>
   </div>`;
 }
+function _ctEsigClause(cls){
+  return`<p class="${cls||'popia'}">Electronic Signatures: the parties agree that this Agreement may be executed and delivered by electronic means, and that any electronic signature appearing on this Agreement (whether captured by way of an electronic signature pad, a typed signature, or a scanned or photographed image of a signature) shall be deemed an original signature, valid and binding for all purposes to the same extent as a handwritten signature, in accordance with the Electronic Communications and Transactions Act 25 of 2002. Neither party shall dispute the validity or enforceability of this Agreement on the sole ground that it was signed and/or delivered electronically.</p>`;
+}
 
 function ctPresenterPDF(f,logo){
   const n=(f.performerName||'').toUpperCase(),pid=f.performerID||'',period=f.contractPeriod||'',sn=f.seasonNumber||'',ep=f.numEpisodes||'';
@@ -222,6 +225,7 @@ function ctPresenterPDF(f,logo){
       <div><div class="sig-line">${_sigImgTag(f.companySig2Img)}</div><div class="sig-name">${_CT_SIG2}</div></div>
     </div>
   </div>
+  ${_ctEsigClause()}
   ${_ctFoot(logo)}
   </body></html>`;
 }
@@ -440,6 +444,7 @@ function ctContractorPDF(f,logo){
       <p style="font-size:9.5pt">Place: ${sp||'_______________'}</p>
     </div>
   </div>
+  ${_ctEsigClause()}
   ${_ctFoot(logo)}
   </body></html>`;
 }
@@ -480,6 +485,7 @@ function ctRatePDF(f,logo){
       </div>
     </div>
   </div>
+  ${_ctEsigClause()}
   ${_ctFoot(logo)}
   </body></html>`;
 }
@@ -504,6 +510,7 @@ const _CAPIC_CSS=`
   .ic-sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:16px;page-break-inside:avoid}
   .ic-sig-line{border-bottom:1px solid #111;height:44px;margin-bottom:4px;display:flex;align-items:flex-end}
   .ic-sig-line img{max-height:42px;max-width:100%}
+  .ic-popia{font-size:7.5pt;color:#555;margin-top:16px;padding-top:8px;border-top:1px solid #ccc;text-align:center;line-height:1.4}
   .ic-sig-title{font-size:9pt;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:#555;margin-bottom:2px}
 `;
 function _icRow(label,val){return`<div class="ic-row"><div class="ic-label">${esc(label).toUpperCase()}:</div><div class="ic-val">${esc(val||'')}</div></div>`;}
@@ -573,5 +580,6 @@ function ctCapIcPDF(fields){
       ${_icSig('Client',f.companySig1Name,f.companySig1Date,f.companySig1Img)}
       ${_icSig('Contractor',f.contractorName,f.recipientSigDate,f.recipientSigImg)}
     </div>
+    ${_ctEsigClause('ic-popia')}
   </body></html>`;
 }
