@@ -1,6 +1,6 @@
 import{initializeApp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,createUserWithEmailAndPassword,updateProfile}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-import{getFirestore,doc,collection,onSnapshot,setDoc,updateDoc,getDoc,getDocs,deleteDoc,serverTimestamp,writeBatch}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import{getFirestore,doc,collection,onSnapshot,setDoc,updateDoc,getDoc,getDocs,deleteDoc,serverTimestamp,writeBatch,Timestamp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import{getStorage,ref,uploadBytes,getDownloadURL}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
 import{_ctBuildHtml,_ctRenderHtmlInPane,BAKED_CB_LOGO,BAKED_CAP_LOGO,_CT_SIG1,_CT_SIG2}from'./contract-templates.js';
 import{createSignaturePad}from'./signature-widget.js';
@@ -129,7 +129,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.257';
+const BUILD_VERSION='3.10.258';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5915,6 +5915,7 @@ function renderContractForm(){
     formBody=`
       ${sec('1. Parties & Effective Date')}
       ${fld('contractorName','Contractor Name','e.g. Jana Pienaar')}
+      ${fld('contractorRegID','Contractor ID Number or Company Registration Number','e.g. 8105200016086 or 2019/123456/07','400px')}
       ${fld('contractorAddress','Contractor Address','e.g. 1338 Giants Castle Avenue, Bergbron')}
       ${fld('effectiveDate','Effective Date','e.g. 1 April 2026','220px')}
       ${sec('2. Services')}
@@ -5958,6 +5959,7 @@ function renderContractForm(){
           <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#9ca3af;margin-bottom:10px">Pre-filled — Company Details</div>
           ${type==='cap_ic'?`
           ${prefill('Client',"COMBINED ARTISTIC PRODUCTIONS (PTY) LTD")}
+          ${prefill('Client Reg. No.',"2019/196874/07")}
           ${prefill('Client Address',"306 SURREY AVENUE, FERNDALE, 2194")}
           <div style="font-size:11px;color:#9ca3af;margin-top:8px;line-height:1.5">This is a Combined Artistic Productions agreement — not a Carte Blanche document. The PDF shows the Combined Artists logo only.</div>
           `:`
@@ -11459,7 +11461,7 @@ document.addEventListener('click',function contractsHandler(e){
     const c=ctContractsData[id];
     if(!c)return;
     const token=ctSigGenToken();
-    const expiresAt=new Date(Date.now()+30*24*60*60*1000).toISOString();
+    const expiresAt=Timestamp.fromDate(new Date(Date.now()+30*24*60*60*1000));
     const linkData={contractId:id,contractType:c.type,fields:{...c.fields},signatoryLabel:ctSignatoryLabel(c.type),status:'pending',revoked:false,synced:false,createdAt:{seconds:Math.floor(Date.now()/1000)},createdBy:currentUser?.displayName||currentUser?.email||'Unknown',createdByUid:currentUser?.uid||'',expiresAt};
     ctSigLinksData[token]=linkData;
     saveContractSigningLink(token,linkData);

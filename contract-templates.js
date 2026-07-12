@@ -487,6 +487,7 @@ function ctRatePDF(f,logo){
 
 // ── CAP INDEPENDENT CONTRACTOR (Combined Artistic Productions — not a Carte Blanche document, CAP logo only) ──
 const _CAPIC_CO_NAME='COMBINED ARTISTIC PRODUCTIONS (PTY) LTD';
+const _CAPIC_CO_REG='2019/196874/07';
 const _CAPIC_CO_ADDR='306 SURREY AVENUE, FERNDALE, 2194';
 const _CAPIC_CSS=`
   @page{size:A4 portrait;margin:16mm 18mm}
@@ -526,8 +527,10 @@ function ctCapIcPDF(fields){
 
     <div class="ic-sec">1. Parties &amp; Effective Date</div>
     ${_icRow('Client Name',_CAPIC_CO_NAME)}
+    ${_icRow('Client Registration Number',_CAPIC_CO_REG)}
     ${_icRow('Client Address',_CAPIC_CO_ADDR)}
     ${_icRow('Contractor Name',f.contractorName)}
+    ${_icRow('Contractor ID / Registration Number',f.contractorRegID)}
     ${_icRow('Contractor Address',f.contractorAddress)}
     ${_icRow('Effective Date',f.effectiveDate)}
 

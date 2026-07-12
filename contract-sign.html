@@ -93,7 +93,8 @@ async function init(){
 function render(){
   if(link.revoked){msg('Link revoked','This signing link has been revoked. Please contact Combined Artists for a new one.');return;}
   if(link.status==='signed'){msg('✓ Already signed','This agreement has already been signed. Contact Combined Artists if anything needs to change.');return;}
-  if(link.expiresAt&&new Date(link.expiresAt)<new Date()){msg('Link expired','This signing link has expired. Please contact Combined Artists for a new one.');return;}
+  const expiresDate=link.expiresAt?.toDate?link.expiresAt.toDate():(link.expiresAt?new Date(link.expiresAt):null);
+  if(expiresDate&&expiresDate<new Date()){msg('Link expired','This signing link has expired. Please contact Combined Artists for a new one.');return;}
   renderForm();
 }
 
