@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<title>Supplier Registration — Combined Artists</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#f4f6fa;color:#111827;font-family:'Plus Jakarta Sans',Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .sr-page{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+  .sr-head{display:flex;align-items:center;justify-content:space-between;padding:18px 4px 22px;border-bottom:3px solid #002868;margin-bottom:22px;flex-wrap:wrap;gap:8px}
+  .sr-title{font-size:22px;font-weight:800;color:#002868;letter-spacing:.2px}
+  .sr-sub{font-size:14px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.6px}
+  .sr-msg{max-width:520px;margin:80px auto;padding:32px 28px;background:#fff;border:1px solid #d1dae8;border-radius:12px;text-align:center}
+  .sr-msg h1{font-size:20px;color:#002868;margin:0 0 10px}
+  .sr-msg p{font-size:15px;color:#4b5563;line-height:1.6;margin:0}
+  .sr-picker{display:grid;grid-template-columns:1fr;gap:14px;margin-top:10px}
+  @media(min-width:560px){.sr-picker{grid-template-columns:1fr 1fr}}
+  .sr-card{background:#fff;border:2px solid #d1dae8;border-radius:12px;padding:26px 22px;cursor:pointer;transition:border-color .15s,box-shadow .15s;min-height:44px}
+  .sr-card:hover,.sr-card:active{border-color:#0066CC;box-shadow:0 4px 14px rgba(0,102,204,.12)}
+  .sr-card-title{font-size:18px;font-weight:800;color:#111827;margin-bottom:6px}
+  .sr-card-sub{font-size:14px;color:#6b7280;line-height:1.5}
+  .sr-link-btn{background:none;border:none;color:#0066CC;font-size:14px;font-weight:700;cursor:pointer;padding:8px 0;margin-bottom:6px}
+  .sr-section-bar{background:#002868;color:#fff;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;padding:10px 14px;border-radius:6px;margin:20px 0 14px}
+  .sr-grid{display:grid;grid-template-columns:1fr;gap:14px}
+  @media(min-width:600px){.sr-grid{grid-template-columns:1fr 1fr}}
+  .sr-field{display:flex;flex-direction:column;gap:5px}
+  .sr-field label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280}
+  .sr-field input,.sr-field select{width:100%;background:#fff;border:1px solid #d1dae8;border-radius:7px;color:#111827;font-size:16px;padding:11px 12px;font-family:inherit;min-height:44px;outline:none}
+  .sr-field input:focus,.sr-field select:focus{border-color:#0066CC;box-shadow:0 0 0 3px rgba(0,102,204,.12)}
+  .sr-note{background:#e0f2fe;border:1px solid #bae6fd;border-radius:8px;padding:12px 14px;font-size:14px;color:#0c4a6e;margin-top:12px;line-height:1.5}
+  .sr-note a{color:#0369a1;font-weight:700}
+  .sr-actions{display:flex;gap:12px;margin-top:28px;flex-wrap:wrap}
+  .sr-btn{flex:1;min-width:160px;min-height:48px;border-radius:8px;font-size:16px;font-weight:800;cursor:pointer;border:2px solid transparent;padding:12px 18px}
+  .sr-btn-secondary{background:#fff;border-color:#d1dae8;color:#374151}
+  .sr-btn-secondary:hover{border-color:#9ca3af}
+  .sr-btn-primary{background:#0066CC;color:#fff}
+  .sr-btn-primary:hover{background:#0052a3}
+  .sr-status{margin-top:14px;font-size:14px;font-weight:600;color:#16a34a;min-height:20px;text-align:center}
+  @media(max-width:420px){.sr-title{font-size:19px}.sr-actions{flex-direction:column}.sr-btn{width:100%}}
+</style>
+</head>
+<body>
+<div id="root" style="padding:60px 16px;text-align:center;color:#6b7280;font-size:15px">Loading…</div>
+<script type="module">
+import{initializeApp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import{getFirestore,doc,getDoc,updateDoc,serverTimestamp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+const firebaseConfig={
+  apiKey:"AIzaSyBDSrxjYt9AcRFiDB33CKSl_HzYwhv9XhY",
+  authDomain:"cb-commissions-portal.firebaseapp.com",
+  projectId:"cb-commissions-portal",
+  storageBucket:"cb-commissions-portal.firebasestorage.app",
+  messagingSenderId:"679597020811",
+  appId:"1:679597020811:web:f18e392a2482fd8c8ce68e"
+};
+const fbApp=initializeApp(firebaseConfig);
+const db=getFirestore(fbApp);
+
+const root=document.getElementById('root');
+const token=new URLSearchParams(location.search).get('token');
+
+const SHARED_KEYS=['jobTitle','contactNumber','email','physicalAddress','postalAddress','bankName','accountType','accountNumber','branchName','branchCode'];
+
+let reg=null;
+let localType='';
+let localFields={};
+let saving=false;
+
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function header(){
+  return `<div class="sr-head"><div class="sr-title">Supplier Registration</div><div class="sr-sub">Combined Artists</div></div>`;
+}
+
+function msg(title,body){
+  root.innerHTML=`<div class="sr-page">${header()}<div class="sr-msg"><h1>${esc(title)}</h1><p>${body}</p></div></div>`;
+}
+
+async function init(){
+  if(!token){msg('Link not valid','This registration link is missing its token. Please check the link you were sent, or contact Combined Artists for a new one.');return;}
+  try{
+    const snap=await getDoc(doc(db,'supplier_registrations',token));
+    if(!snap.exists()){msg('Link not valid','This registration link doesn’t exist. Please check the link or contact Combined Artists for a new one.');return;}
+    reg=snap.data();
+    localType=reg.regType||'';
+    localFields={...(reg.fields||{})};
+    render();
+  }catch(e){
+    console.error(e);
+    msg('Something went wrong','Please refresh the page. If this keeps happening, contact Combined Artists.');
+  }
+}
+
+function render(){
+  if(reg.revoked){msg('Link revoked','This link has been revoked. Please contact Combined Artists for a new registration link.');return;}
+  if(reg.status==='finalised'){msg('✓ Registration submitted','Your registration has already been submitted. Contact Combined Artists if anything needs to change.');return;}
+  if(!localType){renderPicker();return;}
+  renderForm();
+}
+
+function renderPicker(){
+  root.innerHTML=`<div class="sr-page">${header()}
+    <div class="sr-picker">
+      <div class="sr-card" data-type="individual">
+        <div class="sr-card-title">Individual Registration</div>
+        <div class="sr-card-sub">You are registering as yourself</div>
+      </div>
+      <div class="sr-card" data-type="company">
+        <div class="sr-card-title">Formal Trading Entity</div>
+        <div class="sr-card-sub">You are registering your company</div>
+      </div>
+    </div>
+  </div>`;
+  root.querySelectorAll('.sr-card').forEach(c=>c.addEventListener('click',()=>{
+    localType=c.dataset.type;
+    render();
+    saveProgress('in_progress',false);
+  }));
+}
+
+function field(key,label){
+  return `<div class="sr-field"><label>${esc(label)}</label><input data-key="${key}" value="${esc(localFields[key]||'')}"></div>`;
+}
+function accountTypeField(){
+  const opts=['','Cheque/Current','Savings','Transmission'];
+  const cur=localFields.accountType||'';
+  return `<div class="sr-field"><label>Account Type</label><select data-key="accountType">${opts.map(o=>`<option value="${esc(o)}" ${cur===o?'selected':''}>${o||'Select…'}</option>`).join('')}</select></div>`;
+}
+
+function renderForm(){
+  const indiv=localType==='individual';
+  const idFields=indiv?[
+    field('fullNames','Full Names & Surname'),
+    field('incomeTaxNumber','Income Tax Number'),
+    field('idPassport','ID/Passport Number'),
+    field('taxDirective','Tax Directive'),
+    field('physicalAddress','Physical Address'),
+    field('postalAddress','Postal Address'),
+  ]:[
+    field('supplierName','Supplier Name'),
+    field('vatNumber','VAT Number'),
+    field('companyRegNumber','Company Registration Number'),
+    field('physicalAddress','Physical Address'),
+    field('postalAddress','Postal Address'),
+    field('contactPerson','Contact Person'),
+    field('website','Supplier Website Address'),
+  ];
+  const sharedFields=[field('jobTitle','Job Title'),field('contactNumber','Contact Number'),field('email','Email Address')];
+  const bankFields=[field('bankName','Bank'),accountTypeField(),field('accountNumber','Account Number'),field('branchName','Branch Name'),field('branchCode','Branch Code')];
+  const bankLabel=indiv?'Bank Confirmation Letter':'Bank FICA Letter';
+  root.innerHTML=`<div class="sr-page">${header()}
+    <button class="sr-link-btn" id="sr-change-type">← Change registration type</button>
+    <div class="sr-section-bar">${indiv?'Individuals':'Formal Trading Entities'}</div>
+    <div class="sr-grid">${idFields.join('')}</div>
+    <div class="sr-section-bar">Contact Details</div>
+    <div class="sr-grid">${sharedFields.join('')}</div>
+    <div class="sr-section-bar">Banking Details</div>
+    <div class="sr-grid">${bankFields.join('')}</div>
+    <div class="sr-note"><strong>${bankLabel}:</strong> Please forward to <a href="mailto:kevin@combinedartists.co.za">kevin@combinedartists.co.za</a></div>
+    <div class="sr-note"><strong>BEE Status:</strong> Please forward your certificate or affidavit to <a href="mailto:rudi@combinedartists.co.za">rudi@combinedartists.co.za</a></div>
+    <div class="sr-actions">
+      <button class="sr-btn sr-btn-secondary" id="sr-save-later">Save For Later</button>
+      <button class="sr-btn sr-btn-primary" id="sr-submit">Submit &amp; Finalise</button>
+    </div>
+    <div class="sr-status" id="sr-status"></div>
+  </div>`;
+  root.querySelectorAll('[data-key]').forEach(el=>{
+    const evt=el.tagName==='SELECT'?'change':'input';
+    el.addEventListener(evt,()=>{localFields[el.dataset.key]=el.value;});
+  });
+  document.getElementById('sr-change-type')?.addEventListener('click',()=>{
+    const kept={};
+    SHARED_KEYS.forEach(k=>{if(localFields[k]!==undefined)kept[k]=localFields[k];});
+    localFields=kept;
+    localType='';
+    render();
+  });
+  document.getElementById('sr-save-later')?.addEventListener('click',()=>saveProgress('in_progress',false));
+  document.getElementById('sr-submit')?.addEventListener('click',()=>{
+    if(!confirm('Submit your registration? Once submitted, you won’t be able to make further changes via this link.'))return;
+    saveProgress('finalised',true);
+  });
+}
+
+async function saveProgress(status,isFinal){
+  if(saving)return;
+  saving=true;
+  const statusEl=document.getElementById('sr-status');
+  const btns=root.querySelectorAll('.sr-btn');
+  btns.forEach(b=>b.disabled=true);
+  if(statusEl)statusEl.textContent='Saving…';
+  try{
+    const payload={regType:localType,fields:{...localFields},status,updatedAt:serverTimestamp()};
+    if(isFinal)payload.finalisedAt=serverTimestamp();
+    await updateDoc(doc(db,'supplier_registrations',token),payload);
+    reg={...reg,status,regType:localType,fields:{...localFields}};
+    saving=false;
+    if(isFinal){render();return;}
+    btns.forEach(b=>b.disabled=false);
+    if(statusEl){statusEl.textContent='Saved ✓ — you can close this page and come back anytime using the same link.';}
+  }catch(e){
+    console.error(e);
+    saving=false;
+    btns.forEach(b=>b.disabled=false);
+    if(statusEl){statusEl.style.color='#dc2626';statusEl.textContent='Could not save — please check your connection and try again.';}
+  }
+}
+
+init();
+</script>
+</body>
+</html>

@@ -125,10 +125,10 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.252';
+const BUILD_VERSION='3.10.253';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
-let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
+let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
 let studioCrew={}; // {epNum: {studioDirector:'', ad:'', ...}}
 let studioSchedule={}; // {epNum:{director,asstDir,makeup,autocue(Autocue Operator),floorMgr,production,bookingFrom,bookingTo}}
@@ -177,6 +177,10 @@ let ctEditFields={};
 let ctContractsData={}; // Firebase loaded contracts
 let ctShowArchived=false;
 let ctPreviewId=null;
+let srView='list'; // 'list'|'detail'
+let srData={}; // Firebase loaded supplier registrations, keyed by token
+let srLinkModal=null; // {token} — Copy Link modal open after creating a link
+let srViewToken=null; // token of registration open in the read-only detail view
 let callSheetData={}; // {epNum: {anchor1,anchor1Time,anchor2,anchor2Time,director,floorMgr,autocue,makeup,vt,engineer,prod,prodTime,studioFacs,items:[{time,description,responsible}]}}
 let appTheme=localStorage.getItem('cb_theme')||'dark'; // 'dark' or 'light'
 let rosData={}; // {epNum: {items:[{type,label,content,duration}]}}
@@ -565,6 +569,36 @@ function subscribeContracts(){
       if(!resolved){resolved=true;resolve();}
       else if(tab==='contracts'&&ctView==='list')render();
     },e=>{console.error('Contracts snapshot:',e);if(!resolved){resolved=true;resolve();}});
+  });
+}
+async function saveSupplierReg(token,data){
+  setSyncDot('saving');
+  try{await setDoc(doc(db,'supplier_registrations',token),{...data,updatedAt:serverTimestamp()});srData[token]={...srData[token],...data};setSyncDot('live');}
+  catch(e){setSyncDot('offline');showToast('Supplier registration save failed: '+e.message,true);}
+}
+async function deleteSupplierReg(token){
+  setSyncDot('saving');
+  try{await deleteDoc(doc(db,'supplier_registrations',token));delete srData[token];setSyncDot('live');}
+  catch(e){setSyncDot('offline');showToast('Delete failed: '+e.message,true);}
+}
+function subscribeSupplierRegs(){
+  if(unsubSupplierRegs)unsubSupplierRegs();
+  return new Promise(resolve=>{
+    let resolved=false;
+    unsubSupplierRegs=onSnapshot(collection(db,'supplier_registrations'),snap=>{
+      const fresh={};
+      snap.docs.forEach(d=>{
+        const prev=srData[d.id];
+        const next={...d.data()};
+        if(resolved&&prev&&prev.status!=='finalised'&&next.status==='finalised'){
+          showToast('Supplier registration finalised — '+(next.fields?.fullNames||next.fields?.supplierName||'Untitled')+' ✓');
+        }
+        fresh[d.id]=next;
+      });
+      srData=fresh;
+      if(!resolved){resolved=true;resolve();}
+      else if(tab==='supplierreg')render();
+    },e=>{console.error('Supplier registrations snapshot:',e);if(!resolved){resolved=true;resolve();}});
   });
 }
 async function saveROS(epNum,data){
@@ -1572,6 +1606,7 @@ function renderHome(){
     ].filter(Boolean)},
     {label:'Admin',items:[
       mk('contracts','Contracts','Finance & Legal',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`,'#a3e635','rgba(163,230,53,.1)',(currentRole==='admin'&&!previewRole)||role==='finance','Presenter and contractor agreements'),
+      mk('supplierreg','Supplier Registration','Onboarding',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>`,'#38bdf8','rgba(56,189,248,.1)',(currentRole==='admin'&&!previewRole)||role==='finance','Remote supplier onboarding links'),
       mk('admin','Admin','Users & Access',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,'#e3b341','rgba(227,179,65,.1)',currentRole==='admin'&&!previewRole,'Manage users, roles and access control'),
     ].filter(Boolean)},
   ].filter(s=>s.items.length);
@@ -1846,6 +1881,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='transcripts'&&['admin','deputyadmin','production','transcripts'].includes(role))return renderTranscripts(epNums);
   if(tab==='broadcast'&&role!=='afm'&&role!=='transcripts')return renderBroadcastList();
   if(tab==='contracts'&&((currentRole==='admin'&&!previewRole)||currentRole==='finance'))return renderContracts();
+  if(tab==='supplierreg'&&((currentRole==='admin'&&!previewRole)||currentRole==='finance'))return renderSupplierReg();
   if(tab==='admin'&&currentRole==='admin'&&!previewRole)return renderAdmin();
   return '';
 }
@@ -6280,6 +6316,208 @@ function ctExportPDF(id){
   c.status='exported';
   saveContractDoc(id,c);
   render();
+  const win=window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),600);
+}
+
+// ── SUPPLIER REGISTRATION ────────────────────────────────────────
+const SR_HOST=(()=>{try{return window.location.origin+window.location.pathname.replace(/[^/]*$/,'');}catch{return './';}})();
+function srLink(token){return SR_HOST+'supplier-registration.html?token='+token;}
+function srTypeLabel(t){return t==='company'?'Formal Trading Entity':t==='individual'?'Individual':'—';}
+function srStatusBadge(status,revoked){
+  if(revoked)return{bg:'#f3f4f6',col:'#6b7280',border:'#d1dae8',label:'⛔ REVOKED'};
+  if(status==='finalised')return{bg:'#dcfce7',col:'#16a34a',border:'#86efac',label:'✓ FINALISED'};
+  if(status==='in_progress')return{bg:'#dbeafe',col:'#1d4ed8',border:'#bfdbfe',label:'🖊 IN PROGRESS'};
+  return{bg:'#fef9c3',col:'#b45309',border:'#fde068',label:'⏳ AWAITING RESPONSE'};
+}
+function srGenToken(){
+  const bytes=crypto.getRandomValues(new Uint8Array(24));
+  return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function renderSupplierReg(){
+  if(srView==='detail'&&srViewToken)return renderSupplierRegDetail();
+  return renderSupplierRegList();
+}
+
+function renderSupplierRegList(){
+  const isFinance=getEffectiveRole()==='finance';
+  const all=Object.entries(srData).sort((a,b)=>((b[1].createdAt?.seconds||0)-(a[1].createdAt?.seconds||0)));
+  const thS='padding:8px 14px;font-size:12px;font-weight:800;text-transform:uppercase;color:#6b7280;text-align:left;border-bottom:2px solid #d1dae8';
+  const rows=all.map(([token,r])=>{
+    const name=esc(r.fields?.fullNames||r.fields?.supplierName||'—');
+    const st=srStatusBadge(r.status,r.revoked);
+    return`<tr style="border-bottom:1px solid #d1dae8">
+      <td style="padding:10px 14px;font-size:15px;font-weight:700;color:#111827">${name}</td>
+      <td style="padding:10px 14px;font-size:14px;color:#6b7280">${srTypeLabel(r.regType)}</td>
+      <td style="padding:10px 14px">
+        <span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:3px;background:${st.bg};color:${st.col};border:1px solid ${st.border}">${st.label}</span>
+      </td>
+      <td style="padding:10px 14px;font-size:13px;color:#9ca3af">${r.createdAt?.seconds?new Date(r.createdAt.seconds*1000).toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}):''}</td>
+      <td style="padding:10px 14px;font-size:13px;color:#9ca3af">${r.updatedAt?.seconds?new Date(r.updatedAt.seconds*1000).toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}):'—'}</td>
+      <td style="padding:10px 14px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          ${!isFinance?`<button class="btn sr-copy-btn" data-token="${token}" style="font-size:13px;padding:3px 10px;border-color:#388bfd;color:#0066CC">🔗 Copy Link</button>`:''}
+          ${r.regType?`<button class="btn sr-view-btn" data-token="${token}" style="font-size:13px;padding:3px 10px">👁 View</button>`:''}
+          ${!isFinance&&r.status!=='finalised'?`<button class="btn sr-revoke-btn" data-token="${token}" data-revoked="${r.revoked?'1':'0'}" style="font-size:13px;padding:3px 10px;border-color:${r.revoked?'#e3b341':'#9ca3af'};color:${r.revoked?'#e3b341':'#9ca3af'}">${r.revoked?'Unrevoke':'Revoke'}</button>`:''}
+          ${!isFinance?`<span style="width:1px;height:18px;background:#d1dae8;display:inline-block;flex-shrink:0;margin:0 4px"></span><button class="btn sr-del-btn" data-token="${token}" style="font-size:13px;padding:3px 10px;border-color:#9ca3af;color:#9ca3af">✕</button>`:''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+  const table=all.length===0
+    ?`<div style="text-align:center;padding:60px;color:#9ca3af;font-size:16px">No supplier registration links yet. Click <strong>+ New Supplier Registration</strong> to create one.</div>`
+    :`<table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f8fafc">
+        <th style="${thS}">Name / Company</th><th style="${thS}">Type</th><th style="${thS}">Status</th><th style="${thS}">Link Created</th><th style="${thS}">Last Updated</th><th style="${thS}">Actions</th>
+      </tr></thead><tbody>${rows}</tbody></table>`;
+  return`<div class="ep-wrap" style="padding:0">
+    <div style="padding:12px 20px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:12px">
+      <h2 style="font-size:17px;font-weight:900;color:#111827;margin:0">Supplier Registration</h2>
+      <div style="margin-left:auto">
+        ${!isFinance?`<button class="btn primary" id="sr-new-btn" style="font-size:15px;padding:6px 18px;font-weight:800">+ New Supplier Registration</button>`:''}
+      </div>
+    </div>
+    <div style="padding:20px">${table}</div>
+    ${srLinkModal?renderSrLinkModal():''}
+  </div>`;
+}
+
+function renderSrLinkModal(){
+  const token=srLinkModal?.token;
+  const r=srData[token];
+  if(!r)return'';
+  const url=srLink(token);
+  return`<div class="modal-overlay" id="sr-link-overlay">
+    <div class="modal" style="width:560px">
+      <h3>Supplier Registration Link</h3>
+      <p>Copy this link and send it to the supplier via email or WhatsApp. They don't need a portal login. They can save their progress and come back later using the same link.</p>
+      <input id="sr-link-url" value="${esc(url)}" readonly style="font-family:monospace;font-size:14px" onclick="this.select()">
+      <div class="modal-actions">
+        <button class="btn" id="sr-link-close">Close</button>
+        <button class="btn sr-revoke-btn" id="sr-link-revoke-toggle" data-token="${token}" data-revoked="${r.revoked?'1':'0'}" style="border-color:${r.revoked?'#e3b341':'#f85149'};color:${r.revoked?'#e3b341':'#f85149'}">${r.revoked?'Unrevoke':'Revoke'}</button>
+        <button class="btn primary" id="sr-link-copy">Copy Link</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderSupplierRegDetail(){
+  const token=srViewToken;
+  const r=srData[token];
+  if(!r)return`<div class="ep-wrap" style="padding:40px;text-align:center;color:#9ca3af">Registration not found.</div>`;
+  const f=r.fields||{};
+  const row=(label,val)=>`<div style="display:flex;gap:16px;padding:9px 14px;background:#f8fafc;border-bottom:1px solid #e8edf5;flex-wrap:wrap">
+    <div style="width:220px;flex-shrink:0;font-size:13px;font-weight:700;color:#6b7280;text-transform:uppercase">${label}</div>
+    <div style="font-size:15px;color:#111827">${esc(val||'—')}</div>
+  </div>`;
+  const indiv=r.regType==='individual'?`
+    ${row('Full Names & Surname',f.fullNames)}
+    ${row('Income Tax Number',f.incomeTaxNumber)}
+    ${row('ID/Passport Number',f.idPassport)}
+    ${row('Tax Directive',f.taxDirective)}
+    ${row('Physical Address',f.physicalAddress)}
+    ${row('Postal Address',f.postalAddress)}
+  `:'';
+  const company=r.regType==='company'?`
+    ${row('Supplier Name',f.supplierName)}
+    ${row('VAT Number',f.vatNumber)}
+    ${row('Company Registration Number',f.companyRegNumber)}
+    ${row('Physical Address',f.physicalAddress)}
+    ${row('Postal Address',f.postalAddress)}
+    ${row('Contact Person',f.contactPerson)}
+    ${row('Supplier Website Address',f.website)}
+  `:'';
+  const shared=`
+    ${row('Job Title',f.jobTitle)}
+    ${row('Contact Number',f.contactNumber)}
+    ${row('Email Address',f.email)}
+    ${row('Bank',f.bankName)}
+    ${row('Account Type',f.accountType)}
+    ${row('Account Number',f.accountNumber)}
+    ${row('Branch Name',f.branchName)}
+    ${row('Branch Code',f.branchCode)}
+  `;
+  const st=srStatusBadge(r.status,r.revoked);
+  return`<div class="ep-wrap" style="padding:0">
+    <div style="padding:12px 20px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <button class="btn" id="sr-detail-back-btn" style="font-size:14px;padding:6px 14px">◀ Back</button>
+      <span style="font-size:18px;font-weight:900;color:#111827">${esc(f.fullNames||f.supplierName||'Supplier Registration')}</span>
+      <span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:3px;background:${st.bg};color:${st.col};border:1px solid ${st.border}">${st.label}</span>
+      <div style="margin-left:auto">
+        ${r.regType?`<button class="btn primary" id="sr-detail-pdf-btn" data-token="${token}" style="font-size:14px;padding:6px 16px">⬇ Export PDF</button>`:''}
+      </div>
+    </div>
+    <div style="padding:24px;max-width:820px">
+      ${r.regType?`<div style="border:1px solid #e8edf5;border-radius:8px;overflow:hidden;margin-bottom:20px">
+        <div style="padding:10px 14px;background:#111827;color:#fff;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.6px">${srTypeLabel(r.regType)}</div>
+        ${r.regType==='individual'?indiv:company}
+        ${shared}
+      </div>`:`<div style="color:#9ca3af;font-size:15px">This supplier hasn't started their registration yet.</div>`}
+    </div>
+  </div>`;
+}
+
+const _SR_CSS=`
+  @page{size:A4 portrait;margin:16mm 18mm}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Calibri,'Calibri',Arial,sans-serif;color:#111;font-size:11pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .sr-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #111}
+  .sr-title{font-size:22pt;font-weight:900;letter-spacing:.5px}
+  .sr-logo{height:46px;width:auto}
+  .sr-bar{background:#111;color:#fff;font-size:12pt;font-weight:800;text-transform:uppercase;letter-spacing:.6px;padding:8px 14px;margin:14px 0 0}
+  .sr-row{display:flex;border-bottom:1px solid #e5e5e5}
+  .sr-label{width:230px;flex-shrink:0;font-size:10pt;color:#333;padding:9px 14px}
+  .sr-val{flex:1;background:#e5e5e5;padding:9px 14px;font-size:10.5pt;color:#111}
+  .sr-note{background:#bfe9f5;padding:8px 14px;font-size:9.5pt;color:#111;margin-top:2px}
+`;
+function _srRow(label,val){return`<div class="sr-row"><div class="sr-label">${label.toUpperCase()}:</div><div class="sr-val">${esc(val||'')}</div></div>`;}
+function _srBuildHtml(regType,fields){
+  const f=fields||{};
+  const logo=BAKED_CAP_LOGO;
+  const indiv=regType==='individual';
+  const title=indiv?'INDIVIDUALS':'FORMAL TRADING ENTITIES';
+  const idRows=indiv?`
+    ${_srRow('Full Names & Surname',f.fullNames)}
+    ${_srRow('Income Tax Number',f.incomeTaxNumber)}
+    ${_srRow('ID/Passport Number',f.idPassport)}
+    ${_srRow('Tax Directive',f.taxDirective)}
+    ${_srRow('Physical Address',f.physicalAddress)}
+    ${_srRow('Postal Address',f.postalAddress)}
+  `:`
+    ${_srRow('Supplier Name',f.supplierName)}
+    ${_srRow('VAT Number',f.vatNumber)}
+    ${_srRow('Company Registration Number',f.companyRegNumber)}
+    ${_srRow('Physical Address',f.physicalAddress)}
+    ${_srRow('Postal Address',f.postalAddress)}
+    ${_srRow('Contact Person',f.contactPerson)}
+  `;
+  const bankLabel=indiv?'Bank Confirmation Letter':'Bank FICA Letter';
+  return`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Supplier Registration - ${esc(f.fullNames||f.supplierName||'')}</title><style>${_SR_CSS}</style></head><body>
+    <div class="sr-head">
+      <div class="sr-title">SUPPLIER REGISTRATION</div>
+      <img src="${logo}" class="sr-logo" alt="Combined Artists">
+    </div>
+    <div class="sr-bar">${title}</div>
+    ${idRows}
+    ${_srRow('Job Title',f.jobTitle)}
+    ${!indiv?_srRow('Supplier Website Address',f.website):''}
+    ${_srRow('Contact Number',f.contactNumber)}
+    ${_srRow('Email Address',f.email)}
+    ${_srRow('Bank',f.bankName)}
+    ${_srRow('Account Type',f.accountType)}
+    ${_srRow('Account Number',f.accountNumber)}
+    ${_srRow('Branch Name',f.branchName)}
+    ${_srRow('Branch Code',f.branchCode)}
+    <div class="sr-note"><strong>${bankLabel}:</strong> Please forward to: kevin@combinedartists.co.za</div>
+    <div class="sr-note"><strong>BEE Status:</strong> Please forward certificate or affidavit to rudi@combinedartists.co.za</div>
+  </body></html>`;
+}
+function srExportPDF(token){
+  const r=srData[token];
+  if(!r||!r.regType)return;
+  const html=_srBuildHtml(r.regType,r.fields||{});
   const win=window.open('','_blank');
   win.document.write(html);
   win.document.close();
@@ -11504,6 +11742,49 @@ document.addEventListener('click',function contractsHandler(e){
 document.addEventListener('input',function contractFieldHandler(e){
   if(e.target.classList.contains('ct-field'))updateContractPreview();
 });
+document.addEventListener('click',function supplierRegHandler(e){
+  if(e.target.id==='sr-new-btn'){
+    const token=srGenToken();
+    const data={regType:'',fields:{},status:'pending',revoked:false,createdAt:{seconds:Math.floor(Date.now()/1000)},createdBy:currentUser?.displayName||currentUser?.email||'Unknown',createdByUid:currentUser?.uid||''};
+    srData[token]=data;
+    saveSupplierReg(token,data);
+    srLinkModal={token};
+    render();return;
+  }
+  if(e.target.id==='sr-link-close'||e.target.id==='sr-link-overlay'){srLinkModal=null;render();return;}
+  if(e.target.id==='sr-link-copy'){
+    const inp=document.getElementById('sr-link-url');
+    if(inp){
+      inp.select();
+      const done=()=>showToast('Link copied ✓');
+      const fail=()=>{try{document.execCommand('copy');done();}catch{showToast('Could not copy — select and copy manually',true);}};
+      if(navigator.clipboard?.writeText)navigator.clipboard.writeText(inp.value).then(done).catch(fail);
+      else fail();
+    }
+    return;
+  }
+  const copyBtn=e.target.closest('.sr-copy-btn');
+  if(copyBtn){srLinkModal={token:copyBtn.dataset.token};render();return;}
+  const viewBtn=e.target.closest('.sr-view-btn');
+  if(viewBtn){srViewToken=viewBtn.dataset.token;srView='detail';render();return;}
+  if(e.target.id==='sr-detail-back-btn'){srView='list';srViewToken=null;render();return;}
+  if(e.target.id==='sr-detail-pdf-btn'){srExportPDF(e.target.dataset.token);return;}
+  const revokeBtn=e.target.closest('.sr-revoke-btn');
+  if(revokeBtn){
+    const token=revokeBtn.dataset.token;
+    const r=srData[token];
+    if(!r)return;
+    r.revoked=!r.revoked;
+    saveSupplierReg(token,r);
+    render();return;
+  }
+  const delBtn=e.target.closest('.sr-del-btn');
+  if(delBtn){
+    if(!confirm('Delete this supplier registration link? This cannot be undone.'))return;
+    deleteSupplierReg(delBtn.dataset.token);
+    render();return;
+  }
+});
 // ── One-time global handlers (set up once, survive renders) ─────
 document.addEventListener('click',function epToggleHandler(e){
   // Story reorder arrows (module-scope delegation — onclick attrs can't reach module functions)
@@ -11578,6 +11859,7 @@ async function boot(){
         subscribeCallSheets().catch(e=>console.error('Call sheets load error:',e)),
         subscribeFCCData().catch(e=>console.error('FCC data load error:',e)),
         subscribeContracts().catch(e=>console.error('Contracts load error:',e)),
+        subscribeSupplierRegs().catch(e=>console.error('Supplier registrations error:',e)),
         subscribeLeaveBalances().catch(e=>console.error('Leave balances error:',e)),
         subscribeCommTranscripts().catch(e=>console.error('CommTranscripts error:',e)),
         subscribeLiveTranscripts().catch(e=>console.error('LiveTranscripts error:',e)),
@@ -11598,6 +11880,7 @@ async function boot(){
       if(unsubPresCalEnd){unsubPresCalEnd();unsubPresCalEnd=null;}
       if(unsubCallSheets){unsubCallSheets();unsubCallSheets=null;}
       if(unsubContracts){unsubContracts();unsubContracts=null;}
+      if(unsubSupplierRegs){unsubSupplierRegs();unsubSupplierRegs=null;}
       if(unsubMusicCues){unsubMusicCues();unsubMusicCues=null;}
       if(unsubEndCredits){unsubEndCredits();unsubEndCredits=null;}
       if(unsubStudioCrew){unsubStudioCrew();unsubStudioCrew=null;}
