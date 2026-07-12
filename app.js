@@ -126,7 +126,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.254';
+const BUILD_VERSION='3.10.255';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null;
@@ -182,6 +182,7 @@ let srView='list'; // 'list'|'detail'
 let srData={}; // Firebase loaded supplier registrations, keyed by token
 let srLinkModal=null; // {token} — Copy Link modal open after creating a link
 let srViewToken=null; // token of registration open in the read-only detail view
+let srShowArchived=false;
 let callSheetData={}; // {epNum: {anchor1,anchor1Time,anchor2,anchor2Time,director,floorMgr,autocue,makeup,vt,engineer,prod,prodTime,studioFacs,items:[{time,description,responsible}]}}
 let appTheme=localStorage.getItem('cb_theme')||'dark'; // 'dark' or 'light'
 let rosData={}; // {epNum: {items:[{type,label,content,duration}]}}
@@ -6347,12 +6348,14 @@ function renderSupplierReg(){
 function renderSupplierRegList(){
   const isFinance=getEffectiveRole()==='finance';
   const all=Object.entries(srData).sort((a,b)=>((b[1].createdAt?.seconds||0)-(a[1].createdAt?.seconds||0)));
+  const active=all.filter(([,r])=>!r.archived);
+  const archived=all.filter(([,r])=>!!r.archived);
   const thS='padding:8px 14px;font-size:12px;font-weight:800;text-transform:uppercase;color:#6b7280;text-align:left;border-bottom:2px solid #d1dae8';
-  const rows=all.map(([token,r])=>{
+  const makeRow=([token,r],isArchived)=>{
     const name=esc(r.fields?.fullNames||r.fields?.supplierName||'—');
     const st=srStatusBadge(r.status,r.revoked);
-    return`<tr style="border-bottom:1px solid #d1dae8">
-      <td style="padding:10px 14px;font-size:15px;font-weight:700;color:#111827">${name}</td>
+    return`<tr style="border-bottom:1px solid #d1dae8;${isArchived?'opacity:.6':''}">
+      <td style="padding:10px 14px;font-size:15px;font-weight:700;color:${isArchived?'#6b7280':'#111827'}">${name}</td>
       <td style="padding:10px 14px;font-size:14px;color:#6b7280">${srTypeLabel(r.regType)}</td>
       <td style="padding:10px 14px">
         <span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:3px;background:${st.bg};color:${st.col};border:1px solid ${st.border}">${st.label}</span>
@@ -6364,16 +6367,25 @@ function renderSupplierRegList(){
           ${!isFinance?`<button class="btn sr-copy-btn" data-token="${token}" style="font-size:13px;padding:3px 10px;border-color:#388bfd;color:#0066CC">🔗 Copy Link</button>`:''}
           ${r.regType?`<button class="btn sr-view-btn" data-token="${token}" style="font-size:13px;padding:3px 10px">👁 View</button>`:''}
           ${!isFinance&&r.status!=='finalised'?`<button class="btn sr-revoke-btn" data-token="${token}" data-revoked="${r.revoked?'1':'0'}" style="font-size:13px;padding:3px 10px;border-color:${r.revoked?'#e3b341':'#9ca3af'};color:${r.revoked?'#e3b341':'#9ca3af'}">${r.revoked?'Unrevoke':'Revoke'}</button>`:''}
+          ${!isFinance?`<button class="btn sr-archive-btn" data-token="${token}" data-archived="${isArchived?'1':'0'}" style="font-size:13px;padding:3px 10px;border-color:${isArchived?'#e3b341':'#484f58'};color:${isArchived?'#e3b341':'#484f58'}">${isArchived?'Unarchive':'Archive'}</button>`:''}
           ${!isFinance?`<span style="width:1px;height:18px;background:#d1dae8;display:inline-block;flex-shrink:0;margin:0 4px"></span><button class="btn sr-del-btn" data-token="${token}" style="font-size:13px;padding:3px 10px;border-color:#9ca3af;color:#9ca3af">✕</button>`:''}
         </div>
       </td>
     </tr>`;
-  }).join('');
-  const table=all.length===0
+  };
+  const thead=`<thead><tr style="background:#f8fafc">
+    <th style="${thS}">Name / Company</th><th style="${thS}">Type</th><th style="${thS}">Status</th><th style="${thS}">Link Created</th><th style="${thS}">Last Updated</th><th style="${thS}">Actions</th>
+  </tr></thead>`;
+  const activeTable=active.length===0
     ?`<div style="text-align:center;padding:60px;color:#9ca3af;font-size:16px">No supplier registration links yet. Click <strong>+ New Supplier Registration</strong> to create one.</div>`
-    :`<table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f8fafc">
-        <th style="${thS}">Name / Company</th><th style="${thS}">Type</th><th style="${thS}">Status</th><th style="${thS}">Link Created</th><th style="${thS}">Last Updated</th><th style="${thS}">Actions</th>
-      </tr></thead><tbody>${rows}</tbody></table>`;
+    :`<table style="width:100%;border-collapse:collapse">${thead}<tbody>${active.map(e=>makeRow(e,false)).join('')}</tbody></table>`;
+  const archivedSection=archived.length===0?'':`
+    <div style="margin-top:20px;border-top:1px solid #d1dae8;padding-top:16px">
+      <button id="sr-show-archived-btn" class="btn" style="font-size:13px;padding:4px 14px;border-color:#9ca3af;color:#9ca3af">
+        ${srShowArchived?'▲ Hide':'▼ Show'} Archived (${archived.length})
+      </button>
+      ${srShowArchived?`<div style="margin-top:14px;opacity:.85"><table style="width:100%;border-collapse:collapse">${thead}<tbody>${archived.map(e=>makeRow(e,true)).join('')}</tbody></table></div>`:''}
+    </div>`;
   return`<div class="ep-wrap" style="padding:0">
     <div style="padding:12px 20px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:12px">
       <h2 style="font-size:17px;font-weight:900;color:#111827;margin:0">Supplier Registration</h2>
@@ -6381,7 +6393,10 @@ function renderSupplierRegList(){
         ${!isFinance?`<button class="btn primary" id="sr-new-btn" style="font-size:15px;padding:6px 18px;font-weight:800">+ New Supplier Registration</button>`:''}
       </div>
     </div>
-    <div style="padding:20px">${table}</div>
+    <div style="padding:20px">
+      ${activeTable}
+      ${archivedSection}
+    </div>
     ${srLinkModal?renderSrLinkModal():''}
   </div>`;
 }
@@ -6465,9 +6480,9 @@ const _SR_CSS=`
   @page{size:A4 portrait;margin:16mm 18mm}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:Calibri,'Calibri',Arial,sans-serif;color:#111;font-size:11pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .sr-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #111}
-  .sr-title{font-size:22pt;font-weight:900;letter-spacing:.5px}
-  .sr-logo{height:46px;width:auto}
+  .sr-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #111}
+  .sr-title{font-size:22pt;font-weight:900;letter-spacing:.5px;flex-shrink:1;min-width:0}
+  .sr-logo{height:40px;width:auto;max-width:170px;max-height:40px;object-fit:contain;flex-shrink:0}
   .sr-bar{background:#111;color:#fff;font-size:12pt;font-weight:800;text-transform:uppercase;letter-spacing:.6px;padding:8px 14px;margin:14px 0 0}
   .sr-row{display:flex;border-bottom:1px solid #e5e5e5}
   .sr-label{width:230px;flex-shrink:0;font-size:10pt;color:#333;padding:9px 14px}
@@ -11780,6 +11795,17 @@ document.addEventListener('click',function supplierRegHandler(e){
     saveSupplierReg(token,r);
     render();return;
   }
+  const archiveBtn=e.target.closest('.sr-archive-btn');
+  if(archiveBtn){
+    const token=archiveBtn.dataset.token;
+    const r=srData[token];
+    if(!r)return;
+    const nowArchived=archiveBtn.dataset.archived==='1';
+    r.archived=!nowArchived;
+    saveSupplierReg(token,r);
+    render();return;
+  }
+  if(e.target.id==='sr-show-archived-btn'){srShowArchived=!srShowArchived;render();return;}
   const delBtn=e.target.closest('.sr-del-btn');
   if(delBtn){
     if(!confirm('Delete this supplier registration link? This cannot be undone.'))return;
