@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<title>Sign Contract — Combined Artists</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#f4f6fa;color:#111827;font-family:'Plus Jakarta Sans',Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .cs-page{max-width:900px;margin:0 auto;padding:20px 16px 60px}
+  .cs-head{display:flex;align-items:center;justify-content:space-between;padding:18px 4px 22px;border-bottom:3px solid #002868;margin-bottom:22px;flex-wrap:wrap;gap:8px}
+  .cs-title{font-size:22px;font-weight:800;color:#002868;letter-spacing:.2px}
+  .cs-sub{font-size:14px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.6px}
+  .cs-msg{max-width:520px;margin:80px auto;padding:32px 28px;background:#fff;border:1px solid #d1dae8;border-radius:12px;text-align:center}
+  .cs-msg h1{font-size:20px;color:#002868;margin:0 0 10px}
+  .cs-msg p{font-size:15px;color:#4b5563;line-height:1.6;margin:0}
+  .cs-doc-wrap{background:#fff;border:1px solid #d1dae8;border-radius:12px;overflow:hidden;margin-bottom:24px}
+  .cs-doc-label{padding:12px 18px;background:#f8fafc;border-bottom:1px solid #e8edf5;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280}
+  .cs-section-bar{background:#002868;color:#fff;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;padding:10px 14px;border-radius:6px;margin:0 0 16px}
+  .cs-card{background:#fff;border:1px solid #d1dae8;border-radius:12px;padding:22px}
+  .cs-field{display:flex;flex-direction:column;gap:5px;margin-bottom:16px}
+  .cs-field label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280}
+  .cs-field input{width:100%;background:#fff;border:1px solid #d1dae8;border-radius:7px;color:#111827;font-size:16px;padding:11px 12px;font-family:inherit;min-height:44px;outline:none}
+  .cs-field input:focus{border-color:#0066CC;box-shadow:0 0 0 3px rgba(0,102,204,.12)}
+  .cs-grid2{display:grid;grid-template-columns:1fr;gap:16px}
+  @media(min-width:560px){.cs-grid2{grid-template-columns:1fr 1fr}}
+  .cs-pad-label{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px}
+  .cs-pad-label span{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280}
+  .cs-mode-btns{display:flex;gap:6px}
+  .cs-mode-btn{background:#fff;border:1px solid #d1dae8;border-radius:6px;font-size:12px;font-weight:700;padding:5px 10px;cursor:pointer;min-height:32px}
+  .cs-mode-btn.active{border-color:#0066CC;color:#0066CC;background:#eff6ff}
+  .cs-clear-btn{background:none;border:none;color:#9ca3af;font-size:12px;font-weight:700;cursor:pointer;padding:5px 6px}
+  .cs-canvas{width:100%;background:#fff;border:1px solid #d1dae8;border-radius:8px;touch-action:none;display:block}
+  .cs-typed-row{margin-bottom:8px}
+  .cs-agree{display:flex;align-items:flex-start;gap:10px;margin:22px 0;font-size:14px;color:#374151;line-height:1.5}
+  .cs-agree input{width:20px;height:20px;flex-shrink:0;margin-top:1px}
+  .cs-btn{width:100%;min-height:50px;border-radius:8px;font-size:16px;font-weight:800;cursor:pointer;border:2px solid transparent;padding:12px 18px;background:#0066CC;color:#fff}
+  .cs-btn:disabled{opacity:.5;cursor:default}
+  .cs-btn:not(:disabled):hover{background:#0052a3}
+  .cs-status{margin-top:14px;font-size:14px;font-weight:600;color:#dc2626;min-height:20px;text-align:center}
+  @media(max-width:420px){.cs-title{font-size:19px}}
+</style>
+</head>
+<body>
+<div id="root" style="padding:60px 16px;text-align:center;color:#6b7280;font-size:15px">Loading…</div>
+<script type="module">
+import{initializeApp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import{getFirestore,doc,getDoc,updateDoc,serverTimestamp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import{_ctBuildHtml,_ctRenderHtmlInPane}from'./contract-templates.js';
+import{createSignaturePad}from'./signature-widget.js';
+
+const firebaseConfig={
+  apiKey:"AIzaSyBDSrxjYt9AcRFiDB33CKSl_HzYwhv9XhY",
+  authDomain:"cb-commissions-portal.firebaseapp.com",
+  projectId:"cb-commissions-portal",
+  storageBucket:"cb-commissions-portal.firebasestorage.app",
+  messagingSenderId:"679597020811",
+  appId:"1:679597020811:web:f18e392a2482fd8c8ce68e"
+};
+const fbApp=initializeApp(firebaseConfig);
+const db=getFirestore(fbApp);
+
+const root=document.getElementById('root');
+const token=new URLSearchParams(location.search).get('token');
+
+let link=null;
+let saving=false;
+let sigPad=null,initialsPad=null;
+
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function header(){
+  return `<div class="cs-head"><div class="cs-title">Sign Contract</div><div class="cs-sub">Combined Artists</div></div>`;
+}
+function msg(title,body){
+  root.innerHTML=`<div class="cs-page">${header()}<div class="cs-msg"><h1>${esc(title)}</h1><p>${body}</p></div></div>`;
+}
+
+async function init(){
+  if(!token){msg('Link not valid','This signing link is missing its token. Please check the link you were sent, or contact Combined Artists for a new one.');return;}
+  try{
+    const snap=await getDoc(doc(db,'contract_signing_links',token));
+    if(!snap.exists()){msg('Link not valid','This signing link doesn’t exist. Please check the link or contact Combined Artists for a new one.');return;}
+    link=snap.data();
+    render();
+  }catch(e){
+    console.error(e);
+    msg('Something went wrong','Please refresh the page. If this keeps happening, contact Combined Artists.');
+  }
+}
+
+function render(){
+  if(link.revoked){msg('Link revoked','This signing link has been revoked. Please contact Combined Artists for a new one.');return;}
+  if(link.status==='signed'){msg('✓ Already signed','This agreement has already been signed. Contact Combined Artists if anything needs to change.');return;}
+  if(link.expiresAt&&new Date(link.expiresAt)<new Date()){msg('Link expired','This signing link has expired. Please contact Combined Artists for a new one.');return;}
+  renderForm();
+}
+
+function renderForm(){
+  const today=new Date().toISOString().slice(0,10);
+  const html=_ctBuildHtml(link.contractType,link.fields||{});
+  root.innerHTML=`<div class="cs-page">${header()}
+    <div class="cs-doc-wrap">
+      <div class="cs-doc-label">Please review the agreement below</div>
+    </div>
+    <div class="cs-card">
+      <div class="cs-section-bar">Sign as ${esc(link.signatoryLabel||'Signatory')}</div>
+      <div class="cs-grid2">
+        <div class="cs-field"><label>Date</label><input id="cs-date" type="date" value="${today}"></div>
+        <div class="cs-field"><label>Place</label><input id="cs-place" placeholder="e.g. Johannesburg"></div>
+      </div>
+      ${sigBlock('cs-sig','Signature')}
+      ${sigBlock('cs-init','Initials')}
+      <label class="cs-agree">
+        <input type="checkbox" id="cs-agree">
+        <span>I confirm I have read and agree to the terms of this agreement, and that the signature above is mine.</span>
+      </label>
+      <button class="cs-btn" id="cs-submit" disabled>Sign &amp; Submit</button>
+      <div class="cs-status" id="cs-status"></div>
+    </div>
+  </div>`;
+  wireDocFrame(html);
+  wirePad('cs-sig',p=>sigPad=p);
+  wirePad('cs-init',p=>initialsPad=p);
+  document.getElementById('cs-agree').addEventListener('change',updateSubmitEnabled);
+  document.getElementById('cs-submit').addEventListener('click',onSubmit);
+}
+
+function wireDocFrame(html){
+  // _ctRenderHtmlInPane replaces the pane's contents with a fresh iframe wrapper — re-select it
+  const wrap=document.querySelector('.cs-doc-wrap');
+  const label=wrap.querySelector('.cs-doc-label');
+  wrap.innerHTML='';
+  wrap.appendChild(label);
+  const pane=document.createElement('div');
+  wrap.appendChild(pane);
+  _ctRenderHtmlInPane(pane,html);
+}
+
+function sigBlock(prefix,label){
+  return`<div style="margin-bottom:18px">
+    <div class="cs-pad-label">
+      <span>${label}</span>
+      <div class="cs-mode-btns">
+        <button type="button" class="cs-mode-btn active" data-prefix="${prefix}" data-mode="draw">✏ Draw</button>
+        <button type="button" class="cs-mode-btn" data-prefix="${prefix}" data-mode="type">⌨ Type</button>
+        <button type="button" class="cs-clear-btn" data-prefix="${prefix}">Clear</button>
+      </div>
+    </div>
+    <div class="cs-typed-row" id="${prefix}-type-row" style="display:none">
+      <input id="${prefix}-typed" placeholder="Type your ${label.toLowerCase()} — it will render as a signature">
+    </div>
+    <canvas class="cs-canvas" id="${prefix}-canvas" style="height:${prefix==='cs-sig'?150:90}px"></canvas>
+  </div>`;
+}
+
+function wirePad(prefix,assign){
+  const canvas=document.getElementById(prefix+'-canvas');
+  const pad=createSignaturePad(canvas);
+  assign(pad);
+  document.querySelectorAll(`.cs-mode-btn[data-prefix="${prefix}"]`).forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll(`.cs-mode-btn[data-prefix="${prefix}"]`).forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const typeRow=document.getElementById(prefix+'-type-row');
+      if(btn.dataset.mode==='type'){
+        typeRow.style.display='block';
+        const typedInp=document.getElementById(prefix+'-typed');
+        pad.setTypedText(typedInp.value||'');
+        typedInp.focus();
+      }else{
+        typeRow.style.display='none';
+        pad.setDrawMode();
+      }
+      updateSubmitEnabled();
+    });
+  });
+  document.getElementById(prefix+'-typed').addEventListener('input',e=>{pad.setTypedText(e.target.value);updateSubmitEnabled();});
+  canvas.addEventListener('pointerup',updateSubmitEnabled);
+  document.querySelector(`.cs-clear-btn[data-prefix="${prefix}"]`).addEventListener('click',()=>{
+    pad.clear();
+    document.getElementById(prefix+'-type-row').style.display='none';
+    document.getElementById(prefix+'-typed').value='';
+    document.querySelectorAll(`.cs-mode-btn[data-prefix="${prefix}"]`).forEach(b=>b.classList.remove('active'));
+    document.querySelector(`.cs-mode-btn[data-prefix="${prefix}"][data-mode="draw"]`).classList.add('active');
+    updateSubmitEnabled();
+  });
+}
+
+function updateSubmitEnabled(){
+  const btn=document.getElementById('cs-submit');
+  if(!btn)return;
+  const agreed=document.getElementById('cs-agree')?.checked;
+  const hasSig=sigPad&&!sigPad.isEmpty();
+  btn.disabled=!(agreed&&hasSig);
+}
+
+async function onSubmit(){
+  if(saving)return;
+  if(!sigPad||sigPad.isEmpty()){setStatus('Please provide a signature first.');return;}
+  if(!confirm('Submit your signature? Once submitted, you won’t be able to make further changes via this link.'))return;
+  saving=true;
+  document.getElementById('cs-submit').disabled=true;
+  setStatus('Submitting…',false);
+  try{
+    const payload={
+      status:'signed',
+      signature:sigPad.toDataURL(),
+      initials:(initialsPad&&!initialsPad.isEmpty())?initialsPad.toDataURL():'',
+      signDate:document.getElementById('cs-date').value||'',
+      signPlace:document.getElementById('cs-place').value||'',
+      signedAt:serverTimestamp()
+    };
+    await updateDoc(doc(db,'contract_signing_links',token),payload);
+    link={...link,status:'signed'};
+    saving=false;
+    render();
+  }catch(e){
+    console.error(e);
+    saving=false;
+    document.getElementById('cs-submit').disabled=false;
+    setStatus('Could not submit — please check your connection and try again.');
+  }
+}
+function setStatus(text,isError=true){
+  const el=document.getElementById('cs-status');
+  if(!el)return;
+  el.style.color=isError?'#dc2626':'#6b7280';
+  el.textContent=text;
+}
+
+init();
+</script>
+</body>
+</html>
