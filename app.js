@@ -39,6 +39,7 @@ const PERM_MAP=[
   ]},
   {group:'ADMIN',rows:[
     {label:'Contracts',         admin:'Full Edit',  deputyadmin:'—',          editorial:'—',               operations:'—',         production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'View',  director:'—'},
+    {label:'Supplier Registration',admin:'Full Edit',deputyadmin:'—',         editorial:'—',               operations:'—',         production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'View',  director:'—'},
     {label:'Users',             admin:'Full Edit',  deputyadmin:'—',          editorial:'—',               operations:'—',         production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'—',     director:'—'},
   ]},
 ];
@@ -125,7 +126,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.253';
+const BUILD_VERSION='3.10.254';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null;
@@ -1763,6 +1764,7 @@ function renderSidebar(){
   ].filter(Boolean);
   const adm=[
     item('contracts','Contracts',(currentRole==='admin'&&!previewRole)||currentRole==='finance'),
+    item('supplierreg','Supplier Registration',(currentRole==='admin'&&!previewRole)||currentRole==='finance'),
     item('admin','Users',currentRole==='admin'&&!previewRole),
   ].filter(Boolean);
   return`
