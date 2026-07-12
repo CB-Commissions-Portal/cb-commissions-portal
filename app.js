@@ -125,8 +125,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.250';
-const BUILD_DATE='10 Jul 2026';
+const BUILD_VERSION='3.10.251';
+const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -572,8 +572,10 @@ async function saveROS(epNum,data){
   rosLocalWrite=true;
   const updatedByName=currentUser?.displayName||currentUser?.email||'Unknown';
   const updatedAtStr=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  rosData[epNum]={...data,updatedByName,updatedAtStr};
-  try{await setDoc(doc(db,'run_of_show',String(epNum)),{...data,updatedAt:serverTimestamp(),updatedByName,updatedAtStr});setSyncDot('live');}
+  const _existing=rosData[epNum]||{};
+  const payload={rosLocked:_existing.rosLocked||false,rosLockedBy:_existing.rosLockedBy||null,rosLockedAt:_existing.rosLockedAt||null,...data};
+  rosData[epNum]={...payload,updatedByName,updatedAtStr};
+  try{await setDoc(doc(db,'run_of_show',String(epNum)),{...payload,updatedAt:serverTimestamp(),updatedByName,updatedAtStr});setSyncDot('live');}
   catch(e){setSyncDot('offline');showToast('ROS save failed: '+e.message,true);}
   finally{setTimeout(()=>{rosLocalWrite=false;},1500);}
 }
@@ -4855,9 +4857,11 @@ function rosNewItem(key){
 }
 
 function renderRunOfShow(){
-  const canEdit=['admin','deputyadmin','editorial'].includes(getEffectiveRole());
-  const canEditScriptOnly=getEffectiveRole()==='content';
-  const canEditDirectorNotes=['admin','director'].includes(getEffectiveRole());
+  const isSuperAdmin=getEffectiveRole()==='admin';
+  const isLockedScript=!!rosData[String(rosCurrentEp)]?.rosLocked;
+  const canEdit=['admin','deputyadmin','editorial'].includes(getEffectiveRole())&&(!isLockedScript||isSuperAdmin);
+  const canEditScriptOnly=getEffectiveRole()==='content'&&(!isLockedScript||isSuperAdmin);
+  const canEditDirectorNotes=['admin','director'].includes(getEffectiveRole())&&(!isLockedScript||isSuperAdmin);
   const epNums=getEpNums().sort((a,b)=>a-b);
 
   // Episode picker
@@ -4876,6 +4880,7 @@ function renderRunOfShow(){
         </div>
         <div style="display:flex;align-items:center;gap:10px">
           ${hasSaved?`<span style="font-size:13px;background:#dcfce7;color:#16a34a;padding:4px 10px;border-radius:4px;border:1px solid #86efac;font-weight:700">HAS RUN OF SHOW</span>`:''}
+          ${rosData[String(ep)]?.rosLocked?`<span style="font-size:13px;background:#fee2e2;color:#b91c1c;padding:4px 10px;border-radius:4px;border:1px solid #fca5a5;font-weight:700">🔒 LOCKED</span>`:''}
           <span style="color:#c084fc;font-size:24px;font-weight:300">→</span>
         </div>
       </div>`;
@@ -4993,6 +4998,7 @@ function renderRunOfShow(){
           <span style="font-size:16px;color:#6b7280;margin-left:14px">${epDateFmt}</span>
         </div>
         ${(()=>{const _ub=rosData[String(epNum)]?.updatedByName;const _ua=rosData[String(epNum)]?.updatedAtStr;return `<div style="font-size:13px;color:#6b7280;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;padding:5px 12px;line-height:1.5"><span style="color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:11px">Last saved by</span><br><span style="color:${_ub?'#111827':'#9ca3af'};font-weight:700;font-style:${_ub?'normal':'italic'}">${esc(_ub||'Not yet saved')}</span>${_ua?`<span style="color:#9ca3af"> · ${esc(_ua)}</span>`:''}</div>`;})()}
+        ${isLockedScript?(()=>{const _lb=rosData[String(epNum)]?.rosLockedBy;const _la=rosData[String(epNum)]?.rosLockedAt;return`<div style="font-size:13px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:6px;padding:5px 12px;font-weight:800;letter-spacing:.3px">🔒 LOCKED FOR EDITING${_lb?` · ${esc(_lb)}`:''}${_la?` · ${esc(_la)}`:''}</div>`;})():''}
         <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <span style="font-size:20px;font-weight:900;color:#7c3aed;font-family:monospace" id="ros-total">Total: ${rosSecsToStr(totalSecs)}</span>
           <button class="btn" id="ros-export-pdf-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#16a34a;color:#16a34a">⬇ ROS PDF</button>
@@ -5001,6 +5007,7 @@ function renderRunOfShow(){
           <button class="btn" id="ros-export-vt-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#b45309;color:#b45309">⬇ VT List</button>
           ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#b45309;color:#b45309"># Numbers</button>`:''}
           ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:16px;padding:8px 24px;font-weight:800">💾 Save</button>`:''}
+          ${isSuperAdmin?`<button class="btn" id="ros-lock-btn" style="font-size:15px;padding:8px 20px;font-weight:800;border-color:${isLockedScript?'#16a34a':'#dc2626'};color:${isLockedScript?'#16a34a':'#dc2626'}">${isLockedScript?'🔓 UNLOCK SCRIPT':'🔒 EXPORTED FOR PRINT'}</button>`:''}
           <a href="studio-script-build-guide.html" target="_blank" class="btn" style="font-size:15px;padding:8px 16px;font-weight:700;border-color:#9ca3af;color:#6b7280;text-decoration:none">? Guide</a>
         </div>
       </div>
@@ -10836,6 +10843,7 @@ document.addEventListener('click',function rosHandler(e){
   // Edit Item modal — save
   if(e.target.id==='ros-edit-save'&&rosEditModal){
     const {epNum,itemIdx}=rosEditModal;
+    if(rosData[String(epNum)]?.rosLocked&&getEffectiveRole()!=='admin'){showToast('Script is locked for editing. Ask a Super Admin to unlock.',true);rosEditModal=null;render();return;}
     const items=(rosData[String(epNum)]?.items)||[];
     if(items[itemIdx]!==undefined){
       const it=items[itemIdx];
@@ -10997,10 +11005,34 @@ document.addEventListener('click',function rosHandler(e){
   }
   if(e.target.id==='ros-save-btn'){
     if(!rosCurrentEp)return;
+    if(rosData[String(rosCurrentEp)]?.rosLocked&&getEffectiveRole()!=='admin'){showToast('Script is locked for editing. Ask a Super Admin to unlock.',true);return;}
     const items=rosGetCurrentItems();
     rosFlushAndSave(items);
     render();
     showToast('Studio Script Build saved ✓');
+    return;
+  }
+  // Lock / unlock whole script (Super Admin only)
+  if(e.target.id==='ros-lock-btn'){
+    if(!rosCurrentEp||getEffectiveRole()!=='admin')return;
+    const ep=rosCurrentEp;
+    const items=rosGetCurrentItems();
+    rosFlushDomToItems(items);
+    const isLocked=!!rosData[String(ep)]?.rosLocked;
+    if(isLocked){
+      if(!confirm('Unlock this studio script build for editing?'))return;
+      rosData[String(ep)].items=items;
+      saveROS(ep,{items,epNum:ep,rosLocked:false,rosLockedBy:null,rosLockedAt:null});
+      showToast('Script unlocked ✓');
+    }else{
+      if(!confirm('Lock this studio script build? Only Super Admin will be able to edit it until unlocked.'))return;
+      const _who=currentUser?.displayName||currentUser?.email||'Unknown';
+      const _when=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      rosData[String(ep)].items=items;
+      saveROS(ep,{items,epNum:ep,rosLocked:true,rosLockedBy:_who,rosLockedAt:_when});
+      showToast('Script locked for editing ✓');
+    }
+    render();
     return;
   }
   // Add item
@@ -11065,6 +11097,7 @@ document.addEventListener('click',function rosHandler(e){
   // Finalise / un-finalise toggle
   const finBtn=e.target.closest('.ros-finalise-btn');
   if(finBtn){
+    if(rosData[String(rosCurrentEp)]?.rosLocked&&getEffectiveRole()!=='admin'){showToast('Script is locked for editing. Ask a Super Admin to unlock.',true);return;}
     const idx=Number(finBtn.dataset.idx);
     const items=rosGetCurrentItems();
     rosFlushDomToItems(items);
