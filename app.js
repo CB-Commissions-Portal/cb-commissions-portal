@@ -41,6 +41,7 @@ const PERM_MAP=[
     {label:'Contracts',         admin:'Full Edit',  deputyadmin:'—',          editorial:'—',               operations:'—',         production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'View',  director:'—'},
     {label:'Supplier Registration',admin:'Full Edit',deputyadmin:'—',         editorial:'—',               operations:'—',         production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'View',  director:'—'},
     {label:'Users',             admin:'Full Edit',  deputyadmin:'—',          editorial:'—',               operations:'—',         production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'—',     director:'—'},
+    {label:'Backup & Restore',  admin:'Full Edit',  deputyadmin:'—',          editorial:'—',               operations:'—',         production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'—',     director:'—'},
   ]},
 ];
 const DEL_KEYS=['callSheets','insertScripts','releaseForms','footageAgreement','musicCueSheet','footageDeclaration','carpUpload'];
@@ -126,7 +127,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.255';
+const BUILD_VERSION='3.10.256';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null;
@@ -1610,6 +1611,7 @@ function renderHome(){
       mk('contracts','Contracts','Finance & Legal',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`,'#a3e635','rgba(163,230,53,.1)',(currentRole==='admin'&&!previewRole)||role==='finance','Presenter and contractor agreements'),
       mk('supplierreg','Supplier Registration','Onboarding',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>`,'#38bdf8','rgba(56,189,248,.1)',(currentRole==='admin'&&!previewRole)||role==='finance','Remote supplier onboarding links'),
       mk('admin','Admin','Users & Access',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,'#e3b341','rgba(227,179,65,.1)',currentRole==='admin'&&!previewRole,'Manage users, roles and access control'),
+      mk('backup','Backup & Restore','Data Safety',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><line x1="10" y1="12" x2="14" y2="12"/></svg>`,'#f87171','rgba(248,113,113,.1)',currentRole==='admin'&&!previewRole,'Export or restore a full snapshot of portal data'),
     ].filter(Boolean)},
   ].filter(s=>s.items.length);
 
@@ -1767,6 +1769,7 @@ function renderSidebar(){
     item('contracts','Contracts',(currentRole==='admin'&&!previewRole)||currentRole==='finance'),
     item('supplierreg','Supplier Registration',(currentRole==='admin'&&!previewRole)||currentRole==='finance'),
     item('admin','Users',currentRole==='admin'&&!previewRole),
+    item('backup','Backup &amp; Restore',currentRole==='admin'&&!previewRole),
   ].filter(Boolean);
   return`
 <div class="sidebar no-print">
@@ -1885,6 +1888,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='broadcast'&&role!=='afm'&&role!=='transcripts')return renderBroadcastList();
   if(tab==='contracts'&&((currentRole==='admin'&&!previewRole)||currentRole==='finance'))return renderContracts();
   if(tab==='supplierreg'&&((currentRole==='admin'&&!previewRole)||currentRole==='finance'))return renderSupplierReg();
+  if(tab==='backup'&&currentRole==='admin'&&!previewRole)return renderBackupRestore();
   if(tab==='admin'&&currentRole==='admin'&&!previewRole)return renderAdmin();
   return '';
 }
@@ -6811,53 +6815,61 @@ function renderLineups(epNums){
 }
 
 
+function renderBackupRestore(){
+  return`<div class="ep-wrap" style="padding:28px 32px;max-width:760px">
+    <h2 style="font-size:22px;font-weight:900;color:#111827;margin:0 0 6px">Backup &amp; Restore</h2>
+    <p style="font-size:15px;color:#6b7280;margin:0 0 24px;line-height:1.5">Create a full snapshot of all portal data, or restore from a previously downloaded backup file.</p>
+
+    <div style="background:#fff;border:1px solid #d1dae8;border-radius:12px;padding:24px;margin-bottom:18px;display:flex;gap:18px;align-items:flex-start">
+      <div style="font-size:30px;line-height:1">📥</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:17px;font-weight:800;color:#111827;margin-bottom:8px">Create Backup</div>
+        <div style="font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:16px">Downloads a complete JSON snapshot of every collection in the portal — commissions, line-ups, post production, music cues, presenter calendar, leave records, contracts, and more. Save this file somewhere safe.</div>
+        <button class="btn primary" id="backup-export-btn" style="font-size:15px;padding:9px 20px;font-weight:800">⬇ Download Backup JSON</button>
+        <div style="margin-top:14px;padding:10px 14px;background:#f8fafc;border-radius:6px;border:1px solid #e8edf5;font-size:12px;color:#9ca3af;line-height:1.5">
+          💡 <strong style="color:#6b7280">Tip:</strong> Run a backup before major changes, and keep at least one copy offsite (Google Drive, email to yourself, etc.).
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #d1dae8;border-radius:12px;padding:24px;display:flex;gap:18px;align-items:flex-start">
+      <div style="font-size:30px;line-height:1">📤</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:17px;font-weight:800;color:#111827;margin-bottom:8px">Restore from Backup</div>
+        <div style="font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:14px">Select a previously downloaded backup file. Matching documents will be overwritten with the backed-up data. Documents that exist in the portal but are not in the backup file are left untouched.</div>
+        <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#92400e;line-height:1.6">
+          <strong>⚠ Important</strong> — Only restore from a backup you created yourself from this portal. This cannot be undone.
+        </div>
+        <label class="btn" style="cursor:pointer;font-size:15px;padding:9px 20px;font-weight:800;display:inline-block">📁 Choose File…<input type="file" id="restore-file-input" accept=".json" style="display:none"></label>
+        ${restorePreview?`
+        <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:16px 18px;margin-top:18px">
+          <div style="font-size:14px;font-weight:800;color:#dc2626;margin-bottom:10px">Restore Preview — confirm before proceeding</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;margin-bottom:10px;font-size:13px;color:#6b7280">
+            <div>Backup date: <strong style="color:#111827">${new Date(restorePreview.backup.exportedAt).toLocaleString('en-ZA')}</strong></div>
+            <div>Exported by: <strong style="color:#111827">${restorePreview.backup.exportedBy||'—'}</strong></div>
+            <div>App version: <strong style="color:#111827">${restorePreview.backup.appVersion||'—'}</strong></div>
+            <div>Season: <strong style="color:#111827">${restorePreview.backup.season||'—'}</strong></div>
+          </div>
+          <div style="font-size:12px;color:#6b7280;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:6px">
+            ${restorePreview.summary.map(([col,count])=>`<span style="background:#f3f4f6;padding:2px 8px;border-radius:3px;font-family:monospace">${col}: ${count}</span>`).join('')}
+          </div>
+          <div style="background:#fff;border:1px solid #dc2626;border-radius:4px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:#dc2626;line-height:1.5">
+            ⚠ <strong>WARNING:</strong> This will overwrite existing data for all collections in the backup file. This cannot be undone. Export a fresh backup first if you want to preserve the current state.
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button class="btn" id="restore-cancel-btn" style="font-size:14px">Cancel</button>
+            <button class="btn danger" id="restore-confirm-btn" style="font-weight:800;font-size:14px">Confirm Restore</button>
+          </div>
+        </div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderAdmin(){
   const allRoles=Object.entries(ROLE_META);
   return`<div class="admin-wrap">
   <div class="admin-grid">
-  <div class="admin-card" style="grid-column:1/-1;background:linear-gradient(135deg,#002868 0%,#0052A3 100%);border:1px solid rgba(0,102,204,.25)">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-      <div>
-        <h4 style="margin:0 0 4px 0;color:#388bfd">Data Backup</h4>
-        <div style="font-size:13px;color:#6b7280">Downloads a full JSON snapshot of all Firebase data — commissions, lineups, post production, music cues, presenter calendar, leave records and more.</div>
-      </div>
-      <button class="btn primary" id="backup-export-btn" style="border-color:#388bfd;color:#388bfd;background:rgba(56,139,253,0.1);white-space:nowrap;padding:8px 18px;font-size:14px;font-weight:800">⬇ Export Full Backup</button>
-    </div>
-    <div style="margin-top:12px;padding:10px 12px;background:#f8fafc;border-radius:6px;border:1px solid #e8edf5;font-size:12px;color:#9ca3af">
-      💡 <strong style="color:#6b7280">Tip:</strong> Run a backup before major changes, and keep at least one copy offsite (Google Drive, email to yourself, etc.). The file can be used to restore data if needed.
-    </div>
-    <hr style="border:none;border-top:1px solid #21262d;margin:16px 0">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-      <div>
-        <h4 style="margin:0 0 4px 0;color:#f85149">Restore from Backup</h4>
-        <div style="font-size:13px;color:#6b7280">Upload a previously exported JSON backup file to restore all data to that point in time.</div>
-      </div>
-      <label class="btn" style="cursor:pointer;border-color:#f85149;color:#f85149;background:rgba(248,81,73,.08);white-space:nowrap;padding:8px 18px;font-size:14px;font-weight:800">
-        ⬆ Restore from Backup
-        <input type="file" id="restore-file-input" accept=".json" style="display:none">
-      </label>
-    </div>
-    ${restorePreview?`
-    <div style="background:#fef2f2;border:1px solid #f8514966;border-radius:6px;padding:14px 16px;margin-top:14px">
-      <div style="font-size:14px;font-weight:700;color:#f85149;margin-bottom:10px">Restore Preview — confirm before proceeding</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;margin-bottom:10px;font-size:13px;color:#6b7280">
-        <div>Backup date: <strong style="color:#e6edf3">${new Date(restorePreview.backup.exportedAt).toLocaleString('en-ZA')}</strong></div>
-        <div>Exported by: <strong style="color:#e6edf3">${restorePreview.backup.exportedBy||'—'}</strong></div>
-        <div>App version: <strong style="color:#e6edf3">${restorePreview.backup.appVersion||'—'}</strong></div>
-        <div>Season: <strong style="color:#e6edf3">${restorePreview.backup.season||'—'}</strong></div>
-      </div>
-      <div style="font-size:12px;color:#6b7280;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:6px">
-        ${restorePreview.summary.map(([col,count])=>`<span style="background:#e8edf5;padding:2px 8px;border-radius:3px;font-family:monospace">${col}: ${count}</span>`).join('')}
-      </div>
-      <div style="background:#fff1f2;border:1px solid #f85149;border-radius:4px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#f85149;line-height:1.5">
-        ⚠ <strong>WARNING:</strong> This will overwrite existing data for all collections in the backup file. This cannot be undone. Export a fresh backup first if you want to preserve the current state.
-      </div>
-      <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button class="btn" id="restore-cancel-btn" style="font-size:14px">Cancel</button>
-        <button class="btn" id="restore-confirm-btn" style="border-color:#f85149;color:#f85149;background:rgba(248,81,73,.12);font-weight:800;font-size:14px">Confirm Restore</button>
-      </div>
-    </div>`:''}
-  </div>
   <div class="admin-card" style="grid-column:1/-1">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <h4 style="margin:0">Users &amp; Access</h4>
