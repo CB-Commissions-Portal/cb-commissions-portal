@@ -129,7 +129,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.258';
+const BUILD_VERSION='3.10.259';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5728,6 +5728,10 @@ function renderContractList(){
           <button class="btn ct-preview-btn" data-id="${id}" style="font-size:13px;padding:3px 10px;border-color:#0066CC;color:#0066CC">👁 Preview</button>
           <button class="btn ct-pdf-btn" data-id="${id}" style="font-size:13px;padding:3px 10px;border-color:#388bfd;color:#0066CC">⬇ PDF</button>
           ${!isFinance&&c.signStatus!=='signed'?`<button class="btn ct-gen-link-btn" data-id="${id}" style="font-size:13px;padding:3px 10px;border-color:#7c3aed;color:#7c3aed">🔗 Signing Link</button>`:''}
+          ${!isFinance?ctCompanySlots(c.type).map(s=>{
+            const signed=!!c.fields?.[`companySig${s.slot}Img`];
+            return`<button class="btn ct-sign-as-btn" data-id="${id}" data-slot="${s.slot}" data-name="${esc(s.defaultName)}" style="font-size:13px;padding:3px 10px;border-color:${signed?'#16a34a':'#7c3aed'};color:${signed?'#16a34a':'#7c3aed'}">${signed?'✓ Signed':'✍ Sign'} as ${esc(s.defaultName||'Client')}</button>`;
+          }).join(''):''}
           ${!isFinance?`<button class="btn ct-duplicate-btn" data-id="${id}" style="font-size:13px;padding:3px 10px;border-color:#56d364;color:#56d364">⧉ Duplicate</button>`:''}
           ${!isFinance?`<button class="btn ct-archive-btn" data-id="${id}" data-archived="${isArchived?'1':'0'}" style="font-size:13px;padding:3px 10px;border-color:${isArchived?'#e3b341':'#484f58'};color:${isArchived?'#e3b341':'#484f58'}">${isArchived?'Unarchive':'Archive'}</button>`:''}
           ${!isFinance?`<span style="width:1px;height:18px;background:#d1dae8;display:inline-block;flex-shrink:0;margin:0 4px"></span><button class="btn ct-del-btn" data-id="${id}" style="font-size:13px;padding:3px 10px;border-color:#9ca3af;color:#9ca3af">✕</button>`:''}
@@ -5765,6 +5769,7 @@ function renderContractList(){
       ${archivedSection}
     </div>
     ${ctLinkModal?renderCtLinkModal():''}
+    ${ctSignModal?renderCtSignModal():''}
   </div>`;
 }
 
@@ -5831,6 +5836,12 @@ function renderContractForm(){
   const fld=(field,label,placeholder,w)=>`<div style="margin-bottom:14px">
     <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:5px">${label}</div>
     <input class="ct-field" data-field="${field}" value="${esc(f[field]||'')}" placeholder="${placeholder}"
+      style="width:${w||'100%'};background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:17px;padding:9px 12px;outline:none;font-family:inherit">
+  </div>`;
+
+  const flddate=(field,label,w)=>`<div style="margin-bottom:14px">
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:5px">${label}</div>
+    <input type="date" class="ct-field" data-field="${field}" value="${esc(f[field]||'')}"
       style="width:${w||'100%'};background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:17px;padding:9px 12px;outline:none;font-family:inherit">
   </div>`;
 
@@ -5917,13 +5928,14 @@ function renderContractForm(){
       ${fld('contractorName','Contractor Name','e.g. Jana Pienaar')}
       ${fld('contractorRegID','Contractor ID Number or Company Registration Number','e.g. 8105200016086 or 2019/123456/07','400px')}
       ${fld('contractorAddress','Contractor Address','e.g. 1338 Giants Castle Avenue, Bergbron')}
-      ${fld('effectiveDate','Effective Date','e.g. 1 April 2026','220px')}
+      ${flddate('effectiveDate','Effective Date','220px')}
+      <div style="font-size:12px;color:#9ca3af;margin:-8px 0 14px;line-height:1.5">The date the agreement itself is signed/becomes binding — usually today or the sign date. Can differ from Start Date below (e.g. signed in advance of work beginning).</div>
       ${sec('2. Services')}
       ${fta('servicesDescription','Description of Services','Describe the services the Contractor will perform…')}
       ${sec('3. Term')}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        ${fld('startDate','Start Date','e.g. 1 April 2026','100%')}
-        ${fld('endDate','End Date / Completion','e.g. 31 March 2027','100%')}
+        ${flddate('startDate','Start Date')}
+        ${flddate('endDate','End Date / Completion')}
       </div>
       ${sec('4. Compensation & Payment Schedule')}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">

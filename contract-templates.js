@@ -507,6 +507,12 @@ const _CAPIC_CSS=`
   .ic-sig-title{font-size:9pt;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:#555;margin-bottom:2px}
 `;
 function _icRow(label,val){return`<div class="ic-row"><div class="ic-label">${esc(label).toUpperCase()}:</div><div class="ic-val">${esc(val||'')}</div></div>`;}
+function _icFmtDate(iso){
+  if(!iso)return'';
+  const d=new Date(iso+'T00:00:00');
+  if(isNaN(d))return iso;
+  return d.toLocaleDateString('en-ZA',{day:'numeric',month:'long',year:'numeric'});
+}
 function _icSig(label,name,date,sigImg){
   return`<div>
     <div class="ic-sig-title">${esc(label)}</div>
@@ -532,15 +538,15 @@ function ctCapIcPDF(fields){
     ${_icRow('Contractor Name',f.contractorName)}
     ${_icRow('Contractor ID / Registration Number',f.contractorRegID)}
     ${_icRow('Contractor Address',f.contractorAddress)}
-    ${_icRow('Effective Date',f.effectiveDate)}
+    ${_icRow('Effective Date',_icFmtDate(f.effectiveDate))}
 
     <div class="ic-sec">2. Services</div>
     <p class="ic-p">Contractor agrees to perform the following services ("Services") for Client:</p>
     ${_icRow('Description of Services',f.servicesDescription)}
 
     <div class="ic-sec">3. Term</div>
-    ${_icRow('Start Date',f.startDate)}
-    ${_icRow('End Date / Completion',f.endDate)}
+    ${_icRow('Start Date',_icFmtDate(f.startDate))}
+    ${_icRow('End Date / Completion',_icFmtDate(f.endDate))}
 
     <div class="ic-sec">4. Compensation &amp; Payment Schedule</div>
     ${_icRow('Rate (hourly/flat/project)',f.rate)}
@@ -549,7 +555,7 @@ function ctCapIcPDF(fields){
     ${_icRow('Payment Method',f.paymentMethod)}
     ${_icRow('Invoicing Instructions',f.invoicingInstructions)}
 
-    <div class="ic-sec">5. Expenses</div>
+    <div class="ic-sec" style="page-break-before:always">5. Expenses</div>
     ${_icRow('Client will reimburse pre-approved expenses',reimburse?'☑ Yes  ☐ No':'☐ Yes  ☑ No')}
     ${_icRow('Details',f.expensesDetails)}
 
@@ -564,7 +570,7 @@ function ctCapIcPDF(fields){
 
     <div class="ic-sec">9. Signatures</div>
     <div class="ic-sig-grid">
-      ${_icSig('Client — '+_CAPIC_CO_NAME,f.companySig1Name,f.companySig1Date,f.companySig1Img)}
+      ${_icSig('Client',f.companySig1Name,f.companySig1Date,f.companySig1Img)}
       ${_icSig('Contractor',f.contractorName,f.recipientSigDate,f.recipientSigImg)}
     </div>
   </body></html>`;
