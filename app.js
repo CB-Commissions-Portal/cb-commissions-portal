@@ -125,7 +125,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.251';
+const BUILD_VERSION='3.10.252';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null;
@@ -149,7 +149,7 @@ let leaveBalances={};
 let leaveFormOpen=false;
 let leaveCancelModal=null;
 let leaveExportWeek='';
-let leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',attachmentFile:null};
+let leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',attachmentFile:null,targetUid:'',autoApprove:false};
 let leaveDeclineModal=null;
 let leaveReviewModal=null; // {id, showReject}
 let leaveViewMode='my'; // 'my'|'calendar'|'manage'
@@ -2634,8 +2634,11 @@ function renderLeaveCalendarView(){
 function renderLeave(){
   const role=currentRole;
   const isAdmin=role==='admin'||role==='deputyadmin';
-  const uid=currentUser?.uid||'';
-  const myName=getLeaveName({uid,userName:currentUser?.displayName||currentUser?.email||''});
+  const isSuperAdmin=getEffectiveRole()==='admin';
+  const onBehalfUid=(isSuperAdmin&&leaveFormOpen&&leaveDraft.targetUid)?leaveDraft.targetUid:'';
+  const uid=onBehalfUid||currentUser?.uid||'';
+  const myName=onBehalfUid?getLeaveName({uid,userName:''}):getLeaveName({uid,userName:currentUser?.displayName||currentUser?.email||''});
+  const leaveEligibleUsers=isSuperAdmin?users.filter(u=>u.uid!==currentUser?.uid&&hasLeaveAccess(u.role,u.extraRoles)).sort((a,b)=>(a.displayName||a.email||'').localeCompare(b.displayName||b.email||'')):[];
 
   // ── TABS ─────────────────────────────────────────────────────────
   const tabs=[
@@ -2675,6 +2678,16 @@ function renderLeave(){
         <button class="btn" id="leave-form-close" style="font-size:13px">Cancel</button>
       </div>
       <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        ${isSuperAdmin?`<div style="grid-column:1/-1;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:12px 14px">
+          <label style="font-size:12px;font-weight:700;color:#b45309;text-transform:uppercase;display:block;margin-bottom:4px">Applying For (Super Admin)</label>
+          <select id="leave-target-sel" style="width:100%;background:#ffffff;border:1px solid #d1dae8;color:#111827;padding:8px 10px;border-radius:5px;font-size:15px">
+            <option value="">Myself — ${esc(currentUser?.displayName||currentUser?.email||'')}</option>
+            ${leaveEligibleUsers.map(u=>`<option value="${u.uid}" ${fd.targetUid===u.uid?'selected':''}>${esc(u.displayName||u.email)}</option>`).join('')}
+          </select>
+          ${fd.targetUid?`<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;color:#92400e;font-weight:600;cursor:pointer">
+            <input type="checkbox" id="leave-auto-approve" ${fd.autoApprove?'checked':''}> Also approve immediately (skip pending review)
+          </label>`:''}
+        </div>`:''}
         <div>
           <label style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">Leave Type *</label>
           <select id="leave-type-sel" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:8px 10px;border-radius:5px;font-size:15px">
@@ -2719,6 +2732,7 @@ function renderLeave(){
             <div>
               <div style="font-size:14px;color:#111827;text-align:left">${r.startDate} → ${r.endDate} <span style="color:#6b7280">(${d} day${d!==1?'s':''})</span></div>
               ${r.reason?`<div style="font-size:13px;color:#6b7280;margin-top:1px;text-align:left">${esc(r.reason)}</div>`:''}
+              ${r.submittedBy?`<div style="font-size:12px;color:#b45309;margin-top:2px;text-align:left">Applied on your behalf by ${esc(r.submittedBy)}</div>`:''}
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px">
@@ -2807,6 +2821,7 @@ function renderLeave(){
           <div>
             <div style="font-size:15px;font-weight:700;color:#111827;text-align:left">${esc(nm)}</div>
             <div style="font-size:13px;color:#6b7280;margin-top:1px;text-align:left">${r.startDate} → ${r.endDate} &nbsp;·&nbsp; <strong style="color:#111827">${d} day${d!==1?'s':''}</strong></div>
+            ${r.submittedBy?`<div style="font-size:12px;color:#b45309;margin-top:1px;text-align:left">Applied on their behalf by ${esc(r.submittedBy)}</div>`:''}
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -3014,6 +3029,7 @@ function renderLeaveReviewModal(){
         <div>
           <div style="font-size:17px;font-weight:800;color:#111827">${esc(nm)}</div>
           <div style="font-size:13px;color:#6b7280;margin-top:2px">${r.startDate} → ${r.endDate} &nbsp;·&nbsp; <strong style="color:#111827">${days} day${days!==1?'s':''}</strong></div>
+          ${r.submittedBy?`<div style="font-size:12px;color:#b45309;margin-top:2px">Applied on their behalf by ${esc(r.submittedBy)}</div>`:''}
         </div>
       </div>
       ${r.reason?`<div style="background:#f8fafc;border:1px solid #e8edf5;border-radius:6px;padding:10px 12px;margin-bottom:16px">
@@ -8187,12 +8203,18 @@ function bindApp(){
   });
   document.getElementById('leave-new-btn')?.addEventListener('click',()=>{
     leaveFormOpen=true;
-    leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',attachmentFile:null};
+    leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',attachmentFile:null,targetUid:'',autoApprove:false};
     render();
   });
-  document.getElementById('leave-form-close')?.addEventListener('click',()=>{leaveFormOpen=false;render();});
+  document.getElementById('leave-form-close')?.addEventListener('click',()=>{
+    leaveFormOpen=false;
+    leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',attachmentFile:null,targetUid:'',autoApprove:false};
+    render();
+  });
 
   // Form field changes — update draft without re-rendering (except type change)
+  document.getElementById('leave-target-sel')?.addEventListener('change',e=>{leaveDraft.targetUid=e.target.value;leaveDraft.autoApprove=false;render();});
+  document.getElementById('leave-auto-approve')?.addEventListener('change',e=>{leaveDraft.autoApprove=e.target.checked;});
   document.getElementById('leave-type-sel')?.addEventListener('change',e=>{leaveDraft.leaveType=e.target.value;render();});
   document.getElementById('leave-start')?.addEventListener('change',e=>{
     leaveDraft.startDate=e.target.value;
@@ -8219,19 +8241,24 @@ function bindApp(){
     if(new Date(endDate)<new Date(startDate)){showToast('End date must be after start date.',true);return;}
     const days=countCalendarDays(startDate,endDate);
     if(days===0){showToast('End date must be on or after start date.',true);return;}
-    // Check balance
+    // Super Admin may be applying on behalf of another staff member
+    const onBehalfTargetUid=(getEffectiveRole()==='admin'&&leaveDraft.targetUid)?leaveDraft.targetUid:'';
+    const targetUser=onBehalfTargetUid?users.find(u=>u.uid===onBehalfTargetUid):null;
+    const applyUid=onBehalfTargetUid||currentUser.uid;
+    const applyName=targetUser?(targetUser.displayName||targetUser.email):(currentUser.displayName||currentUser.email);
+    const autoApprove=!!(onBehalfTargetUid&&document.getElementById('leave-auto-approve')?.checked);
+    // Check balance (against the applicant's own balance, not the Super Admin's)
     const lt=LEAVE_TYPES.find(t=>t.key===leaveType);
     if(lt?.deductsBalance){
-      const uid=currentUser.uid;
-      const bal=leaveBalances[uid]||{};
+      const bal=leaveBalances[applyUid]||{};
       const total=bal[leaveType]??21;
-      const used=Object.values(leaveRequests).filter(r=>r.uid===uid&&r.leaveType===leaveType&&r.status==='approved').reduce((s,r)=>s+countCalendarDays(r.startDate,r.endDate),0);
+      const used=Object.values(leaveRequests).filter(r=>r.uid===applyUid&&r.leaveType===leaveType&&r.status==='approved').reduce((s,r)=>s+countCalendarDays(r.startDate,r.endDate),0);
       const remaining=total-used;
       if(days>remaining){
-        if(!confirm(`You have ${remaining} days remaining for ${lt.label}. This request is for ${days} days. Submit anyway?`))return;
+        if(!confirm(`${applyName} has ${remaining} days remaining for ${lt.label}. This request is for ${days} days. Submit anyway?`))return;
       }
     }
-    const id='leave_'+currentUser.uid+'_'+Date.now();
+    const id='leave_'+applyUid+'_'+Date.now();
     let attachmentUrl=null;
     if(leaveDraft.attachmentFile&&storage){
       try{
@@ -8240,11 +8267,12 @@ function bindApp(){
         attachmentUrl=await getDownloadURL(snap.ref);
       }catch(e){console.error('Attachment upload failed',e);showToast('Could not upload attachment — submitting without it.',true);}
     }
-    const leavePayload={uid:currentUser.uid,userName:currentUser.displayName||currentUser.email,leaveType,startDate,endDate,reason,hasSickNote:!!(leaveDraft.attachmentFile),...(attachmentUrl?{attachmentUrl}:{}),status:'pending',submittedAt:Date.now()};
+    const adminName=currentUser.displayName||currentUser.email;
+    const leavePayload={uid:applyUid,userName:applyName,leaveType,startDate,endDate,reason,hasSickNote:!!(leaveDraft.attachmentFile),...(attachmentUrl?{attachmentUrl}:{}),status:autoApprove?'approved':'pending',submittedAt:Date.now(),...(onBehalfTargetUid?{submittedBy:adminName,submittedByUid:currentUser.uid}:{})};
     leaveRequests[id]=leavePayload;
-    showToast('Leave application submitted!');
+    showToast(autoApprove?`Leave applied and approved for ${applyName} ✓`:onBehalfTargetUid?`Leave application submitted for ${applyName} ✓`:'Leave application submitted!');
     leaveFormOpen=false;
-    leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',attachmentFile:null};
+    leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',attachmentFile:null,targetUid:'',autoApprove:false};
     render();
     saveLeaveRequest(id,leavePayload);
   });
