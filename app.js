@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.275';
+const BUILD_VERSION='3.10.276';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5514,7 +5514,7 @@ function rosWysBuildRow(item,i,epNum){
   if(item.content) _descBody+=_p(escHtml(item.content),'font-weight:normal;color:#000');
   if(item.type==='insert'&&item.outWords)_descBody+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
   const _canScript=['live','coldstart','upnext'].includes(item.type);
-  if(_canScript&&item.position&&!_isEditing('position'))_descBody+=_p(`<u><b>POSITION:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.position)}</span>`);
+  if(_canScript&&item.position&&!_isEditing('position'))_descBody+=_p('&nbsp;')+_p(`<u><b>POSITION:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.position)}</span>`);
   let desc;
   if(_canScript&&_isEditing('script')){
     const _isDirector=getEffectiveRole()==='director';
@@ -10817,7 +10817,7 @@ function rosBuildWordRow(item,i,highlightIdx=-1){
   let desc=_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
   if(item.content) desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
   if(item.type==='insert'&&item.outWords)desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
-  if(['live','coldstart','upnext'].includes(item.type)&&item.position)desc+=_p(`<u><b>POSITION:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.position)}</span>`);
+  if(['live','coldstart','upnext'].includes(item.type)&&item.position)desc+=_p('&nbsp;')+_p(`<u><b>POSITION:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.position)}</span>`);
   if(['live','coldstart','upnext'].includes(item.type)&&item.script){
     desc+=_p('&nbsp;');
     item.script.split('\n').forEach(line=>{
