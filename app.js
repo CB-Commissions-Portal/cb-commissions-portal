@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.263';
+const BUILD_VERSION='3.10.264';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -224,6 +224,17 @@ function rosResolveSound(item){
   const legacy=(item.sound||'').trim();
   if(!legacy)return{clipJockey:'',grams:''};
   return SOUND_CLIP_JOCKEY_OPTS.includes(legacy)?{clipJockey:legacy,grams:''}:{clipJockey:'',grams:legacy};
+}
+// Resolves 'screen'/'cgen'/'storyTitle' into an array of independently addressable blocks.
+// Once item[field+'Blocks'] is an array (touched by the WYSIWYG UI, even if emptied to []) it's
+// the source of truth; until then, falls back to splitting the legacy multi-line string field so
+// existing episodes' lines each become their own block automatically.
+function rosResolveBlocks(item,field){
+  const arr=item[field+'Blocks'];
+  if(Array.isArray(arr))return arr;
+  const legacy=item[field];
+  if(!legacy)return[];
+  return legacy.split('\n').map(l=>l.trim()).filter(Boolean);
 }
 let commTranscripts={}; // {commNum: {transcript,status,updatedByName,updatedAtStr}}
 let liveTranscripts={}; // {epNum: {blocks:[],updatedByName,updatedAtStr}}
@@ -1581,6 +1592,8 @@ function render(){
   const _trBlocksTop=_trBlocks?_trBlocks.scrollTop:0;
   const _delivScroll=document.getElementById('deliv-checklist-scroll');
   const _delivScrollTop=_delivScroll?_delivScroll.scrollTop:0;
+  const _roswysScroll=document.getElementById('roswys-scroll');
+  const _roswysScrollTop=_roswysScroll?_roswysScroll.scrollTop:0;
   const root=document.getElementById('root');
   const cfg=getCfg();
   if(!cfg){root.innerHTML=renderSetup();bindSetup();return;}
@@ -1604,6 +1617,8 @@ function render(){
   if(_trBlocks2&&_trBlocksTop)_trBlocks2.scrollTop=_trBlocksTop;
   const _delivScroll2=document.getElementById('deliv-checklist-scroll');
   if(_delivScroll2&&_delivScrollTop)_delivScroll2.scrollTop=_delivScrollTop;
+  const _roswysScroll2=document.getElementById('roswys-scroll');
+  if(_roswysScroll2&&_roswysScrollTop)_roswysScroll2.scrollTop=_roswysScrollTop;
   if(pendingFocusId!==null){
     const newRow=document.querySelector(`tr[data-id="${pendingFocusId}"]`);
     if(newRow){
@@ -5196,22 +5211,31 @@ function renderRunOfShow(){
 // 'production'|'sound'|'description'; `partType`/`partIdx` identify a specific existing
 // camera-shot entry when the click landed directly on one (so "Edit Shot Description"
 // targets that exact entry rather than being ambiguous across multiple shots).
-function buildRosWysMenuHtml(epNum,itemIdx,col,partType,partIdx){
+function buildRosWysMenuHtml(epNum,itemIdx,col,partKind,partType,partIdx){
   const item=(rosData[String(epNum)]?.items||[])[itemIdx]||{};
   const canScript=['live','coldstart','upnext'].includes(item.type);
   const _itemOpt=(field,label,camIdx)=>`<div class="wys-menu-item" data-wys-menu-field="${field}"${camIdx!==undefined?` data-wys-menu-camidx="${camIdx}"`:''} style="padding:9px 16px;font-size:14px;cursor:pointer;color:#111827;white-space:nowrap" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">${esc(label)}</div>`;
   const _actionOpt=(action,label)=>`<div class="wys-menu-item" data-wys-menu-action="${action}" style="padding:9px 16px;font-size:14px;cursor:pointer;color:#111827;white-space:nowrap" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">${esc(label)}</div>`;
+  const _deleteOpt=(field,label,idx)=>`<div class="wys-menu-item" data-wys-menu-action="delete-block" data-wys-menu-field2="${field}" data-wys-menu-idx2="${idx}" style="padding:9px 16px;font-size:14px;cursor:pointer;color:#dc2626;white-space:nowrap" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'">${esc(label)}</div>`;
+  const _addBlockOpt=(field,label)=>`<div class="wys-menu-item" data-wys-menu-action="add-block" data-wys-menu-field2="${field}" style="padding:9px 16px;font-size:14px;cursor:pointer;color:#111827;white-space:nowrap" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">${esc(label)}</div>`;
   const _hdr=(label)=>`<div style="padding:6px 16px 4px;font-size:11px;font-weight:800;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px">${esc(label)}</div>`;
   const _sep=()=>`<div style="border-top:1px solid #e5e7eb;margin:4px 0"></div>`;
   let html='';
   if(col==='production'){
-    if(partType==='auto'||partType==='manual'){
-      html+=_itemOpt(partType==='auto'?'cam-auto':'cam-manual','✎ Edit Shot Description',partIdx);
+    const _blockLabels={screen:'Screen Info',cgen:'CGEN',storyTitle:'Story Title'};
+    if(partKind==='screen'||partKind==='cgen'||partKind==='storyTitle'){
+      const lbl=_blockLabels[partKind];
+      html+=_itemOpt(partKind,'✎ Edit This '+lbl,partIdx);
+      html+=_deleteOpt(partKind,'🗑 Delete This '+lbl,partIdx);
+      html+=_sep();
+    } else if(partKind==='cam'){
+      html+=_itemOpt(partType==='manual'?'cam-manual':'cam-auto','✎ Edit Shot Description',partIdx);
+      if(partType==='manual')html+=_deleteOpt('cam-manual','🗑 Delete Camera Shot',partIdx);
       html+=_sep();
     }
-    html+=_itemOpt('screen',item.screen?'✎ Edit Screen Info':'+ Add Screen Info');
-    html+=_itemOpt('cgen',item.cgen?'✎ Edit CGEN':'+ Add CGEN');
-    html+=_itemOpt('storyTitle',item.storyTitle?'✎ Edit Story Title':'+ Add Story Title');
+    html+=_addBlockOpt('screen','+ Add Screen Info');
+    html+=_addBlockOpt('cgen','+ Add CGEN');
+    html+=_addBlockOpt('storyTitle','+ Add Story Title');
     html+=_sep();
     html+=_actionOpt('add-manual-cam','+ Add Camera Shot');
   } else if(col==='sound'){
@@ -5259,20 +5283,26 @@ function rosWysBuildRow(item,i,epNum){
   // Column 2: Production — Screen, Slugs, CGEN, Story Title, Camera Shots (auto + manual).
   let _prod='';
   const _addSep=()=>{if(_prod)_prod+=_p('&nbsp;');};
-  const _wysTextField=(field,label,val,placeholder)=>{
-    _addSep();
-    if(_isEditing(field)){
-      _prod+=`<div data-wys-editor data-epnum="${esc(epNum)}" data-idx="${i}" data-field="${field}" style="margin:2px 0">
-        <textarea class="wys-inline-ta" style="width:100%;min-height:44px;font-family:Arial,sans-serif;font-size:12px;padding:4px;border:2px solid #0066CC;border-radius:3px;box-sizing:border-box;resize:vertical" placeholder="${esc(placeholder)}">${escHtml(val||'')}</textarea>
-      </div>`;
-    } else if(val){
-      val.split('\n').filter(l=>l.trim()).forEach(l=>{_prod+=_pSm(`<u><b>${label}</b></u>`);_prod+=_pSm(escHtml(l));});
-    }
+  // Screen/CGEN/Story Title are independent, separately add/edit/delete-able blocks —
+  // each gets its own data-wys-part target and its own separator (fixes blocks of the
+  // same type rendering with no visible gap between them).
+  const _wysBlockField=(field,label,placeholder)=>{
+    rosResolveBlocks(item,field).forEach((val,bi)=>{
+      _addSep();
+      if(_isEditing(field,bi)){
+        _prod+=`<div data-wys-editor data-epnum="${esc(epNum)}" data-idx="${i}" data-field="${field}" data-camidx="${bi}" style="margin:2px 0">
+          <textarea class="wys-inline-ta" style="width:100%;min-height:44px;font-family:Arial,sans-serif;font-size:12px;padding:4px;border:2px solid #0066CC;border-radius:3px;box-sizing:border-box;resize:vertical" placeholder="${esc(placeholder)}">${escHtml(val||'')}</textarea>
+        </div>`;
+      } else {
+        _prod+=_pSm(`<span data-wys-part="${field}" data-wys-part-idx="${bi}"><u><b>${label}</b></u></span>`);
+        _prod+=_pSm(`<span data-wys-part="${field}" data-wys-part-idx="${bi}">${escHtml(val)}</span>`);
+      }
+    });
   };
-  _wysTextField('screen','SCREEN:',item.screen,'Screen info…');
+  _wysBlockField('screen','SCREEN:','Screen info…');
   if(slugCell){_addSep();_prod+=slugCell;}
-  _wysTextField('cgen','CGEN:',item.cgen,'CGEN…');
-  _wysTextField('storyTitle','STORY TITLE:',item.storyTitle,'Story title…');
+  _wysBlockField('cgen','CGEN:','CGEN…');
+  _wysBlockField('storyTitle','STORY TITLE:','Story title…');
   const _autoCues=parseCamCues(item.script||'');
   const _autoDescs=item.cameraDescs||[];
   _autoCues.forEach((cam,ci)=>{
@@ -5359,10 +5389,12 @@ function renderRunOfShowWysiwyg(){
   const bodyRows=items.length?items.map((item,i)=>rosWysBuildRow(item,i,epNum)).join('')
     :`<tr><td colspan="5" style="padding:60px;text-align:center;color:#9ca3af;font-size:16px;font-family:Arial,sans-serif">No items yet — add items from the classic Studio Script Build tab, then come back here to edit.</td></tr>`;
 
+  const _zoom=Math.max(60,Math.min(160,Number(localStorage.getItem('roswys_zoom'))||100));
+
   const _menuHtml=(rosWysMenu&&String(rosWysMenu.epNum)===String(epNum))?`
     <div id="wys-menu-backdrop" style="position:fixed;inset:0;z-index:998"></div>
     <div id="wys-menu" style="position:fixed;left:${rosWysMenu.x}px;top:${rosWysMenu.y}px;background:#fff;border:1px solid #d1dae8;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.25);z-index:999;min-width:210px;max-height:70vh;overflow-y:auto;padding:6px 0;font-family:Arial,sans-serif">
-      ${buildRosWysMenuHtml(rosWysMenu.epNum,rosWysMenu.itemIdx,rosWysMenu.col,rosWysMenu.partType,rosWysMenu.partIdx)}
+      ${buildRosWysMenuHtml(rosWysMenu.epNum,rosWysMenu.itemIdx,rosWysMenu.col,rosWysMenu.partKind,rosWysMenu.partType,rosWysMenu.partIdx)}
     </div>`:'';
 
   return`<div style="display:flex;flex-direction:column;height:100%;overflow:hidden">
@@ -5374,6 +5406,11 @@ function renderRunOfShowWysiwyg(){
         <span style="font-size:12px;font-weight:800;background:#fce7f3;color:#be185d;padding:3px 10px;border-radius:4px;margin-left:14px;letter-spacing:.5px">WYSIWYG TESTING — visible only to you</span>
       </div>
       ${isLockedScript?`<div style="font-size:13px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:6px;padding:5px 12px;font-weight:800;letter-spacing:.3px">🔒 LOCKED FOR EDITING</div>`:''}
+      <div style="display:flex;align-items:center;gap:2px;background:#fff;border:1px solid #d1dae8;border-radius:6px;padding:2px">
+        <button class="btn" id="roswys-zoom-out" title="Smaller" style="font-size:15px;padding:6px 12px;border:none">A−</button>
+        <button class="btn" id="roswys-zoom-reset" title="Reset size" style="font-size:13px;padding:6px 10px;border:none;color:#6b7280;min-width:44px">${_zoom}%</button>
+        <button class="btn" id="roswys-zoom-in" title="Bigger" style="font-size:15px;padding:6px 12px;border:none">A+</button>
+      </div>
       <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <button class="btn" id="ros-preview-word-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#0066CC;color:#0066CC;border-style:dashed">👁 Preview Script</button>
         <button class="btn" id="ros-export-word-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#388bfd;color:#0066CC">⬇ Studio Script (Word)</button>
@@ -5381,8 +5418,8 @@ function renderRunOfShowWysiwyg(){
       </div>
     </div>
     <div style="padding:8px 24px;background:#fdf4ff;border-bottom:1px solid #f3e8ff;font-size:13px;color:#7c3aed;flex-shrink:0">💡 Right-click inside the Production, Sound, or Description columns to add or edit content — no popup, everything happens right here.</div>
-    <div style="flex:1;overflow-y:auto;background:#dfe4ea;padding:32px 0">
-      <div style="max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 16px rgba(0,0,0,.15);padding:32px 28px;font-family:Arial,sans-serif">
+    <div id="roswys-scroll" style="flex:1;overflow-y:auto;background:#dfe4ea;padding:32px 0">
+      <div style="max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 16px rgba(0,0,0,.15);padding:32px 28px;font-family:Arial,sans-serif;zoom:${_zoom}%">
         <div style="font-size:18px;font-weight:900;color:#000;margin-bottom:4px">CARTE BLANCHE</div>
         <div style="margin-bottom:2px;font-size:13px;color:#000"><b>Season ${currentSeason}, ${epLabel.replace(`S${currentSeason} `,'Season '+currentSeason+', ')}</b></div>
         <div style="margin-bottom:14px;font-size:13px;color:#000"><b>TX: ${epDateFmt}</b></div>
@@ -10562,11 +10599,11 @@ function rosBuildWordRow(item,i,highlightIdx=-1){
   let _prod='';
   const _pSm=(html)=>_p(html,'font-size:9pt');
   const _addSep=()=>{if(_prod)_prod+=_p('&nbsp;');};
-  const _addLines=(label,val)=>{if(!val)return;val.split('\n').filter(l=>l.trim()).forEach(l=>{_addSep();_prod+=_pSm(`<u><b>${label}</b></u>`);_prod+=_pSm(escHtml(l));});};
-  _addLines('SCREEN:',item.screen);
+  const _addBlocks=(label,field)=>{rosResolveBlocks(item,field).forEach(v=>{_addSep();_prod+=_pSm(`<u><b>${label}</b></u>`);_prod+=_pSm(escHtml(v));});};
+  _addBlocks('SCREEN:','screen');
   if(slugCell){_addSep();_prod+=slugCell;}
-  _addLines('CGEN:',item.cgen);
-  _addLines('STORY TITLE:',item.storyTitle);
+  _addBlocks('CGEN:','cgen');
+  _addBlocks('STORY TITLE:','storyTitle');
   // Camera blocking — production column, in script order
   if(['live','coldstart','upnext'].includes(item.type)&&item.script){
     const _cCues=parseCamCues(item.script);
@@ -11099,6 +11136,14 @@ document.addEventListener('click',function rosHandler(e){
     render();
     return;
   }
+  // WYSIWYG TESTING — zoom controls (per-browser preference via localStorage)
+  if(e.target.id==='roswys-zoom-in'||e.target.id==='roswys-zoom-out'||e.target.id==='roswys-zoom-reset'){
+    const cur=Math.max(60,Math.min(160,Number(localStorage.getItem('roswys_zoom'))||100));
+    const next=e.target.id==='roswys-zoom-in'?Math.min(160,cur+10):e.target.id==='roswys-zoom-out'?Math.max(60,cur-10):100;
+    localStorage.setItem('roswys_zoom',String(next));
+    render();
+    return;
+  }
   // WYSIWYG TESTING — right-click menu actions (opened via the contextmenu listener below)
   if(tab==='roswys'&&rosWysMenu){
     const menuEl=document.getElementById('wys-menu');
@@ -11124,6 +11169,42 @@ document.addEventListener('click',function rosHandler(e){
         rosWysEdit={epNum,itemIdx,field:'cam-manual',camIdx:it.manualCameraCues.length-1};
       }
       rosWysMenu=null;
+      render();
+      return;
+    }
+    if(actionOpt&&actionOpt.dataset.wysMenuAction==='add-block'){
+      const field=actionOpt.dataset.wysMenuField2;
+      const{epNum,itemIdx}=rosWysMenu;
+      const items=(rosData[String(epNum)]?.items)||[];
+      const it=items[itemIdx];
+      if(it){
+        const arrField=field+'Blocks';
+        if(!Array.isArray(it[arrField]))it[arrField]=rosResolveBlocks(it,field);
+        it[arrField].push('');
+        rosWysEdit={epNum,itemIdx,field,camIdx:it[arrField].length-1};
+      }
+      rosWysMenu=null;
+      render();
+      return;
+    }
+    if(actionOpt&&actionOpt.dataset.wysMenuAction==='delete-block'){
+      const field=actionOpt.dataset.wysMenuField2;
+      const idx=Number(actionOpt.dataset.wysMenuIdx2);
+      const{epNum,itemIdx}=rosWysMenu;
+      const items=(rosData[String(epNum)]?.items)||[];
+      const it=items[itemIdx];
+      if(it){
+        if(field==='cam-manual'){
+          if(Array.isArray(it.manualCameraCues))it.manualCameraCues.splice(idx,1);
+        } else {
+          const arrField=field+'Blocks';
+          if(!Array.isArray(it[arrField]))it[arrField]=rosResolveBlocks(it,field);
+          it[arrField].splice(idx,1);
+        }
+        rosData[String(epNum)].items=items;
+        saveROS(epNum,{items,epNum});
+      }
+      rosWysMenu=null;rosWysEdit=null;
       render();
       return;
     }
@@ -11461,12 +11542,15 @@ document.addEventListener('contextmenu',function rosWysContextMenu(e){
   const itemIdx=Number(row.dataset.rosIdx);
   const col=cell.dataset.wysCol;
   const part=e.target.closest('[data-wys-part]');
+  // partKind identifies WHAT kind of block was clicked directly on: 'screen'|'cgen'|'storyTitle'|'cam'.
+  // partType only matters when partKind==='cam': 'auto' (script-derived) vs 'manual' (independent).
+  const partKind=part?.dataset.wysPart;
   const partType=part?.dataset.wysPartType;
   const partIdx=part?Number(part.dataset.wysPartIdx):undefined;
   const menuW=220,menuH=320;
   const x=Math.min(e.clientX,window.innerWidth-menuW-8);
   const y=Math.min(e.clientY,window.innerHeight-menuH-8);
-  rosWysMenu={x:Math.max(8,x),y:Math.max(8,y),epNum:rosCurrentEp,itemIdx,col,partType,partIdx};
+  rosWysMenu={x:Math.max(8,x),y:Math.max(8,y),epNum:rosCurrentEp,itemIdx,col,partKind,partType,partIdx};
   rosWysEdit=null;
   render();
 });
@@ -11481,9 +11565,14 @@ document.addEventListener('focusout',function rosWysCommit(e){
   const items=(rosData[String(epNum)]?.items)||[];
   const it=items[itemIdx];
   if(!it){rosWysEdit=null;render();return;}
-  if(field==='screen')it.screen=wrap.querySelector('.wys-inline-ta').value;
-  else if(field==='cgen')it.cgen=wrap.querySelector('.wys-inline-ta').value;
-  else if(field==='storyTitle')it.storyTitle=wrap.querySelector('.wys-inline-ta').value;
+  if(field==='screen'||field==='cgen'||field==='storyTitle'){
+    const camIdx=Number(wrap.dataset.camidx);
+    const arrField=field+'Blocks';
+    if(!Array.isArray(it[arrField]))it[arrField]=rosResolveBlocks(it,field);
+    const val=wrap.querySelector('.wys-inline-ta').value.trim();
+    if(!val)it[arrField].splice(camIdx,1); // discard empty speculative block
+    else it[arrField][camIdx]=val;
+  }
   else if(field==='script')it.script=wrap.querySelector('.wys-inline-ta').value;
   else if(field==='cam-auto'){
     const camIdx=Number(wrap.dataset.camidx);
