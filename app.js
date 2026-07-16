@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.290';
+const BUILD_VERSION='3.10.291';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5586,11 +5586,11 @@ function rosWysBuildRow(item,i,epNum){
   const _pageBreakDivider=item.pageBreakBefore?`<tr><td colspan="5" style="padding:2px 0;background:#eff6ff;border-top:2px dashed #0066CC;border-bottom:2px dashed #0066CC;text-align:center;font-family:Arial,sans-serif;font-size:9pt;color:#0066CC;font-weight:700;letter-spacing:.5px">✂ PAGE BREAK</td></tr>`:'';
   const _wrap='white-space:normal;overflow-wrap:break-word;word-wrap:break-word;';
   return`${_pageBreakDivider}<tr data-ros-idx="${i}" style="${_rowBg}">
-    <td align="center" data-wys-col="item" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%;${_wrap}cursor:context-menu;${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
-    <td data-wys-col="production" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;${_wrap}cursor:context-menu;${_rowBg}">${_br}${_prod}</td>
+    <td align="center" data-wys-col="item" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:6%;${_wrap}cursor:context-menu;${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
+    <td data-wys-col="production" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:27%;${_wrap}cursor:context-menu;${_rowBg}">${_br}${_prod}</td>
     <td data-wys-col="sound" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%;${_wrap}cursor:context-menu;${_rowBg}">${_br}${_sndHtml}</td>
-    <td data-wys-col="description" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%;${_wrap}cursor:context-menu;${_rowBg}">${_br}${desc}</td>
-    <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:7%;${_wrap}${_rowBg}">${_br}${_p(escHtml(_durMmSs(item.duration)),'font-family:monospace;text-align:center')}</td>
+    <td data-wys-col="description" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:47%;${_wrap}cursor:context-menu;${_rowBg}">${_br}${desc}</td>
+    <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:8%;${_wrap}${_rowBg}">${_br}${_p(escHtml(_durMmSs(item.duration)),'font-family:monospace;text-align:center')}</td>
   </tr>`;
 }
 
@@ -5654,13 +5654,13 @@ function renderRunOfShowWysiwyg(){
         <div style="margin-bottom:2px;font-size:13px;color:#000"><b>${epLabel.replace(`S${currentSeason} `,'Season '+currentSeason+', ')}</b></div>
         <div style="margin-bottom:14px;font-size:13px;color:#000"><b>TX: ${epDateFmt}</b></div>
         <table style="border-collapse:collapse;width:100%;table-layout:fixed">
-          <colgroup><col style="width:4%"><col style="width:26%"><col style="width:11%"><col style="width:52%"><col style="width:7%"></colgroup>
+          <colgroup><col style="width:6%"><col style="width:27%"><col style="width:11%"><col style="width:47%"><col style="width:8%"></colgroup>
           <thead><tr>
-            <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:4%">ITEM</th>
-            <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:22%">PRODUCTION</th>
+            <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:6%">ITEM</th>
+            <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:27%">PRODUCTION</th>
             <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:11%">SOUND</th>
-            <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:56%">DESCRIPTION</th>
-            <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:7%">DUR</th>
+            <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:47%">DESCRIPTION</th>
+            <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:8%">DUR</th>
           </tr></thead>
           <tbody id="roswys-tbody">${bodyRows}</tbody>
         </table>
@@ -10861,12 +10861,12 @@ function rosBuildWordRow(item,i,highlightIdx=-1){
   const _br=_p('&nbsp;');
   const _pageBreak=item.pageBreakBefore?'page-break-before:always;mso-pagination:widow-orphan;':'';
   return`<tr data-ros-idx="${i}"${_isHL?' id="preview-current-item" style="'+_pageBreak+_rowBg+'outline:3px solid #003366;outline-offset:-3px;"':' style="'+_pageBreak+_rowBg+'"'}>
-    <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%;white-space:normal;${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
-    <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;white-space:normal;${_rowBg}">${_br}${_prod}
+    <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:6%;white-space:normal;${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
+    <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:27%;white-space:normal;${_rowBg}">${_br}${_prod}
     </td>
     <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%;white-space:normal;${_rowBg}">${_br}${(()=>{const _snd=rosResolveSound(item);const _lines=[_snd.clipJockey,_snd.grams].filter(Boolean);return _lines.length?_lines.map((v,vi)=>(vi>0?_p('&nbsp;','font-weight:bold'):'')+_p(escHtml(v),'font-weight:bold')).join(''):_p('','font-weight:bold');})()}</td>
-    <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%;white-space:normal;${_rowBg}">${_br}${desc}</td>
-    <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:7%;white-space:normal;${_rowBg}">${_br}${_p(escHtml(_durMmSs(item.duration)),'font-family:monospace;text-align:center')}</td>
+    <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:47%;white-space:normal;${_rowBg}">${_br}${desc}</td>
+    <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:8%;white-space:normal;${_rowBg}">${_br}${_p(escHtml(_durMmSs(item.duration)),'font-family:monospace;text-align:center')}</td>
   </tr>`;
 }
 
@@ -10895,13 +10895,13 @@ function buildRosWordHtml(ep,items,highlightIdx=-1){
 <p style="margin-bottom:1pt;line-height:14pt"><b>${escHtml(epLabel.replace(`S${currentSeason} `,'Season '+currentSeason+', '))}</b></p>
 <p style="margin-bottom:8pt;line-height:14pt"><b>TX: ${escHtml(epDateFmt)}</b></p>
 <table border="1" cellpadding="3" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed">
-  <colgroup><col style="width:4%"><col style="width:26%"><col style="width:11%"><col style="width:52%"><col style="width:7%"></colgroup>
+  <colgroup><col style="width:6%"><col style="width:27%"><col style="width:11%"><col style="width:47%"><col style="width:8%"></colgroup>
   <thead><tr>
-    <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:4%">ITEM</th>
-    <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:22%">PRODUCTION</th>
+    <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:6%">ITEM</th>
+    <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:27%">PRODUCTION</th>
     <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:11%">SOUND</th>
-    <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:56%">DESCRIPTION</th>
-    <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:7%">DUR</th>
+    <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:47%">DESCRIPTION</th>
+    <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:8%">DUR</th>
   </tr></thead>
   <tbody>${rows}</tbody>
 </table>
@@ -11031,7 +11031,7 @@ async function rosExportDocx(ep,items){
       left:  {style:BorderStyle.SINGLE,size:8,color:'000000'},
       right: {style:BorderStyle.SINGLE,size:8,color:'000000'},
     };
-    const COL_W=[700,2761,1231,5544,950]; // twips, sum=11186 (A4 – 18pt margins each side); ITEM/DUR widened so short labels ("ITEM","00:30") don't wrap mid-word under fixed table layout; PRODUCTION widened (slugs were wrapping to a 2nd line), DESCRIPTION narrowed to compensate
+    const COL_W=[700,3011,1231,5294,950]; // twips, sum=11186 (A4 – 18pt margins each side); ratios (6/27/11/47/8%) match the WYSIWYG/HTML colgroups below so the portal and the real export line up; PRODUCTION widened further so a full slug ("CB2026_OPENING_LOGO") fits without a mid-word break
 
     const durFmt=d=>{if(!d)return'';const p=String(d).split(':');if(p.length===3){const mm=Number(p[0])*60+Number(p[1]);return`${String(mm).padStart(2,'0')}:${p[2]}`;}return d;};
 
