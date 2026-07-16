@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.264';
+const BUILD_VERSION='3.10.265';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5294,8 +5294,7 @@ function rosWysBuildRow(item,i,epNum){
           <textarea class="wys-inline-ta" style="width:100%;min-height:44px;font-family:Arial,sans-serif;font-size:12px;padding:4px;border:2px solid #0066CC;border-radius:3px;box-sizing:border-box;resize:vertical" placeholder="${esc(placeholder)}">${escHtml(val||'')}</textarea>
         </div>`;
       } else {
-        _prod+=_pSm(`<span data-wys-part="${field}" data-wys-part-idx="${bi}"><u><b>${label}</b></u></span>`);
-        _prod+=_pSm(`<span data-wys-part="${field}" data-wys-part-idx="${bi}">${escHtml(val)}</span>`);
+        _prod+=`<div class="wys-block" data-wys-part="${field}" data-wys-part-idx="${bi}">${_pSm(`<u><b>${label}</b></u>`)}${_pSm(escHtml(val))}</div>`;
       }
     });
   };
@@ -5313,9 +5312,8 @@ function rosWysBuildRow(item,i,epNum){
         <textarea class="wys-inline-ta wys-cam-desc-inp" style="width:100%;min-height:36px;font-family:Arial,sans-serif;font-size:11px;padding:4px;border:2px solid #7c3aed;border-radius:3px;box-sizing:border-box;resize:vertical" placeholder="Shot description…">${escHtml(_autoDescs[ci]||'')}</textarea>
       </div>`;
     } else {
-      _prod+=_pSm(`<span data-wys-part="cam" data-wys-part-type="auto" data-wys-part-idx="${ci}"><u><b>${escHtml(cam)}</b></u></span>`);
       const d=_autoDescs[ci]||'';
-      if(d)_prod+=_pSm(`<span data-wys-part="cam" data-wys-part-type="auto" data-wys-part-idx="${ci}">${escHtml(d)}</span>`);
+      _prod+=`<div class="wys-block" data-wys-part="cam" data-wys-part-type="auto" data-wys-part-idx="${ci}">${_pSm(`<u><b>${escHtml(cam)}</b></u>`)}${d?_pSm(escHtml(d)):''}</div>`;
     }
   });
   const _manualCams=item.manualCameraCues||[];
@@ -5327,8 +5325,7 @@ function rosWysBuildRow(item,i,epNum){
         <textarea class="wys-cam-desc-inp" style="width:100%;min-height:36px;font-family:Arial,sans-serif;font-size:11px;padding:4px;border:2px solid #7c3aed;border-radius:3px;box-sizing:border-box;resize:vertical" placeholder="Shot description…">${esc(mc.desc||'')}</textarea>
       </div>`;
     } else {
-      _prod+=_pSm(`<span data-wys-part="cam" data-wys-part-type="manual" data-wys-part-idx="${ci}"><u><b>${escHtml(mc.designation||'—')}</b></u></span>`);
-      if(mc.desc)_prod+=_pSm(`<span data-wys-part="cam" data-wys-part-type="manual" data-wys-part-idx="${ci}">${escHtml(mc.desc)}</span>`);
+      _prod+=`<div class="wys-block" data-wys-part="cam" data-wys-part-type="manual" data-wys-part-idx="${ci}">${_pSm(`<u><b>${escHtml(mc.designation||'—')}</b></u>`)}${mc.desc?_pSm(escHtml(mc.desc)):''}</div>`;
     }
   });
 
@@ -5398,6 +5395,11 @@ function renderRunOfShowWysiwyg(){
     </div>`:'';
 
   return`<div style="display:flex;flex-direction:column;height:100%;overflow:hidden">
+    <style>
+      .wys-block{cursor:context-menu;border-radius:3px;outline:2px solid transparent;outline-offset:1px}
+      .wys-block:hover{background:#eff6ff!important;outline-color:#93c5fd}
+      td[data-wys-col]:hover{background:#fafbff!important}
+    </style>
     <div style="padding:14px 24px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:16px;flex-shrink:0;flex-wrap:wrap">
       <button class="btn" id="ros-pick-ep-btn" style="font-size:15px;padding:8px 16px">◀ Episodes</button>
       <div>
