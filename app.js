@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.289';
+const BUILD_VERSION='3.10.290';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -11061,7 +11061,8 @@ async function rosExportDocx(ep,items){
       // page; setting it on a paragraph inside a table cell is the standard way to do this
       // since Word tables don't take a page-break property directly on TableRow.
       const itemCell=new TableCell({width:{size:COL_W[0],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:[
-        new Paragraph({alignment:AlignmentType.CENTER,spacing:SP0,pageBreakBefore:!!item.pageBreakBefore,children:[new TextRun({text:String(num),bold:true,font:FONT,size:SZ})]})
+        new Paragraph({spacing:SP0,pageBreakBefore:!!item.pageBreakBefore,children:[new TextRun({text:'',size:SZ,font:FONT})]}),
+        new Paragraph({alignment:AlignmentType.CENTER,spacing:SP0,children:[new TextRun({text:String(num),bold:true,font:FONT,size:SZ})]})
       ]});
 
       // PRODUCTION — mirrors rosBuildWordRow exactly: iterates the same rosResolveProdBlocks()
@@ -11104,23 +11105,23 @@ async function rosExportDocx(ep,items){
         }
       });
       if(!_slugsPlaced)_placeSlugs();
-      const prodCell=new TableCell({width:{size:COL_W[1],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:prodParas});
+      const prodCell=new TableCell({width:{size:COL_W[1],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:[emptyPara(),...prodParas]});
 
       // SOUND — two-slot Clip Jockey/Grams model, same rosResolveSound() fallback the WYSIWYG
       // view uses (classifies a legacy single item.sound value until the new fields are touched).
       const _snd=rosResolveSound(item);
       const _sndLines=[_snd.clipJockey,_snd.grams].filter(Boolean);
-      const soundCell=new TableCell({width:{size:COL_W[2],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:
-        _sndLines.length?_sndLines.flatMap((v,vi)=>[...(vi>0?[emptyPara()]:[]),new Paragraph({spacing:SP0,children:[new TextRun({text:v,bold:true,font:FONT,size:SZ})]})]):[new Paragraph({spacing:SP0,children:[new TextRun({text:'',bold:true,font:FONT,size:SZ})]})]
-      });
+      const soundCell=new TableCell({width:{size:COL_W[2],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:[emptyPara(),
+        ..._sndLines.length?_sndLines.flatMap((v,vi)=>[...(vi>0?[emptyPara()]:[]),new Paragraph({spacing:SP0,children:[new TextRun({text:v,bold:true,font:FONT,size:SZ})]})]):[new Paragraph({spacing:SP0,children:[new TextRun({text:'',bold:true,font:FONT,size:SZ})]})]
+      ]});
 
       // DESCRIPTION
-      const descParas=[];
+      // Every row starts with a blank line so text doesn't sit cramped right under the border.
+      const descParas=[emptyPara()];
       // Bumpers/Opening Logo/Closing Credits are hard-baked fixed items — no underline on the
-      // label, and always padded with a blank line before and after (unlike other item types,
+      // label, and always padded with an extra blank line after too (unlike other item types,
       // which get their spacing from adjacent sections like Out Words/Position/Script).
       const _isFixedItem=['fixed','break'].includes(item.type);
-      if(_isFixedItem)descParas.push(emptyPara());
       descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.label||'',bold:true,...(_isFixedItem?{}:{underline:{type:UnderlineType.SINGLE}}),font:FONT,size:SZ,color:'000000'})]}));
       if(item.content) descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.content,font:FONT,size:SZ,color:'000000'})]}));
       if(_isFixedItem)descParas.push(emptyPara());
@@ -11155,6 +11156,7 @@ async function rosExportDocx(ep,items){
 
       // DUR
       const durCell=new TableCell({width:{size:COL_W[4],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:[
+        emptyPara(),
         new Paragraph({alignment:AlignmentType.CENTER,spacing:SP0,children:[new TextRun({text:durFmt(item.duration)||'',font:'Courier New',size:SZ})]})
       ]});
 
