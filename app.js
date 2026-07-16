@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.268';
+const BUILD_VERSION='3.10.269';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -11266,7 +11266,9 @@ document.addEventListener('click',function rosHandler(e){
     const soundOpt=clickedInsideMenu&&e.target.closest('[data-wys-sound-group]');
     if(fieldOpt){
       const field=fieldOpt.dataset.wysMenuField;
-      const camIdx=fieldOpt.dataset.wysMenuCamidx!==undefined?Number(fieldOpt.dataset.wysMenuCamidx):undefined;
+      // camIdx holds the block's stable string id (e.g. "screen-0", "cam-manual-3") for 'prod'
+      // fields — must NOT be coerced to a Number (that produced NaN and silently broke Edit).
+      const camIdx=fieldOpt.dataset.wysMenuCamidx;
       rosWysEdit={epNum:rosWysMenu.epNum,itemIdx:rosWysMenu.itemIdx,field,camIdx};
       rosWysMenu=null;
       render();
