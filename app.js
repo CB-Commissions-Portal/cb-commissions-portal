@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.271';
+const BUILD_VERSION='3.10.272';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5400,9 +5400,16 @@ function rosWysBuildRow(item,i,epNum){
   // Slugs — read-only here, generated on the classic landing page and pulled through. Each is
   // still right-clickable (data-wys-part="slug") for one action: copying its text into a new,
   // independent Screen Info block — the slug itself and its VT list export are never touched.
+  // If a slug has been copied into a Screen Info block (fromSlugIdx), its automatic display is
+  // suppressed here so it isn't shown twice — the copy renders with the same green highlight
+  // instead. Purely a display choice, computed fresh each render; deleting the copy brings the
+  // slug's normal display straight back.
+  const _prodBlocksList=rosResolveProdBlocks(item,{includeAutoCam:false});
+  const _copiedSlugIdxs=new Set(_prodBlocksList.filter(b=>b.fromSlugIdx!==undefined).map(b=>b.fromSlugIdx));
   const slugs=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean);
   const sources=item.slugSources||[];
   const slugCell=slugs.map((s,si)=>{
+    if(_copiedSlugIdxs.has(si))return'';
     const src=sources[si]||'';
     const txt=src?`${escHtml(src)} - ${escHtml(s)}`:escHtml(s);
     return `<div class="wys-block" data-wys-part="slug" data-wys-part-blockid="${si}">${_p(`<span style="background:#39FF14;font-weight:bold">${txt}</span>`)}</div>`;
@@ -5419,7 +5426,7 @@ function rosWysBuildRow(item,i,epNum){
   const _labelFor={screen:'SCREEN:',cgen:'CGEN:',storyTitle:'STORY TITLE:'};
   const _placeholderFor={screen:'Screen info…',cgen:'CGEN…',storyTitle:'Story title…'};
   let _slugsPlaced=!slugCell;
-  rosResolveProdBlocks(item,{includeAutoCam:false}).forEach(b=>{
+  _prodBlocksList.forEach(b=>{
     if(!_slugsPlaced&&b.kind!=='screen'){_addSep();_prod+=slugCell;_slugsPlaced=true;}
     _addSep();
     if(b.kind==='screen'||b.kind==='cgen'||b.kind==='storyTitle'){
@@ -5428,7 +5435,8 @@ function rosWysBuildRow(item,i,epNum){
           <textarea class="wys-inline-ta" style="width:100%;min-height:44px;font-family:Arial,sans-serif;font-size:12px;padding:4px;border:2px solid #0066CC;border-radius:3px;box-sizing:border-box;resize:vertical" placeholder="${esc(_placeholderFor[b.kind])}">${escHtml(b.text||'')}</textarea>
         </div>`;
       } else {
-        _prod+=`<div class="wys-block" data-wys-part="${b.kind}" data-wys-part-blockid="${esc(b.id)}">${_pSm(`<u><b>${_labelFor[b.kind]}</b></u>`)}${_pSm(escHtml(b.text))}</div>`;
+        const _valHtml=b.fromSlugIdx!==undefined?`<span style="background:#39FF14;font-weight:bold">${escHtml(b.text)}</span>`:escHtml(b.text);
+        _prod+=`<div class="wys-block" data-wys-part="${b.kind}" data-wys-part-blockid="${esc(b.id)}">${_pSm(`<u><b>${_labelFor[b.kind]}</b></u>`)}${_pSm(_valHtml)}</div>`;
       }
     } else if(b.kind==='cam-auto'){
       const liveIdx=rosFindAutoCamIndex(item.script,b.designation,b.occurrence);
@@ -10731,9 +10739,12 @@ function rosBuildWordRow(item,i,highlightIdx=-1){
   const _durMmSs=d=>{if(!d)return'';const p=String(d).split(':');if(p.length===3){const mm=Number(p[0])*60+Number(p[1]);return`${String(mm).padStart(2,'0')}:${p[2]}`;}return d;};
   const _p=(txt,style='')=>`<p style="margin:0;font-family:Arial,sans-serif;font-size:11pt;${style}">${txt}</p>`;
   const num=item.itemNum||String(i+1);
+  const _prodBlocksList=rosResolveProdBlocks(item);
+  const _copiedSlugIdxs=new Set(_prodBlocksList.filter(b=>b.fromSlugIdx!==undefined).map(b=>b.fromSlugIdx));
   const slugs=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean);
   const sources=item.slugSources||[];
   const slugCell=slugs.map((s,si)=>{
+    if(_copiedSlugIdxs.has(si))return'';
     const src=sources[si]||'';
     const txt=src?`${escHtml(src)} - ${escHtml(s)}`:escHtml(s);
     return _p(`<span style="background:#39FF14;font-weight:bold">${txt}</span>`);
@@ -10743,13 +10754,15 @@ function rosBuildWordRow(item,i,highlightIdx=-1){
   // this computes the exact same fixed order as before (Screen → Slug → CGEN → Story Title →
   // Camera), so output stays byte-identical. Slugs are pulled through automatically (not
   // reorderable) and anchored right after any leading Screen block(s), matching that fixed order.
+  // A Screen block copied from a slug (fromSlugIdx) renders with the slug's own green highlight
+  // and the slug's automatic listing above skips that index, so it shows exactly once.
   let _prod='';
   const _pSm=(html)=>_p(html,'font-size:9pt');
   const _addSep=()=>{if(_prod)_prod+=_p('&nbsp;');};
   let _slugsPlaced=!slugCell;
-  rosResolveProdBlocks(item).forEach(b=>{
+  _prodBlocksList.forEach(b=>{
     if(!_slugsPlaced&&b.kind!=='screen'){_addSep();_prod+=slugCell;_slugsPlaced=true;}
-    if(b.kind==='screen'){_addSep();_prod+=_pSm('<u><b>SCREEN:</b></u>');_prod+=_pSm(escHtml(b.text));}
+    if(b.kind==='screen'){_addSep();_prod+=_pSm('<u><b>SCREEN:</b></u>');_prod+=_pSm(b.fromSlugIdx!==undefined?`<span style="background:#39FF14;font-weight:bold">${escHtml(b.text)}</span>`:escHtml(b.text));}
     else if(b.kind==='cgen'){_addSep();_prod+=_pSm('<u><b>CGEN:</b></u>');_prod+=_pSm(escHtml(b.text));}
     else if(b.kind==='storyTitle'){_addSep();_prod+=_pSm('<u><b>STORY TITLE:</b></u>');_prod+=_pSm(escHtml(b.text));}
     else if(b.kind==='cam-auto'){
@@ -11342,7 +11355,10 @@ document.addEventListener('click',function rosHandler(e){
           const text=src?`${src} - ${slugText}`:slugText;
           if(!Array.isArray(it.prodBlocks))it.prodBlocks=rosResolveProdBlocks(it,{includeAutoCam:false});
           const newId='new-'+Date.now()+Math.random().toString(36).slice(2,6);
-          it.prodBlocks.unshift({id:newId,kind:'screen',text});
+          // fromSlugIdx marks this as standing in for that slug's own automatic display —
+          // rendered with the slug's green highlight, and the original listing skips this index
+          // (dynamically, so deleting this block brings the slug's normal display straight back).
+          it.prodBlocks.unshift({id:newId,kind:'screen',text,fromSlugIdx:slugIdx});
           rosLogWysEdit(it,'Screen Info');
           rosData[String(epNum)].items=items;
           saveROS(epNum,{items,epNum});
