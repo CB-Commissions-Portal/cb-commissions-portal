@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.284';
+const BUILD_VERSION='3.10.285';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -10993,7 +10993,7 @@ async function rosExportDocx(ep,items){
   try{
     const{Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,
           WidthType,AlignmentType,VerticalAlign,BorderStyle,ShadingType,
-          Footer,TabStopType,PageNumber,UnderlineType}=window.docx;
+          Footer,TabStopType,PageNumber,UnderlineType,TableLayoutType}=window.docx;
 
     const epDate=resolveDate(ep);
     const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'}):'';
@@ -11154,7 +11154,7 @@ async function rosExportDocx(ep,items){
         new Paragraph({spacing:SP0,children:[new TextRun({text:'CARTE BLANCHE',bold:true,font:FONT,size:28,color:'000000'})]}),
         new Paragraph({spacing:SP0,children:[new TextRun({text:epLabel.replace(`S${currentSeason} `,`Season ${currentSeason}, `),bold:true,font:FONT,size:SZ})]}),
         new Paragraph({spacing:{before:0,after:120},children:[new TextRun({text:`TX: ${epDateFmt}`,bold:true,font:FONT,size:SZ})]}),
-        new Table({width:{size:11186,type:WidthType.DXA},columnWidths:COL_W,rows:[headerRow,...bodyRows]})
+        new Table({width:{size:11186,type:WidthType.DXA},columnWidths:COL_W,layout:TableLayoutType.FIXED,rows:[headerRow,...bodyRows]})
       ]
     }]});
 
@@ -11274,6 +11274,16 @@ function rosRecalc(){
   const totalEl=document.getElementById('ros-total');
   if(totalEl)totalEl.textContent='Total: '+rosSecsToStr(total);
 }
+document.addEventListener('change',function rosEditSoundHandler(e){
+  // Only one sound source at a time — picking one slot always clears the other.
+  if(e.target.id==='ros-edit-sound-cj'&&e.target.value){
+    const gr=document.getElementById('ros-edit-sound-grams');
+    if(gr)gr.value='';
+  }else if(e.target.id==='ros-edit-sound-grams'&&e.target.value){
+    const cj=document.getElementById('ros-edit-sound-cj');
+    if(cj)cj.value='';
+  }
+});
 document.addEventListener('click',function rosHandler(e){
   // Slug add
   if(e.target.classList.contains('ros-add-slug')){
@@ -11565,11 +11575,9 @@ document.addEventListener('click',function rosHandler(e){
       const items=(rosData[String(epNum)]?.items)||[];
       const it=items[itemIdx];
       if(it){
-        if(it.soundClipJockey===undefined&&it.soundGrams===undefined){
-          const legacy=rosResolveSound(it);
-          it.soundClipJockey=legacy.clipJockey;it.soundGrams=legacy.grams;
-        }
-        if(group==='clipJockey')it.soundClipJockey=value;else it.soundGrams=value;
+        // Only one sound source at a time — picking one slot always clears the other.
+        if(group==='clipJockey'){it.soundClipJockey=value;it.soundGrams='';}
+        else{it.soundGrams=value;it.soundClipJockey='';}
         rosLogWysEdit(it,group==='clipJockey'?'Sound — Clip Jockey':'Sound — Grams');
         rosData[String(epNum)].items=items;
         saveROS(epNum,{items,epNum});
