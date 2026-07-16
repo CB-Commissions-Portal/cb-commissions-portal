@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.282';
+const BUILD_VERSION='3.10.283';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5525,7 +5525,7 @@ function rosWysBuildRow(item,i,epNum){
   // there's only ever one action here so no per-value data-wys-part targeting is needed.
   const _snd=rosResolveSound(item);
   const _sndLines=[_snd.clipJockey,_snd.grams].filter(Boolean);
-  const _sndHtml=`<div class="wys-block" data-wys-part="sound">${_sndLines.length?_sndLines.map(v=>_p(escHtml(v),'font-weight:bold')).join(''):_p('&nbsp;','font-weight:bold')}</div>`;
+  const _sndHtml=`<div class="wys-block" data-wys-part="sound">${_sndLines.length?_sndLines.map((v,vi)=>(vi>0?_p('&nbsp;','font-weight:bold'):'')+_p(escHtml(v),'font-weight:bold')).join(''):_p('&nbsp;','font-weight:bold')}</div>`;
 
   // Column 4: Description — label/content pulled from the landing page + Script Block. Same
   // .wys-block hover treatment as Sound/Production; the whole cell shares one right-click menu
@@ -10848,7 +10848,7 @@ function rosBuildWordRow(item,i,highlightIdx=-1){
     <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%;white-space:normal;${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
     <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;white-space:normal;${_rowBg}">${_br}${_prod}
     </td>
-    <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%;white-space:normal;${_rowBg}">${_br}${(()=>{const _snd=rosResolveSound(item);const _lines=[_snd.clipJockey,_snd.grams].filter(Boolean);return _lines.length?_lines.map(v=>_p(escHtml(v),'font-weight:bold')).join(''):_p('','font-weight:bold');})()}</td>
+    <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%;white-space:normal;${_rowBg}">${_br}${(()=>{const _snd=rosResolveSound(item);const _lines=[_snd.clipJockey,_snd.grams].filter(Boolean);return _lines.length?_lines.map((v,vi)=>(vi>0?_p('&nbsp;','font-weight:bold'):'')+_p(escHtml(v),'font-weight:bold')).join(''):_p('','font-weight:bold');})()}</td>
     <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%;white-space:normal;${_rowBg}">${_br}${desc}</td>
     <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:7%;white-space:normal;${_rowBg}">${_br}${_p(escHtml(_durMmSs(item.duration)),'font-family:monospace;text-align:center')}</td>
   </tr>`;
@@ -11095,7 +11095,7 @@ async function rosExportDocx(ep,items){
       const _snd=rosResolveSound(item);
       const _sndLines=[_snd.clipJockey,_snd.grams].filter(Boolean);
       const soundCell=new TableCell({width:{size:COL_W[2],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:
-        _sndLines.length?_sndLines.map(v=>new Paragraph({spacing:SP0,children:[new TextRun({text:v,bold:true,font:FONT,size:SZ})]})):[new Paragraph({spacing:SP0,children:[new TextRun({text:'',bold:true,font:FONT,size:SZ})]})]
+        _sndLines.length?_sndLines.flatMap((v,vi)=>[...(vi>0?[emptyPara()]:[]),new Paragraph({spacing:SP0,children:[new TextRun({text:v,bold:true,font:FONT,size:SZ})]})]):[new Paragraph({spacing:SP0,children:[new TextRun({text:'',bold:true,font:FONT,size:SZ})]})]
       });
 
       // DESCRIPTION
