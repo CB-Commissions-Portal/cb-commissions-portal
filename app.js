@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.273';
+const BUILD_VERSION='3.10.274';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -1714,6 +1714,19 @@ function render(){
   if(tab==='roswys'&&rosWysEdit) setTimeout(()=>{
     const el=document.querySelector('[data-wys-editor] .wys-inline-ta, [data-wys-editor] .wys-cam-desig-inp');
     if(el){el.focus();if(el.value)el.setSelectionRange(el.value.length,el.value.length);}
+  },0);
+  // WYSIWYG TESTING — the menu's height depends on how many options it has (varies a lot: a
+  // plain Screen block vs. a linked camera shot with Move Up/Down + Link options), so it can't be
+  // clamped on-screen accurately before it's actually rendered. Measure it for real here instead.
+  if(tab==='roswys'&&rosWysMenu) setTimeout(()=>{
+    const menuEl=document.getElementById('wys-menu');
+    if(!menuEl)return;
+    const rect=menuEl.getBoundingClientRect();
+    let top=rect.top,left=rect.left;
+    if(rect.bottom>window.innerHeight-8)top=Math.max(8,window.innerHeight-rect.height-8);
+    if(rect.right>window.innerWidth-8)left=Math.max(8,window.innerWidth-rect.width-8);
+    if(top!==rect.top)menuEl.style.top=top+'px';
+    if(left!==rect.left)menuEl.style.left=left+'px';
   },0);
   if(ctView==='form') setTimeout(updateContractPreview,0);
   if(ctView==='preview') setTimeout(updateContractStaticPreview,0);
