@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.269';
+const BUILD_VERSION='3.10.270';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -304,6 +304,19 @@ function rosGetScriptTurns(script){
     }
   });
   return turns;
+}
+// Logs a WYSIWYG TESTING content edit — Super Admin-only "who edited what" visibility (item's
+// own wysEditLog, capped at 20, newest last). `note` is only ever populated for Director script
+// edits (the one field with a mandatory-explanation rule); every other edit logs with no note.
+function rosLogWysEdit(item,fieldLabel,note=''){
+  if(!Array.isArray(item.wysEditLog))item.wysEditLog=[];
+  item.wysEditLog.push({
+    by:currentUser?.displayName||currentUser?.email||'Unknown',
+    at:new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+    field:fieldLabel,
+    note
+  });
+  if(item.wysEditLog.length>20)item.wysEditLog=item.wysEditLog.slice(-20);
 }
 let commTranscripts={}; // {commNum: {transcript,status,updatedByName,updatedAtStr}}
 let liveTranscripts={}; // {epNum: {blocks:[],updatedByName,updatedAtStr}}
@@ -5349,6 +5362,19 @@ function buildRosWysMenuHtml(epNum,itemIdx,col,partKind,partType,partBlockId){
   } else if(col==='description'){
     html+=canScript?_itemOpt('script',item.script?'✎ Edit Script':'+ Add Script Block')
       :`<div style="padding:9px 16px;font-size:13px;color:#9ca3af;font-style:italic;white-space:nowrap">No script block for this item type</div>`;
+  } else if(col==='history'){
+    // Super Admin only — read-only "who edited what" log for this item, newest first.
+    const log=Array.isArray(item.wysEditLog)?[...item.wysEditLog].reverse():[];
+    html+=_hdr('Edit History');
+    if(!log.length){
+      html+=`<div style="padding:4px 16px 9px;font-size:13px;color:#9ca3af;font-style:italic;white-space:nowrap">No edits logged yet</div>`;
+    } else {
+      html+=log.map(h=>`<div style="padding:7px 16px;border-top:1px solid #f3f4f6;font-size:12px;line-height:1.5;max-width:280px;white-space:normal">
+        <div><b style="color:#111827">${esc(h.field)}</b> <span style="color:#9ca3af">— ${esc(h.by)}</span></div>
+        <div style="color:#9ca3af;font-size:11px">${esc(h.at)}</div>
+        ${h.note?`<div style="color:#374151;margin-top:2px;font-style:italic">"${esc(h.note)}"</div>`:''}
+      </div>`).join('');
+    }
   }
   return html||`<div style="padding:9px 16px;font-size:13px;color:#9ca3af">No actions here</div>`;
 }
@@ -5445,8 +5471,10 @@ function rosWysBuildRow(item,i,epNum){
   const _canScript=['live','coldstart','upnext'].includes(item.type);
   let desc;
   if(_canScript&&_isEditing('script')){
+    const _isDirector=getEffectiveRole()==='director';
     desc=_descBody+_p('&nbsp;')+`<div data-wys-editor data-epnum="${esc(epNum)}" data-idx="${i}" data-field="script" style="margin:4px 0">
       <textarea class="wys-inline-ta" style="width:100%;min-height:140px;font-family:Arial,sans-serif;font-size:12px;line-height:1.5;padding:6px;border:2px solid #0066CC;border-radius:3px;box-sizing:border-box;resize:vertical" placeholder="Presenter script…">${escHtml(item.script||'')}</textarea>
+      ${_isDirector?`<input class="wys-script-note-inp" placeholder="Explain this script change (required if editing existing dialogue)…" style="width:100%;margin-top:4px;font-family:Arial,sans-serif;font-size:11px;padding:4px 6px;border:2px solid #f59e0b;border-radius:3px;box-sizing:border-box">`:''}
     </div>`;
   } else {
     let _scriptHtml='';
@@ -5465,8 +5493,9 @@ function rosWysBuildRow(item,i,epNum){
     desc=`<div class="wys-block" data-wys-part="description">${_descBody}${_scriptHtml}</div>`;
   }
 
+  const _isSuperAdmin=getEffectiveRole()==='admin';
   return`<tr data-ros-idx="${i}" style="${_rowBg}">
-    <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%;white-space:normal;${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
+    <td align="center"${_isSuperAdmin?' data-wys-col="history"':''} style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%;white-space:normal;${_isSuperAdmin?'cursor:context-menu;':''}${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
     <td data-wys-col="production" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;white-space:normal;cursor:context-menu;${_rowBg}">${_br}${_prod}</td>
     <td data-wys-col="sound" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%;white-space:normal;cursor:context-menu;${_rowBg}">${_br}${_sndHtml}</td>
     <td data-wys-col="description" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%;white-space:normal;cursor:context-menu;${_rowBg}">${_br}${desc}</td>
@@ -11301,7 +11330,11 @@ document.addEventListener('click',function rosHandler(e){
       if(it){
         if(!Array.isArray(it.prodBlocks))it.prodBlocks=rosResolveProdBlocks(it,{includeAutoCam:false});
         const pos=it.prodBlocks.findIndex(b=>b.id===blockId);
-        if(pos>=0)it.prodBlocks.splice(pos,1);
+        if(pos>=0){
+          const _delLabels={screen:'Screen Info',cgen:'CGEN',storyTitle:'Story Title','cam-auto':'Camera Shot','cam-manual':'Camera Shot'};
+          rosLogWysEdit(it,'Deleted: '+(_delLabels[it.prodBlocks[pos].kind]||'item'));
+          it.prodBlocks.splice(pos,1);
+        }
         rosData[String(epNum)].items=items;
         saveROS(epNum,{items,epNum});
       }
@@ -11383,6 +11416,7 @@ document.addEventListener('click',function rosHandler(e){
           it.soundClipJockey=legacy.clipJockey;it.soundGrams=legacy.grams;
         }
         if(group==='clipJockey')it.soundClipJockey=value;else it.soundGrams=value;
+        rosLogWysEdit(it,group==='clipJockey'?'Sound — Clip Jockey':'Sound — Grams');
         rosData[String(epNum)].items=items;
         saveROS(epNum,{items,epNum});
       }
@@ -11730,6 +11764,7 @@ document.addEventListener('focusout',function rosWysCommit(e){
   const items=(rosData[String(epNum)]?.items)||[];
   const it=items[itemIdx];
   if(!it){rosWysEdit=null;render();return;}
+  const _prodLabels={screen:'Screen Info',cgen:'CGEN',storyTitle:'Story Title','cam-auto':'Camera Shot','cam-manual':'Camera Shot'};
   if(field==='prod'){
     const blockId=wrap.dataset.camidx;
     if(!Array.isArray(it.prodBlocks))it.prodBlocks=rosResolveProdBlocks(it,{includeAutoCam:false});
@@ -11739,7 +11774,7 @@ document.addEventListener('focusout',function rosWysCommit(e){
       if(block.kind==='screen'||block.kind==='cgen'||block.kind==='storyTitle'){
         const val=wrap.querySelector('.wys-inline-ta').value.trim();
         if(!val)it.prodBlocks.splice(pos,1); // discard empty speculative block
-        else block.text=val;
+        else{block.text=val;rosLogWysEdit(it,_prodLabels[block.kind]);}
       } else if(block.kind==='cam-auto'){
         // Position lives in prodBlocks; the description itself stays linked to the live script
         // cue (resolved fresh via designation+occurrence) so it keeps following the real cue.
@@ -11747,16 +11782,45 @@ document.addEventListener('focusout',function rosWysCommit(e){
         if(liveIdx>=0){
           if(!Array.isArray(it.cameraDescs))it.cameraDescs=[];
           it.cameraDescs[liveIdx]=wrap.querySelector('.wys-cam-desc-inp').value;
+          rosLogWysEdit(it,_prodLabels[block.kind]);
         }
       } else if(block.kind==='cam-manual'){
         const desig=wrap.querySelector('.wys-cam-desig-inp').value.trim();
         const desc=wrap.querySelector('.wys-cam-desc-inp').value.trim();
         if(!desig&&!desc)it.prodBlocks.splice(pos,1); // discard empty speculative entry
-        else{block.designation=desig;block.desc=desc;}
+        else{block.designation=desig;block.desc=desc;rosLogWysEdit(it,_prodLabels[block.kind]);}
       }
     }
   }
-  else if(field==='script')it.script=wrap.querySelector('.wys-inline-ta').value;
+  else if(field==='script'){
+    const newScript=wrap.querySelector('.wys-inline-ta').value;
+    const oldScript=it.script||'';
+    const changed=newScript!==oldScript&&oldScript.trim()!=='';
+    const who=currentUser?.displayName||currentUser?.email||'Unknown';
+    const when=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    let noteVal='';
+    if(changed&&getEffectiveRole()==='director'){
+      const noteEl=wrap.querySelector('.wys-script-note-inp');
+      noteVal=(noteEl?.value||'').trim();
+      if(!noteVal){
+        showToast('Please explain the script change before it saves',true);
+        return; // leave the editor open exactly as typed — nothing is lost, nothing is saved yet
+      }
+      if(!it.scriptPendingChange)it.scriptBaseline=oldScript;
+      it.scriptPendingChange=true;
+      it.scriptChangeNote=noteVal;
+      it.scriptChangedBy=who;
+      it.scriptChangedAt=when;
+    }
+    if(changed){
+      rosLogWysEdit(it,'Script',noteVal);
+      if(it.finalised){
+        it.finalised=false;it.finalisedBy='';it.finalisedAt='';
+        it.changedSinceFinalised=true;it.changedBy=who;it.changedAt=when;
+      }
+    }
+    it.script=newScript;
+  }
   rosData[String(epNum)].items=items;
   saveROS(Number(epNum),{items,epNum:Number(epNum)});
   rosWysEdit=null;
