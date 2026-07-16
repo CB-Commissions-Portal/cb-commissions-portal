@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.267';
+const BUILD_VERSION='3.10.268';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -259,7 +259,13 @@ function rosFindAutoCamIndex(script,designation,occurrence){
 // computes today's default order — Screen(s), CGEN(s), Story Title(s), auto camera cues in
 // script order, manual camera shots — which is deliberately identical to the pre-existing fixed
 // render order, so nothing changes visually until the user actually repositions something.
-function rosResolveProdBlocks(item){
+// includeAutoCam defaults to true, preserving the classic Studio Script Build tab's existing
+// Camera Block feature and the real Word export exactly as-is. The WYSIWYG TESTING tab passes
+// includeAutoCam:false — per user request, camera shots there are a fully manual process going
+// forward — but this only stops NEW script cues from auto-populating; any cam-auto entries
+// already materialized into item.prodBlocks from earlier testing keep rendering as before.
+function rosResolveProdBlocks(item,opts={}){
+  const includeAutoCam=opts.includeAutoCam!==false;
   // Auto camera cues are recomputed fresh every call (deterministic id from designation+
   // occurrence) so newly-typed script cues keep appearing automatically even on an item whose
   // order has already been customized — reconciled below rather than frozen at materialization.
@@ -269,6 +275,7 @@ function rosResolveProdBlocks(item){
     return{id:'cam-auto-'+cam+'-'+occ,kind:'cam-auto',designation:cam,occurrence:occ};
   });
   if(Array.isArray(item.prodBlocks)){
+    if(!includeAutoCam)return item.prodBlocks;
     const existingIds=new Set(item.prodBlocks.filter(b=>b.kind==='cam-auto').map(b=>b.id));
     const newOnes=liveCams.filter(c=>!existingIds.has(c.id));
     return newOnes.length?[...item.prodBlocks,...newOnes]:item.prodBlocks;
@@ -277,9 +284,26 @@ function rosResolveProdBlocks(item){
   rosResolveBlocks(item,'screen').forEach((text,idx)=>blocks.push({id:'screen-'+idx,kind:'screen',text}));
   rosResolveBlocks(item,'cgen').forEach((text,idx)=>blocks.push({id:'cgen-'+idx,kind:'cgen',text}));
   rosResolveBlocks(item,'storyTitle').forEach((text,idx)=>blocks.push({id:'storyTitle-'+idx,kind:'storyTitle',text}));
-  blocks.push(...liveCams);
+  if(includeAutoCam)blocks.push(...liveCams);
   (item.manualCameraCues||[]).forEach((mc,idx)=>blocks.push({id:'cam-manual-'+idx,kind:'cam-manual',designation:mc.designation||'',desc:mc.desc||''}));
   return blocks;
+}
+// Ordered list of speaker turns in a script — {name,occurrence} per cue line (plain "LOURENSA:"
+// or with camera info "GOVAN: CAM 3 JIB", both count as that presenter's turn). Used to populate
+// the WYSIWYG "link a manual camera shot to a turn" picker and to compute Snap to Turn positions.
+function rosGetScriptTurns(script){
+  const turns=[];
+  const nameCounts={};
+  (script||'').split('\n').forEach(line=>{
+    const m=line.trim().match(/^([^:]+):\s*(?:CAM\s*\S.*)?\s*$/i);
+    if(m){
+      const name=m[1].trim().toUpperCase();
+      const occurrence=nameCounts[name]||0;
+      nameCounts[name]=occurrence+1;
+      turns.push({name,occurrence});
+    }
+  });
+  return turns;
 }
 let commTranscripts={}; // {commNum: {transcript,status,updatedByName,updatedAtStr}}
 let liveTranscripts={}; // {epNum: {blocks:[],updatedByName,updatedAtStr}}
@@ -5277,14 +5301,30 @@ function buildRosWysMenuHtml(epNum,itemIdx,col,partKind,partType,partBlockId){
       html+=_deleteOpt(partBlockId,'🗑 Delete This '+lbl);
       html+=_sep();
     } else if(partKind==='cam'){
-      const block=rosResolveProdBlocks(item).find(b=>b.id===partBlockId);
+      const block=rosResolveProdBlocks(item,{includeAutoCam:false}).find(b=>b.id===partBlockId);
       const orphaned=block&&block.kind==='cam-auto'&&rosFindAutoCamIndex(item.script,block.designation,block.occurrence)<0;
       if(orphaned){
         html+=`<div style="padding:9px 16px 4px;font-size:13px;color:#9ca3af;font-style:italic;white-space:nowrap">This cue is no longer in the script</div>`;
         html+=_deleteOpt(partBlockId,'🗑 Remove This Position');
       } else {
         html+=_itemOpt('prod','✎ Edit Shot Description',partBlockId);
-        if(partType==='manual')html+=_deleteOpt(partBlockId,'🗑 Delete Camera Shot');
+        if(partType==='manual'){
+          html+=_deleteOpt(partBlockId,'🗑 Delete Camera Shot');
+          if(block&&block.linkedCue){
+            html+=`<div class="wys-menu-item" data-wys-menu-action="snap-to-turn" data-wys-menu-blockid2="${esc(partBlockId)}" style="padding:9px 16px;font-size:14px;cursor:pointer;color:#7c3aed;white-space:nowrap" onmouseover="this.style.background='#f5f3ff'" onmouseout="this.style.background='transparent'">🔄 Snap to Turn</div>`;
+            html+=`<div class="wys-menu-item" data-wys-menu-action="unlink-turn" data-wys-menu-blockid2="${esc(partBlockId)}" style="padding:9px 16px;font-size:14px;cursor:pointer;color:#111827;white-space:nowrap" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">✕ Unlink</div>`;
+          }
+          const turns=rosGetScriptTurns(item.script);
+          if(turns.length){
+            html+=_hdr('Link to a Turn');
+            turns.forEach(t=>{
+              const ord=t.occurrence+1;
+              const ordLbl=ord+(ord===1?'st':ord===2?'nd':ord===3?'rd':'th');
+              const active=!!(block&&block.linkedCue&&block.linkedCue.name===t.name&&block.linkedCue.occurrence===t.occurrence);
+              html+=`<div class="wys-menu-item" data-wys-menu-action="set-link" data-wys-menu-blockid2="${esc(partBlockId)}" data-wys-turn-name="${esc(t.name)}" data-wys-turn-occ="${t.occurrence}" style="padding:7px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;${active?'background:#f5f3ff;font-weight:700;color:#7c3aed':'color:#111827'}" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='${active?'#f5f3ff':'transparent'}'"><span style="width:14px;display:inline-block">${active?'✓':''}</span>${esc(t.name)} (${ordLbl})</div>`;
+            });
+          }
+        }
       }
       html+=_sep();
     }
@@ -5347,7 +5387,7 @@ function rosWysBuildRow(item,i,epNum){
   const _labelFor={screen:'SCREEN:',cgen:'CGEN:',storyTitle:'STORY TITLE:'};
   const _placeholderFor={screen:'Screen info…',cgen:'CGEN…',storyTitle:'Story title…'};
   let _slugsPlaced=!slugCell;
-  rosResolveProdBlocks(item).forEach(b=>{
+  rosResolveProdBlocks(item,{includeAutoCam:false}).forEach(b=>{
     if(!_slugsPlaced&&b.kind!=='screen'){_addSep();_prod+=slugCell;_slugsPlaced=true;}
     _addSep();
     if(b.kind==='screen'||b.kind==='cgen'||b.kind==='storyTitle'){
@@ -5377,7 +5417,13 @@ function rosWysBuildRow(item,i,epNum){
           <textarea class="wys-cam-desc-inp" style="width:100%;min-height:36px;font-family:Arial,sans-serif;font-size:11px;padding:4px;border:2px solid #7c3aed;border-radius:3px;box-sizing:border-box;resize:vertical" placeholder="Shot description…">${esc(b.desc||'')}</textarea>
         </div>`;
       } else {
-        _prod+=`<div class="wys-block" data-wys-part="cam" data-wys-part-type="manual" data-wys-part-blockid="${esc(b.id)}">${_pSm(`<u><b>${escHtml(b.designation||'—')}</b></u>`)}${b.desc?_pSm(escHtml(b.desc)):''}</div>`;
+        let _linkTag='';
+        if(b.linkedCue){
+          const stillThere=rosGetScriptTurns(item.script).some(t=>t.name===b.linkedCue.name&&t.occurrence===b.linkedCue.occurrence);
+          const _ord=b.linkedCue.occurrence+1;
+          _linkTag=_pSm(`<span style="color:${stillThere?'#7c3aed':'#dc2626'};font-style:italic">🔗 ${stillThere?'linked to':'was linked to'} ${escHtml(b.linkedCue.name)} (${_ord}${_ord===1?'st':_ord===2?'nd':_ord===3?'rd':'th'})${stillThere?'':' — turn no longer found'}</span>`);
+        }
+        _prod+=`<div class="wys-block" data-wys-part="cam" data-wys-part-type="manual" data-wys-part-blockid="${esc(b.id)}">${_pSm(`<u><b>${escHtml(b.designation||'—')}</b></u>`)}${b.desc?_pSm(escHtml(b.desc)):''}${_linkTag}</div>`;
       }
     }
   });
@@ -11233,7 +11279,7 @@ document.addEventListener('click',function rosHandler(e){
       const items=(rosData[String(epNum)]?.items)||[];
       const it=items[itemIdx];
       if(it){
-        if(!Array.isArray(it.prodBlocks))it.prodBlocks=rosResolveProdBlocks(it);
+        if(!Array.isArray(it.prodBlocks))it.prodBlocks=rosResolveProdBlocks(it,{includeAutoCam:false});
         const newId='new-'+Date.now()+Math.random().toString(36).slice(2,6);
         const newBlock=kind==='cam-manual'?{id:newId,kind:'cam-manual',designation:'',desc:''}:{id:newId,kind,text:''};
         const afterPos=afterId?it.prodBlocks.findIndex(b=>b.id===afterId):-1;
@@ -11251,13 +11297,75 @@ document.addEventListener('click',function rosHandler(e){
       const items=(rosData[String(epNum)]?.items)||[];
       const it=items[itemIdx];
       if(it){
-        if(!Array.isArray(it.prodBlocks))it.prodBlocks=rosResolveProdBlocks(it);
+        if(!Array.isArray(it.prodBlocks))it.prodBlocks=rosResolveProdBlocks(it,{includeAutoCam:false});
         const pos=it.prodBlocks.findIndex(b=>b.id===blockId);
         if(pos>=0)it.prodBlocks.splice(pos,1);
         rosData[String(epNum)].items=items;
         saveROS(epNum,{items,epNum});
       }
       rosWysMenu=null;rosWysEdit=null;
+      render();
+      return;
+    }
+    if(actionOpt&&actionOpt.dataset.wysMenuAction==='set-link'){
+      const blockId=actionOpt.dataset.wysMenuBlockid2;
+      const name=actionOpt.dataset.wysTurnName;
+      const occurrence=Number(actionOpt.dataset.wysTurnOcc);
+      const{epNum,itemIdx}=rosWysMenu;
+      const items=(rosData[String(epNum)]?.items)||[];
+      const it=items[itemIdx];
+      if(it){
+        if(!Array.isArray(it.prodBlocks))it.prodBlocks=rosResolveProdBlocks(it,{includeAutoCam:false});
+        const block=it.prodBlocks.find(b=>b.id===blockId);
+        if(block)block.linkedCue={name,occurrence};
+        rosData[String(epNum)].items=items;
+        saveROS(epNum,{items,epNum});
+      }
+      rosWysMenu=null;
+      render();
+      return;
+    }
+    if(actionOpt&&actionOpt.dataset.wysMenuAction==='unlink-turn'){
+      const blockId=actionOpt.dataset.wysMenuBlockid2;
+      const{epNum,itemIdx}=rosWysMenu;
+      const items=(rosData[String(epNum)]?.items)||[];
+      const it=items[itemIdx];
+      if(it){
+        if(!Array.isArray(it.prodBlocks))it.prodBlocks=rosResolveProdBlocks(it,{includeAutoCam:false});
+        const block=it.prodBlocks.find(b=>b.id===blockId);
+        if(block)delete block.linkedCue;
+        rosData[String(epNum)].items=items;
+        saveROS(epNum,{items,epNum});
+      }
+      rosWysMenu=null;
+      render();
+      return;
+    }
+    if(actionOpt&&actionOpt.dataset.wysMenuAction==='snap-to-turn'){
+      const blockId=actionOpt.dataset.wysMenuBlockid2;
+      const{epNum,itemIdx}=rosWysMenu;
+      const items=(rosData[String(epNum)]?.items)||[];
+      const it=items[itemIdx];
+      if(it){
+        if(!Array.isArray(it.prodBlocks))it.prodBlocks=rosResolveProdBlocks(it,{includeAutoCam:false});
+        const pos=it.prodBlocks.findIndex(b=>b.id===blockId);
+        const block=pos>=0?it.prodBlocks[pos]:null;
+        if(block&&block.linkedCue){
+          const turns=rosGetScriptTurns(it.script);
+          const turnIdx=turns.findIndex(t=>t.name===block.linkedCue.name&&t.occurrence===block.linkedCue.occurrence);
+          if(turnIdx<0){
+            showToast('That turn is no longer in the script',true);
+          } else {
+            it.prodBlocks.splice(pos,1); // remove from its current position first
+            const others=it.prodBlocks; // remaining blocks (same array, now without this one)
+            const target=turns.length>1?Math.round((turnIdx/(turns.length-1))*others.length):others.length;
+            others.splice(Math.max(0,Math.min(others.length,target)),0,block);
+            rosData[String(epNum)].items=items;
+            saveROS(epNum,{items,epNum});
+          }
+        }
+      }
+      rosWysMenu=null;
       render();
       return;
     }
@@ -11622,7 +11730,7 @@ document.addEventListener('focusout',function rosWysCommit(e){
   if(!it){rosWysEdit=null;render();return;}
   if(field==='prod'){
     const blockId=wrap.dataset.camidx;
-    if(!Array.isArray(it.prodBlocks))it.prodBlocks=rosResolveProdBlocks(it);
+    if(!Array.isArray(it.prodBlocks))it.prodBlocks=rosResolveProdBlocks(it,{includeAutoCam:false});
     const pos=it.prodBlocks.findIndex(b=>b.id===blockId);
     if(pos>=0){
       const block=it.prodBlocks[pos];
