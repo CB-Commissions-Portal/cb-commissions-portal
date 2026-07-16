@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.287';
+const BUILD_VERSION='3.10.288';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5533,7 +5533,7 @@ function rosWysBuildRow(item,i,epNum){
   // Bumpers/Opening Logo/Closing Credits are hard-baked fixed items — no underline on the label,
   // and always padded with a blank line before/after (the leading blank comes from the cell's
   // universal ${_br}; the trailing one is added here).
-  const _isFixedItem=item.type==='fixed';
+  const _isFixedItem=['fixed','break'].includes(item.type);
   let _descBody=_isFixedItem?_p(escHtml(item.label||''),'font-weight:bold;color:#000'):_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
   if(getEffectiveRole()==='admin'&&item.scriptPendingChange)_descBody+=_p(`<span style="background:#fff7ed;color:#c2410c;font-weight:800;padding:1px 6px;border-radius:3px;font-size:9pt">⚠ SCRIPT CHANGED — right-click to review</span>`);
   if(item.content) _descBody+=_p(escHtml(item.content),'font-weight:normal;color:#000');
@@ -10833,7 +10833,7 @@ function rosBuildWordRow(item,i,highlightIdx=-1){
   // Bumpers/Opening Logo/Closing Credits are hard-baked fixed items — no underline on the label,
   // and always padded with a blank line before/after (the leading blank comes from the cell's
   // universal ${_br}; the trailing one is added here).
-  const _isFixedItem=item.type==='fixed';
+  const _isFixedItem=['fixed','break'].includes(item.type);
   let desc=_isFixedItem?_p(escHtml(item.label||''),'font-weight:bold;color:#000'):_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
   if(item.content) desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
   if(_isFixedItem) desc+=_p('&nbsp;');
@@ -11119,7 +11119,7 @@ async function rosExportDocx(ep,items){
       // Bumpers/Opening Logo/Closing Credits are hard-baked fixed items — no underline on the
       // label, and always padded with a blank line before and after (unlike other item types,
       // which get their spacing from adjacent sections like Out Words/Position/Script).
-      const _isFixedItem=item.type==='fixed';
+      const _isFixedItem=['fixed','break'].includes(item.type);
       if(_isFixedItem)descParas.push(emptyPara());
       descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.label||'',bold:true,...(_isFixedItem?{}:{underline:{type:UnderlineType.SINGLE}}),font:FONT,size:SZ,color:'000000'})]}));
       if(item.content) descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.content,font:FONT,size:SZ,color:'000000'})]}));
