@@ -52,6 +52,20 @@ const OPS_ED=['dop','ca','editor','afm'];
 const PROD_ED=[...DEL_KEYS];
 
 function getEffectiveRole(){return previewRole||currentRole;}
+// WYSIWYG TESTING tab — hidden testing ground for the Studio Script Build redesign.
+// Scoped to this one account (not a role) so it stays invisible even to other Super Admins
+// until it's ready to roll out to the whole team.
+function isWysiwygTester(){return currentUser?.email==='rudibotha1234@me.com';}
+// Same "may this person open the item editor at all" gate used by the classic
+// Studio Script Build tab's EDIT ITEM button, factored out for the WYSIWYG row-click handler.
+function rosCanEditAny(){
+  const isSuperAdmin=getEffectiveRole()==='admin';
+  const isLockedScript=!!rosData[String(rosCurrentEp)]?.rosLocked;
+  const canEdit=['admin','deputyadmin','editorial'].includes(getEffectiveRole())&&(!isLockedScript||isSuperAdmin);
+  const canEditScriptOnly=getEffectiveRole()==='content'&&(!isLockedScript||isSuperAdmin);
+  const canEditDirectorNotes=['admin','director'].includes(getEffectiveRole())&&(!isLockedScript||isSuperAdmin);
+  return canEdit||canEditScriptOnly||canEditDirectorNotes;
+}
 function canEdit(role,f){if(role==='admin'||role==='deputyadmin')return true;if(role==='editorial')return f==='deliveryDate';if(f==='decommissionMotivation')return true;
 if(role==='operations')return OPS_ED.includes(f);if(role==='production')return PROD_ED.includes(f);return false;}
 function suggestCode(n){if(!n)return'';const stop=/^(the|and|for|from|with|into|a|an|of|in|at|to|or|by|down|up)$/i;const w=n.trim().split(/\s+/).filter(x=>x.length>1&&!stop.test(x));if(!w.length)return n.substring(0,5).toUpperCase();if(w.length===1)return w[0].substring(0,6).toUpperCase();if(w.length===2)return(w[0].substring(0,3)+w[1].substring(0,3)).toUpperCase();return w.slice(0,3).map(x=>x.substring(0,2)).join('').toUpperCase();}
@@ -129,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.260';
+const BUILD_VERSION='3.10.261';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -1647,6 +1661,7 @@ function renderHome(){
     ].filter(Boolean)},
     {label:'Studio',items:[
       mk('ros','Studio Script Build',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,'#c084fc','rgba(192,132,252,.1)',['admin','deputyadmin','editorial','content','operations','finance','director'].includes(role),'Build the episode studio script with duration calculator'),
+      mk('roswys','WYSIWYG TESTING','Studio Script Build redesign',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,'#f472b6','rgba(244,114,182,.1)',isWysiwygTester(),'Full-script inline-edit prototype — visible only to you'),
       mk('fcc','Script Cover Page',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>`,'#f7768e','rgba(247,118,142,.1)',['admin','deputyadmin','production','prodmgmt','finance'].includes(role),'Studio Script with timecode and segment durations'),
       mk('transcripts','Transcripts',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`,'#06b6d4','rgba(6,182,212,.1)',['admin','deputyadmin','production','transcripts'].includes(role),'Commission and live show transcripts'),
       mk('callsheet','Studio Call Sheet',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,'#e3b341','rgba(227,179,65,.1)',['admin','deputyadmin','operations','production','prodmgmt','finance'].includes(role),'Studio call sheet and running order per episode'),
@@ -1805,6 +1820,7 @@ function renderSidebar(){
   ].filter(Boolean);
   const studio=[
     item('ros','Studio Script Build',['admin','deputyadmin','editorial','content','operations','finance','director'].includes(role)),
+    item('roswys','WYSIWYG TESTING',isWysiwygTester()),
     item('fcc','Script Cover Page',['admin','deputyadmin','production','prodmgmt','finance'].includes(role)),
     item('transcripts','Transcripts',['admin','deputyadmin','production','transcripts'].includes(role)),
     item('callsheet','Studio Call Sheet',['admin','deputyadmin','operations','production','prodmgmt','finance'].includes(role)),
@@ -1934,6 +1950,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='deliverables'&&['admin','deputyadmin'].includes(currentRole)&&!previewRole)return renderDeliverables(epNums);
   if(tab==='lineups'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','director','transcripts'].includes(role))return renderLineups(epNums);
   if(tab==='ros'&&['admin','deputyadmin','editorial','content','director'].includes(role))return renderRunOfShow();
+  if(tab==='roswys'&&isWysiwygTester())return renderRunOfShowWysiwyg();
   if(tab==='transcripts'&&['admin','deputyadmin','production','transcripts'].includes(role))return renderTranscripts(epNums);
   if(tab==='broadcast'&&role!=='afm'&&role!=='transcripts')return renderBroadcastList();
   if(tab==='contracts'&&((currentRole==='admin'&&!previewRole)||currentRole==='finance'))return renderContracts();
@@ -5156,6 +5173,80 @@ function renderRunOfShow(){
   </div>`;
 }
 
+// WYSIWYG TESTING tab — prototype redesign of Studio Script Build. Renders the whole
+// episode script full-size, in the exact export format (rosBuildWordRow — same row
+// builder Word export uses), as the primary workspace. Clicking a row expands the
+// same edit fields as the classic EDIT ITEM modal (buildRosEditFieldsHtml) inline,
+// directly beneath it, instead of covering the screen with an overlay.
+function renderRunOfShowWysiwyg(){
+  // Episode picker / empty states are identical to the classic tab — reuse them.
+  if(rosEpModal||!rosCurrentEp) return renderRunOfShow();
+
+  const isSuperAdmin=getEffectiveRole()==='admin';
+  const isLockedScript=!!rosData[String(rosCurrentEp)]?.rosLocked;
+  const canEdit=['admin','deputyadmin','editorial'].includes(getEffectiveRole())&&(!isLockedScript||isSuperAdmin);
+  const epNum=rosCurrentEp;
+  const epDate=resolveDate(epNum);
+  const epLabel=`S${currentSeason} EP ${String(epNum).padStart(2,'0')}`;
+  const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'No date set';
+  const items=(rosData[String(epNum)]?.items)||[];
+  const _activeIdx=(rosEditModal&&String(rosEditModal.epNum)===String(epNum))?rosEditModal.itemIdx:-1;
+
+  const bodyRows=items.length?items.map((item,i)=>{
+    const row=rosBuildWordRow(item,i,_activeIdx);
+    if(i!==_activeIdx)return row;
+    return row+`<tr><td colspan="5" style="padding:0;border:2px solid #003366;border-top:none">
+      <div style="background:#eff6ff;padding:20px 24px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span style="font-size:14px;font-weight:800;color:#0066CC;text-transform:uppercase;letter-spacing:.5px">✎ Editing Item ${i+1} — ${esc(item.label||'')}</span>
+          <button id="ros-edit-close" class="btn" style="font-size:13px;padding:5px 14px">✕ Close</button>
+        </div>
+        <div style="display:flex;background:#fff;border:1px solid #d1dae8;border-radius:8px;overflow:hidden">
+          ${buildRosEditFieldsHtml(epNum,i)}
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:14px">
+          <button id="ros-edit-save" class="btn primary" style="font-size:16px;padding:10px 28px;font-weight:800">💾 Save Changes</button>
+        </div>
+      </div>
+    </td></tr>`;
+  }).join(''):`<tr><td colspan="5" style="padding:60px;text-align:center;color:#9ca3af;font-size:16px;font-family:Arial,sans-serif">No items yet — add items from the classic Studio Script Build tab, then come back here to edit.</td></tr>`;
+
+  return`<div style="display:flex;flex-direction:column;height:100%;overflow:hidden">
+    <style>#roswys-tbody tr[data-ros-idx]{cursor:pointer}#roswys-tbody tr[data-ros-idx]:hover td{background:#fdf2f8!important}</style>
+    <div style="padding:14px 24px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:16px;flex-shrink:0;flex-wrap:wrap">
+      <button class="btn" id="ros-pick-ep-btn" style="font-size:15px;padding:8px 16px">◀ Episodes</button>
+      <div>
+        <span style="font-size:20px;font-weight:900;color:#f472b6;font-family:monospace">${epLabel}</span>
+        <span style="font-size:16px;color:#6b7280;margin-left:14px">${epDateFmt}</span>
+        <span style="font-size:12px;font-weight:800;background:#fce7f3;color:#be185d;padding:3px 10px;border-radius:4px;margin-left:14px;letter-spacing:.5px">WYSIWYG TESTING — visible only to you</span>
+      </div>
+      ${isLockedScript?`<div style="font-size:13px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:6px;padding:5px 12px;font-weight:800;letter-spacing:.3px">🔒 LOCKED FOR EDITING</div>`:''}
+      <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <button class="btn" id="ros-preview-word-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#0066CC;color:#0066CC;border-style:dashed">👁 Preview Script</button>
+        <button class="btn" id="ros-export-word-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#388bfd;color:#0066CC">⬇ Studio Script (Word)</button>
+        ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:16px;padding:8px 24px;font-weight:800">💾 Save</button>`:''}
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;background:#dfe4ea;padding:32px 0">
+      <div style="max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 16px rgba(0,0,0,.15);padding:32px 28px;font-family:Arial,sans-serif">
+        <div style="font-size:18px;font-weight:900;color:#000;margin-bottom:4px">CARTE BLANCHE</div>
+        <div style="margin-bottom:2px;font-size:13px;color:#000"><b>Season ${currentSeason}, ${epLabel.replace(`S${currentSeason} `,'Season '+currentSeason+', ')}</b></div>
+        <div style="margin-bottom:14px;font-size:13px;color:#000"><b>TX: ${epDateFmt}</b></div>
+        <table style="border-collapse:collapse;width:100%;table-layout:fixed">
+          <colgroup><col style="width:4%"><col style="width:22%"><col style="width:11%"><col style="width:56%"><col style="width:7%"></colgroup>
+          <thead><tr>
+            <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:4%">ITEM</th>
+            <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:22%">PRODUCTION</th>
+            <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:11%">SOUND</th>
+            <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:56%">DESCRIPTION</th>
+            <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:7%">DUR</th>
+          </tr></thead>
+          <tbody id="roswys-tbody">${bodyRows}</tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+}
 
 // ── HOW TO GUIDE ─────────────────────────────────────────────────
 let helpVisible=false;
@@ -6623,61 +6714,40 @@ function renderAdmin(){
   </div>`;
 }
 
-function renderModals(epNums,nextEp){
-  let out='';
-  if(decomModal!==null){const c=comms.find(x=>x.id===decomModal);out+=`<div class="modal-overlay" id="decom-overlay"><div class="modal"><h3>Decommission Story</h3><p>A written motivation is required. Reversible only by Admin.</p><label>Story</label><div class="modal-story">${esc(c?.storyName||'')}</div><label>Motivation *</label><textarea id="decom-text" placeholder="Enter reason for decommissioning…">${esc(decomText)}</textarea><div class="modal-actions"><button class="btn" id="decom-cancel">Cancel</button><button class="btn danger" id="decom-confirm">Confirm Decommission</button></div></div></div>`;}
-  if(addEpModal){const autoDate=resolveDate(parseInt(newEpNum)||nextEp);const exists=epNums.includes(parseInt(newEpNum));out+=`<div class="modal-overlay" id="ep-overlay"><div class="modal"><h3>Add Episode</h3><p>Creates a new episode slot. Date is auto-calculated (+7 days) and editable after creation.</p><label>Episode Number</label><input type="number" id="new-ep-num" value="${newEpNum}" min="1" placeholder="${nextEp}">${newEpNum&&!isNaN(parseInt(newEpNum))?`<div style="margin-top:8px;font-size:14px;color:#6b7280">Date: <strong style="color:#e6edf3">${fmtDate(autoDate)}</strong></div>`:''}${exists?`<div style="color:#f85149;font-size:14px;margin-top:6px">⚠ Episode ${newEpNum} already exists.</div>`:''}<div class="modal-actions"><button class="btn" id="ep-cancel">Cancel</button><button class="btn primary" id="ep-confirm">Create Episode ${newEpNum||nextEp}</button></div></div></div>`;}
-  if(addUserModal){out+=`<div class="modal-overlay" id="user-overlay"><div class="modal"><h3>Create User Account</h3><p>The user can log in immediately with these credentials. Share them securely.</p><label>Full Name</label><input type="text" id="nu-name" value="${esc(newUserData.displayName)}" placeholder="e.g. Joy Summers"><label>Email</label><input type="email" id="nu-email" value="${esc(newUserData.email)}" placeholder="user@example.com"><label>Password</label><input type="text" id="nu-pass" value="${esc(newUserData.password)}" placeholder="Minimum 6 characters"><label>Role</label><select id="nu-role">${Object.entries(ROLE_META).map(([k,v])=>`<option value="${k}"${newUserData.role===k?' selected':''}>${v.label}</option>`).join('')}</select><div id="nu-err" style="color:#f85149;font-size:14px;margin-top:8px;display:none"></div><div class="modal-actions"><button class="btn" id="user-cancel">Cancel</button><button class="btn primary" id="user-confirm">Create Account</button></div></div></div>`;}
-  if(rosEditModal){
-    const {epNum,itemIdx}=rosEditModal;
-    const _ei=(rosData[String(epNum)]?.items||[])[itemIdx]||{};
-    const _eTS={fixed:{label:'#6b7280',badge:'',badgeBg:'#f3f4f6'},live:{label:'#1d4ed8',badge:'LIVE',badgeBg:'#dbeafe'},insert:{label:'#b45309',badge:'INSERT',badgeBg:'#fef3c7'},coldstart:{label:'#7c3aed',badge:'COLD START',badgeBg:'#ede9fe'},upnext:{label:'#15803d',badge:'UP NEXT',badgeBg:'#dcfce7'},break:{label:'#9ca3af',badge:'BREAK',badgeBg:'#f3f4f6'}};
-    const _ts=_eTS[_ei.type]||_eTS.live;
-    const _srcOpts=['','A','B','C','D','BLUE'];
-    const _slugs=_ei.slugs||(_ei.slug?[_ei.slug]:['']);
-    const _sources=_ei.slugSources||[];
-    const _isCue=l=>/^[^:]+:\s*(CAM\s*\S.*)?\s*$/i.test(l.trim());
-    const _sw=(_ei.script||'').split('\n').filter(l=>!_isCue(l)).join(' ').replace(/\([^)]*\)/g,' ').trim();
-    const _wc=_sw?_sw.split(/\s+/).length:0;
-    const _div3=(_wc/3).toFixed(1);
-    const _slugRows=_slugs.map((s,si)=>{
-      const curSrc=_sources[si]||'';
-      const rmBtn=_slugs.length>1?`<button class="ros-edit-rm-slug btn" data-itemidx="${itemIdx}" data-sidx="${si}" style="font-size:14px;padding:4px 10px;border-color:#f85149;color:#f85149;flex-shrink:0">Remove</button>`:'';
-      return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <input class="ros-edit-slug" data-sidx="${si}" value="${esc(s||'')}" placeholder="Slug…" style="flex:1;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#e3b341;font-size:18px;font-weight:700;padding:10px 12px;outline:none;font-family:inherit">
-        <select class="ros-edit-slug-source" data-sidx="${si}" style="background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#56d364;font-size:16px;font-weight:700;padding:10px 12px;outline:none;font-family:inherit;cursor:pointer;width:90px;flex-shrink:0">${_srcOpts.map(o=>`<option value="${o}" ${curSrc===o?'selected':''}>${o||'— none —'}</option>`).join('')}</select>
-        ${rmBtn}
-      </div>`;
-    }).join('');
-    const _soundOpts=["","A","B","C","D","COLD START","CLEAN","GENERIC","A+ COLD START CONT'D","B+ COLD START CONT'D","C+ COLD START CONT'D","D+ COLD START CONT'D","VOICE+ COLD START CONT'D","VOICE + COLD START IN"];
-    const _editFullAccess=!['content'].includes(getEffectiveRole());
-    // Init camera block state — preserve DOM values on re-render, else load from stored data
-    const _domCamDescs={};
-    document.querySelectorAll('.ros-cam-desc').forEach(inp=>{_domCamDescs[Number(inp.dataset.idx)]=inp.value;});
-    const _hasDomCams=Object.keys(_domCamDescs).length>0;
-    const _scriptCams=parseCamCues(_ei.script||'');
-    if(!_hasDomCams) rosCamDescs=_scriptCams.map((_,i)=>(_ei.cameraDescs||[])[i]||'');
-    else rosCamDescs=_scriptCams.map((_,i)=>_domCamDescs[i]!==undefined?_domCamDescs[i]:(rosCamDescs[i]||''));
-    const _camBlockHtml=buildRosCamBlockHtml(_scriptCams,rosCamDescs);
-    const _canCamBlock=['live','coldstart','upnext'].includes(_ei.type)&&getEffectiveRole()!=='content';
-    out+=`<div class="modal-overlay" id="ros-edit-overlay"><div class="modal" style="width:min(1600px,99vw);max-height:97vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
-      <div style="padding:20px 24px;border-bottom:1px solid #d1dae8;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-        <div>
-          ${_ts.badge?`<span style="font-size:13px;font-weight:800;background:${_ts.badgeBg};color:${_ts.label};padding:3px 12px;border-radius:4px;margin-right:8px;letter-spacing:.8px">${_ts.badge}</span>`:''}
-          <span style="font-size:13px;font-weight:800;background:#f3f4f6;color:#374151;padding:3px 10px;border-radius:4px;margin-right:12px;letter-spacing:.6px">ITEM ${itemIdx+1}</span>
-          <span style="font-size:20px;font-weight:800;color:${_ts.label}">${esc(_ei.label||'')}</span>
-          <span style="font-size:15px;color:#9ca3af;margin-left:12px">S${currentSeason} EP ${String(epNum).padStart(2,'0')}</span>
-        </div>
-        <button id="ros-edit-close" class="btn" style="font-size:15px;padding:6px 16px;flex-shrink:0">✕ Close</button>
-      </div>
-      <div style="display:flex;flex:1;overflow:hidden">
-        <div style="width:460px;flex-shrink:0;background:#c8d0d8;border-right:1px solid #d1dae8;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px">
-          <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#4a5568">Live Preview</div>
-          <div id="ros-edit-preview-pane" style="background:#fff;padding:14px;border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.3);font-family:Arial,sans-serif;min-height:300px">
-            <div style="font-size:13px;color:#aaa;text-align:center;padding:48px 0;font-family:Arial,sans-serif">Click EXECUTE to preview</div>
-          </div>
-        </div>
-        <div style="flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:28px">
+// Shared right-panel fields for the ROS item editor — script, slugs, sound, out words,
+// screen/cgen/story title, camera block, EXECUTE. Used by the classic rosEditModal overlay
+// AND the inline expand-in-place editor on the WYSIWYG TESTING tab, so both stay identical
+// and share the same save/close/add-slug/remove-slug/mark-reviewed handlers untouched.
+function buildRosEditFieldsHtml(epNum,itemIdx){
+  const _ei=(rosData[String(epNum)]?.items||[])[itemIdx]||{};
+  const _srcOpts=['','A','B','C','D','BLUE'];
+  const _slugs=_ei.slugs||(_ei.slug?[_ei.slug]:['']);
+  const _sources=_ei.slugSources||[];
+  const _isCue=l=>/^[^:]+:\s*(CAM\s*\S.*)?\s*$/i.test(l.trim());
+  const _sw=(_ei.script||'').split('\n').filter(l=>!_isCue(l)).join(' ').replace(/\([^)]*\)/g,' ').trim();
+  const _wc=_sw?_sw.split(/\s+/).length:0;
+  const _div3=(_wc/3).toFixed(1);
+  const _slugRows=_slugs.map((s,si)=>{
+    const curSrc=_sources[si]||'';
+    const rmBtn=_slugs.length>1?`<button class="ros-edit-rm-slug btn" data-itemidx="${itemIdx}" data-sidx="${si}" style="font-size:14px;padding:4px 10px;border-color:#f85149;color:#f85149;flex-shrink:0">Remove</button>`:'';
+    return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <input class="ros-edit-slug" data-sidx="${si}" value="${esc(s||'')}" placeholder="Slug…" style="flex:1;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#e3b341;font-size:18px;font-weight:700;padding:10px 12px;outline:none;font-family:inherit">
+      <select class="ros-edit-slug-source" data-sidx="${si}" style="background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#56d364;font-size:16px;font-weight:700;padding:10px 12px;outline:none;font-family:inherit;cursor:pointer;width:90px;flex-shrink:0">${_srcOpts.map(o=>`<option value="${o}" ${curSrc===o?'selected':''}>${o||'— none —'}</option>`).join('')}</select>
+      ${rmBtn}
+    </div>`;
+  }).join('');
+  const _soundOpts=["","A","B","C","D","COLD START","CLEAN","GENERIC","A+ COLD START CONT'D","B+ COLD START CONT'D","C+ COLD START CONT'D","D+ COLD START CONT'D","VOICE+ COLD START CONT'D","VOICE + COLD START IN"];
+  const _editFullAccess=!['content'].includes(getEffectiveRole());
+  // Init camera block state — preserve DOM values on re-render, else load from stored data
+  const _domCamDescs={};
+  document.querySelectorAll('.ros-cam-desc').forEach(inp=>{_domCamDescs[Number(inp.dataset.idx)]=inp.value;});
+  const _hasDomCams=Object.keys(_domCamDescs).length>0;
+  const _scriptCams=parseCamCues(_ei.script||'');
+  if(!_hasDomCams) rosCamDescs=_scriptCams.map((_,i)=>(_ei.cameraDescs||[])[i]||'');
+  else rosCamDescs=_scriptCams.map((_,i)=>_domCamDescs[i]!==undefined?_domCamDescs[i]:(rosCamDescs[i]||''));
+  const _camBlockHtml=buildRosCamBlockHtml(_scriptCams,rosCamDescs);
+  const _canCamBlock=['live','coldstart','upnext'].includes(_ei.type)&&getEffectiveRole()!=='content';
+  return`<div style="flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:28px">
           ${['live','coldstart','upnext'].includes(_ei.type)?`
           <div>
             <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px">Script</div>
@@ -6767,7 +6837,37 @@ function renderModals(epNums,nextEp){
           <div style="display:flex;justify-content:flex-end;padding-top:4px">
             <button id="ros-edit-execute" class="btn" style="font-size:16px;padding:12px 36px;font-weight:800;border-color:#3fb950;color:#3fb950;letter-spacing:.5px">▶ EXECUTE</button>
           </div>
+        </div>`;
+}
+
+function renderModals(epNums,nextEp){
+  let out='';
+  if(decomModal!==null){const c=comms.find(x=>x.id===decomModal);out+=`<div class="modal-overlay" id="decom-overlay"><div class="modal"><h3>Decommission Story</h3><p>A written motivation is required. Reversible only by Admin.</p><label>Story</label><div class="modal-story">${esc(c?.storyName||'')}</div><label>Motivation *</label><textarea id="decom-text" placeholder="Enter reason for decommissioning…">${esc(decomText)}</textarea><div class="modal-actions"><button class="btn" id="decom-cancel">Cancel</button><button class="btn danger" id="decom-confirm">Confirm Decommission</button></div></div></div>`;}
+  if(addEpModal){const autoDate=resolveDate(parseInt(newEpNum)||nextEp);const exists=epNums.includes(parseInt(newEpNum));out+=`<div class="modal-overlay" id="ep-overlay"><div class="modal"><h3>Add Episode</h3><p>Creates a new episode slot. Date is auto-calculated (+7 days) and editable after creation.</p><label>Episode Number</label><input type="number" id="new-ep-num" value="${newEpNum}" min="1" placeholder="${nextEp}">${newEpNum&&!isNaN(parseInt(newEpNum))?`<div style="margin-top:8px;font-size:14px;color:#6b7280">Date: <strong style="color:#e6edf3">${fmtDate(autoDate)}</strong></div>`:''}${exists?`<div style="color:#f85149;font-size:14px;margin-top:6px">⚠ Episode ${newEpNum} already exists.</div>`:''}<div class="modal-actions"><button class="btn" id="ep-cancel">Cancel</button><button class="btn primary" id="ep-confirm">Create Episode ${newEpNum||nextEp}</button></div></div></div>`;}
+  if(addUserModal){out+=`<div class="modal-overlay" id="user-overlay"><div class="modal"><h3>Create User Account</h3><p>The user can log in immediately with these credentials. Share them securely.</p><label>Full Name</label><input type="text" id="nu-name" value="${esc(newUserData.displayName)}" placeholder="e.g. Joy Summers"><label>Email</label><input type="email" id="nu-email" value="${esc(newUserData.email)}" placeholder="user@example.com"><label>Password</label><input type="text" id="nu-pass" value="${esc(newUserData.password)}" placeholder="Minimum 6 characters"><label>Role</label><select id="nu-role">${Object.entries(ROLE_META).map(([k,v])=>`<option value="${k}"${newUserData.role===k?' selected':''}>${v.label}</option>`).join('')}</select><div id="nu-err" style="color:#f85149;font-size:14px;margin-top:8px;display:none"></div><div class="modal-actions"><button class="btn" id="user-cancel">Cancel</button><button class="btn primary" id="user-confirm">Create Account</button></div></div></div>`;}
+  if(rosEditModal&&tab==='ros'){
+    const {epNum,itemIdx}=rosEditModal;
+    const _ei=(rosData[String(epNum)]?.items||[])[itemIdx]||{};
+    const _eTS={fixed:{label:'#6b7280',badge:'',badgeBg:'#f3f4f6'},live:{label:'#1d4ed8',badge:'LIVE',badgeBg:'#dbeafe'},insert:{label:'#b45309',badge:'INSERT',badgeBg:'#fef3c7'},coldstart:{label:'#7c3aed',badge:'COLD START',badgeBg:'#ede9fe'},upnext:{label:'#15803d',badge:'UP NEXT',badgeBg:'#dcfce7'},break:{label:'#9ca3af',badge:'BREAK',badgeBg:'#f3f4f6'}};
+    const _ts=_eTS[_ei.type]||_eTS.live;
+    out+=`<div class="modal-overlay" id="ros-edit-overlay"><div class="modal" style="width:min(1600px,99vw);max-height:97vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+      <div style="padding:20px 24px;border-bottom:1px solid #d1dae8;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+        <div>
+          ${_ts.badge?`<span style="font-size:13px;font-weight:800;background:${_ts.badgeBg};color:${_ts.label};padding:3px 12px;border-radius:4px;margin-right:8px;letter-spacing:.8px">${_ts.badge}</span>`:''}
+          <span style="font-size:13px;font-weight:800;background:#f3f4f6;color:#374151;padding:3px 10px;border-radius:4px;margin-right:12px;letter-spacing:.6px">ITEM ${itemIdx+1}</span>
+          <span style="font-size:20px;font-weight:800;color:${_ts.label}">${esc(_ei.label||'')}</span>
+          <span style="font-size:15px;color:#9ca3af;margin-left:12px">S${currentSeason} EP ${String(epNum).padStart(2,'0')}</span>
         </div>
+        <button id="ros-edit-close" class="btn" style="font-size:15px;padding:6px 16px;flex-shrink:0">✕ Close</button>
+      </div>
+      <div style="display:flex;flex:1;overflow:hidden">
+        <div style="width:460px;flex-shrink:0;background:#c8d0d8;border-right:1px solid #d1dae8;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#4a5568">Live Preview</div>
+          <div id="ros-edit-preview-pane" style="background:#fff;padding:14px;border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.3);font-family:Arial,sans-serif;min-height:300px">
+            <div style="font-size:13px;color:#aaa;text-align:center;padding:48px 0;font-family:Arial,sans-serif">Click EXECUTE to preview</div>
+          </div>
+        </div>
+        ${buildRosEditFieldsHtml(epNum,itemIdx)}
       </div>
       <div style="padding:16px 24px;border-top:1px solid #d1dae8;display:flex;align-items:center;justify-content:flex-end;flex-shrink:0">
         <button id="ros-edit-save" class="btn primary" style="font-size:17px;padding:12px 32px;font-weight:800">Save Changes</button>
@@ -10285,67 +10385,75 @@ function buildRosCamBlockHtml(cams,descs){
     <input class="ros-cam-desc" data-idx="${i}" value="${esc(descs[i]||'')}" placeholder="Shot description…" style="flex:1;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:16px;padding:8px 12px;outline:none;font-family:inherit;box-sizing:border-box">
   </div>`).join('');
 }
+// Shared row builder — used by buildRosWordHtml (Word export/preview) AND the in-app
+// WYSIWYG view (renderRunOfShowWysiwyg), so both are guaranteed pixel/text-identical.
+// data-ros-idx + explicit white-space:normal are inert in Word/the popup preview, but
+// required when this markup is embedded directly in the main app page (which has a
+// global td{white-space:nowrap} rule) and to let the WYSIWYG view target/click rows.
+function rosBuildWordRow(item,i,highlightIdx=-1){
+  const escHtml=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const _durMmSs=d=>{if(!d)return'';const p=String(d).split(':');if(p.length===3){const mm=Number(p[0])*60+Number(p[1]);return`${String(mm).padStart(2,'0')}:${p[2]}`;}return d;};
+  const _p=(txt,style='')=>`<p style="margin:0;font-family:Arial,sans-serif;font-size:11pt;${style}">${txt}</p>`;
+  const num=item.itemNum||String(i+1);
+  const slugs=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean);
+  const sources=item.slugSources||[];
+  const slugCell=slugs.map((s,si)=>{
+    const src=sources[si]||'';
+    const txt=src?`${escHtml(src)} - ${escHtml(s)}`:escHtml(s);
+    return _p(`<span style="background:#39FF14;font-weight:bold">${txt}</span>`);
+  }).join('')||'';
+  // Production column: Screen → Slug → CGEN → Story Title
+  // Each non-empty line gets its own label repeated inline: "LABEL: value"
+  let _prod='';
+  const _pSm=(html)=>_p(html,'font-size:9pt');
+  const _addSep=()=>{if(_prod)_prod+=_p('&nbsp;');};
+  const _addLines=(label,val)=>{if(!val)return;val.split('\n').filter(l=>l.trim()).forEach(l=>{_addSep();_prod+=_pSm(`<u><b>${label}</b></u>`);_prod+=_pSm(escHtml(l));});};
+  _addLines('SCREEN:',item.screen);
+  if(slugCell){_addSep();_prod+=slugCell;}
+  _addLines('CGEN:',item.cgen);
+  _addLines('STORY TITLE:',item.storyTitle);
+  // Camera blocking — production column, in script order
+  if(['live','coldstart','upnext'].includes(item.type)&&item.script){
+    const _cCues=parseCamCues(item.script);
+    const _cDs=item.cameraDescs||[];
+    _cCues.forEach((cam,i)=>{_addSep();_prod+=_pSm(`<u><b>${escHtml(cam)}</b></u>`);const d=_cDs[i]||'';if(d)_prod+=_pSm(escHtml(d));});
+  }
+  let desc=_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
+  if(item.content) desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
+  if(item.type==='insert'&&item.outWords)desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
+  if(['live','coldstart','upnext'].includes(item.type)&&item.script){
+    desc+=_p('&nbsp;');
+    item.script.split('\n').forEach(line=>{
+      const tr=line.trim();
+      if(/^[^:]+:\s+CAM\s*\S.*\s*$/i.test(tr)){
+        desc+=_p(`<u><b>${escHtml(tr)}</b></u>`,'color:#000');
+      } else if(/^[^:]+:\s*$/.test(tr)){
+        desc+=_p(`<u><b>${escHtml(tr)}</b></u>`,'color:#000');
+      } else {
+        desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');
+      }
+    });
+    desc+=_p('&nbsp;');
+  }
+  const _rowBg=['fixed','insert','coldstart','upnext','break'].includes(item.type)?'background:#D9D9D9;':'';
+  const _isHL=i===highlightIdx;
+  const _br=_p('&nbsp;');
+  return`<tr data-ros-idx="${i}"${_isHL?' id="preview-current-item" style="'+_rowBg+'outline:3px solid #003366;outline-offset:-3px;"':' style="'+_rowBg+'"'}>
+    <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%;white-space:normal;${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
+    <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;white-space:normal;${_rowBg}">${_br}${_prod}
+    </td>
+    <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%;white-space:normal;${_rowBg}">${_br}${_p(escHtml(item.sound||''),'font-weight:bold')}</td>
+    <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%;white-space:normal;${_rowBg}">${_br}${desc}</td>
+    <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:7%;white-space:normal;${_rowBg}">${_br}${_p(escHtml(_durMmSs(item.duration)),'font-family:monospace;text-align:center')}</td>
+  </tr>`;
+}
+
 function buildRosWordHtml(ep,items,highlightIdx=-1){
   const epDate=resolveDate(ep);
   const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'}):'';
   const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
   const escHtml=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const _durMmSs=d=>{if(!d)return'';const p=String(d).split(':');if(p.length===3){const mm=Number(p[0])*60+Number(p[1]);return`${String(mm).padStart(2,'0')}:${p[2]}`;}return d;};
-  const _p=(txt,style='')=>`<p style="margin:0;font-family:Arial,sans-serif;font-size:11pt;${style}">${txt}</p>`;
-  const rows=items.map((item,i)=>{
-    const num=item.itemNum||String(i+1);
-    const slugs=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean);
-    const sources=item.slugSources||[];
-    const slugCell=slugs.map((s,si)=>{
-      const src=sources[si]||'';
-      const txt=src?`${escHtml(src)} - ${escHtml(s)}`:escHtml(s);
-      return _p(`<span style="background:#39FF14;font-weight:bold">${txt}</span>`);
-    }).join('')||'';
-    // Production column: Screen → Slug → CGEN → Story Title
-    // Each non-empty line gets its own label repeated inline: "LABEL: value"
-    let _prod='';
-    const _pSm=(html)=>_p(html,'font-size:9pt');
-    const _addSep=()=>{if(_prod)_prod+=_p('&nbsp;');};
-    const _addLines=(label,val)=>{if(!val)return;val.split('\n').filter(l=>l.trim()).forEach(l=>{_addSep();_prod+=_pSm(`<u><b>${label}</b></u>`);_prod+=_pSm(escHtml(l));});};
-    _addLines('SCREEN:',item.screen);
-    if(slugCell){_addSep();_prod+=slugCell;}
-    _addLines('CGEN:',item.cgen);
-    _addLines('STORY TITLE:',item.storyTitle);
-    // Camera blocking — production column, in script order
-    if(['live','coldstart','upnext'].includes(item.type)&&item.script){
-      const _cCues=parseCamCues(item.script);
-      const _cDs=item.cameraDescs||[];
-      _cCues.forEach((cam,i)=>{_addSep();_prod+=_pSm(`<u><b>${escHtml(cam)}</b></u>`);const d=_cDs[i]||'';if(d)_prod+=_pSm(escHtml(d));});
-    }
-    let desc=_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
-    if(item.content) desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
-    if(item.type==='insert'&&item.outWords)desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
-    if(['live','coldstart','upnext'].includes(item.type)&&item.script){
-      desc+=_p('&nbsp;');
-      item.script.split('\n').forEach(line=>{
-        const tr=line.trim();
-        if(/^[^:]+:\s+CAM\s*\S.*\s*$/i.test(tr)){
-          desc+=_p(`<u><b>${escHtml(tr)}</b></u>`,'color:#000');
-        } else if(/^[^:]+:\s*$/.test(tr)){
-          desc+=_p(`<u><b>${escHtml(tr)}</b></u>`,'color:#000');
-        } else {
-          desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');
-        }
-      });
-      desc+=_p('&nbsp;');
-    }
-    const _rowBg=['fixed','insert','coldstart','upnext','break'].includes(item.type)?'background:#D9D9D9;':'';
-    const _isHL=i===highlightIdx;
-    const _br=_p('&nbsp;');
-    return`<tr${_isHL?' id="preview-current-item" style="'+_rowBg+'outline:3px solid #003366;outline-offset:-3px;"':' style="'+_rowBg+'"'}>
-      <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%;${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
-      <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;${_rowBg}">${_br}${_prod}
-      </td>
-      <td style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%;${_rowBg}">${_br}${_p(escHtml(item.sound||''),'font-weight:bold')}</td>
-      <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%;${_rowBg}">${_br}${desc}</td>
-      <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:7%;${_rowBg}">${_br}${_p(escHtml(_durMmSs(item.duration)),'font-family:monospace;text-align:center')}</td>
-    </tr>`;
-  }).join('');
+  const rows=items.map((item,i)=>rosBuildWordRow(item,i,highlightIdx)).join('');
   const footerLeft=`CARTE BLANCHE | SEASON ${currentSeason} | EPISODE ${String(ep).padStart(2,'0')} | TX: ${epDateFmt.toUpperCase()}`;
   const bodyMargin=highlightIdx>=0?'16px':'0';
   return`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
@@ -10827,6 +10935,14 @@ document.addEventListener('click',function rosHandler(e){
     const idx=Number(editBtn.dataset.idx);
     rosEditModal={epNum:rosCurrentEp,itemIdx:idx};
     render();
+    return;
+  }
+  // WYSIWYG TESTING — click a row in the full script view to expand its inline editor
+  const wysRow=tab==='roswys'&&e.target.closest('#roswys-tbody tr[data-ros-idx]');
+  if(wysRow){
+    const idx=Number(wysRow.dataset.rosIdx);
+    const alreadyOpen=rosEditModal&&String(rosEditModal.epNum)===String(rosCurrentEp)&&rosEditModal.itemIdx===idx;
+    if(!alreadyOpen&&rosCanEditAny()){rosEditModal={epNum:rosCurrentEp,itemIdx:idx};render();}
     return;
   }
   // Edit Item modal — save
