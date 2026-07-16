@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.288';
+const BUILD_VERSION='3.10.289';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5538,7 +5538,7 @@ function rosWysBuildRow(item,i,epNum){
   if(getEffectiveRole()==='admin'&&item.scriptPendingChange)_descBody+=_p(`<span style="background:#fff7ed;color:#c2410c;font-weight:800;padding:1px 6px;border-radius:3px;font-size:9pt">⚠ SCRIPT CHANGED — right-click to review</span>`);
   if(item.content) _descBody+=_p(escHtml(item.content),'font-weight:normal;color:#000');
   if(_isFixedItem) _descBody+=_p('&nbsp;');
-  if(item.type==='insert'&&item.outWords&&!_isEditing('outWords'))_descBody+=_p('&nbsp;')+_p('<u><b>OUT WORDS:</b></u>')+_p(escHtml(item.outWords),'font-weight:normal;color:#000');
+  if(item.type==='insert'&&item.outWords&&!_isEditing('outWords'))_descBody+=_p('&nbsp;')+_p('<u><b>OUT WORDS:</b></u>')+_p(escHtml(item.outWords),'font-weight:normal;color:#000')+_p('&nbsp;');
   const _canScript=['live','coldstart','upnext'].includes(item.type);
   if(_canScript&&item.position&&!_isEditing('position')){
     _descBody+=_p('&nbsp;')+_p('<u><b>POSITION:</b></u>');
@@ -10837,7 +10837,7 @@ function rosBuildWordRow(item,i,highlightIdx=-1){
   let desc=_isFixedItem?_p(escHtml(item.label||''),'font-weight:bold;color:#000'):_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
   if(item.content) desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
   if(_isFixedItem) desc+=_p('&nbsp;');
-  if(item.type==='insert'&&item.outWords)desc+=_p('&nbsp;')+_p('<u><b>OUT WORDS:</b></u>')+_p(escHtml(item.outWords),'font-weight:normal;color:#000');
+  if(item.type==='insert'&&item.outWords)desc+=_p('&nbsp;')+_p('<u><b>OUT WORDS:</b></u>')+_p(escHtml(item.outWords),'font-weight:normal;color:#000')+_p('&nbsp;');
   if(['live','coldstart','upnext'].includes(item.type)&&item.position){
     desc+=_p('&nbsp;')+_p('<u><b>POSITION:</b></u>');
     item.position.split('\n').forEach(line=>{desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');});
@@ -11128,6 +11128,7 @@ async function rosExportDocx(ep,items){
         descParas.push(emptyPara());
         descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:'OUT WORDS:',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ})]}));
         descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.outWords,font:FONT,size:SZ,color:'000000'})]}));
+        descParas.push(emptyPara());
       }
       if(['live','coldstart','upnext'].includes(item.type)&&item.position){
         descParas.push(emptyPara());
