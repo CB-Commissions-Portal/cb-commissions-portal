@@ -52,10 +52,6 @@ const OPS_ED=['dop','ca','editor','afm'];
 const PROD_ED=[...DEL_KEYS];
 
 function getEffectiveRole(){return previewRole||currentRole;}
-// WYSIWYG TESTING tab — hidden testing ground for the Studio Script Build redesign.
-// Scoped to this one account (not a role) so it stays invisible even to other Super Admins
-// until it's ready to roll out to the whole team.
-function isWysiwygTester(){return currentUser?.email==='rudi@combinedartists.co.za';}
 // Same "may this person open the item editor at all" gate used by the classic
 // Studio Script Build tab's EDIT ITEM button, factored out for the WYSIWYG row-click handler.
 function rosCanEditAny(){
@@ -143,7 +139,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.293';
+const BUILD_VERSION='3.10.294';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -212,7 +208,7 @@ let rosScriptModal=null; // {epNum,itemIdx} — script editor modal
 let rosEditModal=null;   // {epNum,itemIdx} — full item edit modal
 let rosWysMenu=null;     // {x,y,epNum,itemIdx,col,part,partIdx} — open right-click menu on WYSIWYG TESTING tab
 let rosWysEdit=null;     // {epNum,itemIdx,field,camIdx} — which single field is inline-editing on WYSIWYG TESTING tab
-let rosWysActive=false;  // toggles the 'ros' tab between the classic landing page and WYSIWYG mode, via the "EDIT IN WYSIWYG" button (tester-only for now — see isWysiwygTester())
+let rosWysActive=false;  // toggles the 'ros' tab between the classic landing page and WYSIWYG mode, via the "EDIT IN WYSIWYG" button
 const SOUND_CLIP_JOCKEY_OPTS=['A','B','C','D'];
 const SOUND_GRAMS_OPTS=["COLD START IN","VOICE + COLD START IN","COLD START CONT'D","B + COLD START CONT'D","C + COLD START CONT'D","D + COLD START CONT'D","VOICE + COLD START CONT'D","GENERIC IN","CLEAN"];
 // Resolves an item's Sound into the new two-slot model {clipJockey,grams}. Once soundClipJockey/
@@ -2076,7 +2072,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='postprod'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role))return renderPostProd();
   if(tab==='deliverables'&&['admin','deputyadmin'].includes(currentRole)&&!previewRole)return renderDeliverables(epNums);
   if(tab==='lineups'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','director','transcripts'].includes(role))return renderLineups(epNums);
-  if(tab==='ros'&&['admin','deputyadmin','editorial','content','director'].includes(role))return(isWysiwygTester()&&rosWysActive&&rosCurrentEp&&!rosEpModal)?renderRunOfShowWysiwyg():renderRunOfShow();
+  if(tab==='ros'&&['admin','deputyadmin','editorial','content','director'].includes(role))return(rosWysActive&&rosCurrentEp&&!rosEpModal)?renderRunOfShowWysiwyg():renderRunOfShow();
   if(tab==='transcripts'&&['admin','deputyadmin','production','transcripts'].includes(role))return renderTranscripts(epNums);
   if(tab==='broadcast'&&role!=='afm'&&role!=='transcripts')return renderBroadcastList();
   if(tab==='contracts'&&((currentRole==='admin'&&!previewRole)||currentRole==='finance'))return renderContracts();
@@ -5109,10 +5105,6 @@ function rosNewItem(key){
 }
 
 function renderRunOfShow(){
-  // Toolbar restructuring is scoped to the WYSIWYG tester only for now — everyone else has no
-  // WYSIWYG mode to switch into, so they keep every export button on this screen unchanged.
-  // Once WYSIWYG rolls out to the whole team, this gate can just become unconditional.
-  const _isTester=isWysiwygTester();
   const isSuperAdmin=getEffectiveRole()==='admin';
   const isLockedScript=!!rosData[String(rosCurrentEp)]?.rosLocked;
   const canEdit=['admin','deputyadmin','editorial'].includes(getEffectiveRole())&&(!isLockedScript||isSuperAdmin);
@@ -5256,13 +5248,9 @@ function renderRunOfShow(){
         ${(()=>{const _ub=rosData[String(epNum)]?.updatedByName;const _ua=rosData[String(epNum)]?.updatedAtStr;return `<div style="font-size:13px;color:#6b7280;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;padding:5px 12px;line-height:1.5"><span style="color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:11px">Last saved by</span><br><span style="color:${_ub?'#111827':'#9ca3af'};font-weight:700;font-style:${_ub?'normal':'italic'}">${esc(_ub||'Not yet saved')}</span>${_ua?`<span style="color:#9ca3af"> · ${esc(_ua)}</span>`:''}</div>`;})()}
         ${isLockedScript?(()=>{const _lb=rosData[String(epNum)]?.rosLockedBy;const _la=rosData[String(epNum)]?.rosLockedAt;return`<div style="font-size:13px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:6px;padding:5px 12px;font-weight:800;letter-spacing:.3px">🔒 LOCKED FOR EDITING${_lb?` · ${esc(_lb)}`:''}${_la?` · ${esc(_la)}`:''}</div>`;})():''}
         <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <span style="font-size:20px;font-weight:900;color:#7c3aed;font-family:monospace" id="ros-total">${_isTester?'SCRIPT DURATION: ':'Total: '}${rosSecsToStr(totalSecs)}</span>
-          ${!_isTester?`<button class="btn" id="ros-export-pdf-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#16a34a;color:#16a34a">⬇ ROS PDF</button>
-          <button class="btn" id="ros-preview-word-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#0066CC;color:#0066CC;border-style:dashed">👁 Preview Script</button>
-          <button class="btn" id="ros-export-word-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#388bfd;color:#0066CC">⬇ Studio Script (Word)</button>
-          <button class="btn" id="ros-export-vt-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#b45309;color:#b45309">⬇ VT List</button>`:''}
+          <span style="font-size:20px;font-weight:900;color:#7c3aed;font-family:monospace" id="ros-total">SCRIPT DURATION: ${rosSecsToStr(totalSecs)}</span>
           ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#b45309;color:#b45309">GENERATE ITEM NUMBERS</button>`:''}
-          ${_isTester?`<button class="btn" id="ros-edit-wysiwyg-btn" style="font-size:15px;padding:8px 20px;font-weight:800;border-color:#f472b6;color:#f472b6">✎ EDIT IN WYSIWYG</button>`:''}
+          <button class="btn" id="ros-edit-wysiwyg-btn" style="font-size:15px;padding:8px 20px;font-weight:800;border-color:#f472b6;color:#f472b6">✎ EDIT IN WYSIWYG</button>
           ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:16px;padding:8px 24px;font-weight:800">💾 Save</button>`:''}
           ${isSuperAdmin?`<button class="btn" id="ros-lock-btn" style="font-size:15px;padding:8px 20px;font-weight:800;border-color:${isLockedScript?'#16a34a':'#dc2626'};color:${isLockedScript?'#16a34a':'#dc2626'}">${isLockedScript?'🔓 UNLOCK SCRIPT':'🔒 EXPORTED & LOCKED'}</button>`:''}
           <a href="studio-script-build-guide.html" target="_blank" class="btn" style="font-size:15px;padding:8px 16px;font-weight:700;border-color:#9ca3af;color:#6b7280;text-decoration:none">? Guide</a>
@@ -5635,7 +5623,6 @@ function renderRunOfShowWysiwyg(){
       <div>
         <span style="font-size:20px;font-weight:900;color:#f472b6;font-family:monospace">${epLabel}</span>
         <span style="font-size:16px;color:#6b7280;margin-left:14px">${epDateFmt}</span>
-        <span style="font-size:12px;font-weight:800;background:#fce7f3;color:#be185d;padding:3px 10px;border-radius:4px;margin-left:14px;letter-spacing:.5px">WYSIWYG TESTING — visible only to you</span>
       </div>
       ${isLockedScript?`<div style="font-size:13px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:6px;padding:5px 12px;font-weight:800;letter-spacing:.3px">🔒 LOCKED FOR EDITING</div>`:''}
       <div style="display:flex;align-items:center;gap:2px;background:#fff;border:1px solid #d1dae8;border-radius:6px;padding:2px">
