@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.292';
+const BUILD_VERSION='3.10.293';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5632,7 +5632,6 @@ function renderRunOfShowWysiwyg(){
     </style>
     <div style="padding:14px 24px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:16px;flex-shrink:0;flex-wrap:wrap">
       <button class="btn" id="ros-pick-ep-btn" style="font-size:15px;padding:8px 16px">◀ Episodes</button>
-      <button class="btn" id="ros-exit-wysiwyg-btn" style="font-size:15px;padding:8px 16px">◀ Classic View</button>
       <div>
         <span style="font-size:20px;font-weight:900;color:#f472b6;font-family:monospace">${epLabel}</span>
         <span style="font-size:16px;color:#6b7280;margin-left:14px">${epDateFmt}</span>
@@ -5645,6 +5644,7 @@ function renderRunOfShowWysiwyg(){
         <button class="btn" id="roswys-zoom-in" title="Bigger" style="font-size:15px;padding:6px 12px;border:none">A+</button>
       </div>
       <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <button class="btn" id="ros-exit-wysiwyg-btn" style="font-size:15px;padding:8px 16px">◀ ROS VIEW</button>
         <button class="btn" id="ros-export-pdf-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#16a34a;color:#16a34a">⬇ ROS PDF</button>
         <button class="btn" id="ros-export-word-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#388bfd;color:#0066CC">⬇ Studio Script (Word)</button>
         <button class="btn" id="ros-export-vt-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#b45309;color:#b45309">⬇ VT List</button>
