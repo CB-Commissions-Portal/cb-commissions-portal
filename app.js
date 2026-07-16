@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.266';
+const BUILD_VERSION='3.10.267';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5383,33 +5383,40 @@ function rosWysBuildRow(item,i,epNum){
   });
   if(!_slugsPlaced){_addSep();_prod+=slugCell;}
 
-  // Column 3: Sound — Clip Jockey + Grams, click-to-select from the right-click menu.
+  // Column 3: Sound — Clip Jockey + Grams, click-to-select from the right-click menu. Wrapped
+  // in the same .wys-block hover treatment as Production, for a consistent affordance —
+  // there's only ever one action here so no per-value data-wys-part targeting is needed.
   const _snd=rosResolveSound(item);
   const _sndLines=[_snd.clipJockey,_snd.grams].filter(Boolean);
-  const _sndHtml=_sndLines.length?_sndLines.map(v=>_p(escHtml(v),'font-weight:bold')).join(''):'';
+  const _sndHtml=`<div class="wys-block" data-wys-part="sound">${_sndLines.length?_sndLines.map(v=>_p(escHtml(v),'font-weight:bold')).join(''):_p('&nbsp;','font-weight:bold')}</div>`;
 
-  // Column 4: Description — label/content pulled from the landing page + Script Block.
-  let desc=_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
-  if(item.content) desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
-  if(item.type==='insert'&&item.outWords)desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
+  // Column 4: Description — label/content pulled from the landing page + Script Block. Same
+  // .wys-block hover treatment as Sound/Production; the whole cell shares one right-click menu
+  // (only Script is actually add/edit-able here) so it's wrapped as one consistent block.
+  let _descBody=_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
+  if(item.content) _descBody+=_p(escHtml(item.content),'font-weight:normal;color:#000');
+  if(item.type==='insert'&&item.outWords)_descBody+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
   const _canScript=['live','coldstart','upnext'].includes(item.type);
-  if(_canScript&&(_isEditing('script')||item.script)){
-    desc+=_p('&nbsp;');
-    if(_isEditing('script')){
-      desc+=`<div data-wys-editor data-epnum="${esc(epNum)}" data-idx="${i}" data-field="script" style="margin:4px 0">
-        <textarea class="wys-inline-ta" style="width:100%;min-height:140px;font-family:Arial,sans-serif;font-size:12px;line-height:1.5;padding:6px;border:2px solid #0066CC;border-radius:3px;box-sizing:border-box;resize:vertical" placeholder="Presenter script…">${escHtml(item.script||'')}</textarea>
-      </div>`;
-    } else {
+  let desc;
+  if(_canScript&&_isEditing('script')){
+    desc=_descBody+_p('&nbsp;')+`<div data-wys-editor data-epnum="${esc(epNum)}" data-idx="${i}" data-field="script" style="margin:4px 0">
+      <textarea class="wys-inline-ta" style="width:100%;min-height:140px;font-family:Arial,sans-serif;font-size:12px;line-height:1.5;padding:6px;border:2px solid #0066CC;border-radius:3px;box-sizing:border-box;resize:vertical" placeholder="Presenter script…">${escHtml(item.script||'')}</textarea>
+    </div>`;
+  } else {
+    let _scriptHtml='';
+    if(_canScript&&item.script){
+      _scriptHtml+=_p('&nbsp;');
       item.script.split('\n').forEach(line=>{
         const tr=line.trim();
         if(/^[^:]+:\s+CAM\s*\S.*\s*$/i.test(tr)||/^[^:]+:\s*$/.test(tr)){
-          desc+=_p(`<u><b>${escHtml(tr)}</b></u>`,'color:#000');
+          _scriptHtml+=_p(`<u><b>${escHtml(tr)}</b></u>`,'color:#000');
         } else {
-          desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');
+          _scriptHtml+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');
         }
       });
+      _scriptHtml+=_p('&nbsp;');
     }
-    desc+=_p('&nbsp;');
+    desc=`<div class="wys-block" data-wys-part="description">${_descBody}${_scriptHtml}</div>`;
   }
 
   return`<tr data-ros-idx="${i}" style="${_rowBg}">
