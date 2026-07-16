@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.279';
+const BUILD_VERSION='3.10.280';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5408,18 +5408,27 @@ function buildRosWysMenuHtml(epNum,itemIdx,col,partKind,partType,partBlockId){
     } else {
       html+=`<div style="padding:9px 16px;font-size:13px;color:#9ca3af;font-style:italic;white-space:nowrap">No editable content for this item type</div>`;
     }
-  } else if(col==='history'){
-    // Super Admin only — read-only "who edited what" log for this item, newest first.
-    const log=Array.isArray(item.wysEditLog)?[...item.wysEditLog].reverse():[];
-    html+=_hdr('Edit History');
-    if(!log.length){
-      html+=`<div style="padding:4px 16px 9px;font-size:13px;color:#9ca3af;font-style:italic;white-space:nowrap">No edits logged yet</div>`;
-    } else {
-      html+=log.map(h=>`<div style="padding:7px 16px;border-top:1px solid #f3f4f6;font-size:12px;line-height:1.5;max-width:280px;white-space:normal">
-        <div><b style="color:#111827">${esc(h.field)}</b> <span style="color:#9ca3af">— ${esc(h.by)}</span></div>
-        <div style="color:#9ca3af;font-size:11px">${esc(h.at)}</div>
-        ${h.note?`<div style="color:#374151;margin-top:2px;font-style:italic">"${esc(h.note)}"</div>`:''}
-      </div>`).join('');
+  } else if(col==='item'){
+    // Page break toggle — available to anyone who can edit (reaching this menu at all already
+    // required rosCanEditAny()). A real print page break has to apply to the whole item's row,
+    // not something scoped inside one column, so it lives here rather than as a Production block.
+    html+=item.pageBreakBefore
+      ?`<div class="wys-menu-item" data-wys-menu-action="toggle-page-break" style="padding:9px 16px;font-size:14px;cursor:pointer;color:#dc2626;white-space:nowrap" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'">🗑 Remove Page Break</div>`
+      :`<div class="wys-menu-item" data-wys-menu-action="toggle-page-break" style="padding:9px 16px;font-size:14px;cursor:pointer;color:#111827;white-space:nowrap" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">✂ Insert Page Break Before This Item</div>`;
+    if(getEffectiveRole()==='admin'){
+      html+=_sep();
+      // Super Admin only — read-only "who edited what" log for this item, newest first.
+      const log=Array.isArray(item.wysEditLog)?[...item.wysEditLog].reverse():[];
+      html+=_hdr('Edit History');
+      if(!log.length){
+        html+=`<div style="padding:4px 16px 9px;font-size:13px;color:#9ca3af;font-style:italic;white-space:nowrap">No edits logged yet</div>`;
+      } else {
+        html+=log.map(h=>`<div style="padding:7px 16px;border-top:1px solid #f3f4f6;font-size:12px;line-height:1.5;max-width:280px;white-space:normal">
+          <div><b style="color:#111827">${esc(h.field)}</b> <span style="color:#9ca3af">— ${esc(h.by)}</span></div>
+          <div style="color:#9ca3af;font-size:11px">${esc(h.at)}</div>
+          ${h.note?`<div style="color:#374151;margin-top:2px;font-style:italic">"${esc(h.note)}"</div>`:''}
+        </div>`).join('');
+      }
     }
   }
   return html||`<div style="padding:9px 16px;font-size:13px;color:#9ca3af">No actions here</div>`;
@@ -5566,8 +5575,9 @@ function rosWysBuildRow(item,i,epNum){
   }
 
   const _isSuperAdmin=getEffectiveRole()==='admin';
-  return`<tr data-ros-idx="${i}" style="${_rowBg}">
-    <td align="center"${_isSuperAdmin?' data-wys-col="history"':''} style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%;white-space:normal;${_isSuperAdmin?'cursor:context-menu;':''}${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
+  const _pageBreakDivider=item.pageBreakBefore?`<tr><td colspan="5" style="padding:2px 0;background:#eff6ff;border-top:2px dashed #0066CC;border-bottom:2px dashed #0066CC;text-align:center;font-family:Arial,sans-serif;font-size:9pt;color:#0066CC;font-weight:700;letter-spacing:.5px">✂ PAGE BREAK</td></tr>`:'';
+  return`${_pageBreakDivider}<tr data-ros-idx="${i}" style="${_rowBg}">
+    <td align="center" data-wys-col="item" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%;white-space:normal;cursor:context-menu;${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
     <td data-wys-col="production" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;white-space:normal;cursor:context-menu;${_rowBg}">${_br}${_prod}</td>
     <td data-wys-col="sound" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%;white-space:normal;cursor:context-menu;${_rowBg}">${_br}${_sndHtml}</td>
     <td data-wys-col="description" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%;white-space:normal;cursor:context-menu;${_rowBg}">${_br}${desc}</td>
@@ -10832,7 +10842,8 @@ function rosBuildWordRow(item,i,highlightIdx=-1){
   const _rowBg=['fixed','insert','coldstart','upnext','break'].includes(item.type)?'background:#D9D9D9;':'';
   const _isHL=i===highlightIdx;
   const _br=_p('&nbsp;');
-  return`<tr data-ros-idx="${i}"${_isHL?' id="preview-current-item" style="'+_rowBg+'outline:3px solid #003366;outline-offset:-3px;"':' style="'+_rowBg+'"'}>
+  const _pageBreak=item.pageBreakBefore?'page-break-before:always;mso-pagination:widow-orphan;':'';
+  return`<tr data-ros-idx="${i}"${_isHL?' id="preview-current-item" style="'+_pageBreak+_rowBg+'outline:3px solid #003366;outline-offset:-3px;"':' style="'+_pageBreak+_rowBg+'"'}>
     <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%;white-space:normal;${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
     <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;white-space:normal;${_rowBg}">${_br}${_prod}
     </td>
@@ -11029,9 +11040,11 @@ async function rosExportDocx(ep,items){
       const fill=isGrey?'D9D9D9':'FFFFFF';
       const shd={type:ShadingType.CLEAR,color:'auto',fill};
 
-      // ITEM
+      // ITEM — pageBreakBefore forces the whole row (and everything after) onto a new printed
+      // page; setting it on a paragraph inside a table cell is the standard way to do this
+      // since Word tables don't take a page-break property directly on TableRow.
       const itemCell=new TableCell({width:{size:COL_W[0],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:[
-        new Paragraph({alignment:AlignmentType.CENTER,spacing:SP0,children:[new TextRun({text:String(num),bold:true,font:FONT,size:SZ})]})
+        new Paragraph({alignment:AlignmentType.CENTER,spacing:SP0,pageBreakBefore:!!item.pageBreakBefore,children:[new TextRun({text:String(num),bold:true,font:FONT,size:SZ})]})
       ]});
 
       // PRODUCTION: Screen → Slug → CGEN → Story Title
@@ -11407,6 +11420,20 @@ document.addEventListener('click',function rosHandler(e){
         rosData[String(epNum)].items=items;
         saveROS(epNum,{items,epNum});
         showToast('Change accepted ✓');
+      }
+      rosWysMenu=null;
+      render();
+      return;
+    }
+    if(actionOpt&&actionOpt.dataset.wysMenuAction==='toggle-page-break'){
+      const{epNum,itemIdx}=rosWysMenu;
+      const items=(rosData[String(epNum)]?.items)||[];
+      const it=items[itemIdx];
+      if(it){
+        it.pageBreakBefore=!it.pageBreakBefore;
+        rosLogWysEdit(it,it.pageBreakBefore?'Inserted Page Break':'Removed Page Break');
+        rosData[String(epNum)].items=items;
+        saveROS(epNum,{items,epNum});
       }
       rosWysMenu=null;
       render();
