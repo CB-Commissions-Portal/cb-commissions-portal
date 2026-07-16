@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.272';
+const BUILD_VERSION='3.10.273';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5299,6 +5299,7 @@ function buildRosWysMenuHtml(epNum,itemIdx,col,partKind,partType,partBlockId){
   const _itemOpt=(field,label,blockId)=>`<div class="wys-menu-item" data-wys-menu-field="${field}"${blockId!==undefined?` data-wys-menu-camidx="${esc(blockId)}"`:''} style="padding:9px 16px;font-size:14px;cursor:pointer;color:#111827;white-space:nowrap" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">${esc(label)}</div>`;
   const _deleteOpt=(blockId,label)=>`<div class="wys-menu-item" data-wys-menu-action="delete-block" data-wys-menu-blockid2="${esc(blockId)}" style="padding:9px 16px;font-size:14px;cursor:pointer;color:#dc2626;white-space:nowrap" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'">${esc(label)}</div>`;
   const _addBlockOpt=(kind,label,afterId)=>`<div class="wys-menu-item" data-wys-menu-action="add-block" data-wys-menu-field2="${kind}"${afterId?` data-wys-menu-after="${esc(afterId)}"`:''} style="padding:9px 16px;font-size:14px;cursor:pointer;color:#111827;white-space:nowrap" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">${esc(label)}</div>`;
+  const _moveOpt=(action,blockId,label)=>`<div class="wys-menu-item" data-wys-menu-action="${action}" data-wys-menu-blockid2="${esc(blockId)}" style="padding:9px 16px;font-size:14px;cursor:pointer;color:#111827;white-space:nowrap" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">${esc(label)}</div>`;
   const _hdr=(label)=>`<div style="padding:6px 16px 4px;font-size:11px;font-weight:800;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px">${esc(label)}</div>`;
   const _sep=()=>`<div style="border-top:1px solid #e5e7eb;margin:4px 0"></div>`;
   let html='';
@@ -5308,17 +5309,29 @@ function buildRosWysMenuHtml(epNum,itemIdx,col,partKind,partType,partBlockId){
     // "+ Add X" picked from this same menu inserts immediately below it — a TV script needs new
     // content slotted in wherever the plan changes, not always appended to a fixed section.
     const afterId=(partBlockId&&partKind!=='slug')?partBlockId:undefined;
+    // Move Up/Down works the same for every block kind — prodBlocks is one flat ordered list,
+    // so reordering is just an array-index swap regardless of what the block actually is.
+    const _allBlocks=rosResolveProdBlocks(item,{includeAutoCam:false});
+    const _blockPos=partBlockId?_allBlocks.findIndex(b=>b.id===partBlockId):-1;
+    const _moveOpts=()=>{
+      let m='';
+      if(_blockPos>0)m+=_moveOpt('move-up',partBlockId,'⬆ Move Up');
+      if(_blockPos>=0&&_blockPos<_allBlocks.length-1)m+=_moveOpt('move-down',partBlockId,'⬇ Move Down');
+      return m;
+    };
     if(partKind==='screen'||partKind==='cgen'||partKind==='storyTitle'){
       const lbl=_blockLabels[partKind];
       html+=_itemOpt('prod','✎ Edit This '+lbl,partBlockId);
       html+=_deleteOpt(partBlockId,'🗑 Delete This '+lbl);
+      html+=_moveOpts();
       html+=_sep();
     } else if(partKind==='cam'){
-      const block=rosResolveProdBlocks(item,{includeAutoCam:false}).find(b=>b.id===partBlockId);
+      const block=_allBlocks.find(b=>b.id===partBlockId);
       const orphaned=block&&block.kind==='cam-auto'&&rosFindAutoCamIndex(item.script,block.designation,block.occurrence)<0;
       if(orphaned){
         html+=`<div style="padding:9px 16px 4px;font-size:13px;color:#9ca3af;font-style:italic;white-space:nowrap">This cue is no longer in the script</div>`;
         html+=_deleteOpt(partBlockId,'🗑 Remove This Position');
+        html+=_moveOpts();
       } else {
         html+=_itemOpt('prod','✎ Edit Shot Description',partBlockId);
         if(partType==='manual'){
@@ -5338,6 +5351,7 @@ function buildRosWysMenuHtml(epNum,itemIdx,col,partKind,partType,partBlockId){
             });
           }
         }
+        html+=_moveOpts();
       }
       html+=_sep();
     } else if(partKind==='slug'){
@@ -11418,6 +11432,27 @@ document.addEventListener('click',function rosHandler(e){
         if(block)delete block.linkedCue;
         rosData[String(epNum)].items=items;
         saveROS(epNum,{items,epNum});
+      }
+      rosWysMenu=null;
+      render();
+      return;
+    }
+    if(actionOpt&&(actionOpt.dataset.wysMenuAction==='move-up'||actionOpt.dataset.wysMenuAction==='move-down')){
+      const dir=actionOpt.dataset.wysMenuAction==='move-up'?-1:1;
+      const blockId=actionOpt.dataset.wysMenuBlockid2;
+      const{epNum,itemIdx}=rosWysMenu;
+      const items=(rosData[String(epNum)]?.items)||[];
+      const it=items[itemIdx];
+      if(it){
+        if(!Array.isArray(it.prodBlocks))it.prodBlocks=rosResolveProdBlocks(it,{includeAutoCam:false});
+        const pos=it.prodBlocks.findIndex(b=>b.id===blockId);
+        const newPos=pos+dir;
+        if(pos>=0&&newPos>=0&&newPos<it.prodBlocks.length){
+          const[moved]=it.prodBlocks.splice(pos,1);
+          it.prodBlocks.splice(newPos,0,moved);
+          rosData[String(epNum)].items=items;
+          saveROS(epNum,{items,epNum});
+        }
       }
       rosWysMenu=null;
       render();
