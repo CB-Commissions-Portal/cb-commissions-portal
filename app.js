@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.276';
+const BUILD_VERSION='3.10.277';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5518,8 +5518,14 @@ function rosWysBuildRow(item,i,epNum){
   let desc;
   if(_canScript&&_isEditing('script')){
     const _isDirector=getEffectiveRole()==='director';
+    // Same word-count formula as the classic modal: cue lines (presenter names, with or without
+    // camera info) and anything in parentheses (stage directions/blocking notes) are excluded.
+    const _isCueWys=l=>/^[^:]+:\s*(CAM\s*\S.*)?\s*$/i.test(l.trim());
+    const _swWys=(item.script||'').split('\n').filter(l=>!_isCueWys(l)).join(' ').replace(/\([^)]*\)/g,' ').trim();
+    const _wcWys=_swWys?_swWys.split(/\s+/).length:0;
     desc=_descBody+_p('&nbsp;')+`<div data-wys-editor data-epnum="${esc(epNum)}" data-idx="${i}" data-field="script" style="margin:4px 0">
-      <textarea class="wys-inline-ta" style="width:100%;min-height:140px;font-family:Arial,sans-serif;font-size:12px;line-height:1.5;padding:6px;border:2px solid #0066CC;border-radius:3px;box-sizing:border-box;resize:vertical" placeholder="Presenter script…">${escHtml(item.script||'')}</textarea>
+      <textarea class="wys-inline-ta" style="width:100%;min-height:140px;font-family:Arial,sans-serif;font-size:12px;line-height:1.5;padding:6px;border:2px solid #0066CC;border-radius:3px;box-sizing:border-box;resize:vertical" placeholder="Presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*(CAM\\s*\\S.*)?\\s*$/i.test(l.trim())).join(' ').replace(/\\([^)]*\\)/g,' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('wys-script-wc').textContent=w;document.getElementById('wys-script-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)">${escHtml(item.script||'')}</textarea>
+      <div style="margin-top:4px;font-size:11px;color:#6b7280">Total words: <strong id="wys-script-wc" style="color:#0066CC">${_wcWys}</strong>&nbsp;&nbsp;<span id="wys-script-d3" style="color:#16a34a;font-weight:700">${_wcWys} ÷ 3 = ${(_wcWys/3).toFixed(1)}</span></div>
       ${_isDirector?`<input class="wys-script-note-inp" placeholder="Explain this script change (required if editing existing dialogue)…" style="width:100%;margin-top:4px;font-family:Arial,sans-serif;font-size:11px;padding:4px 6px;border:2px solid #f59e0b;border-radius:3px;box-sizing:border-box">`:''}
     </div>`;
   } else if(_canScript&&_isEditing('position')){
