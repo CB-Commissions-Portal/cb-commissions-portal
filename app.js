@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.281';
+const BUILD_VERSION='3.10.282';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5576,12 +5576,13 @@ function rosWysBuildRow(item,i,epNum){
 
   const _isSuperAdmin=getEffectiveRole()==='admin';
   const _pageBreakDivider=item.pageBreakBefore?`<tr><td colspan="5" style="padding:2px 0;background:#eff6ff;border-top:2px dashed #0066CC;border-bottom:2px dashed #0066CC;text-align:center;font-family:Arial,sans-serif;font-size:9pt;color:#0066CC;font-weight:700;letter-spacing:.5px">✂ PAGE BREAK</td></tr>`:'';
+  const _wrap='white-space:normal;overflow-wrap:break-word;word-wrap:break-word;';
   return`${_pageBreakDivider}<tr data-ros-idx="${i}" style="${_rowBg}">
-    <td align="center" data-wys-col="item" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%;white-space:normal;cursor:context-menu;${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
-    <td data-wys-col="production" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;white-space:normal;cursor:context-menu;${_rowBg}">${_br}${_prod}</td>
-    <td data-wys-col="sound" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%;white-space:normal;cursor:context-menu;${_rowBg}">${_br}${_sndHtml}</td>
-    <td data-wys-col="description" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%;white-space:normal;cursor:context-menu;${_rowBg}">${_br}${desc}</td>
-    <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:7%;white-space:normal;${_rowBg}">${_br}${_p(escHtml(_durMmSs(item.duration)),'font-family:monospace;text-align:center')}</td>
+    <td align="center" data-wys-col="item" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:4%;${_wrap}cursor:context-menu;${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
+    <td data-wys-col="production" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:22%;${_wrap}cursor:context-menu;${_rowBg}">${_br}${_prod}</td>
+    <td data-wys-col="sound" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:11%;${_wrap}cursor:context-menu;${_rowBg}">${_br}${_sndHtml}</td>
+    <td data-wys-col="description" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:56%;${_wrap}cursor:context-menu;${_rowBg}">${_br}${desc}</td>
+    <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:7%;${_wrap}${_rowBg}">${_br}${_p(escHtml(_durMmSs(item.duration)),'font-family:monospace;text-align:center')}</td>
   </tr>`;
 }
 
