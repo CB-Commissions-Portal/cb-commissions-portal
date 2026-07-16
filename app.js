@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.270';
+const BUILD_VERSION='3.10.271';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5307,7 +5307,7 @@ function buildRosWysMenuHtml(epNum,itemIdx,col,partKind,partType,partBlockId){
     // Right-clicking directly on an existing block offers Edit/Delete for THAT block, and any
     // "+ Add X" picked from this same menu inserts immediately below it — a TV script needs new
     // content slotted in wherever the plan changes, not always appended to a fixed section.
-    const afterId=partBlockId||undefined;
+    const afterId=(partBlockId&&partKind!=='slug')?partBlockId:undefined;
     if(partKind==='screen'||partKind==='cgen'||partKind==='storyTitle'){
       const lbl=_blockLabels[partKind];
       html+=_itemOpt('prod','✎ Edit This '+lbl,partBlockId);
@@ -5339,6 +5339,10 @@ function buildRosWysMenuHtml(epNum,itemIdx,col,partKind,partType,partBlockId){
           }
         }
       }
+      html+=_sep();
+    } else if(partKind==='slug'){
+      html+=`<div class="wys-menu-item" data-wys-menu-action="copy-slug-to-screen" data-wys-menu-idx2="${esc(partBlockId)}" style="padding:9px 16px;font-size:14px;cursor:pointer;color:#111827;white-space:nowrap" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">📋 Copy to Screen Info</div>`;
+      html+=`<div style="padding:2px 16px 8px;font-size:11px;color:#9ca3af;font-style:italic;white-space:normal;max-width:230px">Creates a new, separate Screen Info block with this slug's text — the slug itself (and its VT list export) is untouched.</div>`;
       html+=_sep();
     }
     if(afterId)html+=`<div style="padding:2px 16px 6px;font-size:11px;color:#9ca3af;font-style:italic;white-space:nowrap">↓ new items insert directly below</div>`;
@@ -5393,13 +5397,15 @@ function rosWysBuildRow(item,i,epNum){
   const _br=_p('&nbsp;');
   const _isEditing=(field,camIdx)=>rosWysEdit&&String(rosWysEdit.epNum)===String(epNum)&&rosWysEdit.itemIdx===i&&rosWysEdit.field===field&&(camIdx===undefined||rosWysEdit.camIdx===camIdx);
 
-  // Slugs — read-only here, generated on the classic landing page and pulled through.
+  // Slugs — read-only here, generated on the classic landing page and pulled through. Each is
+  // still right-clickable (data-wys-part="slug") for one action: copying its text into a new,
+  // independent Screen Info block — the slug itself and its VT list export are never touched.
   const slugs=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean);
   const sources=item.slugSources||[];
   const slugCell=slugs.map((s,si)=>{
     const src=sources[si]||'';
     const txt=src?`${escHtml(src)} - ${escHtml(s)}`:escHtml(s);
-    return _p(`<span style="background:#39FF14;font-weight:bold">${txt}</span>`);
+    return `<div class="wys-block" data-wys-part="slug" data-wys-part-blockid="${si}">${_p(`<span style="background:#39FF14;font-weight:bold">${txt}</span>`)}</div>`;
   }).join('')||'';
 
   // Column 2: Production — Screen, Slugs, CGEN, Story Title, Camera Shots (auto + manual), in
@@ -11317,6 +11323,31 @@ document.addEventListener('click',function rosHandler(e){
         if(afterPos>=0)it.prodBlocks.splice(afterPos+1,0,newBlock);
         else it.prodBlocks.push(newBlock);
         rosWysEdit={epNum,itemIdx,field:'prod',camIdx:newId};
+      }
+      rosWysMenu=null;
+      render();
+      return;
+    }
+    if(actionOpt&&actionOpt.dataset.wysMenuAction==='copy-slug-to-screen'){
+      const slugIdx=Number(actionOpt.dataset.wysMenuIdx2);
+      const{epNum,itemIdx}=rosWysMenu;
+      const items=(rosData[String(epNum)]?.items)||[];
+      const it=items[itemIdx];
+      if(it){
+        const slugs=(it.slugs||(it.slug?[it.slug]:[])).filter(Boolean);
+        const sources=it.slugSources||[];
+        const slugText=slugs[slugIdx];
+        if(slugText!==undefined){
+          const src=sources[slugIdx]||'';
+          const text=src?`${src} - ${slugText}`:slugText;
+          if(!Array.isArray(it.prodBlocks))it.prodBlocks=rosResolveProdBlocks(it,{includeAutoCam:false});
+          const newId='new-'+Date.now()+Math.random().toString(36).slice(2,6);
+          it.prodBlocks.unshift({id:newId,kind:'screen',text});
+          rosLogWysEdit(it,'Screen Info');
+          rosData[String(epNum)].items=items;
+          saveROS(epNum,{items,epNum});
+          rosWysEdit={epNum,itemIdx,field:'prod',camIdx:newId};
+        }
       }
       rosWysMenu=null;
       render();
