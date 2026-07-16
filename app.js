@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.291';
+const BUILD_VERSION='3.10.292';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -212,6 +212,7 @@ let rosScriptModal=null; // {epNum,itemIdx} — script editor modal
 let rosEditModal=null;   // {epNum,itemIdx} — full item edit modal
 let rosWysMenu=null;     // {x,y,epNum,itemIdx,col,part,partIdx} — open right-click menu on WYSIWYG TESTING tab
 let rosWysEdit=null;     // {epNum,itemIdx,field,camIdx} — which single field is inline-editing on WYSIWYG TESTING tab
+let rosWysActive=false;  // toggles the 'ros' tab between the classic landing page and WYSIWYG mode, via the "EDIT IN WYSIWYG" button (tester-only for now — see isWysiwygTester())
 const SOUND_CLIP_JOCKEY_OPTS=['A','B','C','D'];
 const SOUND_GRAMS_OPTS=["COLD START IN","VOICE + COLD START IN","COLD START CONT'D","B + COLD START CONT'D","C + COLD START CONT'D","D + COLD START CONT'D","VOICE + COLD START CONT'D","GENERIC IN","CLEAN"];
 // Resolves an item's Sound into the new two-slot model {clipJockey,grams}. Once soundClipJockey/
@@ -1710,14 +1711,14 @@ function render(){
     }
   }
   if(rosEditModal) setTimeout(updateRosEditPreview,0);
-  if(tab==='roswys'&&rosWysEdit) setTimeout(()=>{
+  if(tab==='ros'&&rosWysActive&&rosWysEdit) setTimeout(()=>{
     const el=document.querySelector('[data-wys-editor] .wys-inline-ta, [data-wys-editor] .wys-cam-desig-inp');
     if(el){el.focus();if(el.value)el.setSelectionRange(el.value.length,el.value.length);}
   },0);
   // WYSIWYG TESTING — the menu's height depends on how many options it has (varies a lot: a
   // plain Screen block vs. a linked camera shot with Move Up/Down + Link options), so it can't be
   // clamped on-screen accurately before it's actually rendered. Measure it for real here instead.
-  if(tab==='roswys'&&rosWysMenu) setTimeout(()=>{
+  if(tab==='ros'&&rosWysActive&&rosWysMenu) setTimeout(()=>{
     const menuEl=document.getElementById('wys-menu');
     if(!menuEl)return;
     const rect=menuEl.getBoundingClientRect();
@@ -1789,7 +1790,6 @@ function renderHome(){
     ].filter(Boolean)},
     {label:'Studio',items:[
       mk('ros','Studio Script Build',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,'#c084fc','rgba(192,132,252,.1)',['admin','deputyadmin','editorial','content','operations','finance','director'].includes(role),'Build the episode studio script with duration calculator'),
-      mk('roswys','WYSIWYG TESTING','Studio Script Build redesign',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,'#f472b6','rgba(244,114,182,.1)',isWysiwygTester(),'Full-script inline-edit prototype — visible only to you'),
       mk('fcc','Script Cover Page',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>`,'#f7768e','rgba(247,118,142,.1)',['admin','deputyadmin','production','prodmgmt','finance'].includes(role),'Studio Script with timecode and segment durations'),
       mk('transcripts','Transcripts',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`,'#06b6d4','rgba(6,182,212,.1)',['admin','deputyadmin','production','transcripts'].includes(role),'Commission and live show transcripts'),
       mk('callsheet','Studio Call Sheet',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,'#e3b341','rgba(227,179,65,.1)',['admin','deputyadmin','operations','production','prodmgmt','finance'].includes(role),'Studio call sheet and running order per episode'),
@@ -1948,7 +1948,6 @@ function renderSidebar(){
   ].filter(Boolean);
   const studio=[
     item('ros','Studio Script Build',['admin','deputyadmin','editorial','content','operations','finance','director'].includes(role)),
-    item('roswys','WYSIWYG TESTING',isWysiwygTester()),
     item('fcc','Script Cover Page',['admin','deputyadmin','production','prodmgmt','finance'].includes(role)),
     item('transcripts','Transcripts',['admin','deputyadmin','production','transcripts'].includes(role)),
     item('callsheet','Studio Call Sheet',['admin','deputyadmin','operations','production','prodmgmt','finance'].includes(role)),
@@ -2077,8 +2076,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='postprod'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role))return renderPostProd();
   if(tab==='deliverables'&&['admin','deputyadmin'].includes(currentRole)&&!previewRole)return renderDeliverables(epNums);
   if(tab==='lineups'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','director','transcripts'].includes(role))return renderLineups(epNums);
-  if(tab==='ros'&&['admin','deputyadmin','editorial','content','director'].includes(role))return renderRunOfShow();
-  if(tab==='roswys'&&isWysiwygTester())return renderRunOfShowWysiwyg();
+  if(tab==='ros'&&['admin','deputyadmin','editorial','content','director'].includes(role))return(isWysiwygTester()&&rosWysActive&&rosCurrentEp&&!rosEpModal)?renderRunOfShowWysiwyg():renderRunOfShow();
   if(tab==='transcripts'&&['admin','deputyadmin','production','transcripts'].includes(role))return renderTranscripts(epNums);
   if(tab==='broadcast'&&role!=='afm'&&role!=='transcripts')return renderBroadcastList();
   if(tab==='contracts'&&((currentRole==='admin'&&!previewRole)||currentRole==='finance'))return renderContracts();
@@ -5111,6 +5109,10 @@ function rosNewItem(key){
 }
 
 function renderRunOfShow(){
+  // Toolbar restructuring is scoped to the WYSIWYG tester only for now — everyone else has no
+  // WYSIWYG mode to switch into, so they keep every export button on this screen unchanged.
+  // Once WYSIWYG rolls out to the whole team, this gate can just become unconditional.
+  const _isTester=isWysiwygTester();
   const isSuperAdmin=getEffectiveRole()==='admin';
   const isLockedScript=!!rosData[String(rosCurrentEp)]?.rosLocked;
   const canEdit=['admin','deputyadmin','editorial'].includes(getEffectiveRole())&&(!isLockedScript||isSuperAdmin);
@@ -5254,14 +5256,15 @@ function renderRunOfShow(){
         ${(()=>{const _ub=rosData[String(epNum)]?.updatedByName;const _ua=rosData[String(epNum)]?.updatedAtStr;return `<div style="font-size:13px;color:#6b7280;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;padding:5px 12px;line-height:1.5"><span style="color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:11px">Last saved by</span><br><span style="color:${_ub?'#111827':'#9ca3af'};font-weight:700;font-style:${_ub?'normal':'italic'}">${esc(_ub||'Not yet saved')}</span>${_ua?`<span style="color:#9ca3af"> · ${esc(_ua)}</span>`:''}</div>`;})()}
         ${isLockedScript?(()=>{const _lb=rosData[String(epNum)]?.rosLockedBy;const _la=rosData[String(epNum)]?.rosLockedAt;return`<div style="font-size:13px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:6px;padding:5px 12px;font-weight:800;letter-spacing:.3px">🔒 LOCKED FOR EDITING${_lb?` · ${esc(_lb)}`:''}${_la?` · ${esc(_la)}`:''}</div>`;})():''}
         <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <span style="font-size:20px;font-weight:900;color:#7c3aed;font-family:monospace" id="ros-total">Total: ${rosSecsToStr(totalSecs)}</span>
-          <button class="btn" id="ros-export-pdf-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#16a34a;color:#16a34a">⬇ ROS PDF</button>
+          <span style="font-size:20px;font-weight:900;color:#7c3aed;font-family:monospace" id="ros-total">${_isTester?'SCRIPT DURATION: ':'Total: '}${rosSecsToStr(totalSecs)}</span>
+          ${!_isTester?`<button class="btn" id="ros-export-pdf-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#16a34a;color:#16a34a">⬇ ROS PDF</button>
           <button class="btn" id="ros-preview-word-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#0066CC;color:#0066CC;border-style:dashed">👁 Preview Script</button>
           <button class="btn" id="ros-export-word-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#388bfd;color:#0066CC">⬇ Studio Script (Word)</button>
-          <button class="btn" id="ros-export-vt-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#b45309;color:#b45309">⬇ VT List</button>
-          ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#b45309;color:#b45309"># Numbers</button>`:''}
+          <button class="btn" id="ros-export-vt-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#b45309;color:#b45309">⬇ VT List</button>`:''}
+          ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#b45309;color:#b45309">GENERATE ITEM NUMBERS</button>`:''}
+          ${_isTester?`<button class="btn" id="ros-edit-wysiwyg-btn" style="font-size:15px;padding:8px 20px;font-weight:800;border-color:#f472b6;color:#f472b6">✎ EDIT IN WYSIWYG</button>`:''}
           ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:16px;padding:8px 24px;font-weight:800">💾 Save</button>`:''}
-          ${isSuperAdmin?`<button class="btn" id="ros-lock-btn" style="font-size:15px;padding:8px 20px;font-weight:800;border-color:${isLockedScript?'#16a34a':'#dc2626'};color:${isLockedScript?'#16a34a':'#dc2626'}">${isLockedScript?'🔓 UNLOCK SCRIPT':'🔒 EXPORTED FOR PRINT'}</button>`:''}
+          ${isSuperAdmin?`<button class="btn" id="ros-lock-btn" style="font-size:15px;padding:8px 20px;font-weight:800;border-color:${isLockedScript?'#16a34a':'#dc2626'};color:${isLockedScript?'#16a34a':'#dc2626'}">${isLockedScript?'🔓 UNLOCK SCRIPT':'🔒 EXPORTED & LOCKED'}</button>`:''}
           <a href="studio-script-build-guide.html" target="_blank" class="btn" style="font-size:15px;padding:8px 16px;font-weight:700;border-color:#9ca3af;color:#6b7280;text-decoration:none">? Guide</a>
         </div>
       </div>
@@ -5629,6 +5632,7 @@ function renderRunOfShowWysiwyg(){
     </style>
     <div style="padding:14px 24px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:16px;flex-shrink:0;flex-wrap:wrap">
       <button class="btn" id="ros-pick-ep-btn" style="font-size:15px;padding:8px 16px">◀ Episodes</button>
+      <button class="btn" id="ros-exit-wysiwyg-btn" style="font-size:15px;padding:8px 16px">◀ Classic View</button>
       <div>
         <span style="font-size:20px;font-weight:900;color:#f472b6;font-family:monospace">${epLabel}</span>
         <span style="font-size:16px;color:#6b7280;margin-left:14px">${epDateFmt}</span>
@@ -5641,8 +5645,9 @@ function renderRunOfShowWysiwyg(){
         <button class="btn" id="roswys-zoom-in" title="Bigger" style="font-size:15px;padding:6px 12px;border:none">A+</button>
       </div>
       <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <button class="btn" id="ros-preview-word-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#0066CC;color:#0066CC;border-style:dashed">👁 Preview Script</button>
+        <button class="btn" id="ros-export-pdf-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#16a34a;color:#16a34a">⬇ ROS PDF</button>
         <button class="btn" id="ros-export-word-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#388bfd;color:#0066CC">⬇ Studio Script (Word)</button>
+        <button class="btn" id="ros-export-vt-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#b45309;color:#b45309">⬇ VT List</button>
         <button class="btn" id="ros-export-autocue-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#22d3ee;color:#0891b2">⬇ Autocue (TXT)</button>
         ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:16px;padding:8px 24px;font-weight:800">💾 Save</button>`:''}
       </div>
@@ -11396,7 +11401,7 @@ document.addEventListener('click',function rosHandler(e){
     return;
   }
   // WYSIWYG TESTING — right-click menu actions (opened via the contextmenu listener below)
-  if(tab==='roswys'&&rosWysMenu){
+  if(tab==='ros'&&rosWysActive&&rosWysMenu){
     const menuEl=document.getElementById('wys-menu');
     const clickedInsideMenu=menuEl&&menuEl.contains(e.target);
     const fieldOpt=clickedInsideMenu&&e.target.closest('[data-wys-menu-field]');
@@ -11697,9 +11702,11 @@ document.addEventListener('click',function rosHandler(e){
     render();
     return;
   }
-  if(e.target.id==='ros-pick-ep-btn'){rosEpModal=true;rosCurrentEp=null;render();return;}
+  if(e.target.id==='ros-pick-ep-btn'){rosEpModal=true;rosCurrentEp=null;rosWysActive=false;render();return;}
   const pick=e.target.closest('.ros-ep-pick');
   if(pick){rosCurrentEp=Number(pick.dataset.ep);rosEpModal=false;render();return;}
+  if(e.target.id==='ros-edit-wysiwyg-btn'){rosWysActive=true;render();return;}
+  if(e.target.id==='ros-exit-wysiwyg-btn'){rosWysActive=false;render();return;}
   // Save
   // Generate item numbers
   if(e.target.id==='ros-number-btn'){
@@ -11855,7 +11862,7 @@ document.addEventListener('input',function rosInputHandler(e){
 
 // WYSIWYG TESTING — right-click opens the in-place menu instead of the browser's own menu.
 document.addEventListener('contextmenu',function rosWysContextMenu(e){
-  if(tab!=='roswys')return;
+  if(tab!=='ros'||!rosWysActive)return;
   const cell=e.target.closest('[data-wys-col]');
   if(!cell)return;
   e.preventDefault();
