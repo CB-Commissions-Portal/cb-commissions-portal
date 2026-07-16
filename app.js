@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.280';
+const BUILD_VERSION='3.10.281';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -11047,45 +11047,55 @@ async function rosExportDocx(ep,items){
         new Paragraph({alignment:AlignmentType.CENTER,spacing:SP0,pageBreakBefore:!!item.pageBreakBefore,children:[new TextRun({text:String(num),bold:true,font:FONT,size:SZ})]})
       ]});
 
-      // PRODUCTION: Screen → Slug → CGEN → Story Title
-      // Each non-empty line gets its own label repeated inline: "LABEL: value"
+      // PRODUCTION — mirrors rosBuildWordRow exactly: iterates the same rosResolveProdBlocks()
+      // order (Screen/CGEN/Story Title/Camera Shots, freely arranged), with slugs anchored right
+      // after the leading Screen run (or suppressed if copied into a Screen Info block) and
+      // auto camera shots resolved live via rosFindAutoCamIndex — the same resolvers the WYSIWYG
+      // view and HTML preview use, so this export can no longer drift out of sync with them.
+      const _prodBlocksList=rosResolveProdBlocks(item);
+      const _copiedSlugIdxs=new Set(_prodBlocksList.filter(b=>b.fromSlugIdx!==undefined).map(b=>b.fromSlugIdx));
+      const _slugParas=[];
+      slugs.forEach((s,si)=>{
+        if(_copiedSlugIdxs.has(si))return;
+        const src=sources[si]||'';
+        const txt=src?`${src} - ${s}`:s;
+        _slugParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:txt,bold:true,font:FONT,size:SZ,shading:{type:ShadingType.CLEAR,color:'auto',fill:'39FF14'}})]}));
+      });
       const prodParas=[];
-      const _addField=(label,value)=>{
-        if(!value)return;
-        String(value).split('\n').filter(l=>l.trim()).forEach(line=>{
-          if(prodParas.length)prodParas.push(emptyPara());
-          prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:label,bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ_SM,color:'000000'})]}));
-          prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:line,font:FONT,size:SZ_SM,color:'000000'})]}));
-        });
-      };
-      _addField('SCREEN:',item.screen);
-      if(slugs.length){
-        if(prodParas.length)prodParas.push(emptyPara());
-        slugs.forEach((s,si)=>{
-          const src=sources[si]||'';
-          const txt=src?`${src} - ${s}`:s;
-          prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:txt,bold:true,font:FONT,size:SZ,shading:{type:ShadingType.CLEAR,color:'auto',fill:'39FF14'}})]}));
-        });
-      }
-      _addField('CGEN:',item.cgen);
-      _addField('STORY TITLE:',item.storyTitle);
-      // Camera blocking — production column, in script order
-      if(['live','coldstart','upnext'].includes(item.type)&&item.script){
-        const _cCues=parseCamCues(item.script);
-        const _cDs=item.cameraDescs||[];
-        _cCues.forEach((cam,i)=>{
-          if(prodParas.length)prodParas.push(emptyPara());
-          prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:cam,bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ_SM,color:'000000'})]}));
-          const d=_cDs[i]||'';
+      const _addSep=()=>{if(prodParas.length)prodParas.push(emptyPara());};
+      let _slugsPlaced=!_slugParas.length;
+      const _placeSlugs=()=>{if(_slugParas.length){_addSep();prodParas.push(..._slugParas);_slugsPlaced=true;}};
+      const _prodLabels={screen:'SCREEN:',cgen:'CGEN:',storyTitle:'STORY TITLE:'};
+      _prodBlocksList.forEach(b=>{
+        if(!_slugsPlaced&&b.kind!=='screen')_placeSlugs();
+        if(b.kind==='screen'||b.kind==='cgen'||b.kind==='storyTitle'){
+          _addSep();
+          prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:_prodLabels[b.kind],bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ_SM,color:'000000'})]}));
+          if(b.fromSlugIdx!==undefined)prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:b.text,bold:true,font:FONT,size:SZ_SM,shading:{type:ShadingType.CLEAR,color:'auto',fill:'39FF14'}})]}));
+          else prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:b.text,font:FONT,size:SZ_SM,color:'000000'})]}));
+        } else if(b.kind==='cam-auto'){
+          const liveIdx=rosFindAutoCamIndex(item.script,b.designation,b.occurrence);
+          const d=liveIdx>=0?((item.cameraDescs||[])[liveIdx]||''):'';
+          _addSep();
+          prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:b.designation,bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ_SM,color:'000000'})]}));
           if(d)prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:d,font:FONT,size:SZ_SM,color:'000000'})]}));
-        });
-      }
+        } else if(b.kind==='cam-manual'){
+          if(!b.designation&&!b.desc)return;
+          _addSep();
+          prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:b.designation||'',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ_SM,color:'000000'})]}));
+          if(b.desc)prodParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:b.desc,font:FONT,size:SZ_SM,color:'000000'})]}));
+        }
+      });
+      if(!_slugsPlaced)_placeSlugs();
       const prodCell=new TableCell({width:{size:COL_W[1],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:prodParas});
 
-      // SOUND
-      const soundCell=new TableCell({width:{size:COL_W[2],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:[
-        new Paragraph({spacing:SP0,children:[new TextRun({text:item.sound||'',bold:true,font:FONT,size:SZ})]})
-      ]});
+      // SOUND — two-slot Clip Jockey/Grams model, same rosResolveSound() fallback the WYSIWYG
+      // view uses (classifies a legacy single item.sound value until the new fields are touched).
+      const _snd=rosResolveSound(item);
+      const _sndLines=[_snd.clipJockey,_snd.grams].filter(Boolean);
+      const soundCell=new TableCell({width:{size:COL_W[2],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:
+        _sndLines.length?_sndLines.map(v=>new Paragraph({spacing:SP0,children:[new TextRun({text:v,bold:true,font:FONT,size:SZ})]})):[new Paragraph({spacing:SP0,children:[new TextRun({text:'',bold:true,font:FONT,size:SZ})]})]
+      });
 
       // DESCRIPTION
       const descParas=[];
@@ -11095,6 +11105,11 @@ async function rosExportDocx(ep,items){
         descParas.push(emptyPara());
         descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:'OUT WORDS:',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ})]}));
         descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.outWords,font:FONT,size:SZ,color:'000000'})]}));
+      }
+      if(['live','coldstart','upnext'].includes(item.type)&&item.position){
+        descParas.push(emptyPara());
+        descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:'POSITION:',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ})]}));
+        descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.position,font:FONT,size:SZ,color:'000000'})]}));
       }
       const _hasScript=['live','coldstart','upnext'].includes(item.type)&&item.script;
       if(_hasScript){
