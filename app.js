@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.277';
+const BUILD_VERSION='3.10.278';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -345,7 +345,6 @@ let mcImportCommNum='';          // tracks typed commission number in import mod
 let creditsExpandedEp=null;
 let ecLocalWrite=false,ecSaveTimers={},ecDirty={},ecDefaultCredits=[],ecShowDefModal=false;
 let luLocalWrite=false,scLocalWrite=false,rosLocalWrite=false;
-let rosCamDescs=[]; // camera block descriptions during EDIT ITEM modal session
 let showPermModal=false;
 let expandedEps=new Set(); // Episode Register expanded episodes
 let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,tempDate='';
@@ -5391,11 +5390,23 @@ function buildRosWysMenuHtml(epNum,itemIdx,col,partKind,partType,partBlockId){
     html+=_sndOpt('grams','');
     html+=SOUND_GRAMS_OPTS.map(o=>_sndOpt('grams',o)).join('');
   } else if(col==='description'){
+    if(getEffectiveRole()==='admin'&&item.scriptPendingChange){
+      html+=_hdr('⚠ Unreviewed Script Change');
+      html+=`<div style="padding:4px 16px 8px;font-size:12px;color:#374151;max-width:280px;white-space:normal">
+        <div style="margin-bottom:4px"><b>By:</b> ${esc(item.scriptChangedBy||'')} · ${esc(item.scriptChangedAt||'')}</div>
+        <div style="margin-bottom:6px"><b>Note:</b> ${esc(item.scriptChangeNote||'')}</div>
+        <div style="background:#fdf6e3;border:1px solid #fde68a;border-radius:4px;padding:6px 8px;line-height:1.5">${diffWordsHtml(item.scriptBaseline||'',item.script||'')}</div>
+      </div>`;
+      html+=`<div class="wys-menu-item" data-wys-menu-action="accept-script-change" style="padding:9px 16px;font-size:14px;cursor:pointer;color:#16a34a;font-weight:700;white-space:nowrap" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='transparent'">✓ Accept Change</div>`;
+      html+=_sep();
+    }
     if(canScript){
       html+=_itemOpt('position',item.position?'✎ Edit Position':'+ Add Position');
       html+=_itemOpt('script',item.script?'✎ Edit Script':'+ Add Script Block');
+    } else if(item.type==='insert'){
+      html+=_itemOpt('outWords',item.outWords?'✎ Edit Out Words':'+ Add Out Words');
     } else {
-      html+=`<div style="padding:9px 16px;font-size:13px;color:#9ca3af;font-style:italic;white-space:nowrap">No script block for this item type</div>`;
+      html+=`<div style="padding:9px 16px;font-size:13px;color:#9ca3af;font-style:italic;white-space:nowrap">No editable content for this item type</div>`;
     }
   } else if(col==='history'){
     // Super Admin only — read-only "who edited what" log for this item, newest first.
@@ -5511,8 +5522,9 @@ function rosWysBuildRow(item,i,epNum){
   // .wys-block hover treatment as Sound/Production; the whole cell shares one right-click menu
   // (only Script is actually add/edit-able here) so it's wrapped as one consistent block.
   let _descBody=_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
+  if(getEffectiveRole()==='admin'&&item.scriptPendingChange)_descBody+=_p(`<span style="background:#fff7ed;color:#c2410c;font-weight:800;padding:1px 6px;border-radius:3px;font-size:9pt">⚠ SCRIPT CHANGED — right-click to review</span>`);
   if(item.content) _descBody+=_p(escHtml(item.content),'font-weight:normal;color:#000');
-  if(item.type==='insert'&&item.outWords)_descBody+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
+  if(item.type==='insert'&&item.outWords&&!_isEditing('outWords'))_descBody+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
   const _canScript=['live','coldstart','upnext'].includes(item.type);
   if(_canScript&&item.position&&!_isEditing('position'))_descBody+=_p('&nbsp;')+_p(`<u><b>POSITION:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.position)}</span>`);
   let desc;
@@ -5531,6 +5543,10 @@ function rosWysBuildRow(item,i,epNum){
   } else if(_canScript&&_isEditing('position')){
     desc=_descBody+_p('&nbsp;')+`<div data-wys-editor data-epnum="${esc(epNum)}" data-idx="${i}" data-field="position" style="margin:4px 0">
       <textarea class="wys-inline-ta" style="width:100%;min-height:60px;font-family:Arial,sans-serif;font-size:12px;line-height:1.5;padding:6px;border:2px solid #0066CC;border-radius:3px;box-sizing:border-box;resize:vertical" placeholder="Presenter blocking / position on set…">${escHtml(item.position||'')}</textarea>
+    </div>`;
+  } else if(item.type==='insert'&&_isEditing('outWords')){
+    desc=_descBody+_p('&nbsp;')+`<div data-wys-editor data-epnum="${esc(epNum)}" data-idx="${i}" data-field="outWords" style="margin:4px 0">
+      <input class="wys-inline-ta" style="width:100%;font-family:Arial,sans-serif;font-size:12px;padding:5px 6px;border:2px solid #0066CC;border-radius:3px;box-sizing:border-box" placeholder="Out words…" value="${esc(item.outWords||'')}">
     </div>`;
   } else {
     let _scriptHtml='';
@@ -5608,6 +5624,7 @@ function renderRunOfShowWysiwyg(){
       <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <button class="btn" id="ros-preview-word-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#0066CC;color:#0066CC;border-style:dashed">👁 Preview Script</button>
         <button class="btn" id="ros-export-word-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#388bfd;color:#0066CC">⬇ Studio Script (Word)</button>
+        <button class="btn" id="ros-export-autocue-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#22d3ee;color:#0891b2">⬇ Autocue (TXT)</button>
         ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:16px;padding:8px 24px;font-weight:800">💾 Save</button>`:''}
       </div>
     </div>
@@ -7100,19 +7117,15 @@ function renderAdmin(){
   </div>`;
 }
 
-// Shared right-panel fields for the ROS item editor — script, slugs, sound, out words,
-// screen/cgen/story title, camera block, EXECUTE. Used by the classic rosEditModal overlay
-// AND the inline expand-in-place editor on the WYSIWYG TESTING tab, so both stay identical
-// and share the same save/close/add-slug/remove-slug/mark-reviewed handlers untouched.
+// Right-panel fields for the classic EDIT ITEM modal (rosEditModal) — Slugs, Sound, and Audio
+// Options only. Script, Out Words, Screen, CGEN, Story Title, and Camera Block are now edited
+// entirely in the WYSIWYG view (see rosWysBuildRow / buildRosWysMenuHtml) — kept here since
+// slugs/sound/audio-options still need a home separate from the freeform Production column.
 function buildRosEditFieldsHtml(epNum,itemIdx){
   const _ei=(rosData[String(epNum)]?.items||[])[itemIdx]||{};
   const _srcOpts=['','A','B','C','D','BLUE'];
   const _slugs=_ei.slugs||(_ei.slug?[_ei.slug]:['']);
   const _sources=_ei.slugSources||[];
-  const _isCue=l=>/^[^:]+:\s*(CAM\s*\S.*)?\s*$/i.test(l.trim());
-  const _sw=(_ei.script||'').split('\n').filter(l=>!_isCue(l)).join(' ').replace(/\([^)]*\)/g,' ').trim();
-  const _wc=_sw?_sw.split(/\s+/).length:0;
-  const _div3=(_wc/3).toFixed(1);
   const _slugRows=_slugs.map((s,si)=>{
     const curSrc=_sources[si]||'';
     const rmBtn=_slugs.length>1?`<button class="ros-edit-rm-slug btn" data-itemidx="${itemIdx}" data-sidx="${si}" style="font-size:14px;padding:4px 10px;border-color:#f85149;color:#f85149;flex-shrink:0">Remove</button>`:'';
@@ -7122,52 +7135,9 @@ function buildRosEditFieldsHtml(epNum,itemIdx){
       ${rmBtn}
     </div>`;
   }).join('');
-  const _soundOpts=["","A","B","C","D","COLD START","CLEAN","GENERIC","A+ COLD START CONT'D","B+ COLD START CONT'D","C+ COLD START CONT'D","D+ COLD START CONT'D","VOICE+ COLD START CONT'D","VOICE + COLD START IN"];
   const _editFullAccess=!['content'].includes(getEffectiveRole());
-  // Init camera block state — preserve DOM values on re-render, else load from stored data
-  const _domCamDescs={};
-  document.querySelectorAll('.ros-cam-desc').forEach(inp=>{_domCamDescs[Number(inp.dataset.idx)]=inp.value;});
-  const _hasDomCams=Object.keys(_domCamDescs).length>0;
-  const _scriptCams=parseCamCues(_ei.script||'');
-  if(!_hasDomCams) rosCamDescs=_scriptCams.map((_,i)=>(_ei.cameraDescs||[])[i]||'');
-  else rosCamDescs=_scriptCams.map((_,i)=>_domCamDescs[i]!==undefined?_domCamDescs[i]:(rosCamDescs[i]||''));
-  const _camBlockHtml=buildRosCamBlockHtml(_scriptCams,rosCamDescs);
-  const _canCamBlock=['live','coldstart','upnext'].includes(_ei.type)&&getEffectiveRole()!=='content';
+  const _snd=rosResolveSound(_ei);
   return`<div style="flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:28px">
-          ${['live','coldstart','upnext'].includes(_ei.type)?`
-          <div>
-            <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px">Script</div>
-            <textarea id="ros-edit-script-ta" style="width:100%;min-height:260px;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:18px;line-height:1.75;padding:16px 18px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Enter presenter script…" oninput="(function(ta){const txt=ta.value.split('\\n').filter(l=>!/^[^:]+:\\s*(CAM\\s*\\S.*)?\\s*$/i.test(l.trim())).join(' ').replace(/\\([^)]*\\)/g,' ').trim();const w=txt?txt.split(/\\s+/).length:0;document.getElementById('ros-edit-sc-wc').textContent=w;document.getElementById('ros-edit-sc-d3').textContent=w+' ÷ 3 = '+(w/3).toFixed(1);})(this)" data-prev-script="${esc(_ei.script||'')}">${esc(_ei.script||'')}</textarea>
-            <div style="margin-top:10px;font-size:15px;color:#6b7280;line-height:1.8">
-              Total words: <strong id="ros-edit-sc-wc" style="color:#0066CC;font-size:18px">${_wc}</strong>
-              &nbsp;&nbsp;<span id="ros-edit-sc-d3" style="color:#56d364;font-weight:700">${_wc} ÷ 3 = ${_div3}</span>
-            </div>
-            ${getEffectiveRole()==='director'?`
-            <div style="margin-top:14px">
-              <div style="font-size:13px;font-weight:700;color:#6b7280;margin-bottom:6px">Explain this script change (required if editing existing dialogue)</div>
-              <input id="ros-edit-change-note" type="text" value="${esc(_ei.scriptChangeNote||'')}" placeholder="e.g. Changed presenter GOVAN → LOURENSA in scene 2" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:15px;padding:8px 12px;outline:none;font-family:inherit;box-sizing:border-box">
-            </div>`:''}
-            ${getEffectiveRole()==='admin'&&_ei.scriptPendingChange?`
-            <div style="margin-top:16px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:14px 16px">
-              <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#c2410c;margin-bottom:8px">⚠ Unreviewed Script Change</div>
-              <div style="font-size:14px;color:#7c2d12;margin-bottom:10px">By ${esc(_ei.scriptChangedBy||'')} · ${esc(_ei.scriptChangedAt||'')}</div>
-              <div style="font-size:14px;color:#111827;margin-bottom:12px"><strong>Note:</strong> ${esc(_ei.scriptChangeNote||'')}</div>
-              <div style="background:#fff;border:1px solid #fde68a;border-radius:6px;padding:12px 14px;font-size:15px;line-height:1.7;white-space:pre-wrap;margin-bottom:12px">${diffWordsHtml(_ei.scriptBaseline||'',_ei.script||'')}</div>
-              <button id="ros-edit-mark-reviewed" class="btn" data-itemidx="${itemIdx}" style="font-size:14px;padding:8px 20px;font-weight:800;border-color:#16a34a;color:#16a34a">✓ Mark Reviewed</button>
-            </div>`:''}
-            ${getEffectiveRole()==='admin'&&Array.isArray(_ei.scriptHistory)&&_ei.scriptHistory.length?`
-            <div style="margin-top:16px;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;padding:14px 16px">
-              <div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Script Edit History (${_ei.scriptHistory.length})</div>
-              <div style="max-height:220px;overflow-y:auto">
-                ${_ei.scriptHistory.slice().reverse().map(h=>`
-                <div style="padding:7px 0;border-bottom:1px solid #e5e7eb;font-size:13px;line-height:1.5">
-                  <span style="font-weight:700;color:#111827">${esc(h.by||'Unknown')}</span>
-                  <span style="color:#9ca3af"> · ${esc(h.at||'')}</span>
-                  ${h.note?`<div style="color:#6b7280;margin-top:2px">${esc(h.note)}</div>`:''}
-                </div>`).join('')}
-              </div>
-            </div>`:''}
-          </div>`:''}
           ${_editFullAccess?`
           <div>
             <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px">Slugs</div>
@@ -7177,7 +7147,16 @@ function buildRosEditFieldsHtml(epNum,itemIdx){
           ${_ei.type!=='break'?`
           <div>
             <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px">Sound</div>
-            <select id="ros-edit-sound" style="background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#0066CC;font-size:18px;font-weight:700;padding:10px 14px;outline:none;font-family:inherit;cursor:pointer;min-width:280px">${_soundOpts.map(o=>`<option value="${o}" ${_ei.sound===o?'selected':''}>${o||'— none —'}</option>`).join('')}</select>
+            <div style="display:flex;gap:24px;flex-wrap:wrap">
+              <div>
+                <div style="font-size:12px;font-weight:700;color:#9ca3af;text-transform:uppercase;margin-bottom:6px">Clip Jockey</div>
+                <select id="ros-edit-sound-cj" style="background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#0066CC;font-size:18px;font-weight:700;padding:10px 14px;outline:none;font-family:inherit;cursor:pointer;min-width:160px">${['',...SOUND_CLIP_JOCKEY_OPTS].map(o=>`<option value="${o}" ${_snd.clipJockey===o?'selected':''}>${o||'— none —'}</option>`).join('')}</select>
+              </div>
+              <div>
+                <div style="font-size:12px;font-weight:700;color:#9ca3af;text-transform:uppercase;margin-bottom:6px">Grams</div>
+                <select id="ros-edit-sound-grams" style="background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#0066CC;font-size:18px;font-weight:700;padding:10px 14px;outline:none;font-family:inherit;cursor:pointer;min-width:220px">${['',...SOUND_GRAMS_OPTS].map(o=>`<option value="${o}" ${_snd.grams===o?'selected':''}>${o||'— none —'}</option>`).join('')}</select>
+              </div>
+            </div>
           </div>`:''}
           ${['coldstart','upnext'].includes(_ei.type)?`
           <div>
@@ -7192,34 +7171,8 @@ function buildRosEditFieldsHtml(epNum,itemIdx){
                 VOICE OVER
               </label>
             </div>
-          </div>`:''}
-          ${_ei.type==='insert'?`
-          <div>
-            <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#e3b341;margin-bottom:10px;text-decoration:underline">Out Words</div>
-            <input id="ros-edit-out-words" value="${esc(_ei.outWords||'')}" placeholder="Enter out words…" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:18px;padding:10px 14px;outline:none;font-family:inherit;box-sizing:border-box">
           </div>`:''}`:
-          `<div style="font-size:15px;color:#9ca3af;font-style:italic">Script editing only — other fields are managed by the editorial team.</div>`}
-          ${_editFullAccess?`
-          <div style="border-top:1px solid #d1dae8;padding-top:20px;display:flex;flex-direction:column;gap:18px">
-            <div>
-              <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px">Screen</div>
-              <textarea id="ros-edit-screen" style="width:100%;min-height:80px;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:17px;line-height:1.6;padding:12px 14px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Screen text…">${esc(_ei.screen||'')}</textarea>
-            </div>
-            <div>
-              <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px">CGEN</div>
-              <textarea id="ros-edit-cgen" style="width:100%;min-height:80px;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:17px;line-height:1.6;padding:12px 14px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Character generator text…">${esc(_ei.cgen||'')}</textarea>
-            </div>
-            <div>
-              <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:10px">Story Title</div>
-              <textarea id="ros-edit-story-title" style="width:100%;min-height:80px;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:17px;line-height:1.6;padding:12px 14px;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box" placeholder="Story title…">${esc(_ei.storyTitle||'')}</textarea>
-            </div>
-          </div>`:''}
-
-          ${_canCamBlock?`
-          <div style="border-top:1px solid #d1dae8;padding-top:20px">
-            <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#7c3aed;margin-bottom:14px">Camera Block</div>
-            <div id="ros-edit-camblock">${_camBlockHtml}</div>
-          </div>`:''}
+          `<div style="font-size:15px;color:#9ca3af;font-style:italic">No editable fields here for your role — script, screen, sound cues, camera blocking, position and out words are edited in the WYSIWYG view.</div>`}
           <div style="display:flex;justify-content:flex-end;padding-top:4px">
             <button id="ros-edit-execute" class="btn" style="font-size:16px;padding:12px 36px;font-weight:800;border-color:#3fb950;color:#3fb950;letter-spacing:.5px">▶ EXECUTE</button>
           </div>
@@ -10648,6 +10601,52 @@ function rosFlushAndSave(items){
 }
 
 
+// Autocue export — a presenter's lifeline through the whole show, not just their own lines.
+// Every item gets its number + description so presenters can track where they are; script items
+// additionally get the actual dialogue, with camera info shown next to the presenter's name
+// whenever the cue line embeds it directly (e.g. "GOVAN: CAM 3 JIB").
+function rosBuildAutocueText(epNum,items){
+  const epDate=resolveDate(epNum);
+  const epLabel=`S${currentSeason} EP ${String(epNum).padStart(2,'0')}`;
+  const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'}):'';
+  let out=`CARTE BLANCHE — AUTOCUE\n${epLabel}${epDateFmt?' · '+epDateFmt:''}\n${'='.repeat(50)}\n\n`;
+  const canScript=t=>['live','coldstart','upnext'].includes(t);
+  items.forEach((item,i)=>{
+    const num=item.itemNum||String(i+1);
+    out+=`${'-'.repeat(50)}\nITEM ${num} — ${(item.label||'').toUpperCase()}\n`;
+    if(item.content)out+=`${item.content}\n`;
+    if(canScript(item.type)&&item.script){
+      item.script.split('\n').forEach(line=>{
+        const tr=line.trim();
+        if(!tr)return;
+        const camMatch=tr.match(/^([^:]+):\s+(CAM\s*\S.*?)\s*$/i);
+        const plainCueMatch=tr.match(/^([^:]+):\s*$/);
+        if(camMatch)out+=`\n${camMatch[1].trim().toUpperCase()} (${camMatch[2].trim().toUpperCase()}):\n`;
+        else if(plainCueMatch)out+=`\n${plainCueMatch[1].trim().toUpperCase()}:\n`;
+        else out+=`${tr}\n`;
+      });
+    }
+    out+='\n';
+  });
+  return out;
+}
+function rosExportAutocue(){
+  if(!rosCurrentEp)return;
+  const epNum=rosCurrentEp;
+  const items=(rosData[String(epNum)]?.items)||[];
+  if(!items.length){showToast('No items to export',true);return;}
+  const text=rosBuildAutocueText(epNum,items);
+  const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  const epStr=String(epNum).padStart(2,'0');
+  const txDate=resolveDate(epNum)||new Date().toISOString().split('T')[0];
+  a.download=`Carte Blanche S${currentSeason}E${epStr} - Autocue - ${txDate}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Autocue exported ✓');
+}
+
 function rosExportVTList(){
   if(!rosCurrentEp)return;
   const epNum=rosCurrentEp;
@@ -10762,14 +10761,6 @@ function parseCamCues(script){
     if(m)arr.push(m[1].toUpperCase().replace(/\s+/g,' '));
     return arr;
   },[]);
-}
-// Renders the camera block rows inside #ros-edit-camblock
-function buildRosCamBlockHtml(cams,descs){
-  if(!cams.length)return'<div style="font-size:14px;color:#9ca3af;font-style:italic;padding:6px 0">No camera cues yet — use <strong>PRESENTER: CAM #</strong> in the script.</div>';
-  return cams.map((cam,i)=>`<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-    <div style="min-width:72px;font-size:13px;font-weight:800;background:#ede9fe;color:#7c3aed;padding:5px 10px;border-radius:6px;text-align:center;letter-spacing:.5px;flex-shrink:0">${esc(cam)}</div>
-    <input class="ros-cam-desc" data-idx="${i}" value="${esc(descs[i]||'')}" placeholder="Shot description…" style="flex:1;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:16px;padding:8px 12px;outline:none;font-family:inherit;box-sizing:border-box">
-  </div>`).join('');
 }
 // Shared row builder — used by buildRosWordHtml (Word export/preview) AND the in-app
 // WYSIWYG view (renderRunOfShowWysiwyg), so both are guaranteed pixel/text-identical.
@@ -10906,25 +10897,13 @@ function updateRosEditPreview(){
   // Overlay current form values onto the item being edited
   if(items[itemIdx]!==undefined){
     const it=items[itemIdx];
-    const _ta=document.getElementById('ros-edit-script-ta');
-    if(_ta)it.script=_ta.value;
     const _slugInps=[...document.querySelectorAll('.ros-edit-slug')];
     const _srcInps=[...document.querySelectorAll('.ros-edit-slug-source')];
     if(_slugInps.length){it.slugs=_slugInps.map(i=>i.value.trim());it.slug=it.slugs[0]||'';it.slugSources=_srcInps.map(i=>i.value);}
-    const _sd=document.getElementById('ros-edit-sound');
-    if(_sd)it.sound=_sd.value;
-    const _ow=document.getElementById('ros-edit-out-words');
-    if(_ow)it.outWords=_ow.value;
-    const _sc=document.getElementById('ros-edit-screen');
-    if(_sc)it.screen=_sc.value;
-    const _cg=document.getElementById('ros-edit-cgen');
-    if(_cg)it.cgen=_cg.value;
-    const _st=document.getElementById('ros-edit-story-title');
-    if(_st)it.storyTitle=_st.value;
-    // camera block
-    const _camDescs=[];
-    document.querySelectorAll('.ros-cam-desc').forEach(inp=>{_camDescs[Number(inp.dataset.idx)]=inp.value;});
-    if(_camDescs.length){it.cameraCues=parseCamCues(it.script||'');it.cameraDescs=_camDescs;}
+    const _cj=document.getElementById('ros-edit-sound-cj');
+    const _gr=document.getElementById('ros-edit-sound-grams');
+    if(_cj)it.soundClipJockey=_cj.value;
+    if(_gr)it.soundGrams=_gr.value;
   }
   // Build the full Word-export HTML with the active item highlighted
   const html=buildRosWordHtml(epNum,items,itemIdx);
@@ -11296,6 +11275,7 @@ document.addEventListener('click',function rosHandler(e){
   if(e.target.id==='ros-export-vt-btn'){rosExportVTList();return;}
   if(e.target.id==='ros-preview-word-btn'){rosExportWord(true);return;}
   if(e.target.id==='ros-export-word-btn'){rosExportWord();return;}
+  if(e.target.id==='ros-export-autocue-btn'){rosExportAutocue();return;}
   if(e.target.id==='ros-export-pdf-btn'){rosExportPDF();return;}
   // Script modal — open
   const scriptBtn=e.target.closest('.ros-script-btn');
@@ -11407,6 +11387,25 @@ document.addEventListener('click',function rosHandler(e){
           saveROS(epNum,{items,epNum});
           rosWysEdit={epNum,itemIdx,field:'prod',camIdx:newId};
         }
+      }
+      rosWysMenu=null;
+      render();
+      return;
+    }
+    if(actionOpt&&actionOpt.dataset.wysMenuAction==='accept-script-change'){
+      const{epNum,itemIdx}=rosWysMenu;
+      const items=(rosData[String(epNum)]?.items)||[];
+      const it=items[itemIdx];
+      if(it&&getEffectiveRole()==='admin'){
+        it.scriptBaseline=it.script;
+        it.scriptPendingChange=false;
+        it.scriptChangeNote='';
+        it.scriptChangedBy='';
+        it.scriptChangedAt='';
+        rosLogWysEdit(it,'Accepted script change');
+        rosData[String(epNum)].items=items;
+        saveROS(epNum,{items,epNum});
+        showToast('Change accepted ✓');
       }
       rosWysMenu=null;
       render();
@@ -11547,40 +11546,8 @@ document.addEventListener('click',function rosHandler(e){
     const items=(rosData[String(epNum)]?.items)||[];
     if(items[itemIdx]!==undefined){
       const it=items[itemIdx];
-      // script
-      const _ta=document.getElementById('ros-edit-script-ta');
-      if(_ta){
-        const _newScript=_ta.value;
-        const _oldScript=it.script||'';
-        const _scriptChanged=_newScript!==_oldScript && _oldScript.trim()!=='';
-        const _who=currentUser?.displayName||currentUser?.email||'Unknown';
-        const _when=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
-        let _histNote='';
-        if(_scriptChanged && getEffectiveRole()==='director'){
-          const _noteEl=document.getElementById('ros-edit-change-note');
-          const _noteVal=(_noteEl?.value||'').trim();
-          if(!_noteVal){
-            showToast('Please explain the script change before saving',true);
-            return;
-          }
-          if(!it.scriptPendingChange) it.scriptBaseline=_oldScript;
-          it.scriptPendingChange=true;
-          it.scriptChangeNote=_noteVal;
-          it.scriptChangedBy=_who;
-          it.scriptChangedAt=_when;
-          _histNote=_noteVal;
-        }
-        if(_scriptChanged){
-          if(!Array.isArray(it.scriptHistory)) it.scriptHistory=[];
-          it.scriptHistory.push({by:_who,at:_when,note:_histNote});
-          if(it.scriptHistory.length>20) it.scriptHistory=it.scriptHistory.slice(-20);
-          if(it.finalised){
-            it.finalised=false;it.finalisedBy='';it.finalisedAt='';
-            it.changedSinceFinalised=true;it.changedBy=_who;it.changedAt=_when;
-          }
-        }
-        it.script=_newScript;
-      }
+      // Script/Out Words/Screen/CGEN/Story Title/Camera Block are edited in the WYSIWYG view now
+      // — this modal only carries Slugs, Sound, and Audio Options going forward.
       // slugs + sources (only overwrite if slug inputs are actually rendered)
       const _slugInps=document.querySelectorAll('.ros-edit-slug');
       if(_slugInps.length>0){
@@ -11589,28 +11556,15 @@ document.addEventListener('click',function rosHandler(e){
         document.querySelectorAll('.ros-edit-slug-source').forEach(sel=>{_newSrcs[Number(sel.dataset.sidx)]=sel.value;});
         it.slugs=_newSlugs;it.slug=_newSlugs[0]||'';it.slugSources=_newSrcs;
       }
-      // sound
-      const _sd=document.getElementById('ros-edit-sound');
-      if(_sd) it.sound=_sd.value;
-      // out words
-      const _ow=document.getElementById('ros-edit-out-words');
-      if(_ow) it.outWords=_ow.value;
-      // screen / cgen / story title
-      const _sc=document.getElementById('ros-edit-screen');
-      if(_sc) it.screen=_sc.value;
-      const _cg=document.getElementById('ros-edit-cgen');
-      if(_cg) it.cgen=_cg.value;
-      const _st=document.getElementById('ros-edit-story-title');
-      if(_st) it.storyTitle=_st.value;
-      // cold start options
+      // sound — same two-slot model as WYSIWYG, so the two surfaces never diverge
+      const _cj=document.getElementById('ros-edit-sound-cj');
+      const _gr=document.getElementById('ros-edit-sound-grams');
+      if(_cj) it.soundClipJockey=_cj.value;
+      if(_gr) it.soundGrams=_gr.value;
+      // cold start / up next audio options
       const _ups=document.getElementById('ros-edit-upsound');
       const _vo=document.getElementById('ros-edit-voiceover');
       if(['coldstart','upnext'].includes(it.type)){it.upsound=!!(_ups?.checked);it.voiceOver=!!(_vo?.checked);}
-      // camera block
-      const _camDescs=[];
-      document.querySelectorAll('.ros-cam-desc').forEach(inp=>{_camDescs[Number(inp.dataset.idx)]=inp.value;});
-      it.cameraCues=parseCamCues(it.script||'');
-      it.cameraDescs=_camDescs;
       rosData[String(epNum)].items=items;
       saveROS(epNum,{items,epNum});
       showToast('Item saved ✓');
@@ -11620,24 +11574,6 @@ document.addEventListener('click',function rosHandler(e){
     render();
     const _editRow=document.querySelector(`tr[data-ros-idx="${_savedEditIdx}"]`);
     if(_editRow)_editRow.scrollIntoView({block:'nearest',behavior:'smooth'});
-    return;
-  }
-  // Edit Item modal — mark script change reviewed (Super Admin only)
-  if(e.target.id==='ros-edit-mark-reviewed'&&rosEditModal&&getEffectiveRole()==='admin'){
-    const {epNum,itemIdx}=rosEditModal;
-    const items=(rosData[String(epNum)]?.items)||[];
-    const it=items[itemIdx];
-    if(it){
-      it.scriptBaseline=it.script;
-      it.scriptPendingChange=false;
-      it.scriptChangeNote='';
-      it.scriptChangedBy='';
-      it.scriptChangedAt='';
-      rosData[String(epNum)].items=items;
-      saveROS(epNum,{items,epNum});
-      showToast('Change marked reviewed ✓');
-      render();
-    }
     return;
   }
   // Edit Item modal — close
@@ -11937,28 +11873,17 @@ document.addEventListener('focusout',function rosWysCommit(e){
     if(val!==(it.position||''))rosLogWysEdit(it,'Position');
     it.position=val;
   }
+  else if(field==='outWords'){
+    const val=wrap.querySelector('.wys-inline-ta').value.trim();
+    if(val!==(it.outWords||''))rosLogWysEdit(it,'Out Words');
+    it.outWords=val;
+  }
   rosData[String(epNum)].items=items;
   saveROS(Number(epNum),{items,epNum:Number(epNum)});
   rosWysEdit=null;
   render();
 });
 
-// Camera block live refresh when script textarea changes
-document.addEventListener('input',function rosCamRefresh(e){
-  if(e.target.id!=='ros-edit-script-ta')return;
-  // Preserve current descriptions keyed by position
-  const prevDescs={};
-  document.querySelectorAll('.ros-cam-desc').forEach(inp=>{prevDescs[Number(inp.dataset.idx)]=inp.value;});
-  const prevCams=rosCamDescs.length?[...rosCamDescs.map((_,i)=>i)]:[];
-  const newCams=parseCamCues(e.target.value);
-  const oldCams=parseCamCues(e.target.dataset.prevScript||'');
-  // Merge: keep description if same cam at same index
-  const newDescs=newCams.map((cam,i)=>(oldCams[i]===cam?(prevDescs[i]||''):''));
-  rosCamDescs=newDescs;
-  e.target.dataset.prevScript=e.target.value;
-  const camBlockEl=document.getElementById('ros-edit-camblock');
-  if(camBlockEl)camBlockEl.innerHTML=buildRosCamBlockHtml(newCams,newDescs);
-});
 // ── POST PRODUCTION SCHEDULE handlers ──────────────────────────────
 // ── Add commission modal ──
 document.addEventListener('click',function ppAddHandler(e){
