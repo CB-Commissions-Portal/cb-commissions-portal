@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.283';
+const BUILD_VERSION='3.10.284';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5643,7 +5643,7 @@ function renderRunOfShowWysiwyg(){
     <div id="roswys-scroll" style="flex:1;overflow-y:auto;background:#dfe4ea;padding:32px 0">
       <div style="max-width:900px;margin:0 auto;background:#fff;box-shadow:0 2px 16px rgba(0,0,0,.15);padding:32px 28px;font-family:Arial,sans-serif;zoom:${_zoom}%">
         <div style="font-size:18px;font-weight:900;color:#000;margin-bottom:4px">CARTE BLANCHE</div>
-        <div style="margin-bottom:2px;font-size:13px;color:#000"><b>Season ${currentSeason}, ${epLabel.replace(`S${currentSeason} `,'Season '+currentSeason+', ')}</b></div>
+        <div style="margin-bottom:2px;font-size:13px;color:#000"><b>${epLabel.replace(`S${currentSeason} `,'Season '+currentSeason+', ')}</b></div>
         <div style="margin-bottom:14px;font-size:13px;color:#000"><b>TX: ${epDateFmt}</b></div>
         <table style="border-collapse:collapse;width:100%;table-layout:fixed">
           <colgroup><col style="width:4%"><col style="width:22%"><col style="width:11%"><col style="width:56%"><col style="width:7%"></colgroup>
@@ -10876,7 +10876,7 @@ function buildRosWordHtml(ep,items,highlightIdx=-1){
 </style></head>
 <body><div class="Section1">
 <p style="font-size:14pt;font-weight:bold;color:#000;margin-bottom:2pt;line-height:18pt">CARTE BLANCHE</p>
-<p style="margin-bottom:1pt;line-height:14pt"><b>Season ${currentSeason}, ${escHtml(epLabel.replace(`S${currentSeason} `,'Season '+currentSeason+', '))}</b></p>
+<p style="margin-bottom:1pt;line-height:14pt"><b>${escHtml(epLabel.replace(`S${currentSeason} `,'Season '+currentSeason+', '))}</b></p>
 <p style="margin-bottom:8pt;line-height:14pt"><b>TX: ${escHtml(epDateFmt)}</b></p>
 <table border="1" cellpadding="3" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed">
   <colgroup><col style="width:4%"><col style="width:22%"><col style="width:11%"><col style="width:56%"><col style="width:7%"></colgroup>
@@ -11152,7 +11152,7 @@ async function rosExportDocx(ep,items){
       })]})},
       children:[
         new Paragraph({spacing:SP0,children:[new TextRun({text:'CARTE BLANCHE',bold:true,font:FONT,size:28,color:'000000'})]}),
-        new Paragraph({spacing:SP0,children:[new TextRun({text:`Season ${currentSeason}, ${epLabel.replace(`S${currentSeason} `,`Season ${currentSeason}, `)}`,bold:true,font:FONT,size:SZ})]}),
+        new Paragraph({spacing:SP0,children:[new TextRun({text:epLabel.replace(`S${currentSeason} `,`Season ${currentSeason}, `),bold:true,font:FONT,size:SZ})]}),
         new Paragraph({spacing:{before:0,after:120},children:[new TextRun({text:`TX: ${epDateFmt}`,bold:true,font:FONT,size:SZ})]}),
         new Table({width:{size:11186,type:WidthType.DXA},columnWidths:COL_W,rows:[headerRow,...bodyRows]})
       ]
