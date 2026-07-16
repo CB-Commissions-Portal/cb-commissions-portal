@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.274';
+const BUILD_VERSION='3.10.275';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -5391,8 +5391,12 @@ function buildRosWysMenuHtml(epNum,itemIdx,col,partKind,partType,partBlockId){
     html+=_sndOpt('grams','');
     html+=SOUND_GRAMS_OPTS.map(o=>_sndOpt('grams',o)).join('');
   } else if(col==='description'){
-    html+=canScript?_itemOpt('script',item.script?'✎ Edit Script':'+ Add Script Block')
-      :`<div style="padding:9px 16px;font-size:13px;color:#9ca3af;font-style:italic;white-space:nowrap">No script block for this item type</div>`;
+    if(canScript){
+      html+=_itemOpt('position',item.position?'✎ Edit Position':'+ Add Position');
+      html+=_itemOpt('script',item.script?'✎ Edit Script':'+ Add Script Block');
+    } else {
+      html+=`<div style="padding:9px 16px;font-size:13px;color:#9ca3af;font-style:italic;white-space:nowrap">No script block for this item type</div>`;
+    }
   } else if(col==='history'){
     // Super Admin only — read-only "who edited what" log for this item, newest first.
     const log=Array.isArray(item.wysEditLog)?[...item.wysEditLog].reverse():[];
@@ -5510,12 +5514,17 @@ function rosWysBuildRow(item,i,epNum){
   if(item.content) _descBody+=_p(escHtml(item.content),'font-weight:normal;color:#000');
   if(item.type==='insert'&&item.outWords)_descBody+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
   const _canScript=['live','coldstart','upnext'].includes(item.type);
+  if(_canScript&&item.position&&!_isEditing('position'))_descBody+=_p(`<u><b>POSITION:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.position)}</span>`);
   let desc;
   if(_canScript&&_isEditing('script')){
     const _isDirector=getEffectiveRole()==='director';
     desc=_descBody+_p('&nbsp;')+`<div data-wys-editor data-epnum="${esc(epNum)}" data-idx="${i}" data-field="script" style="margin:4px 0">
       <textarea class="wys-inline-ta" style="width:100%;min-height:140px;font-family:Arial,sans-serif;font-size:12px;line-height:1.5;padding:6px;border:2px solid #0066CC;border-radius:3px;box-sizing:border-box;resize:vertical" placeholder="Presenter script…">${escHtml(item.script||'')}</textarea>
       ${_isDirector?`<input class="wys-script-note-inp" placeholder="Explain this script change (required if editing existing dialogue)…" style="width:100%;margin-top:4px;font-family:Arial,sans-serif;font-size:11px;padding:4px 6px;border:2px solid #f59e0b;border-radius:3px;box-sizing:border-box">`:''}
+    </div>`;
+  } else if(_canScript&&_isEditing('position')){
+    desc=_descBody+_p('&nbsp;')+`<div data-wys-editor data-epnum="${esc(epNum)}" data-idx="${i}" data-field="position" style="margin:4px 0">
+      <textarea class="wys-inline-ta" style="width:100%;min-height:60px;font-family:Arial,sans-serif;font-size:12px;line-height:1.5;padding:6px;border:2px solid #0066CC;border-radius:3px;box-sizing:border-box;resize:vertical" placeholder="Presenter blocking / position on set…">${escHtml(item.position||'')}</textarea>
     </div>`;
   } else {
     let _scriptHtml='';
@@ -10808,6 +10817,7 @@ function rosBuildWordRow(item,i,highlightIdx=-1){
   let desc=_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
   if(item.content) desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
   if(item.type==='insert'&&item.outWords)desc+=_p(`<u><b>OUT WORDS:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.outWords)}</span>`);
+  if(['live','coldstart','upnext'].includes(item.type)&&item.position)desc+=_p(`<u><b>POSITION:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.position)}</span>`);
   if(['live','coldstart','upnext'].includes(item.type)&&item.script){
     desc+=_p('&nbsp;');
     item.script.split('\n').forEach(line=>{
@@ -11915,6 +11925,11 @@ document.addEventListener('focusout',function rosWysCommit(e){
       }
     }
     it.script=newScript;
+  }
+  else if(field==='position'){
+    const val=wrap.querySelector('.wys-inline-ta').value.trim();
+    if(val!==(it.position||''))rosLogWysEdit(it,'Position');
+    it.position=val;
   }
   rosData[String(epNum)].items=items;
   saveROS(Number(epNum),{items,epNum:Number(epNum)});
