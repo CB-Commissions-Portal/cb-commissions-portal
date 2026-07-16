@@ -55,7 +55,7 @@ function getEffectiveRole(){return previewRole||currentRole;}
 // WYSIWYG TESTING tab — hidden testing ground for the Studio Script Build redesign.
 // Scoped to this one account (not a role) so it stays invisible even to other Super Admins
 // until it's ready to roll out to the whole team.
-function isWysiwygTester(){return currentUser?.email==='rudibotha1234@me.com';}
+function isWysiwygTester(){return currentUser?.email==='rudi@combinedartists.co.za';}
 // Same "may this person open the item editor at all" gate used by the classic
 // Studio Script Build tab's EDIT ITEM button, factored out for the WYSIWYG row-click handler.
 function rosCanEditAny(){
@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.261';
+const BUILD_VERSION='3.10.262';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
