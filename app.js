@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.285';
+const BUILD_VERSION='3.10.286';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -213,7 +213,7 @@ let rosEditModal=null;   // {epNum,itemIdx} — full item edit modal
 let rosWysMenu=null;     // {x,y,epNum,itemIdx,col,part,partIdx} — open right-click menu on WYSIWYG TESTING tab
 let rosWysEdit=null;     // {epNum,itemIdx,field,camIdx} — which single field is inline-editing on WYSIWYG TESTING tab
 const SOUND_CLIP_JOCKEY_OPTS=['A','B','C','D'];
-const SOUND_GRAMS_OPTS=["COLD START IN","COLD START CONT'D","B+COLD START CONT'D","C+COLD START CONT'D","D+COLD START CONT'D","VOICE+COLD START CONT'D","GENERIC IN","CLEAN"];
+const SOUND_GRAMS_OPTS=["COLD START IN","COLD START CONT'D","B + COLD START CONT'D","C + COLD START CONT'D","D + COLD START CONT'D","VOICE + COLD START CONT'D","GENERIC IN","CLEAN"];
 // Resolves an item's Sound into the new two-slot model {clipJockey,grams}. Once soundClipJockey/
 // soundGrams have been touched by the WYSIWYG UI (even to '') they're the source of truth; until
 // then, falls back to classifying the legacy single `sound` string so old episodes show correctly.
@@ -11004,7 +11004,7 @@ async function rosExportDocx(ep,items){
     const SZ=22;    // 11pt in half-points
     const SZ_SM=18; // 9pt
     const SP0={before:0,after:0};
-    const CELL_M={top:80,bottom:80,left:100,right:80}; // consistent cell padding, twips
+    const CELL_M={top:80,bottom:80,left:70,right:70}; // consistent cell padding, twips
 
     // Empty paragraph with explicit font run — holds line height whether ¶ is visible or not
     const emptyPara=(sz=SZ)=>new Paragraph({spacing:SP0,children:[new TextRun({text:'',size:sz,font:FONT})]});
@@ -11015,7 +11015,7 @@ async function rosExportDocx(ep,items){
       left:  {style:BorderStyle.SINGLE,size:8,color:'000000'},
       right: {style:BorderStyle.SINGLE,size:8,color:'000000'},
     };
-    const COL_W=[447,2461,1231,6264,783]; // twips, sum=11186 (A4 – 18pt margins each side)
+    const COL_W=[700,2461,1231,5844,950]; // twips, sum=11186 (A4 – 18pt margins each side); ITEM/DUR widened so short labels ("ITEM","00:30") don't wrap mid-word under fixed table layout
 
     const durFmt=d=>{if(!d)return'';const p=String(d).split(':');if(p.length===3){const mm=Number(p[0])*60+Number(p[1]);return`${String(mm).padStart(2,'0')}:${p[2]}`;}return d;};
 
