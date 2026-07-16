@@ -143,7 +143,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.286';
+const BUILD_VERSION='3.10.287';
 const BUILD_DATE='12 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -213,7 +213,7 @@ let rosEditModal=null;   // {epNum,itemIdx} — full item edit modal
 let rosWysMenu=null;     // {x,y,epNum,itemIdx,col,part,partIdx} — open right-click menu on WYSIWYG TESTING tab
 let rosWysEdit=null;     // {epNum,itemIdx,field,camIdx} — which single field is inline-editing on WYSIWYG TESTING tab
 const SOUND_CLIP_JOCKEY_OPTS=['A','B','C','D'];
-const SOUND_GRAMS_OPTS=["COLD START IN","COLD START CONT'D","B + COLD START CONT'D","C + COLD START CONT'D","D + COLD START CONT'D","VOICE + COLD START CONT'D","GENERIC IN","CLEAN"];
+const SOUND_GRAMS_OPTS=["COLD START IN","VOICE + COLD START IN","COLD START CONT'D","B + COLD START CONT'D","C + COLD START CONT'D","D + COLD START CONT'D","VOICE + COLD START CONT'D","GENERIC IN","CLEAN"];
 // Resolves an item's Sound into the new two-slot model {clipJockey,grams}. Once soundClipJockey/
 // soundGrams have been touched by the WYSIWYG UI (even to '') they're the source of truth; until
 // then, falls back to classifying the legacy single `sound` string so old episodes show correctly.
@@ -5530,12 +5530,20 @@ function rosWysBuildRow(item,i,epNum){
   // Column 4: Description — label/content pulled from the landing page + Script Block. Same
   // .wys-block hover treatment as Sound/Production; the whole cell shares one right-click menu
   // (only Script is actually add/edit-able here) so it's wrapped as one consistent block.
-  let _descBody=_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
+  // Bumpers/Opening Logo/Closing Credits are hard-baked fixed items — no underline on the label,
+  // and always padded with a blank line before/after (the leading blank comes from the cell's
+  // universal ${_br}; the trailing one is added here).
+  const _isFixedItem=item.type==='fixed';
+  let _descBody=_isFixedItem?_p(escHtml(item.label||''),'font-weight:bold;color:#000'):_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
   if(getEffectiveRole()==='admin'&&item.scriptPendingChange)_descBody+=_p(`<span style="background:#fff7ed;color:#c2410c;font-weight:800;padding:1px 6px;border-radius:3px;font-size:9pt">⚠ SCRIPT CHANGED — right-click to review</span>`);
   if(item.content) _descBody+=_p(escHtml(item.content),'font-weight:normal;color:#000');
+  if(_isFixedItem) _descBody+=_p('&nbsp;');
   if(item.type==='insert'&&item.outWords&&!_isEditing('outWords'))_descBody+=_p('&nbsp;')+_p('<u><b>OUT WORDS:</b></u>')+_p(escHtml(item.outWords),'font-weight:normal;color:#000');
   const _canScript=['live','coldstart','upnext'].includes(item.type);
-  if(_canScript&&item.position&&!_isEditing('position'))_descBody+=_p('&nbsp;')+_p(`<u><b>POSITION:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.position)}</span>`);
+  if(_canScript&&item.position&&!_isEditing('position')){
+    _descBody+=_p('&nbsp;')+_p('<u><b>POSITION:</b></u>');
+    item.position.split('\n').forEach(line=>{_descBody+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');});
+  }
   let desc;
   if(_canScript&&_isEditing('script')){
     const _isDirector=getEffectiveRole()==='director';
@@ -5646,7 +5654,7 @@ function renderRunOfShowWysiwyg(){
         <div style="margin-bottom:2px;font-size:13px;color:#000"><b>${epLabel.replace(`S${currentSeason} `,'Season '+currentSeason+', ')}</b></div>
         <div style="margin-bottom:14px;font-size:13px;color:#000"><b>TX: ${epDateFmt}</b></div>
         <table style="border-collapse:collapse;width:100%;table-layout:fixed">
-          <colgroup><col style="width:4%"><col style="width:22%"><col style="width:11%"><col style="width:56%"><col style="width:7%"></colgroup>
+          <colgroup><col style="width:4%"><col style="width:26%"><col style="width:11%"><col style="width:52%"><col style="width:7%"></colgroup>
           <thead><tr>
             <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:4%">ITEM</th>
             <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:22%">PRODUCTION</th>
@@ -10822,10 +10830,18 @@ function rosBuildWordRow(item,i,highlightIdx=-1){
     }
   });
   if(!_slugsPlaced){_addSep();_prod+=slugCell;}
-  let desc=_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
+  // Bumpers/Opening Logo/Closing Credits are hard-baked fixed items — no underline on the label,
+  // and always padded with a blank line before/after (the leading blank comes from the cell's
+  // universal ${_br}; the trailing one is added here).
+  const _isFixedItem=item.type==='fixed';
+  let desc=_isFixedItem?_p(escHtml(item.label||''),'font-weight:bold;color:#000'):_p(`<u>${escHtml(item.label||'')}</u>`,'font-weight:bold;color:#000');
   if(item.content) desc+=_p(escHtml(item.content),'font-weight:normal;color:#000');
+  if(_isFixedItem) desc+=_p('&nbsp;');
   if(item.type==='insert'&&item.outWords)desc+=_p('&nbsp;')+_p('<u><b>OUT WORDS:</b></u>')+_p(escHtml(item.outWords),'font-weight:normal;color:#000');
-  if(['live','coldstart','upnext'].includes(item.type)&&item.position)desc+=_p('&nbsp;')+_p(`<u><b>POSITION:</b></u> <span style="font-weight:normal;color:#000">${escHtml(item.position)}</span>`);
+  if(['live','coldstart','upnext'].includes(item.type)&&item.position){
+    desc+=_p('&nbsp;')+_p('<u><b>POSITION:</b></u>');
+    item.position.split('\n').forEach(line=>{desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');});
+  }
   if(['live','coldstart','upnext'].includes(item.type)&&item.script){
     desc+=_p('&nbsp;');
     item.script.split('\n').forEach(line=>{
@@ -10879,7 +10895,7 @@ function buildRosWordHtml(ep,items,highlightIdx=-1){
 <p style="margin-bottom:1pt;line-height:14pt"><b>${escHtml(epLabel.replace(`S${currentSeason} `,'Season '+currentSeason+', '))}</b></p>
 <p style="margin-bottom:8pt;line-height:14pt"><b>TX: ${escHtml(epDateFmt)}</b></p>
 <table border="1" cellpadding="3" cellspacing="0" style="border-collapse:collapse;width:100%;table-layout:fixed">
-  <colgroup><col style="width:4%"><col style="width:22%"><col style="width:11%"><col style="width:56%"><col style="width:7%"></colgroup>
+  <colgroup><col style="width:4%"><col style="width:26%"><col style="width:11%"><col style="width:52%"><col style="width:7%"></colgroup>
   <thead><tr>
     <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:4%">ITEM</th>
     <th style="background:#003366;color:#fff;font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:4px;border:1px solid #000;text-align:center;width:22%">PRODUCTION</th>
@@ -11015,7 +11031,7 @@ async function rosExportDocx(ep,items){
       left:  {style:BorderStyle.SINGLE,size:8,color:'000000'},
       right: {style:BorderStyle.SINGLE,size:8,color:'000000'},
     };
-    const COL_W=[700,2461,1231,5844,950]; // twips, sum=11186 (A4 – 18pt margins each side); ITEM/DUR widened so short labels ("ITEM","00:30") don't wrap mid-word under fixed table layout
+    const COL_W=[700,2761,1231,5544,950]; // twips, sum=11186 (A4 – 18pt margins each side); ITEM/DUR widened so short labels ("ITEM","00:30") don't wrap mid-word under fixed table layout; PRODUCTION widened (slugs were wrapping to a 2nd line), DESCRIPTION narrowed to compensate
 
     const durFmt=d=>{if(!d)return'';const p=String(d).split(':');if(p.length===3){const mm=Number(p[0])*60+Number(p[1]);return`${String(mm).padStart(2,'0')}:${p[2]}`;}return d;};
 
@@ -11100,8 +11116,14 @@ async function rosExportDocx(ep,items){
 
       // DESCRIPTION
       const descParas=[];
-      descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.label||'',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ,color:'000000'})]}));
+      // Bumpers/Opening Logo/Closing Credits are hard-baked fixed items — no underline on the
+      // label, and always padded with a blank line before and after (unlike other item types,
+      // which get their spacing from adjacent sections like Out Words/Position/Script).
+      const _isFixedItem=item.type==='fixed';
+      if(_isFixedItem)descParas.push(emptyPara());
+      descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.label||'',bold:true,...(_isFixedItem?{}:{underline:{type:UnderlineType.SINGLE}}),font:FONT,size:SZ,color:'000000'})]}));
       if(item.content) descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.content,font:FONT,size:SZ,color:'000000'})]}));
+      if(_isFixedItem)descParas.push(emptyPara());
       if(item.type==='insert'&&item.outWords){
         descParas.push(emptyPara());
         descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:'OUT WORDS:',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ})]}));
@@ -11110,7 +11132,9 @@ async function rosExportDocx(ep,items){
       if(['live','coldstart','upnext'].includes(item.type)&&item.position){
         descParas.push(emptyPara());
         descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:'POSITION:',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ})]}));
-        descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:item.position,font:FONT,size:SZ,color:'000000'})]}));
+        item.position.split('\n').forEach(line=>{
+          descParas.push(line?new Paragraph({spacing:SP0,children:[new TextRun({text:line,font:FONT,size:SZ,color:'000000'})]}):emptyPara());
+        });
       }
       const _hasScript=['live','coldstart','upnext'].includes(item.type)&&item.script;
       if(_hasScript){
