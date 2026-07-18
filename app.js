@@ -139,7 +139,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.295';
+const BUILD_VERSION='3.10.296';
 const BUILD_DATE='18 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -209,6 +209,13 @@ let rosEditModal=null;   // {epNum,itemIdx} — full item edit modal
 let rosWysMenu=null;     // {x,y,epNum,itemIdx,col,part,partIdx} — open right-click menu on WYSIWYG TESTING tab
 let rosWysEdit=null;     // {epNum,itemIdx,field,camIdx} — which single field is inline-editing on WYSIWYG TESTING tab
 let rosWysActive=false;  // toggles the 'ros' tab between the classic landing page and WYSIWYG mode, via the "EDIT IN WYSIWYG" button
+// True while the focused element is inside a WYSIWYG inline editor (script/position/screen/CGEN/
+// story title/camera — every one of them shares the [data-wys-editor] wrapper). Realtime listeners
+// must check this before calling render(): a global re-render rebuilds the textarea's value fresh
+// from saved data, silently discarding whatever's been typed but not yet blurred/committed. This is
+// what caused edits to "not take" with zero trace in the edit log — the keystrokes were wiped by an
+// unrelated snapshot elsewhere in the app before the user ever got a chance to save them.
+function rosWysEditorActive(){return!!document.activeElement?.closest('[data-wys-editor]');}
 const SOUND_CLIP_JOCKEY_OPTS=['A','B','C','D'];
 const SOUND_GRAMS_OPTS=["COLD START IN","VOICE + COLD START IN","COLD START CONT'D","B + COLD START CONT'D","C + COLD START CONT'D","D + COLD START CONT'D","VOICE + COLD START CONT'D","GENERIC IN","CLEAN"];
 // Resolves an item's Sound into the new two-slot model {clipJockey,grams}. Once soundClipJockey/
@@ -791,8 +798,8 @@ async function saveROS(epNum,data){
   const _existing=rosData[epNum]||{};
   const payload={rosLocked:_existing.rosLocked||false,rosLockedBy:_existing.rosLockedBy||null,rosLockedAt:_existing.rosLockedAt||null,...data};
   rosData[epNum]={...payload,updatedByName,updatedAtStr};
-  try{await setDoc(doc(db,'run_of_show',String(epNum)),{...payload,updatedAt:serverTimestamp(),updatedByName,updatedAtStr});setSyncDot('live');}
-  catch(e){setSyncDot('offline');showToast('ROS save failed: '+e.message,true);}
+  try{await setDoc(doc(db,'run_of_show',String(epNum)),{...payload,updatedAt:serverTimestamp(),updatedByName,updatedAtStr});setSyncDot('live');return true;}
+  catch(e){setSyncDot('offline');showToast('ROS save failed: '+e.message,true);return false;}
   finally{setTimeout(()=>{rosLocalWrite=false;},1500);}
 }
 function subscribeROS(){
@@ -803,11 +810,11 @@ function subscribeROS(){
       if(rosLocalWrite){if(!resolved){resolved=true;resolve();}return;}
       snap.docs.forEach(d=>{
         const epId=d.id;
-        const editingThisEp=(rosEditModal&&String(rosEditModal.epNum)===epId)||(rosScriptModal&&String(rosScriptModal.epNum)===epId);
+        const editingThisEp=(rosEditModal&&String(rosEditModal.epNum)===epId)||(rosScriptModal&&String(rosScriptModal.epNum)===epId)||(rosWysEdit&&String(rosWysEdit.epNum)===epId);
         if(!editingThisEp)rosData[epId]={...d.data()};
       });
       if(!resolved){resolved=true;resolve();}
-      else if(tab==='ros'&&!rosEditModal&&!rosScriptModal){
+      else if(tab==='ros'&&!rosEditModal&&!rosScriptModal&&!rosWysEditorActive()){
         const active=document.activeElement;
         if(!active?.classList.contains('ros-content')&&!active?.classList.contains('ros-dur'))render();
       }
@@ -1414,14 +1421,14 @@ function subscribeData(){
     // carry them across so a live update elsewhere doesn't wipe out an in-progress unsaved row.
     const drafts=comms.filter(c=>draftCommIds.has(c.id));
     if(editId){comms=[...incoming.map(c=>c.id===editId?(comms.find(x=>x.id===editId)||c):c),...drafts];updateTicker();}
-    else if(editingLineup){comms=[...incoming,...drafts];updateTicker();}
+    else if(editingLineup||rosWysEditorActive()){comms=[...incoming,...drafts];updateTicker();}
     else{comms=[...incoming,...drafts];render();}
   },()=>setSyncDot('offline'));
   unsubSettings=onSnapshot(doc(db,'settings','main'),snap=>{
     if(snap.exists())settings={...settings,...snap.data()};
     const active=document.activeElement;
     const editingLineup=active?.classList.contains('lu-director')||active?.classList.contains('lu-pres1')||active?.classList.contains('lu-pres2')||active?.classList.contains('lu-live-note')||active?.classList.contains('lu-live-dur')||active?.classList.contains('pp-cell')||active?.classList.contains('pp-del-date');
-    if(!active?.closest('tr[data-id]')&&!editingLineup)render();
+    if(!active?.closest('tr[data-id]')&&!editingLineup&&!rosWysEditorActive())render();
   });
 }
 
@@ -11965,7 +11972,10 @@ document.addEventListener('focusout',function rosWysCommit(e){
     it.outWords=val;
   }
   rosData[String(epNum)].items=items;
-  saveROS(Number(epNum),{items,epNum:Number(epNum)});
+  // Confirms on actual write success (not just "we tried") — the failure toast is already shown
+  // from inside saveROS itself, so only the positive case needs handling here. Users have no Save
+  // button in this editor, so this is their only per-edit signal that it actually persisted.
+  saveROS(Number(epNum),{items,epNum:Number(epNum)}).then(ok=>{if(ok)showToast('Saved');});
   rosWysEdit=null;
   render();
 });
