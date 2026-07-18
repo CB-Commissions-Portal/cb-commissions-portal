@@ -139,7 +139,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.296';
+const BUILD_VERSION='3.10.297';
 const BUILD_DATE='18 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -10802,7 +10802,7 @@ function rosBuildWordRow(item,i,highlightIdx=-1){
   const _durMmSs=d=>{if(!d)return'';const p=String(d).split(':');if(p.length===3){const mm=Number(p[0])*60+Number(p[1]);return`${String(mm).padStart(2,'0')}:${p[2]}`;}return d;};
   const _p=(txt,style='')=>`<p style="margin:0;font-family:Arial,sans-serif;font-size:11pt;${style}">${txt}</p>`;
   const num=item.itemNum||String(i+1);
-  const _prodBlocksList=rosResolveProdBlocks(item);
+  const _prodBlocksList=rosResolveProdBlocks(item,{includeAutoCam:false});
   const _copiedSlugIdxs=new Set(_prodBlocksList.filter(b=>b.fromSlugIdx!==undefined).map(b=>b.fromSlugIdx));
   const slugs=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean);
   const sources=item.slugSources||[];
@@ -11081,7 +11081,7 @@ async function rosExportDocx(ep,items){
       // after the leading Screen run (or suppressed if copied into a Screen Info block) and
       // auto camera shots resolved live via rosFindAutoCamIndex — the same resolvers the WYSIWYG
       // view and HTML preview use, so this export can no longer drift out of sync with them.
-      const _prodBlocksList=rosResolveProdBlocks(item);
+      const _prodBlocksList=rosResolveProdBlocks(item,{includeAutoCam:false});
       const _copiedSlugIdxs=new Set(_prodBlocksList.filter(b=>b.fromSlugIdx!==undefined).map(b=>b.fromSlugIdx));
       const _slugParas=[];
       slugs.forEach((s,si)=>{
