@@ -139,8 +139,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.294';
-const BUILD_DATE='12 Jul 2026';
+const BUILD_VERSION='3.10.295';
+const BUILD_DATE='18 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -261,6 +261,18 @@ function rosFindAutoCamIndex(script,designation,occurrence){
 // includeAutoCam:false — per user request, camera shots there are a fully manual process going
 // forward — but this only stops NEW script cues from auto-populating; any cam-auto entries
 // already materialized into item.prodBlocks from earlier testing keep rendering as before.
+// "Copy slug to Screen Info" (WYSIWYG) marks the new block with fromSlugIdx, which does two
+// things: freezes the slug's text into an independent, editable Screen block, and suppresses
+// that slug's own index from the normal slug-cell display so it isn't shown twice. That
+// suppression is index-based, so it silently starts hiding a DIFFERENT slug (or nothing at all)
+// the moment slugs are added/removed/reordered from the classic EDIT ITEM modal — the copy was
+// meant to be independent, but the leftover link keeps eating whatever slug lands at that index.
+// Call this whenever slugs/slugSources are edited outside the WYSIWYG's own copy action, so the
+// already-copied Screen text stays (as designed) but stops suppressing anything.
+function rosUnlinkSlugBlocks(item){
+  if(!Array.isArray(item.prodBlocks))return;
+  item.prodBlocks.forEach(b=>{if(b.fromSlugIdx!==undefined)delete b.fromSlugIdx;});
+}
 function rosResolveProdBlocks(item,opts={}){
   const includeAutoCam=opts.includeAutoCam!==false;
   // Auto camera cues are recomputed fresh every call (deterministic id from designation+
@@ -11626,6 +11638,7 @@ document.addEventListener('click',function rosHandler(e){
         _slugInps.forEach(inp=>{_newSlugs[Number(inp.dataset.sidx)]=inp.value.trim();});
         document.querySelectorAll('.ros-edit-slug-source').forEach(sel=>{_newSrcs[Number(sel.dataset.sidx)]=sel.value;});
         it.slugs=_newSlugs;it.slug=_newSlugs[0]||'';it.slugSources=_newSrcs;
+        rosUnlinkSlugBlocks(it);
       }
       // sound — same two-slot model as WYSIWYG, so the two surfaces never diverge
       const _cj=document.getElementById('ros-edit-sound-cj');
