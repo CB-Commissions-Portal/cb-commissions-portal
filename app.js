@@ -22,6 +22,7 @@ const PERM_MAP=[
   ]},
   {group:'PRODUCTION',rows:[
     {label:'Post Production',   admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'View',            operations:'Full Edit', production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'—'},
+    {label:'Shooting Schedule', admin:'View',       deputyadmin:'View',       editorial:'View',            operations:'View',      production:'View',      prodmgmt:'View',    afm:'View',      capstaff:'View',      content:'View',     finance:'View',  director:'View',    transcripts:'View'},
     {label:'Presenter Calendar',admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'Full Edit',       operations:'Full Edit', production:'Full Edit', prodmgmt:'Full Edit',afm:'—',        capstaff:'—',         content:'View',     finance:'View',  director:'View'},
     {label:'Deliverables',      admin:'Full Edit',  deputyadmin:'—',          editorial:'—',               operations:'—',         production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'—',     director:'—'},
     {label:'Promo Scheduling',  admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'View',            operations:'View',      production:'—',         prodmgmt:'View',    afm:'—',         capstaff:'—',         content:'—',        finance:'View',  director:'—'},
@@ -139,7 +140,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.297';
+const BUILD_VERSION='3.10.298';
 const BUILD_DATE='18 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -348,6 +349,7 @@ let ppWeekOffset=0; // weeks offset from season start (2026-01-19 = first Mon)
 let _ppWeekAutoSet=false;
 let ppCalView=false; // false=spreadsheet, true=monthly calendar
 let ppCalMonth=null; // 'YYYY-MM' currently shown
+let shootCalMonth=null; // 'YYYY-MM' currently shown on the Shooting Schedule tab
 const PP_SEASON_START='2026-01-19'; // first Monday of season // episode numbers that are collapsed in the lineup view
 let presCalLoaded=false;
 let presCalViewMonth=0; // index into months array — auto-set to current month on first open
@@ -1798,6 +1800,7 @@ function renderHome(){
     ].filter(Boolean)},
     {label:'Production',items:[
       mk('postprod','Post Production','Schedule',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>`,'#f7768e','rgba(247,118,142,.1)',['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role),'Weekly post production schedule'),
+      mk('shootsched','Shooting Schedule','Calendar',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,'#1a6b35','rgba(26,107,53,.1)',true,'Monthly bird\'s-eye view of who is shooting what, where'),
       mk('prescal','Presenter Calendar','Scheduling',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,'#f472b6','rgba(244,114,182,.1)',['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance','director'].includes(role),'Daily presenter scheduling'),
       mk('deliverables','Deliverables',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`,'#3fb950','rgba(63,185,80,.1)',currentRole==='admin'&&!previewRole,'Commission deliverable tracking and overview'),
       mk('promos','Promo Scheduling',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,'#ffa657','rgba(255,166,87,.1)',['admin','deputyadmin','operations','prodmgmt','editorial','finance'].includes(role),'UID codes and promo scheduling per episode'),
@@ -1956,6 +1959,7 @@ function renderSidebar(){
   ].filter(Boolean);
   const production=[
     item('postprod','Post Production',['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role)),
+    item('shootsched','Shooting Schedule',true),
     item('prescal','Presenter Calendar',['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance','director'].includes(role)),
     item('deliverables','Deliverables',currentRole==='admin'&&!previewRole),
     item('promos','Promo Scheduling',['admin','deputyadmin','operations','prodmgmt','editorial','finance'].includes(role)),
@@ -2089,6 +2093,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='prescal'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','director'].includes(role))return renderPresenterCalendar();
   if(tab==='leave'&&userHasLeaveAccess())return renderLeave();
   if(tab==='postprod'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role))return renderPostProd();
+  if(tab==='shootsched')return renderShootingSchedule();
   if(tab==='deliverables'&&['admin','deputyadmin'].includes(currentRole)&&!previewRole)return renderDeliverables(epNums);
   if(tab==='lineups'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','director','transcripts'].includes(role))return renderLineups(epNums);
   if(tab==='ros'&&['admin','deputyadmin','editorial','content','director'].includes(role))return(rosWysActive&&rosCurrentEp&&!rosEpModal)?renderRunOfShowWysiwyg():renderRunOfShow();
@@ -3780,6 +3785,80 @@ function renderPPCalendar(){
       <div style="margin-left:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         ${[['#0057b8','View'],['#006622','Shoot'],['#4a0080','Edit'],['#804000','Mix'],['#005566','VO'],['#8b0000','AFM']].map(([c,l])=>`<span style="display:flex;align-items:center;gap:5px;font-size:13px;color:#6b7280"><span style="width:11px;height:11px;background:${c};border-radius:2px;display:inline-block"></span>${l}</span>`).join('')}
       </div>
+    </div>
+    <div style="flex:1;overflow-y:auto">
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);border-left:1px solid #21262d;border-top:1px solid #21262d">
+        ${dayHdrs}
+        ${cells.join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+// Read-only, birds-eye monthly calendar of SHOOT entries — aggregated from the Post Production
+// grid (any cell whose free text contains "shoot"). No separate data entry: Ops Manager keeps
+// typing into the PP schedule as before, this just surfaces comm #/story/producer per shoot day.
+function renderShootingSchedule(){
+  const today=new Date().toISOString().split('T')[0];
+  if(!shootCalMonth) shootCalMonth=today.slice(0,7);
+  const [yr,mo]=shootCalMonth.split('-').map(Number);
+  const monthStart=new Date(Date.UTC(yr,mo-1,1));
+
+  const dateMap={};
+  const allComms=comms.filter(c=>!c.decommissioned&&c.commNum&&c.storyName);
+  const commMap=new Map(allComms.map(c=>[String(c.commNum),c]));
+  ppActiveComms.forEach(cn=>{
+    const pp=ppData[String(cn)]||{};
+    const cells=pp.cells||{};
+    const comm=commMap.get(String(cn));
+    if(!comm)return;
+    Object.entries(cells).forEach(([key,val])=>{
+      if(!val||!val.trim()||!val.toLowerCase().includes('shoot'))return;
+      const dateStr=key.slice(0,10);
+      if(dateStr.slice(0,7)!==shootCalMonth)return;
+      if(!dateMap[dateStr])dateMap[dateStr]=[];
+      if(dateMap[dateStr].some(e=>e.commNum===String(cn)))return; // one entry per commission per day
+      dateMap[dateStr].push({commNum:String(cn),story:comm.storyName,producer:comm.producer||''});
+    });
+  });
+  Object.values(dateMap).forEach(list=>list.sort((a,b)=>Number(a.commNum)-Number(b.commNum)));
+
+  const firstDow=monthStart.getUTCDay();
+  const startOffset=firstDow===0?-6:1-firstDow;
+  const dayHdrs=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map((d,i)=>`<div style="text-align:center;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:${i>=5?'#484f58':'#7a8ba0'};padding:8px 0;border-bottom:2px solid #e8edf5;border-right:1px solid #e8edf5;background:#f8fafc">${d}</div>`).join('');
+
+  const cells=[];
+  for(let i=0;i<42;i++){
+    const d=new Date(Date.UTC(yr,mo-1,1+startOffset+i));
+    const ds=d.toISOString().slice(0,10);
+    const dn=d.getUTCDate();
+    const inMonth=d.getUTCMonth()===mo-1&&d.getUTCFullYear()===yr;
+    const isTod=ds===today;
+    const isWknd=d.getUTCDay()===0||d.getUTCDay()===6;
+    const entries=inMonth?(dateMap[ds]||[]):[];
+
+    const entryHtml=entries.map(e=>`<div style="background:#1a6b35;color:#fff;font-size:12px;border-radius:3px;padding:4px 7px;margin-bottom:3px" title="${esc(e.story)}${e.producer?' — '+esc(e.producer):''}">
+        <div style="font-weight:900;font-family:monospace">${esc(e.commNum)}</div>
+        <div style="line-height:1.3">${esc(e.story)}</div>
+        ${e.producer?`<div style="opacity:.85;font-size:11px">${esc(e.producer)}</div>`:''}
+      </div>`).join('');
+
+    const bgCol=isTod?'#dbeafe':isWknd&&inMonth?'#f0f4f8':inMonth?'#ffffff':'#f8fafc';
+    cells.push(`<div style="border-right:1px solid #e8edf5;border-bottom:1px solid #d1dae8;min-height:160px;padding:8px;background:${bgCol};opacity:${inMonth?1:0.3};vertical-align:top">
+      <div style="${isTod?'background:#0057b8;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;':'color:'+( isWknd?'#484f58':'#6e7681')+';'}font-size:15px;font-weight:${isTod?900:700};margin-bottom:6px">${dn}</div>
+      ${entryHtml}
+    </div>`);
+  }
+
+  const monthName=monthStart.toLocaleDateString('en-ZA',{month:'long',year:'numeric',timeZone:'UTC'});
+
+  return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
+    <div style="padding:8px 14px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
+      <button id="shoot-cal-prev" class="btn" style="font-size:15px;padding:3px 12px">◀</button>
+      <span style="font-size:18px;font-weight:800;color:#111827;min-width:180px;text-align:center">${monthName}</span>
+      <button id="shoot-cal-next" class="btn" style="font-size:15px;padding:3px 12px">▶</button>
+      <button id="shoot-cal-today" class="btn" style="font-size:13px;padding:4px 10px">Today</button>
+      <span style="margin-left:16px;font-size:12px;color:#9ca3af">Pulled automatically from Post Production SHOOT entries · read-only</span>
     </div>
     <div style="flex:1;overflow-y:auto">
       <div style="display:grid;grid-template-columns:repeat(7,1fr);border-left:1px solid #21262d;border-top:1px solid #21262d">
@@ -12199,6 +12278,23 @@ document.addEventListener('click',function ppCalHandler(e){
   }
   if(e.target.id==='pp-cal-today'){
     ppCalMonth=new Date().toISOString().slice(0,7);
+    render();return;
+  }
+});
+// ── SHOOTING SCHEDULE CALENDAR handlers ───────────────────────────
+document.addEventListener('click',function shootCalHandler(e){
+  if(e.target.id==='shoot-cal-prev'){
+    const [y,m]=shootCalMonth.split('-').map(Number);
+    shootCalMonth=new Date(Date.UTC(y,m-2,1)).toISOString().slice(0,7);
+    render();return;
+  }
+  if(e.target.id==='shoot-cal-next'){
+    const [y,m]=shootCalMonth.split('-').map(Number);
+    shootCalMonth=new Date(Date.UTC(y,m,1)).toISOString().slice(0,7);
+    render();return;
+  }
+  if(e.target.id==='shoot-cal-today'){
+    shootCalMonth=new Date().toISOString().slice(0,7);
     render();return;
   }
 });
