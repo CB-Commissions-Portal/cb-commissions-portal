@@ -140,7 +140,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.298';
+const BUILD_VERSION='3.10.299';
 const BUILD_DATE='18 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -3837,10 +3837,10 @@ function renderShootingSchedule(){
     const isWknd=d.getUTCDay()===0||d.getUTCDay()===6;
     const entries=inMonth?(dateMap[ds]||[]):[];
 
-    const entryHtml=entries.map(e=>`<div style="background:#1a6b35;color:#fff;font-size:12px;border-radius:3px;padding:4px 7px;margin-bottom:3px" title="${esc(e.story)}${e.producer?' — '+esc(e.producer):''}">
+    const entryHtml=entries.map(e=>`<div style="background:#78c259;color:#14300a;font-size:12px;border-radius:3px;padding:4px 7px;margin-bottom:3px" title="${esc(e.story)}${e.producer?' — '+esc(e.producer):''}">
         <div style="font-weight:900;font-family:monospace">${esc(e.commNum)}</div>
         <div style="line-height:1.3">${esc(e.story)}</div>
-        ${e.producer?`<div style="opacity:.85;font-size:11px">${esc(e.producer)}</div>`:''}
+        ${e.producer?`<div style="opacity:.75;font-size:11px">${esc(e.producer)}</div>`:''}
       </div>`).join('');
 
     const bgCol=isTod?'#dbeafe':isWknd&&inMonth?'#f0f4f8':inMonth?'#ffffff':'#f8fafc';
