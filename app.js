@@ -140,7 +140,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.299';
+const BUILD_VERSION='3.10.300';
 const BUILD_DATE='18 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -363,6 +363,7 @@ let mcImportCommNum='';          // tracks typed commission number in import mod
 let creditsExpandedEp=null;
 let ecLocalWrite=false,ecSaveTimers={},ecDirty={},ecDefaultCredits=[],ecShowDefModal=false;
 let luLocalWrite=false,scLocalWrite=false,rosLocalWrite=false;
+let trCommLocalWrite=false,trLiveLocalWrite=false;
 let showPermModal=false;
 let expandedEps=new Set(); // Episode Register expanded episodes
 let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,tempDate='';
@@ -828,7 +829,12 @@ function subscribeCommTranscripts(){
   return new Promise(resolve=>{
     let resolved=false;
     unsubCommTranscripts=onSnapshot(collection(db,'comm_transcripts'),snap=>{
-      snap.docs.forEach(d=>{commTranscripts[String(d.id)]={...d.data()};});
+      if(trCommLocalWrite){if(!resolved){resolved=true;resolve();}return;}
+      snap.docs.forEach(d=>{
+        const commId=d.id;
+        const editingThisComm=tab==='transcripts'&&String(transcriptSelectedComm)===commId;
+        if(!editingThisComm)commTranscripts[commId]={...d.data()};
+      });
       if(!resolved){resolved=true;resolve();}
       else if(tab==='transcripts'&&!transcriptSelectedComm)render();
     },e=>{console.error('CommTranscripts error:',e);if(!resolved){resolved=true;resolve();}});
@@ -839,7 +845,12 @@ function subscribeLiveTranscripts(){
   return new Promise(resolve=>{
     let resolved=false;
     unsubLiveTranscripts=onSnapshot(collection(db,'live_transcripts'),snap=>{
-      snap.docs.forEach(d=>{liveTranscripts[String(d.id)]={...d.data()};});
+      if(trLiveLocalWrite){if(!resolved){resolved=true;resolve();}return;}
+      snap.docs.forEach(d=>{
+        const epId=d.id;
+        const editingThisEp=tab==='transcripts'&&transcriptView==='live'&&String(transcriptLiveEp)===epId;
+        if(!editingThisEp)liveTranscripts[epId]={...d.data()};
+      });
       if(!resolved){resolved=true;resolve();}
       else if(tab==='transcripts'&&transcriptView==='live'){if(!document.activeElement?.classList.contains('tr-live-area'))render();}
     },e=>{console.error('LiveTranscripts error:',e);if(!resolved){resolved=true;resolve();}});
@@ -847,23 +858,29 @@ function subscribeLiveTranscripts(){
 }
 async function saveCommTranscript(commNum,data){
   setSyncDot('saving');
+  trCommLocalWrite=true;
   const updatedByName=currentUser?.displayName||currentUser?.email||'Unknown';
   const updatedAtStr=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
   commTranscripts[String(commNum)]={...data,updatedByName,updatedAtStr};
   try{
     await setDoc(doc(db,'comm_transcripts',String(commNum)),{...data,updatedAt:serverTimestamp(),updatedByName,updatedAtStr});
     setSyncDot('live');
-  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}
+    return true;
+  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);return false;}
+  finally{setTimeout(()=>{trCommLocalWrite=false;},1500);}
 }
 async function saveLiveTranscript(epNum,data){
   setSyncDot('saving');
+  trLiveLocalWrite=true;
   const updatedByName=currentUser?.displayName||currentUser?.email||'Unknown';
   const updatedAtStr=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
   liveTranscripts[String(epNum)]={...data,updatedByName,updatedAtStr};
   try{
     await setDoc(doc(db,'live_transcripts',String(epNum)),{...data,updatedAt:serverTimestamp(),updatedByName,updatedAtStr});
     setSyncDot('live');
-  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}
+    return true;
+  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);return false;}
+  finally{setTimeout(()=>{trLiveLocalWrite=false;},1500);}
 }
 async function exportAllDataToJSON(){
   showToast('Collecting data — this may take a moment…');
@@ -5193,9 +5210,14 @@ const ROS_ITEM_TYPES=[
   {key:'break6', label:'COMMERCIAL BREAK 6', type:'break', defaultDur:'0:00:00', locked:true, group:'Break'},
 ];
 
+function rosGenUid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+// Transcript build/rebuild match blocks back to script items by this key — item.key alone
+// isn't unique (e.g. two "LINK TO BREAK" items in one episode share the same key), so a
+// per-instance uid is required to stop content jumping to the wrong studio link on rebuild.
+function rosItemTransKey(item){return item.uid||item.key;}
 function rosNewItem(key){
   const def=ROS_ITEM_TYPES.find(t=>t.key===key)||{label:key,type:'live',defaultDur:''};
-  const item={key,type:def.type,label:def.label,content:'',duration:def.defaultDur||'',locked:!!def.locked};
+  const item={key,uid:rosGenUid(),type:def.type,label:def.label,content:'',duration:def.defaultDur||'',locked:!!def.locked};
   if(def.defaultSlug){item.slug=def.defaultSlug;item.slugs=[def.defaultSlug];}
   if(def.defaultSource){item.slugSources=[def.defaultSource];}
   if(def.defaultSound){item.sound=def.defaultSound;}
@@ -9415,7 +9437,8 @@ function bindApp(){
       _trCommTimer=setTimeout(async()=>{
         if(transcriptSelectedComm===null)return;
         const status=document.getElementById('tr-status-sel')?.value||'';
-        await saveCommTranscript(transcriptSelectedComm,{commNum:String(transcriptSelectedComm),transcript:e.target.value,status});
+        const ok=await saveCommTranscript(transcriptSelectedComm,{commNum:String(transcriptSelectedComm),transcript:e.target.value,status});
+        if(ok)showToast('Saved ✓');
       },1500);
     });
     document.getElementById('tr-comm-save-btn')?.addEventListener('click',async()=>{
@@ -9434,15 +9457,24 @@ function bindApp(){
       const ep=transcriptLiveEp;if(!ep){showToast('Select an episode first',true);return;}
       const rosItems=(rosData[String(ep)]?.items)||[];
       if(!rosItems.length){showToast('No script items found for EP'+ep+'. Add items in Studio Script Build first.',true);return;}
+      let uidsAdded=false;
+      rosItems.forEach(item=>{if(!item.uid){item.uid=rosGenUid();uidsAdded=true;}});
+      if(uidsAdded)await saveROS(Number(ep),{items:rosItems,epNum:Number(ep)});
       const epComs=comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0));
       function iComm(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComs[Number(m[1])-1]?.commNum||null;}
       const existing=(liveTranscripts[String(ep)]?.blocks)||[];
       const existMap={};existing.forEach(b=>{existMap[b.itemKey]=b;});
-      const newBlocks=rosItems.map(item=>({
-        itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',
-        content:existMap[item.key]?.content||scriptToTranscriptText(item.script||''),
-        commNum:(item.type==='insert'?iComm(item.key):null)||(existMap[item.key]?.commNum||null)
-      }));
+      // Falls back to the legacy raw item.key match (pre-uid transcripts) so content already
+      // typed in isn't wiped by the first Build after this fix — see rosItemTransKey.
+      const newBlocks=rosItems.map(item=>{
+        const tKey=rosItemTransKey(item);
+        const match=existMap[tKey]||existMap[item.key];
+        return{
+          itemKey:tKey,itemLabel:item.label,itemType:item.type||'live',
+          content:match?.content||scriptToTranscriptText(item.script||''),
+          commNum:(item.type==='insert'?iComm(item.key):null)||(match?.commNum||null)
+        };
+      });
       await saveLiveTranscript(ep,{epNum:ep,blocks:newBlocks});
       showToast(`Live Show Transcript built — ${newBlocks.length} items from EP${ep} script`);
       render();
@@ -9452,10 +9484,13 @@ function bindApp(){
       if(!confirm('This will clear all typed transcript content and rebuild fresh from the current script. Continue?'))return;
       const rosItems=(rosData[String(ep)]?.items)||[];
       if(!rosItems.length){showToast('No script items found for EP'+ep+'. Add items in Studio Script Build first.',true);return;}
+      let uidsAdded=false;
+      rosItems.forEach(item=>{if(!item.uid){item.uid=rosGenUid();uidsAdded=true;}});
+      if(uidsAdded)await saveROS(Number(ep),{items:rosItems,epNum:Number(ep)});
       const epComs=comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0));
       function iComm2(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComs[Number(m[1])-1]?.commNum||null;}
       const newBlocks=rosItems.map(item=>({
-        itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',
+        itemKey:rosItemTransKey(item),itemLabel:item.label,itemType:item.type||'live',
         content:scriptToTranscriptText(item.script||''),
         commNum:item.type==='insert'?iComm2(item.key):null
       }));
@@ -9477,7 +9512,7 @@ function bindApp(){
           const epComs=comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0));
           function iComm3(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComs[Number(m[1])-1]?.commNum||null;}
           blocks=rosItems.map(item=>({
-            itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',
+            itemKey:rosItemTransKey(item),itemLabel:item.label,itemType:item.type||'live',
             content:scriptToTranscriptText(item.script||''),
             commNum:item.type==='insert'?iComm3(item.key):null
           }));
@@ -9504,7 +9539,8 @@ function bindApp(){
           const blocks=JSON.parse(JSON.stringify(lt.blocks||[]));
           const bi=Number(ta.dataset.bi);
           if(blocks[bi])blocks[bi].content=ta.value;
-          await saveLiveTranscript(ep,{epNum:ep,blocks});
+          const ok=await saveLiveTranscript(ep,{epNum:ep,blocks});
+          if(ok)showToast('Saved ✓');
         },1500);
       });
     });
