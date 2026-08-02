@@ -140,7 +140,7 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.300';
+const BUILD_VERSION='3.10.301';
 const BUILD_DATE='18 Jul 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -7660,7 +7660,10 @@ function renderTranscripts(epNums){
           <button id="tr-export-txt-btn" class="btn" style="font-size:14px;padding:7px 10px" title="Export as TXT (UTF-8)">⬇ TXT</button>
         </div>
         <button id="tr-rebuild-btn" class="btn" style="width:100%;font-size:13px;padding:5px 0;margin-top:5px;color:#b45309;border-color:#fde68a;background:#fffbeb" title="Discard typed content and rebuild fresh from the current script">🔄 Clear &amp; Rebuild from Script</button>
-        <button id="tr-live-save-btn" class="btn primary" style="width:100%;font-size:14px;padding:7px 0;margin-top:6px;font-weight:700">💾 Save Now</button>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button id="tr-live-save-btn" class="btn primary" style="flex:1;font-size:14px;padding:7px 0;font-weight:700">💾 Save Now</button>
+          <button id="tr-live-refresh-btn" class="btn" style="font-size:14px;padding:7px 10px" title="Pull in the latest saved version, including other users' changes">↻ Refresh</button>
+        </div>
         ${lt.updatedByName?`<div style="margin-top:10px;font-size:12px;color:#9ca3af;line-height:1.5">Last saved by <strong style="color:#6b7280">${esc(lt.updatedByName)}</strong>${lt.updatedAtStr?`<br>${esc(lt.updatedAtStr)}`:''}</div>`:''}
       </div>
       <div style="padding:10px 14px;flex:1;overflow-y:auto">
@@ -9556,6 +9559,24 @@ function bindApp(){
       await saveLiveTranscript(ep,{epNum:ep,blocks});
       showToast('Live Show Transcript saved ✓');
       render();
+    });
+    document.getElementById('tr-live-refresh-btn')?.addEventListener('click',async()=>{
+      const ep=transcriptLiveEp;if(!ep){showToast('Select an episode first',true);return;}
+      clearTimeout(_trLiveTimer);
+      try{
+        const snap=await getDoc(doc(db,'live_transcripts',String(ep)));
+        if(!snap.exists()){showToast('No saved transcript found for this episode yet',true);return;}
+        const fresh=snap.data();
+        // Keep whatever's currently on screen for any block — refresh should never discard
+        // keystrokes that haven't autosaved yet, only pull in blocks nobody here is touching.
+        document.querySelectorAll('.tr-live-area').forEach(ta=>{
+          const bi=Number(ta.dataset.bi);
+          if(fresh.blocks?.[bi])fresh.blocks[bi].content=ta.value;
+        });
+        liveTranscripts[String(ep)]=fresh;
+        render();
+        showToast('Refreshed ✓');
+      }catch(e){showToast('Refresh failed: '+e.message,true);}
     });
     // TXT export
     document.getElementById('tr-export-txt-btn')?.addEventListener('click',()=>{
