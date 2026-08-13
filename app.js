@@ -170,7 +170,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.304';
+const BUILD_VERSION='3.10.305';
 const BUILD_DATE='13 Aug 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -1593,12 +1593,11 @@ function updateComm(id,field,val){
 }
 
 function updateTicker(){
-  const paid=comms.filter(c=>!c.isInHouse&&!c.decommissioned).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);
-  const rem=(settings.contractedMinutes||438)-paid;
-  const re=document.querySelector('.t-val.r');
-  if(re)re.textContent=rem.toFixed(1);
   // Pace vs aired episodes
   const st=getAiredStats();
+  const rem=(settings.contractedMinutes||438)-st.airedPaid;
+  const re=document.querySelector('.t-val.r');
+  if(re)re.textContent=rem.toFixed(1);
   const av=document.querySelector('.t-val.alloc'),as=document.querySelector('.t-sub.alloc');
   const iv=document.querySelector('.t-val.aired'),is=document.querySelector('.t-sub.aired');
   const sv=document.querySelector('.t-val.status'),ss=document.querySelector('.t-sub.status');
@@ -1685,8 +1684,9 @@ function assignEpisode(id,val){const num=Number(val);if(val&&!getEpNums().includ
 function allDel(c){return DEL_KEYS.every(k=>c[k]);}
 function isDup(id,code){if(!code)return false;return comms.some(c=>c.id!==id&&(c.shortName||'').toUpperCase()===(code||'').toUpperCase());}
 function getPaidMins(){
-  // Ticker: contracted minus sum of all INSERT (paid) minutes across all episodes
-  return comms.filter(c=>!c.isInHouse&&!c.decommissioned).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);
+  // Ticker: paid insert minutes counted against the season budget — only once an episode has
+  // actually gone to air (21:00 SAST cutoff), repeats excluded. Matches getAiredStats().airedPaid.
+  return getAiredStats().airedPaid;
 }
 function getAiredStats(){
   // Ticker: pace-tracking vs episodes that have actually gone to air (21:00 SAST cutoff), repeats excluded.
