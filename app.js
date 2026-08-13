@@ -22,7 +22,7 @@ const PERM_MAP=[
   ]},
   {group:'PRODUCTION',rows:[
     {label:'Post Production',   admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'View',            operations:'Full Edit', production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'—'},
-    {label:'Shooting Schedule', admin:'View',       deputyadmin:'View',       editorial:'View',            operations:'View',      production:'View',      prodmgmt:'View',    afm:'View',      capstaff:'View',      content:'View',     finance:'View',  director:'View',    transcripts:'View'},
+    {label:'Shooting Schedule', admin:'View',       deputyadmin:'View',       editorial:'View',            operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'View',    transcripts:'View'},
     {label:'Presenter Calendar',admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'Full Edit',       operations:'Full Edit', production:'Full Edit', prodmgmt:'Full Edit',afm:'—',        capstaff:'—',         content:'View',     finance:'View',  director:'View'},
     {label:'Deliverables',      admin:'Full Edit',  deputyadmin:'—',          editorial:'—',               operations:'—',         production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'—',     director:'—'},
     {label:'Promo Scheduling',  admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'View',            operations:'View',      production:'—',         prodmgmt:'View',    afm:'—',         capstaff:'—',         content:'—',        finance:'View',  director:'—'},
@@ -140,8 +140,8 @@ function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0])
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.301';
-const BUILD_DATE='18 Jul 2026';
+const BUILD_VERSION='3.10.302';
+const BUILD_DATE='13 Aug 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -360,6 +360,7 @@ let mcImportHeaders=[];
 let mcCommConfirmed=false;   // true after user confirms comm details on new/edit form
 let mcImportCommConfirmed=false; // true after user confirms comm details in import modal
 let mcImportCommNum='';          // tracks typed commission number in import modal
+let mcImportKind='xl';           // 'xl' = admin's Import from Excel, 'csv' = AFM's Import CSV — controls accept filter + modal copy
 let creditsExpandedEp=null;
 let ecLocalWrite=false,ecSaveTimers={},ecDirty={},ecDefaultCredits=[],ecShowDefModal=false;
 let luLocalWrite=false,scLocalWrite=false,rosLocalWrite=false;
@@ -1817,7 +1818,7 @@ function renderHome(){
     ].filter(Boolean)},
     {label:'Production',items:[
       mk('postprod','Post Production','Schedule',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>`,'#f7768e','rgba(247,118,142,.1)',['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role),'Weekly post production schedule'),
-      mk('shootsched','Shooting Schedule','Calendar',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,'#1a6b35','rgba(26,107,53,.1)',true,'Monthly bird\'s-eye view of who is shooting what, where'),
+      mk('shootsched','Shooting Schedule','Calendar',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,'#1a6b35','rgba(26,107,53,.1)',role!=='afm','Monthly bird\'s-eye view of who is shooting what, where'),
       mk('prescal','Presenter Calendar','Scheduling',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,'#f472b6','rgba(244,114,182,.1)',['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance','director'].includes(role),'Daily presenter scheduling'),
       mk('deliverables','Deliverables',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`,'#3fb950','rgba(63,185,80,.1)',currentRole==='admin'&&!previewRole,'Commission deliverable tracking and overview'),
       mk('promos','Promo Scheduling',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,'#ffa657','rgba(255,166,87,.1)',['admin','deputyadmin','operations','prodmgmt','editorial','finance'].includes(role),'UID codes and promo scheduling per episode'),
@@ -1976,7 +1977,7 @@ function renderSidebar(){
   ].filter(Boolean);
   const production=[
     item('postprod','Post Production',['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role)),
-    item('shootsched','Shooting Schedule',true),
+    item('shootsched','Shooting Schedule',role!=='afm'),
     item('prescal','Presenter Calendar',['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance','director'].includes(role)),
     item('deliverables','Deliverables',currentRole==='admin'&&!previewRole),
     item('promos','Promo Scheduling',['admin','deputyadmin','operations','prodmgmt','editorial','finance'].includes(role)),
@@ -2110,7 +2111,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='prescal'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','director'].includes(role))return renderPresenterCalendar();
   if(tab==='leave'&&userHasLeaveAccess())return renderLeave();
   if(tab==='postprod'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role))return renderPostProd();
-  if(tab==='shootsched')return renderShootingSchedule();
+  if(tab==='shootsched'&&role!=='afm')return renderShootingSchedule();
   if(tab==='deliverables'&&['admin','deputyadmin'].includes(currentRole)&&!previewRole)return renderDeliverables(epNums);
   if(tab==='lineups'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','director','transcripts'].includes(role))return renderLineups(epNums);
   if(tab==='ros'&&['admin','deputyadmin','editorial','content','director'].includes(role))return(rosWysActive&&rosCurrentEp&&!rosEpModal)?renderRunOfShowWysiwyg():renderRunOfShow();
@@ -4091,12 +4092,12 @@ function renderPromoScheduling(epNums){
 function renderMusicImportModal(){
   const importModal=mcImportModal?`<div class="modal-overlay" id="mc-import-overlay">
     <div class="modal" style="max-width:700px;max-height:80vh;overflow-y:auto">
-      <h3 style="margin-bottom:12px">Import Music Cues from Excel</h3>
+      <h3 style="margin-bottom:12px">${mcImportKind==='csv'?'Import Music Cues from CSV':'Import Music Cues from Excel'}</h3>
       ${!mcImportData.length?`
-        <p style="font-size:15px;color:#6b7280;margin-bottom:16px">Select an Excel or CSV file to import cue data.</p>
+        <p style="font-size:15px;color:#6b7280;margin-bottom:16px">${mcImportKind==='csv'?'Select a CSV file to import cue data.':'Select an Excel or CSV file to import cue data.'}</p>
         <label class="btn primary" style="cursor:pointer;display:inline-block">
           Choose File
-          <input type="file" id="mc-import-file" accept=".xlsx,.xls,.csv" style="display:none">
+          <input type="file" id="mc-import-file" accept="${mcImportKind==='csv'?'.csv':'.xlsx,.xls,.csv'}" style="display:none">
         </label>
         <button class="btn" id="mc-import-cancel" style="margin-left:8px">Cancel</button>
       `:`
@@ -4158,7 +4159,8 @@ function renderMusicCues(epNums){
   const role=getEffectiveRole();
   const isAFM=role==='afm';
   const canExport=role==='admin';
-  const canImport=role==='admin';
+  const canImportXL=role==='admin';
+  const canImportCSV=role==='afm';
   const uid=currentUser?.uid||'';
   const userName=currentUser?.displayName||currentUser?.email||'';
 
@@ -4362,7 +4364,8 @@ function renderMusicCues(epNums){
         </select>
         ${canExport&&mcEpFilter!=='all'?`<button class="btn" id="mc-export-xl" style="font-size:13px;border-color:#3fb950;color:#3fb950">⬇ Export Episode Excel</button>`:''}
         <button class="btn primary" id="mc-new-story-btn">+ New Music Cue Sheet</button>
-        ${canImport?`<button class="btn" id="mc-import-xl-btn" style="border-color:#7a3fbf;color:#c084fc;font-size:13px">⬆ Import from Excel</button>`:''}
+        ${canImportXL?`<button class="btn" id="mc-import-xl-btn" style="border-color:#7a3fbf;color:#c084fc;font-size:13px">⬆ Import from Excel</button>`:''}
+        ${canImportCSV?`<button class="btn" id="mc-import-csv-btn" style="border-color:#7a3fbf;color:#c084fc;font-size:13px">⬆ Import CSV</button>`:''}
       </div>
     </div>
     ${sheetRows||`<div style="text-align:center;padding:40px;color:#9ca3af;font-size:15px">No cue sheets yet. Click "+ New Music Cue Sheet" to get started.</div>`}
@@ -8901,7 +8904,10 @@ function bindApp(){
   // Story cue sheet button
   // Import from Excel button
   document.getElementById('mc-import-xl-btn')?.addEventListener('click',()=>{
-    mcImportModal=true;mcImportData=[];mcImportHeaders=[];mcImportMapping={};mcImportCommNum='';mcImportCommConfirmed=false;render();
+    mcImportKind='xl';mcImportModal=true;mcImportData=[];mcImportHeaders=[];mcImportMapping={};mcImportCommNum='';mcImportCommConfirmed=false;render();
+  });
+  document.getElementById('mc-import-csv-btn')?.addEventListener('click',()=>{
+    mcImportKind='csv';mcImportModal=true;mcImportData=[];mcImportHeaders=[];mcImportMapping={};mcImportCommNum='';mcImportCommConfirmed=false;render();
   });
 
   document.getElementById('mc-new-story-btn')?.addEventListener('click',()=>{
