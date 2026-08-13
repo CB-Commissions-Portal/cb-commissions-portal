@@ -170,7 +170,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.305';
+const BUILD_VERSION='3.10.306';
 const BUILD_DATE='13 Aug 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -1076,6 +1076,45 @@ function subscribeLineups(){
       if(!resolved){resolved=true;resolve();}
       else if(tab==='lineups'){const a=document.activeElement;if(!a?.classList.contains('lu-director')&&!a?.classList.contains('lu-pres1')&&!a?.classList.contains('lu-pres2')&&!a?.classList.contains('lu-live-note')&&!a?.classList.contains('lu-live-dur'))render();}
     },e=>{console.error('Lineups snapshot:',e);if(!resolved){resolved=true;resolve();}});
+  });
+}
+// ── Line-Up order: the single source of truth for "what order do inserts play in an episode" ──
+// (Line-Ups tab owns this; Episode Register, Transcripts and the exports below all read it.)
+function getLineupItems(ep){
+  // Resolves an episode's canonical item list: saved Line-Up items, with any commissions
+  // assigned to the episode but not yet explicitly added merged in at the end. Mirrors the
+  // merge renderLineups() itself uses, so the two never disagree.
+  const saved=lineups[String(ep)];
+  const epComms=comms
+    .filter(c=>!c.decommissioned&&Number(c.broadcastEpisode)===Number(ep)&&c.commNum&&c.storyName)
+    .sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
+  const autoItems=epComms.map(c=>({commNum:String(c.commNum),liveStudio:false}));
+  if(!saved)return autoItems;
+  const savedCommNums=new Set((saved.items||[]).filter(i=>!i.liveStudio).map(i=>String(i.commNum)));
+  const excluded=new Set((saved.excluded||[]).map(String));
+  const missingItems=autoItems.filter(i=>!savedCommNums.has(i.commNum)&&!excluded.has(String(i.commNum)));
+  return [...(saved.items||[]),...missingItems];
+}
+function getLineupOrder(ep){
+  // Ordered commNums (Live Studio slots excluded) — the canonical insert order for the episode.
+  return getLineupItems(ep).filter(i=>!i.liveStudio&&i.commNum).map(i=>String(i.commNum));
+}
+function getLineupOrderedComms(ep){
+  // Resolves the ordered commNums to full commission objects (decommissioned ones drop out).
+  if(!ep)return[];
+  const order=getLineupOrder(ep);
+  const byNum=new Map(comms.filter(c=>!c.decommissioned).map(c=>[String(c.commNum),c]));
+  return order.map(cn=>byNum.get(cn)).filter(Boolean);
+}
+function sortByLineup(arr,ep){
+  // Sorts any array of commission-like objects (must have .commNum) into Line-Up order.
+  // Anything not in the Line-Up (e.g. no episode assigned yet) sorts to the end.
+  const order=getLineupOrder(ep);
+  const rank=new Map(order.map((cn,i)=>[cn,i]));
+  return [...arr].sort((a,b)=>{
+    const ra=rank.has(String(a.commNum))?rank.get(String(a.commNum)):999;
+    const rb=rank.has(String(b.commNum))?rank.get(String(b.commNum)):999;
+    return ra-rb;
   });
 }
 async function saveLeaveRequest(id,data){
@@ -2322,7 +2361,7 @@ async function exportCommissionsXLSX(){
     const pres1=lu.presenter1||'';
     const pres2=lu.presenter2||'';
     const epType=(settings.epTypes||{})[k]==='extended'?'Extended':'Normal';
-    const epComms=comms.filter(c=>c.broadcastEpisode===k&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0));
+    const epComms=getLineupOrderedComms(k);
     if(epComms.length===0){
       rows.push([currentSeason,n,txDate,epUID,...promoUIDs,onAir,pres1,pres2,epType,'','','','','','','','','','']);
     } else {
@@ -2457,7 +2496,7 @@ function exportPresenterPDF(btn){
 }
 
 function renderEpisodes(epNums,paid,remaining){
-  const episodes=epNums.map(n=>({ep:n,date:resolveDate(n),stories:comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999))}));
+  const episodes=epNums.map(n=>({ep:n,date:resolveDate(n),stories:sortByLineup(comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned),n)}));
 
   return`<div class="ep-wrap">
 <div class="ep-reg-header no-print">
@@ -2522,10 +2561,7 @@ const canEd=currentRole==='admin';
 function epci(field,w){return canEd?`<input class="ci ep-ci" value="${esc(String(s[field]||''))}" data-id="${s.id}" data-field="${field}" style="width:${w}px">`:esc(String(s[field]||'—'));}
 return`<tr data-ep-row="${s.id}">
 <td style="text-align:center;vertical-align:middle;white-space:nowrap">
-  ${canEd?`<div style="display:flex;flex-direction:column;gap:1px;align-items:center">
-    <button class="ep-story-up" data-story-id="${s.id}" style="background:#fef9c3;border:1px solid #fcd34d;color:#e3b341;width:22px;height:16px;cursor:pointer;font-size:11px;line-height:1;border-radius:3px 3px 0 0;padding:0" title="Move up">▲</button>
-    <button class="ep-story-dn" data-story-id="${s.id}" style="background:#fef9c3;border:1px solid #fcd34d;color:#e3b341;width:22px;height:16px;cursor:pointer;font-size:11px;line-height:1;border-radius:0 0 3px 3px;padding:0" title="Move down">▼</button>
-  </div>`:`<span style="color:#e3b341;font-weight:700;font-size:13px">${s.broadcastOrder||''}</span>`}
+  <span style="color:#e3b341;font-weight:700;font-size:13px" title="Insert order — set from the Line-Ups tab">${idx+1}</span>
 </td>
 <td class="story" style="font-weight:600;color:#111827;font-size:16px;white-space:normal">${esc(s.storyName||'')}</td>
 <td style="text-align:right;font-family:'JetBrains Mono',monospace;color:#0066CC;font-size:15px">${s.commNum}</td>
@@ -3432,42 +3468,6 @@ document.addEventListener('selectionchange',()=>{
     }catch(e){}
   }
 });
-
-// Move story up or down in episode register
-async function moveStory(id,dir){
-  const comm=comms.find(c=>Number(c.id)===Number(id));
-  if(!comm){showToast('Story not found',true);return;}
-  let epStories=comms.filter(c=>String(c.broadcastEpisode)===String(comm.broadcastEpisode)&&!c.decommissioned);
-  if(epStories.length<2){
-    const allEps=getEpNums();
-    for(const ep of allEps){
-      const group=comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned);
-      if(group.find(c=>Number(c.id)===Number(id))){epStories=group;break;}
-    }
-  }
-  if(epStories.length<2){showToast('Only one story — nothing to reorder',true);return;}
-  epStories.sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
-  if(epStories.some(c=>!c.broadcastOrder)){epStories.forEach((c,i)=>{c.broadcastOrder=i+1;});}
-  const idx=epStories.findIndex(c=>Number(c.id)===Number(id));
-  if(idx<0){showToast('Story not in list',true);return;}
-  if(dir==='up'){
-    if(idx===0){showToast('Already first',true);return;}
-    const prev=epStories[idx-1];
-    const tmp=prev.broadcastOrder;prev.broadcastOrder=comm.broadcastOrder;comm.broadcastOrder=tmp;
-  } else {
-    if(idx>=epStories.length-1){showToast('Already last',true);return;}
-    const next=epStories[idx+1];
-    const tmp=next.broadcastOrder;next.broadcastOrder=comm.broadcastOrder;comm.broadcastOrder=tmp;
-  }
-  setSyncDot('saving');
-  try{
-    const batch=writeBatch(db);
-    epStories.forEach(c=>batch.set(doc(db,'commissions',String(c.id)),{...c,updatedAt:serverTimestamp()}));
-    await batch.commit();
-    setSyncDot('live');showToast(dir==='up'?'Moved up ✓':'Moved down ✓');
-  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}
-  render();
-}
 
 const DELIVERABLE_TASKS = [
   {key:'comm_list_update',      label:'Commission List – Episode Update'},
@@ -7034,20 +7034,9 @@ function renderLineups(epNums){
 
   function getLineup(ep){
     const saved=lineups[String(ep)];
-    // Auto-populate commission items from Commission List
-    const epComms=comms
-      .filter(c=>!c.decommissioned&&Number(c.broadcastEpisode)===Number(ep)&&c.commNum&&c.storyName)
-      .sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
-    const autoItems=epComms.map(c=>({commNum:String(c.commNum),liveStudio:false}));
-    if(!saved){
-      // No saved lineup — return auto-populated from Commission List
-      return {director:'',presenter1:'',presenter2:'',items:autoItems};
-    }
-    // Saved lineup exists — use saved data but merge in any commissions not yet in items
-    const savedCommNums=new Set((saved.items||[]).filter(i=>!i.liveStudio).map(i=>String(i.commNum)));
-    const excluded=new Set((saved.excluded||[]).map(String));
-    const missingItems=autoItems.filter(i=>!savedCommNums.has(i.commNum)&&!excluded.has(String(i.commNum)));
-    return {...saved, items:[...(saved.items||[]),...missingItems]};
+    const items=getLineupItems(ep);
+    if(!saved)return {director:'',presenter1:'',presenter2:'',items};
+    return {...saved, items};
   }
   function epIsPast(ep){const d=resolveDate(Number(ep));return d&&d<today;}
   function getCommData(cn){return activeComms.find(c=>String(c.commNum)===String(cn))||null;}
@@ -7090,6 +7079,10 @@ function renderLineups(epNums){
         const dur=durForComm(c);
         const isDelivered=c&&!!c.deliveredDuration;
         itemsHtml+=`<div style="${rowBg};padding:14px 18px;border-radius:6px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          ${canEdit&&!past?`<div style="display:flex;flex-direction:column;gap:1px;align-items:center;flex-shrink:0">
+            <button class="lu-move-up" data-ep="${ep}" data-idx="${idx}" ${idx===0?'disabled':''} style="background:#fef9c3;border:1px solid #fcd34d;color:#e3b341;width:22px;height:16px;cursor:${idx===0?'default':'pointer'};font-size:11px;line-height:1;border-radius:3px 3px 0 0;padding:0;opacity:${idx===0?'.3':'1'}" title="Move up">▲</button>
+            <button class="lu-move-dn" data-ep="${ep}" data-idx="${idx}" ${idx===items.length-1?'disabled':''} style="background:#fef9c3;border:1px solid #fcd34d;color:#e3b341;width:22px;height:16px;cursor:${idx===items.length-1?'default':'pointer'};font-size:11px;line-height:1;border-radius:0 0 3px 3px;padding:0;opacity:${idx===items.length-1?'.3':'1'}" title="Move down">▼</button>
+          </div>`:`<span style="color:#e3b341;font-weight:700;font-size:13px;width:20px;text-align:center;flex-shrink:0">${idx+1}</span>`}
           <span style="font-size:16px;font-weight:900;color:${past?'#b91c1c':'#0066CC'};width:60px;font-family:monospace;flex-shrink:0">${esc(String(item.commNum))}</span>
           <span style="font-size:16px;font-weight:700;color:${past?'#7f1d1d':'#111827'};flex:1;min-width:100px">${esc(c?.storyName||String(item.commNum))}${c?.isLicensed?'<span style="margin-left:5px;font-size:10px;font-weight:800;background:#dcfce7;color:#16a34a;padding:1px 4px;border-radius:2px;vertical-align:middle">LIC</span>':''}${c?.isInHouse?'<span style="margin-left:5px;font-size:10px;font-weight:800;background:#eff6ff;color:#6b7280;padding:1px 4px;border-radius:2px;vertical-align:middle">IH</span>':''}${c?.onHold?'<span style="margin-left:5px;font-size:11px;font-weight:800;background:#fff7ed;color:#f97316;padding:1px 5px;border-radius:2px;border:1px solid #fed7aa;vertical-align:middle">ON HOLD</span>':''}</span>
           <span style="font-size:13px;color:#6b7280;min-width:70px">${esc(c?.presenterVO||'')}</span>
@@ -7695,7 +7688,7 @@ function renderTranscripts(epNums){
   if(!transcriptLiveEp&&epNums.length)transcriptLiveEp=epNums[epNums.length-1];
   const ep=transcriptLiveEp;
   const lt=ep?(liveTranscripts[String(ep)]||{}):{};
-  const epComms=ep?comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0)):[];
+  const epComms=getLineupOrderedComms(ep);
   function insertComm(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComms[Number(m[1])-1]||null;}
   const readyEpComms=epComms.filter(c=>commTranscripts[String(c.commNum)]?.status==='ready');
   function blockBg(type,status){if(status==='approved')return'#67BCF7';if(status==='inprogress')return'#FD8086';return{fixed:'#f8fafc',break:'#f8fafc',live:'#eff6ff',insert:'#f0fdf4',coldstart:'#faf5ff',upnext:'#f0fdf4'}[type]||'#f9fafb';}
@@ -7926,6 +7919,7 @@ function bindApp(){
         c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse
       ).sort((a,b)=>a.commNum>b.commNum?1:-1);
       if(!stories.length)return'';
+      const lineupOrder=getLineupOrder(n);
 
       const epBanner=`
         <div style="background:#1a3a6a;color:#fff;padding:10px 16px;margin:16px 0;border-radius:4px;display:flex;align-items:center;justify-content:space-between">
@@ -7944,7 +7938,7 @@ function bindApp(){
         return`${sep}
         <div style="padding:0 0 4px 0;break-inside:avoid;page-break-inside:avoid">
           <table style="width:100%;border-collapse:collapse">
-            ${labelRow('Story',`<strong style="font-size:14px">${s.broadcastOrder?s.broadcastOrder+'. ':''} &nbsp;<span style="font-family:monospace;font-size:12px;color:#1a3a6a">[${s.commNum}]</span>${isIH?` <span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:2px;font-size:11px;font-weight:700;margin-left:6px">IN-HOUSE</span>`:''}</strong>`,true)}
+            ${(()=>{const rank=lineupOrder.indexOf(String(s.commNum))+1;return labelRow('Story',`<strong style="font-size:14px">${rank?rank+'. ':''} &nbsp;<span style="font-family:monospace;font-size:12px;color:#1a3a6a">[${s.commNum}]</span>${isIH?` <span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:2px;font-size:11px;font-weight:700;margin-left:6px">IN-HOUSE</span>`:''}</strong>`,true);})()}
             ${labelRow('Delivered Duration',`<span style="font-family:monospace;font-weight:800;color:#1a5c1a;background:#e8f5e8;padding:2px 8px;border-radius:3px;border:1px solid #aad4aa">${del}</span>`)}
             ${labelRow('Producer',esc(s.producer||''))}
             ${labelRow('Presenter / VO',esc(s.presenterVO||''))}
@@ -9529,7 +9523,7 @@ function bindApp(){
       let uidsAdded=false;
       rosItems.forEach(item=>{if(!item.uid){item.uid=rosGenUid();uidsAdded=true;}});
       if(uidsAdded)await saveROS(Number(ep),{items:rosItems,epNum:Number(ep)});
-      const epComs=comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0));
+      const epComs=getLineupOrderedComms(ep);
       function iComm(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComs[Number(m[1])-1]?.commNum||null;}
       const existing=(liveTranscripts[String(ep)]?.blocks)||[];
       const existMap={};existing.forEach(b=>{existMap[b.itemKey]=b;});
@@ -9556,7 +9550,7 @@ function bindApp(){
       let uidsAdded=false;
       rosItems.forEach(item=>{if(!item.uid){item.uid=rosGenUid();uidsAdded=true;}});
       if(uidsAdded)await saveROS(Number(ep),{items:rosItems,epNum:Number(ep)});
-      const epComs=comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0));
+      const epComs=getLineupOrderedComms(ep);
       function iComm2(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComs[Number(m[1])-1]?.commNum||null;}
       const newBlocks=rosItems.map(item=>({
         itemKey:rosItemTransKey(item),itemLabel:item.label,itemType:item.type||'live',
@@ -9578,7 +9572,7 @@ function bindApp(){
           blocks=JSON.parse(JSON.stringify(lt.blocks));
         }else{
           const rosItems=(rosData[String(ep)]?.items)||[];
-          const epComs=comms.filter(c=>String(c.broadcastEpisode)===String(ep)&&!c.decommissioned).sort((a,b)=>(a.broadcastOrder||0)-(b.broadcastOrder||0));
+          const epComs=getLineupOrderedComms(ep);
           function iComm3(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComs[Number(m[1])-1]?.commNum||null;}
           blocks=rosItems.map(item=>({
             itemKey:rosItemTransKey(item),itemLabel:item.label,itemType:item.type||'live',
@@ -10338,6 +10332,21 @@ document.addEventListener('click',function luHeaderToggle(e){
   }
 });
 document.addEventListener('click',function luClickHandler(e){
+  const upBtn=e.target.closest('.lu-move-up'),dnBtn=e.target.closest('.lu-move-dn');
+  if(upBtn||dnBtn){
+    const btn=upBtn||dnBtn;
+    const ep=btn.dataset.ep;const idx=Number(btn.dataset.idx);
+    if(!ep)return;
+    // Crystallize the full resolved (saved + auto-merged) list before swapping, so idx lines up
+    // with what's on screen, and the new order becomes explicit and persisted going forward.
+    const resolved=getLineupItems(ep);
+    const swapWith=upBtn?idx-1:idx+1;
+    if(swapWith<0||swapWith>=resolved.length)return;
+    const tmp=resolved[idx];resolved[idx]=resolved[swapWith];resolved[swapWith]=tmp;
+    if(!lineups[ep])lineups[ep]={director:'',presenter1:'',presenter2:''};
+    lineups[ep].items=resolved;
+    saveLineup(ep,lineups[ep]);luFlushFields();render();return;
+  }
   if(e.target.classList.contains('lu-add-live')||e.target.closest('.lu-add-live')){
     const btn=e.target.classList.contains('lu-add-live')?e.target:e.target.closest('.lu-add-live');
     const ep=btn.dataset.ep;if(!ep)return;
@@ -12659,11 +12668,6 @@ document.addEventListener('click',function supplierRegHandler(e){
 });
 // ── One-time global handlers (set up once, survive renders) ─────
 document.addEventListener('click',function epToggleHandler(e){
-  // Story reorder arrows (module-scope delegation — onclick attrs can't reach module functions)
-  const upBtn=e.target.closest('.ep-story-up');
-  const dnBtn=e.target.closest('.ep-story-dn');
-  if(upBtn){e.stopPropagation();moveStory(Number(upBtn.dataset.storyId),'up');return;}
-  if(dnBtn){e.stopPropagation();moveStory(Number(dnBtn.dataset.storyId),'dn');return;}
   // Expand All button
   if(e.target.closest('#ep-expand-all-btn')){
     const epNums=getEpNums();
