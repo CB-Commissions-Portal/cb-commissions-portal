@@ -139,8 +139,38 @@ function fmtDate(iso){if(!iso)return'';return new Date(iso+'T00:00:00').toLocale
 function initials(n){if(!n)return'?';return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
+// Auto-detects the delimiter of a CSV line — many SA/EU Excel exports use ; instead of ,
+// (comma is the decimal separator there), so a naive comma-only split silently mangles them.
+function detectCsvDelimiter(line){
+  const counts={',':0,';':0,'\t':0};
+  let inQuotes=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(c==='"')inQuotes=!inQuotes;
+    else if(!inQuotes&&c in counts)counts[c]++;
+  }
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0]||',';
+}
+// Splits one CSV line on the given delimiter, respecting "quoted, fields" (incl. "" escapes).
+function splitCsvLine(line,delim){
+  const out=[];let cur='';let inQuotes=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(inQuotes){
+      if(c==='"'){if(line[i+1]==='"'){cur+='"';i++;}else inQuotes=false;}
+      else cur+=c;
+    }else{
+      if(c==='"')inQuotes=true;
+      else if(c===delim){out.push(cur.trim());cur='';}
+      else cur+=c;
+    }
+  }
+  out.push(cur.trim());
+  return out;
+}
+
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.302';
+const BUILD_VERSION='3.10.303';
 const BUILD_DATE='13 Aug 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -4091,8 +4121,8 @@ function renderPromoScheduling(epNums){
 
 function renderMusicImportModal(){
   const importModal=mcImportModal?`<div class="modal-overlay" id="mc-import-overlay">
-    <div class="modal" style="max-width:700px;max-height:80vh;overflow-y:auto">
-      <h3 style="margin-bottom:12px">${mcImportKind==='csv'?'Import Music Cues from CSV':'Import Music Cues from Excel'}</h3>
+    <div class="modal" style="width:1200px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:28px">
+      <h3 style="margin-bottom:12px;font-size:20px">${mcImportKind==='csv'?'Import Music Cues from CSV':'Import Music Cues from Excel'}</h3>
       ${!mcImportData.length?`
         <p style="font-size:15px;color:#6b7280;margin-bottom:16px">${mcImportKind==='csv'?'Select a CSV file to import cue data.':'Select an Excel or CSV file to import cue data.'}</p>
         <label class="btn primary" style="cursor:pointer;display:inline-block">
@@ -4101,25 +4131,25 @@ function renderMusicImportModal(){
         </label>
         <button class="btn" id="mc-import-cancel" style="margin-left:8px">Cancel</button>
       `:`
-        <p style="font-size:14px;color:#6b7280;margin-bottom:4px">${mcImportData.length} rows found. Map your columns to the cue sheet fields:</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+        <p style="font-size:15px;color:#6b7280;margin-bottom:10px">${mcImportData.length} rows found. Map your columns to the cue sheet fields:</p>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
           ${['trackTitle','composer','publisher','cmo','label','artist','albumNumber','albumTitle','trackNumber','usage','musicType','duration'].map(field=>`
-            <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;min-width:100px">${field==='trackTitle'?'Track Title':field==='albumNumber'?'Album #':field==='albumTitle'?'Album Title':field==='trackNumber'?'Track #':field==='musicType'?'Music Type':field.replace(/([A-Z])/g,' $1').trim()}</span>
-              <select class="mc-map-sel" data-field="${field}" style="flex:1;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:4px 6px;border-radius:4px;font-size:13px">
+            <div>
+              <label style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">${field==='trackTitle'?'Track Title':field==='albumNumber'?'Album #':field==='albumTitle'?'Album Title':field==='trackNumber'?'Track #':field==='musicType'?'Music Type':field.replace(/([A-Z])/g,' $1').trim()}</label>
+              <select class="mc-map-sel" data-field="${field}" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:7px 8px;border-radius:5px;font-size:14px">
                 <option value="">— Skip —</option>
                 ${mcImportHeaders.map(h=>`<option value="${esc(h)}" ${mcImportMapping[field]===h?'selected':''}>${esc(h)}</option>`).join('')}
               </select>
             </div>`).join('')}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
           <div>
             <label style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">Commission Number *</label>
-            <input id="mc-import-comm" placeholder="e.g. 6855" value="${esc(mcImportCommNum||'')}" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:7px 10px;border-radius:5px;font-size:15px;font-family:monospace">
+            <input id="mc-import-comm" placeholder="e.g. 6855" value="${esc(mcImportCommNum||'')}" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:9px 12px;border-radius:6px;font-size:16px;font-family:monospace">
           </div>
           <div>
             <label style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">AFM Operator</label>
-            <input id="mc-import-afm" value="${esc(currentUser?.displayName||currentUser?.email||'')}" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:7px 10px;border-radius:5px;font-size:15px">
+            <input id="mc-import-afm" value="${esc(currentUser?.displayName||currentUser?.email||'')}" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:9px 12px;border-radius:6px;font-size:16px">
           </div>
         </div>
         <div id="mc-import-comm-preview">${(()=>{
@@ -4139,9 +4169,16 @@ function renderMusicImportModal(){
             ${mcImportCommConfirmed?'<div style="margin-top:8px;font-size:13px;color:#b45309;font-weight:700">✓ Confirmed — will proceed without auto-fill</div>':`<button class="btn" id="mc-import-comm-confirm-btn" style="font-size:14px;margin-top:8px;border-color:#b45309;color:#b45309">Proceed Without Auto-fill</button>`}
           </div>`;
         })()}</div>
-        <div style="background:#f9fafb;border-radius:6px;padding:10px 12px;margin-bottom:14px;max-height:150px;overflow-y:auto">
-          <div style="font-size:12px;font-weight:700;color:#6b7280;margin-bottom:6px">Preview (first 3 rows):</div>
-          ${mcImportData.slice(0,3).map((row,i)=>`<div style="font-size:12px;color:#6b7280;padding:3px 0;border-bottom:1px solid #d1dae8">${Object.entries(mcImportMapping).filter(([,v])=>v).map(([f,h])=>`<span style="color:#111827">${f}:</span> ${esc(String(row[h]||''))}`).join(' · ')}</div>`).join('')}
+        <div style="background:#f9fafb;border-radius:8px;padding:12px 14px;margin-bottom:16px;max-height:220px;overflow:auto">
+          <div style="font-size:12px;font-weight:700;color:#6b7280;margin-bottom:8px">Preview (first 5 rows):</div>
+          ${(()=>{
+            const mapped=Object.entries(mcImportMapping).filter(([,v])=>v);
+            if(!mapped.length)return`<div style="font-size:13px;color:#9ca3af;font-style:italic">Map at least one column above to preview data.</div>`;
+            return`<table style="border-collapse:collapse;white-space:nowrap;font-size:13px">
+              <thead><tr>${mapped.map(([f])=>`<th style="text-align:left;padding:4px 12px 4px 0;color:#6b7280;text-transform:uppercase;font-size:11px;border-bottom:1px solid #d1dae8">${esc(f)}</th>`).join('')}</tr></thead>
+              <tbody>${mcImportData.slice(0,5).map(row=>`<tr>${mapped.map(([,h])=>`<td style="padding:4px 12px 4px 0;color:#111827;border-bottom:1px solid #e5e9f0">${esc(String(row[h]||''))}</td>`).join('')}</tr>`).join('')}</tbody>
+            </table>`;
+          })()}
         </div>
         <div class="modal-actions">
           <button class="btn" id="mc-import-cancel">Cancel</button>
@@ -9067,10 +9104,10 @@ function bindApp(){
       if(ext==='csv'){
         const text=await file.text();
         const csvLines=text.split(/\r?\n/).filter(Boolean);
-;
-        const headers=csvLines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,''));
+        const delim=detectCsvDelimiter(csvLines[0]);
+        const headers=splitCsvLine(csvLines[0],delim);
         rows=csvLines.slice(1).map(l=>{
-          const vals=l.split(',').map(v=>v.trim().replace(/^"|"$/g,''));
+          const vals=splitCsvLine(l,delim);
           const obj={};headers.forEach((h,i)=>{obj[h]=vals[i]||'';});
           return obj;
         });
