@@ -170,7 +170,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.303';
+const BUILD_VERSION='3.10.304';
 const BUILD_DATE='13 Aug 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -1595,19 +1595,22 @@ function updateComm(id,field,val){
 function updateTicker(){
   const paid=comms.filter(c=>!c.isInHouse&&!c.decommissioned).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);
   const rem=(settings.contractedMinutes||438)-paid;
-  const pe=document.querySelector('.t-val.p');const re=document.querySelector('.t-val.r');
-  if(pe)pe.textContent=paid.toFixed(1);if(re)re.textContent=rem.toFixed(1);
-  // Episode slot balance: budget remaining vs unaired episode slots
-  const remainingEps=getEpNums().filter(n=>!isEpBroadcast(n)&&(settings.epTypes||{})[String(n)]!=='repeat');
-  const slotRem=remainingEps.length*34;
-  const bal=rem-slotRem;
-  const ve=document.querySelector('.t-val.slot-bal');
-  const vl=document.querySelector('.t-lbl.slot-bal');
-  if(ve){
-    ve.textContent=(bal>=0?'+':'−')+(Math.abs(bal).toFixed(1));
-    ve.style.color=bal>=0?'#3fb950':'#f85149';
+  const re=document.querySelector('.t-val.r');
+  if(re)re.textContent=rem.toFixed(1);
+  // Pace vs aired episodes
+  const st=getAiredStats();
+  const av=document.querySelector('.t-val.alloc'),as=document.querySelector('.t-sub.alloc');
+  const iv=document.querySelector('.t-val.aired'),is=document.querySelector('.t-sub.aired');
+  const sv=document.querySelector('.t-val.status'),ss=document.querySelector('.t-sub.status');
+  if(av)av.textContent=st.allocated;
+  if(as)as.textContent=`${st.epCount} ep${st.epCount===1?'':'s'} × 34 min`;
+  if(iv)iv.textContent=st.airedPaid.toFixed(1);
+  if(is)is.textContent=`${st.epCount} ep${st.epCount===1?'':'s'} aired`;
+  if(sv){
+    sv.textContent=(st.diff>0?'+':st.diff<0?'−':'')+Math.abs(st.diff).toFixed(1);
+    sv.style.color=st.diff>0?'#dc2626':st.diff<0?'#16a34a':'#6b7280';
   }
-  if(vl)vl.textContent=`${remainingEps.length} ep${remainingEps.length===1?'':'s'} left × 34 min`;
+  if(ss)ss.textContent=st.diff>0?'over pace':st.diff<0?'under pace':'on pace';
 }
 
 async function deleteComm(id){
@@ -1684,6 +1687,15 @@ function isDup(id,code){if(!code)return false;return comms.some(c=>c.id!==id&&(c
 function getPaidMins(){
   // Ticker: contracted minus sum of all INSERT (paid) minutes across all episodes
   return comms.filter(c=>!c.isInHouse&&!c.decommissioned).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);
+}
+function getAiredStats(){
+  // Ticker: pace-tracking vs episodes that have actually gone to air (21:00 SAST cutoff), repeats excluded.
+  const airedEps=getEpNums().filter(n=>isEpBroadcast(n)&&(settings.epTypes||{})[String(n)]!=='repeat');
+  const airedSet=new Set(airedEps);
+  const allocated=airedEps.length*34;
+  const airedPaid=comms.filter(c=>!c.isInHouse&&!c.decommissioned&&c.broadcastEpisode&&airedSet.has(Number(c.broadcastEpisode)))
+    .reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);
+  return{epCount:airedEps.length,allocated,airedPaid,diff:airedPaid-allocated};
 }
 
 function getFiltered(){
@@ -2101,17 +2113,24 @@ function renderApp(){
     ${renderSidebar()}
     <div class="main-area">
       ${getEffectiveRole()!=='afm'&&getEffectiveRole()!=='transcripts'?`<div class="ticker no-print">
-    <div class="t-item"><div class="t-lbl">Contracted Mins</div>${currentRole==='admin'&&!previewRole?`<input class="t-inp" type="number" id="contracted-input" tabindex="-1" value="${contracted}">`:`<div class="t-val c">${contracted}</div>`}</div>
-    <div class="t-sep">−</div>
-    <div class="t-item"><div class="t-lbl">Paid Mins</div><div class="t-val p">${paid.toFixed(1)}</div></div>
-    <div class="t-sep">=</div>
-    <div class="t-item"><div class="t-lbl">Remaining Mins</div><div class="t-val r">${remaining.toFixed(1)}</div></div>
-    <div class="t-sep" style="color:#d1dae8;margin:0 8px">│</div>
-    <div class="t-item" title="Budget remaining vs remaining episode slots (unaired eps × 34 min). Positive = budget covers slot; negative = budget falls short.">
-      <div class="t-lbl slot-bal" style="white-space:nowrap">${(()=>{const reps=getEpNums().filter(n=>!isEpBroadcast(n)&&(settings.epTypes||{})[String(n)]!=='repeat');return reps.length+' ep'+(reps.length===1?'':'s')+' left × 34 min';})()}</div>
-      <div class="t-val slot-bal" style="font-size:22px">${(()=>{const reps=getEpNums().filter(n=>!isEpBroadcast(n)&&(settings.epTypes||{})[String(n)]!=='repeat');const slot=reps.length*34;const bal=remaining-slot;return`<span style="color:${bal>=0?'#16a34a':'#dc2626'}">${bal>=0?'+':'−'}${Math.abs(bal).toFixed(1)}</span>`;})()}</div>
-      <div style="font-size:11px;color:#9ca3af;margin-top:2px">budget vs slot</div>
+    <div class="t-item" title="Total insert minutes contracted for the season."><div class="t-lbl">Contracted Mins</div>${currentRole==='admin'&&!previewRole?`<input class="t-inp" type="number" id="contracted-input" tabindex="-1" value="${contracted}">`:`<div class="t-val c">${contracted}</div>`}</div>
+    <div class="t-item" title="Contracted minutes minus paid insert minutes across all commissions, aired or not."><div class="t-lbl">Remaining Mins</div><div class="t-val r">${remaining.toFixed(1)}</div></div>
+    ${(()=>{const st=getAiredStats();return`
+    <div class="t-item" title="Episodes that have gone to air so far × 34 min/ep — the pace budget expects by this point in the season.">
+      <div class="t-lbl">Allocated to Date</div>
+      <div class="t-val alloc" style="color:var(--cb-navy)">${st.allocated}</div>
+      <div class="t-sub alloc" style="font-size:11px;color:#9ca3af;margin-top:2px">${st.epCount} ep${st.epCount===1?'':'s'} × 34 min</div>
     </div>
+    <div class="t-item" title="Actual paid insert minutes for episodes that have already gone to air.">
+      <div class="t-lbl">Aired to Date</div>
+      <div class="t-val aired" style="color:#0066CC">${st.airedPaid.toFixed(1)}</div>
+      <div class="t-sub aired" style="font-size:11px;color:#9ca3af;margin-top:2px">${st.epCount} ep${st.epCount===1?'':'s'} aired</div>
+    </div>
+    <div class="t-item" title="Aired to Date minus Allocated to Date. Red = more paid insert minutes went to air than the flat 34 min/ep pace allows. Green = under that pace.">
+      <div class="t-lbl">Status</div>
+      <div class="t-val status" style="color:${st.diff>0?'#dc2626':st.diff<0?'#16a34a':'#6b7280'}">${st.diff>0?'+':st.diff<0?'−':''}${Math.abs(st.diff).toFixed(1)}</div>
+      <div class="t-sub status" style="font-size:11px;color:#9ca3af;margin-top:2px">${st.diff>0?'over pace':st.diff<0?'under pace':'on pace'}</div>
+    </div>`;})()}
     <div class="t-meta">
       <span>${comms.filter(c=>c.approvedForPayment).length} paid · ${comms.filter(c=>c.onHold).length} on hold · ${comms.filter(c=>!c.decommissioned).length} active · ${epNums.length} episodes</span>
       ${readyCount>0?`<span class="t-ready">● ${readyCount} ready for payment</span>`:''}
@@ -8006,9 +8025,7 @@ function bindApp(){
 
     // Build clean HTML for PDF
     const paid=getPaidMins(),contracted=settings.contractedMinutes||438,remaining=contracted-paid;
-    const pdfRemainingEps=getEpNums().filter(n=>!isEpBroadcast(n)&&(settings.epTypes||{})[String(n)]!=='repeat');
-    const pdfSlotRem=pdfRemainingEps.length*34;
-    const pdfSlotBal=remaining-pdfSlotRem;
+    const pdfStats=getAiredStats();
     const epNums=getEpNums();
     const episodes=epNums
       .filter(n=>filterEp==='all'||String(n)===filterEp)
@@ -8091,13 +8108,7 @@ function bindApp(){
               <div style="font-size:17px;font-weight:900;font-family:monospace;color:#1a3a6a;line-height:1">${contracted}</div>
               <div style="font-size:9px;color:#888;margin-top:1px">mins</div>
             </div>
-            <div style="color:#aaa;font-size:18px;padding:0 2px">−</div>
-            <div style="text-align:center;padding:0 14px">
-              <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.5px;margin-bottom:2px">Paid Mins</div>
-              <div style="font-size:17px;font-weight:900;font-family:monospace;color:#1a3a6a;line-height:1">${paid.toFixed(1)}</div>
-              <div style="font-size:9px;color:#888;margin-top:1px">insert mins</div>
-            </div>
-            <div style="color:#aaa;font-size:18px;padding:0 2px">=</div>
+            <div style="width:1px;background:#c8d0dc;height:36px;margin:0 6px"></div>
             <div style="text-align:center;padding:0 14px">
               <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.5px;margin-bottom:2px">Remaining</div>
               <div style="font-size:17px;font-weight:900;font-family:monospace;color:#1a3a6a;line-height:1">${remaining.toFixed(1)}</div>
@@ -8105,9 +8116,21 @@ function bindApp(){
             </div>
             <div style="width:1px;background:#c8d0dc;height:36px;margin:0 6px"></div>
             <div style="text-align:center;padding:0 14px">
-              <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.5px;margin-bottom:2px">${pdfRemainingEps.length} ep${pdfRemainingEps.length===1?'':'s'} left × 34 min</div>
-              <div style="font-size:17px;font-weight:900;font-family:monospace;color:${pdfSlotBal>=0?'#1a7a1a':'#c0392b'};line-height:1">${pdfSlotBal>=0?'+':'−'}${Math.abs(pdfSlotBal).toFixed(1)}</div>
-              <div style="font-size:9px;color:#888;margin-top:1px">budget vs slot</div>
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.5px;margin-bottom:2px">Allocated to Date</div>
+              <div style="font-size:17px;font-weight:900;font-family:monospace;color:#1a3a6a;line-height:1">${pdfStats.allocated}</div>
+              <div style="font-size:9px;color:#888;margin-top:1px">${pdfStats.epCount} ep${pdfStats.epCount===1?'':'s'} × 34 min</div>
+            </div>
+            <div style="width:1px;background:#c8d0dc;height:36px;margin:0 6px"></div>
+            <div style="text-align:center;padding:0 14px">
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.5px;margin-bottom:2px">Aired to Date</div>
+              <div style="font-size:17px;font-weight:900;font-family:monospace;color:#1a3a6a;line-height:1">${pdfStats.airedPaid.toFixed(1)}</div>
+              <div style="font-size:9px;color:#888;margin-top:1px">${pdfStats.epCount} ep${pdfStats.epCount===1?'':'s'} aired</div>
+            </div>
+            <div style="width:1px;background:#c8d0dc;height:36px;margin:0 6px"></div>
+            <div style="text-align:center;padding:0 14px">
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.5px;margin-bottom:2px">Status</div>
+              <div style="font-size:17px;font-weight:900;font-family:monospace;color:${pdfStats.diff>0?'#c0392b':pdfStats.diff<0?'#1a7a1a':'#666'};line-height:1">${pdfStats.diff>0?'+':pdfStats.diff<0?'−':''}${Math.abs(pdfStats.diff).toFixed(1)}</div>
+              <div style="font-size:9px;color:#888;margin-top:1px">${pdfStats.diff>0?'over pace':pdfStats.diff<0?'under pace':'on pace'}</div>
             </div>
           </div>
         </td>
