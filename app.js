@@ -170,7 +170,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.306';
+const BUILD_VERSION='3.10.307';
 const BUILD_DATE='13 Aug 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -370,6 +370,7 @@ let liveTranscripts={}; // {epNum: {blocks:[],updatedByName,updatedAtStr}}
 let transcriptView='comm'; // 'comm' | 'live'
 let transcriptSelectedComm=null; // commNum open in commission transcript editor
 let transcriptLiveEp=null; // episode number selected in live show transcript
+let transcriptEpFilter='all'; // filter Commission Transcripts sidebar by allocated episode
 let ppActiveComms=[]; // ordered list of commNums added to the post prod schedule
 let ppSortField='commNum';
 let ppSortDir='asc';
@@ -7630,6 +7631,10 @@ function renderTranscripts(epNums){
 
   // ─── COMMISSION TRANSCRIPTS ─────────────────────────────────────────────
   if(transcriptView==='comm'){
+    const epFilteredComms=activeComms.filter(c=>{
+      if(transcriptEpFilter==='all')return true;
+      return String(c.broadcastEpisode||'')===transcriptEpFilter;
+    });
     let rightPanel='';
     if(transcriptSelectedComm!==null){
       const comm=comms.find(c=>String(c.commNum)===String(transcriptSelectedComm));
@@ -7663,10 +7668,15 @@ function renderTranscripts(epNums){
       <div style="width:300px;flex-shrink:0;border-right:1px solid #d1dae8;display:flex;flex-direction:column;background:#ffffff">
         <div style="padding:12px 14px;border-bottom:1px solid #d1dae8;flex-shrink:0">
           ${sidebarToggle}
+          <div style="font-size:12px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Search by Allocated Episode</div>
+          <select id="tr-ep-filter" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:14px;padding:7px 10px;outline:none;font-family:inherit;box-sizing:border-box;margin-bottom:8px;cursor:pointer">
+            <option value="all" ${transcriptEpFilter==='all'?'selected':''}>All Episodes</option>
+            ${epNums.map(n=>`<option value="${n}" ${transcriptEpFilter===String(n)?'selected':''}>EP ${n}${settings.epDates?.[n]?' · '+fmtDate(settings.epDates[n]):''}</option>`).join('')}
+          </select>
           <input id="tr-comm-search" placeholder="Search commissions…" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:14px;padding:7px 10px;outline:none;font-family:inherit;box-sizing:border-box">
         </div>
         <div id="tr-comm-list" style="overflow-y:auto;flex:1">
-          ${activeComms.map(c=>{
+          ${epFilteredComms.length?epFilteredComms.map(c=>{
             const td=commTranscripts[String(c.commNum)]||{};
             const sel=String(c.commNum)===String(transcriptSelectedComm);
             return`<div class="tr-comm-row${sel?' tr-selected':''}" data-commnum="${esc(String(c.commNum))}" style="padding:10px 14px;border-bottom:1px solid #e8edf5;cursor:pointer;background:${sel?'#eff6ff':'transparent'}">
@@ -7677,7 +7687,7 @@ function renderTranscripts(epNums){
               </div>
               <div style="font-size:13px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName||'Untitled')}</div>
             </div>`;
-          }).join('')}
+          }).join(''):`<div style="padding:20px 14px;font-size:13px;color:#9ca3af;font-style:italic;text-align:center">No commissions allocated to EP${esc(transcriptEpFilter)}</div>`}
         </div>
       </div>
       <div style="flex:1;min-width:0;overflow:hidden">${rightPanel}</div>
@@ -9484,6 +9494,7 @@ function bindApp(){
       row.addEventListener('click',()=>{transcriptSelectedComm=row.dataset.commnum;render();});
     });
     document.getElementById('tr-back-btn')?.addEventListener('click',()=>{transcriptSelectedComm=null;render();});
+    document.getElementById('tr-ep-filter')?.addEventListener('change',e=>{transcriptEpFilter=e.target.value;render();});
     document.getElementById('tr-comm-search')?.addEventListener('input',e=>{
       const q=e.target.value.toLowerCase();
       document.querySelectorAll('.tr-comm-row').forEach(row=>{row.style.display=row.textContent.toLowerCase().includes(q)?'':'none';});
