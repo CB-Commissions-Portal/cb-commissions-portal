@@ -170,7 +170,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.307';
+const BUILD_VERSION='3.10.308';
 const BUILD_DATE='13 Aug 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null;
@@ -913,6 +913,25 @@ async function saveLiveTranscript(epNum,data){
     return true;
   }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);return false;}
   finally{setTimeout(()=>{trLiveLocalWrite=false;},1500);}
+}
+// Resolves the editable block array for an episode's Live Show Transcript: the saved blocks
+// if "Build from Script" has ever run, otherwise the same ROS-script-derived list the screen
+// falls back to showing (renderTranscripts' displayBlocks). Any handler that writes to a block
+// by index (bi) MUST go through this — reading raw liveTranscripts[ep].blocks||[] instead
+// silently no-ops (blocks[bi] is undefined) whenever that fallback is on screen, since an empty
+// []  was saved (e.g. someone typed/saved before ever clicking Build). Fixed the "Copy In
+// Transcript does nothing" report — see project_transcripts memory.
+function liveTranscriptBlocksFor(ep){
+  const lt=liveTranscripts[String(ep)]||{};
+  if(lt.blocks&&lt.blocks.length)return JSON.parse(JSON.stringify(lt.blocks));
+  const rosItems=(rosData[String(ep)]?.items)||[];
+  const epComs=getLineupOrderedComms(ep);
+  function iComm(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComs[Number(m[1])-1]?.commNum||null;}
+  return rosItems.map(item=>({
+    itemKey:rosItemTransKey(item),itemLabel:item.label,itemType:item.type||'live',
+    content:scriptToTranscriptText(item.script||''),
+    commNum:item.type==='insert'?iComm(item.key):null
+  }));
 }
 async function exportAllDataToJSON(){
   showToast('Collecting data — this may take a moment…');
@@ -9577,20 +9596,7 @@ function bindApp(){
         const ep=transcriptLiveEp;if(!ep)return;
         const bi=Number(btn.dataset.bi);
         const status=btn.dataset.status;
-        const lt=liveTranscripts[String(ep)]||{};
-        let blocks;
-        if(lt.blocks&&lt.blocks.length){
-          blocks=JSON.parse(JSON.stringify(lt.blocks));
-        }else{
-          const rosItems=(rosData[String(ep)]?.items)||[];
-          const epComs=getLineupOrderedComms(ep);
-          function iComm3(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComs[Number(m[1])-1]?.commNum||null;}
-          blocks=rosItems.map(item=>({
-            itemKey:rosItemTransKey(item),itemLabel:item.label,itemType:item.type||'live',
-            content:scriptToTranscriptText(item.script||''),
-            commNum:item.type==='insert'?iComm3(item.key):null
-          }));
-        }
+        const blocks=liveTranscriptBlocksFor(ep);
         if(!blocks[bi])return;
         blocks[bi].checkStatus=blocks[bi].checkStatus===status?'':status;
         await saveLiveTranscript(ep,{epNum:ep,blocks});
@@ -9609,8 +9615,7 @@ function bindApp(){
         clearTimeout(_trLiveTimer);
         _trLiveTimer=setTimeout(async()=>{
           const ep=transcriptLiveEp;if(!ep)return;
-          const lt=liveTranscripts[String(ep)]||{};
-          const blocks=JSON.parse(JSON.stringify(lt.blocks||[]));
+          const blocks=liveTranscriptBlocksFor(ep);
           const bi=Number(ta.dataset.bi);
           if(blocks[bi])blocks[bi].content=ta.value;
           const ok=await saveLiveTranscript(ep,{epNum:ep,blocks});
@@ -9621,8 +9626,7 @@ function bindApp(){
     document.getElementById('tr-live-save-btn')?.addEventListener('click',async()=>{
       const ep=transcriptLiveEp;if(!ep){showToast('Select an episode first',true);return;}
       clearTimeout(_trLiveTimer);
-      const lt=liveTranscripts[String(ep)]||{};
-      const blocks=JSON.parse(JSON.stringify(lt.blocks||[]));
+      const blocks=liveTranscriptBlocksFor(ep);
       document.querySelectorAll('.tr-live-area').forEach(ta=>{
         const bi=Number(ta.dataset.bi);
         if(blocks[bi])blocks[bi].content=ta.value;
@@ -9681,14 +9685,15 @@ function bindApp(){
         const commNum=btn.dataset.commnum;
         const td=commTranscripts[String(commNum)]||{};
         const ep=transcriptLiveEp;if(!ep)return;
-        const lt=liveTranscripts[String(ep)]||{};
-        const blocks=JSON.parse(JSON.stringify(lt.blocks||[]));
+        const blocks=liveTranscriptBlocksFor(ep);
         if(blocks[bi]){
           blocks[bi].content=td.transcript||'';
           saveLiveTranscript(ep,{epNum:ep,blocks});
           const ta=document.querySelector(`.tr-live-area[data-bi="${bi}"]`);
           if(ta)ta.value=td.transcript||'';
           showToast('Commission transcript copied in');
+        }else{
+          showToast('Could not find this line — try Refresh, then copy in again',true);
         }
       });
     });
@@ -9701,12 +9706,10 @@ function bindApp(){
         const td=commTranscripts[String(commNum)];
         if(td?.status!=='ready'||!td?.transcript){showToast('Commission transcript not marked Ready',true);return;}
         const ep=transcriptLiveEp;if(!ep)return;
-        const lt=liveTranscripts[String(ep)]||{};
-        const blocks=JSON.parse(JSON.stringify(lt.blocks||[]));
-        if(blocks[bi]){
-          blocks[bi].content=td.transcript;
-          blocks[bi].commNum=commNum;
-        }
+        const blocks=liveTranscriptBlocksFor(ep);
+        if(!blocks[bi]){showToast('Could not find this line — try Refresh, then try again',true);return;}
+        blocks[bi].content=td.transcript;
+        blocks[bi].commNum=commNum;
         await saveLiveTranscript(ep,{epNum:ep,blocks});
         showToast('Comm '+commNum+' transcript added');
         render();
