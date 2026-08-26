@@ -171,7 +171,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.311';
+const BUILD_VERSION='3.10.312';
 const BUILD_DATE='26 Aug 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -1939,6 +1939,7 @@ function render(){
   if(ctView==='form') setTimeout(updateContractPreview,0);
   if(ctView==='preview') setTimeout(updateContractStaticPreview,0);
   if(ctSignModal) setTimeout(initCtSignCanvas,0);
+  if(tab==='invoices'&&invView==='form'&&invDraft) setTimeout(updateInvPreview,0);
 }
 
 function renderSetup(){return`<div class="setup-wrap"><div class="setup-inner">
@@ -7226,17 +7227,27 @@ function renderInvoiceForm(){
   if(d.taxChecked){taxAmount=subtotal*0.15;netTotal=subtotal+taxAmount;}
   const inp='width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:16px;padding:9px 12px;outline:none;font-family:inherit;box-sizing:border-box';
   const lbl='font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;margin-bottom:5px;display:block';
-  const rowsHtml=d.lineItems.map((li,i)=>{
+  const cardsHtml=d.lineItems.map((li,i)=>{
     const amt=(Number(li.qty)||0)*(Number(li.rate)||0);
-    return`<tr>
-      <td style="padding:4px;white-space:normal"><input class="inv-li-inp" data-row="${i}" data-field="description" value="${esc(li.description)}" placeholder="Description" style="${inp}"></td>
-      <td style="padding:4px;width:90px"><input class="inv-li-inp" data-row="${i}" data-field="qty" type="number" step="any" value="${li.qty}" style="${inp};text-align:center"></td>
-      <td style="padding:4px;width:140px"><input class="inv-li-inp" data-row="${i}" data-field="rate" type="number" step="any" value="${li.rate}" style="${inp};text-align:right"></td>
-      <td class="inv-li-amount" data-row="${i}" style="padding:4px 10px;text-align:right;font-weight:700;white-space:nowrap">${invFmtMoney(sym,amt)}</td>
-      <td style="width:1%"><button class="btn danger inv-li-del" data-row="${i}" style="padding:4px 9px;font-size:13px">✕</button></td>
-    </tr>`;
+    return`<div class="inv-li-card" style="background:#f9fafb;border:1px solid #e5e9f0;border-radius:8px;padding:12px 14px;margin-bottom:10px">
+      <input class="inv-li-inp" data-row="${i}" data-field="description" value="${esc(li.description)}" placeholder="Description" style="width:100%;background:#fff;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:16px;padding:9px 12px;outline:none;font-family:inherit;box-sizing:border-box;margin-bottom:10px">
+      <div style="display:flex;gap:10px;align-items:flex-end">
+        <div style="width:72px;flex-shrink:0">
+          <div style="${lbl};margin-bottom:3px">Qty</div>
+          <input class="inv-li-inp" data-row="${i}" data-field="qty" type="number" step="any" value="${li.qty}" style="${inp};text-align:center;font-size:15px">
+        </div>
+        <div style="width:130px;flex-shrink:0">
+          <div style="${lbl};margin-bottom:3px">Rate</div>
+          <input class="inv-li-inp" data-row="${i}" data-field="rate" type="number" step="any" value="${li.rate}" style="${inp};text-align:right;font-size:15px">
+        </div>
+        <div style="flex:1;min-width:0;text-align:right">
+          <div style="${lbl};margin-bottom:3px">Amount</div>
+          <div class="inv-li-amount" data-row="${i}" style="font-weight:700;font-size:16px;color:#111827;padding:9px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${invFmtMoney(sym,amt)}</div>
+        </div>
+        <button class="btn danger inv-li-del" data-row="${i}" style="padding:9px 12px;font-size:14px;flex-shrink:0">✕</button>
+      </div>
+    </div>`;
   }).join('');
-  const th='text-align:left;padding:6px 10px;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px';
   return`<div class="ep-wrap" style="padding:0">
     <div style="padding:12px 20px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:12px">
       <h2 style="font-size:17px;font-weight:900;color:#111827;margin:0">${invEditId?'Edit Invoice':'New Invoice'}</h2>
@@ -7245,65 +7256,68 @@ function renderInvoiceForm(){
         <button class="btn primary" id="inv-form-save">${invEditId?'Save Changes':'Create Invoice'}</button>
       </div>
     </div>
-    <div style="padding:20px;max-width:920px">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
-        <div>
-          <label style="${lbl}">Client *</label>
-          <div style="display:flex;gap:6px">
-            <select id="inv-client-sel" style="${inp};flex:1">
-              <option value="">Select a client…</option>
-              ${Object.entries(invClients).map(([id,c])=>`<option value="${id}" ${d.clientId===id?'selected':''}>${esc(c.name)}</option>`).join('')}
-            </select>
-            <button class="btn" id="inv-form-quick-client" style="flex-shrink:0">+ New</button>
+    <div style="padding:20px;display:flex;gap:24px;align-items:flex-start">
+      <div style="flex:1;min-width:0;max-width:560px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+          <div>
+            <label style="${lbl}">Client *</label>
+            <div style="display:flex;gap:6px">
+              <select id="inv-client-sel" style="${inp};flex:1">
+                <option value="">Select a client…</option>
+                ${Object.entries(invClients).map(([id,c])=>`<option value="${id}" ${d.clientId===id?'selected':''}>${esc(c.name)}</option>`).join('')}
+              </select>
+              <button class="btn" id="inv-form-quick-client" style="flex-shrink:0">+ New</button>
+            </div>
+          </div>
+          <div>
+            <label style="${lbl}">Invoice Number *</label>
+            <input id="inv-number-inp" value="${esc(d.invoiceNumber)}" placeholder="e.g. INV-001" style="${inp}">
+          </div>
+          <div>
+            <label style="${lbl}">Invoice Date *</label>
+            <input type="date" id="inv-date-inp" value="${d.invoiceDate}" style="${inp}">
+          </div>
+          <div>
+            <label style="${lbl}">P.O. Number</label>
+            <input id="inv-po-inp" value="${esc(d.poNumber)}" style="${inp}">
+          </div>
+          <div>
+            <label style="${lbl}">Terms</label>
+            <input id="inv-terms-inp" value="${esc(d.terms)}" placeholder="e.g. 30 days" style="${inp}">
+          </div>
+          <div>
+            <label style="${lbl}">Project Name</label>
+            <input id="inv-project-name-inp" value="${esc(d.projectName)}" style="${inp}">
+          </div>
+          <div>
+            <label style="${lbl}">Project Code</label>
+            <input id="inv-project-code-inp" value="${esc(d.projectCode)}" style="${inp}">
           </div>
         </div>
-        <div>
-          <label style="${lbl}">Invoice Number *</label>
-          <input id="inv-number-inp" value="${esc(d.invoiceNumber)}" placeholder="e.g. INV-001" style="${inp}">
-        </div>
-        <div>
-          <label style="${lbl}">Invoice Date *</label>
-          <input type="date" id="inv-date-inp" value="${d.invoiceDate}" style="${inp}">
-        </div>
-        <div>
-          <label style="${lbl}">P.O. Number</label>
-          <input id="inv-po-inp" value="${esc(d.poNumber)}" style="${inp}">
-        </div>
-        <div>
-          <label style="${lbl}">Terms</label>
-          <input id="inv-terms-inp" value="${esc(d.terms)}" placeholder="e.g. 30 days" style="${inp}">
-        </div>
-        <div>
-          <label style="${lbl}">Project Name</label>
-          <input id="inv-project-name-inp" value="${esc(d.projectName)}" style="${inp}">
-        </div>
-        <div>
-          <label style="${lbl}">Project Code</label>
-          <input id="inv-project-code-inp" value="${esc(d.projectCode)}" style="${inp}">
+
+        <div id="inv-li-body">${cardsHtml}</div>
+        <button class="btn" id="inv-li-add">+ Add Line</button>
+
+        <div style="margin-top:20px;display:flex;justify-content:flex-end">
+          <div style="width:300px;max-width:100%">
+            <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:#111827;font-size:15px">
+              <input type="checkbox" id="inv-tax-chk" ${d.taxChecked?'checked':''}> Add 15% VAT
+            </label>
+            <div style="display:flex;justify-content:space-between;margin-top:12px;font-size:15px;color:#374151">
+              <span>${d.taxChecked?'Subtotal':'Total'}</span><span id="inv-subtotal-val">${invFmtMoney(sym,subtotal)}</span>
+            </div>
+            ${d.taxChecked?`<div style="display:flex;justify-content:space-between;margin-top:4px;font-size:15px;color:#374151">
+              <span>VAT (15%)</span><span id="inv-tax-val">${invFmtMoney(sym,taxAmount)}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px;font-weight:800;font-size:16px;color:#111827;border-top:1px solid #d1dae8;padding-top:6px">
+              <span>Net Total</span><span id="inv-net-val">${invFmtMoney(sym,netTotal)}</span>
+            </div>`:''}
+          </div>
         </div>
       </div>
-
-      <table style="width:100%;border-collapse:collapse;margin-bottom:8px">
-        <thead><tr style="background:#f8fafc"><th style="${th}">Description</th><th style="${th};text-align:center">Qty</th><th style="${th};text-align:right">Rate</th><th style="${th};text-align:right">Amount</th><th style="${th}"></th></tr></thead>
-        <tbody id="inv-li-body">${rowsHtml}</tbody>
-      </table>
-      <button class="btn" id="inv-li-add">+ Add Line</button>
-
-      <div style="margin-top:20px;display:flex;justify-content:flex-end">
-        <div style="width:320px">
-          <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:#111827;font-size:15px">
-            <input type="checkbox" id="inv-tax-chk" ${d.taxChecked?'checked':''}> Add 15% VAT
-          </label>
-          <div style="display:flex;justify-content:space-between;margin-top:12px;font-size:15px;color:#374151">
-            <span>${d.taxChecked?'Subtotal':'Total'}</span><span id="inv-subtotal-val">${invFmtMoney(sym,subtotal)}</span>
-          </div>
-          ${d.taxChecked?`<div style="display:flex;justify-content:space-between;margin-top:4px;font-size:15px;color:#374151">
-            <span>VAT (15%)</span><span id="inv-tax-val">${invFmtMoney(sym,taxAmount)}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;margin-top:6px;font-weight:800;font-size:16px;color:#111827;border-top:1px solid #d1dae8;padding-top:6px">
-            <span>Net Total</span><span id="inv-net-val">${invFmtMoney(sym,netTotal)}</span>
-          </div>`:''}
-        </div>
+      <div style="flex:1;min-width:0;position:sticky;top:12px">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;margin-bottom:8px">Live Preview</div>
+        <div id="inv-preview-pane" style="min-height:300px"></div>
       </div>
     </div>
   </div>`;
@@ -7315,63 +7329,66 @@ function invRemittanceEmailsStr(sender){
   const raw=sender.remittanceEmails||sender.email||'';
   return raw.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean).join(', ');
 }
-function invExportPDF(id){
-  const inv=invoicesData[id];
-  if(!inv)return;
+// Single source of truth for the invoice's look — used for BOTH the live
+// in-app preview (scaled iframe, see updateInvPreview) and the printed PDF
+// (invExportPDF), so what you see while editing is exactly what prints.
+// `inv` needs: invoiceNumber, invoiceDate, poNumber, terms, projectName,
+// projectCode, lineItems (with amount already computed), total, vatAddition,
+// vatAmount, netTotal. `client` may be {} if none picked yet.
+const INV_NAVY='#0B2A4A',INV_BLUE='#0066CC';
+function invBuildInvoiceHtml(inv,client){
   const sender=invMyDetails||{};
-  const client=invClients[inv.clientId]||{};
   const sym=sender.currencySymbol||'R';
   const dateStr=inv.invoiceDate?new Date(inv.invoiceDate+'T00:00:00').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'}):'—';
   const dueDateStr=invDueDateStr(inv.invoiceDate);
-  const lineRows=(inv.lineItems||[]).map(li=>`<tr>
-    <td style="padding:8px 10px;border-bottom:1px solid #e5e5e5;white-space:normal">${esc(li.description)}</td>
-    <td style="padding:8px 10px;border-bottom:1px solid #e5e5e5;text-align:center;white-space:nowrap">${esc(String(li.qty))}</td>
-    <td style="padding:8px 10px;border-bottom:1px solid #e5e5e5;text-align:right;white-space:nowrap">${invFmtMoney(sym,li.rate)}</td>
-    <td style="padding:8px 10px;border-bottom:1px solid #e5e5e5;text-align:right;white-space:nowrap">${invFmtMoney(sym,li.amount)}</td>
-  </tr>`).join('');
+  const lineRows=(inv.lineItems&&inv.lineItems.length?inv.lineItems:[]).map(li=>`<tr>
+    <td style="padding:7px 10px;border-bottom:1px solid #eef1f6;white-space:normal">${esc(li.description)}</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #eef1f6;text-align:center;white-space:nowrap">${esc(String(li.qty))}</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #eef1f6;text-align:right;white-space:nowrap">${invFmtMoney(sym,li.rate)}</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #eef1f6;text-align:right;white-space:nowrap">${invFmtMoney(sym,li.amount)}</td>
+  </tr>`).join('')||`<tr><td colspan="4" style="padding:16px 10px;color:#9ca3af;font-style:italic">No line items yet</td></tr>`;
+  const netRow=`<tr><td colspan="3" style="text-align:right;padding:9px 10px 3px;font-weight:800;font-size:10.5pt;color:${INV_NAVY}">${inv.vatAddition?'Net Total':'Total'}</td><td style="text-align:right;padding:9px 10px 3px;font-weight:800;font-size:10.5pt;color:${INV_NAVY};white-space:nowrap;background:#eef3f9">${invFmtMoney(sym,inv.vatAddition?inv.netTotal:inv.total)}</td></tr>`;
   const totalsHtml=inv.vatAddition?`
-    <tr><td colspan="3" style="text-align:right;padding:6px 10px">Subtotal</td><td style="text-align:right;padding:6px 10px;white-space:nowrap">${invFmtMoney(sym,inv.total)}</td></tr>
-    <tr><td colspan="3" style="text-align:right;padding:6px 10px">VAT (15%)</td><td style="text-align:right;padding:6px 10px;white-space:nowrap">${invFmtMoney(sym,inv.vatAmount)}</td></tr>
-    <tr><td colspan="3" style="text-align:right;padding:8px 10px;font-weight:800;border-top:2px solid #111">Net Total</td><td style="text-align:right;padding:8px 10px;font-weight:800;border-top:2px solid #111;white-space:nowrap">${invFmtMoney(sym,inv.netTotal)}</td></tr>
-  `:`
-    <tr><td colspan="3" style="text-align:right;padding:8px 10px;font-weight:800;border-top:2px solid #111">Total</td><td style="text-align:right;padding:8px 10px;font-weight:800;border-top:2px solid #111;white-space:nowrap">${invFmtMoney(sym,inv.total)}</td></tr>
-  `;
+    <tr><td colspan="3" style="text-align:right;padding:5px 10px;color:#555">Subtotal</td><td style="text-align:right;padding:5px 10px;white-space:nowrap;color:#555">${invFmtMoney(sym,inv.total)}</td></tr>
+    <tr><td colspan="3" style="text-align:right;padding:5px 10px;color:#555">VAT (15%)</td><td style="text-align:right;padding:5px 10px;white-space:nowrap;color:#555">${invFmtMoney(sym,inv.vatAmount)}</td></tr>
+    ${netRow}
+  `:netRow;
   const titleStr=`Tax Invoice ${inv.invoiceNumber||''} ${client.name||''}`.trim();
-  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(titleStr)}</title>
+  return`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(titleStr)}</title>
   <style>
-    @page{size:A4 portrait;margin:16mm 20mm}
+    @page{size:A4 portrait;margin:15mm 18mm}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;font-size:11pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#222;font-size:10pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     table{width:100%;border-collapse:collapse}
     table.info2col{table-layout:fixed}
-    table.li{table-layout:fixed}
-    table.li th{background:#111;color:#fff;padding:8px 10px;font-size:9.5pt;text-transform:uppercase;letter-spacing:.5px;text-align:left}
+    table.li{table-layout:fixed;border:1px solid #eef1f6;border-radius:6px;overflow:hidden}
+    table.li th{background:#f4f6fa;color:${INV_NAVY};padding:7px 10px;font-size:8pt;text-transform:uppercase;letter-spacing:.5px;text-align:left;border-bottom:1.5px solid ${INV_NAVY}}
   </style></head><body>
   <!-- Table-based header: no flexbox = no logo squishing -->
-  <table style="margin-bottom:16px">
+  <table style="margin-bottom:14px">
     <tr valign="middle">
-      <td style="width:120px"><img src="${BAKED_CB_LOGO}" style="height:68px;width:auto;max-width:110px;object-fit:contain"></td>
-      <td style="width:170px"><img src="${BAKED_CAP_LOGO}" style="height:60px;width:auto;max-width:160px;object-fit:contain"></td>
+      <td style="width:78px"><img src="${BAKED_CB_LOGO}" style="height:46px;width:auto;max-width:74px;object-fit:contain"></td>
+      <td style="width:110px"><img src="${BAKED_CAP_LOGO}" style="height:40px;width:auto;max-width:104px;object-fit:contain"></td>
       <td></td>
       <td style="text-align:right;padding-right:2mm">
-        <div style="font-size:28pt;font-weight:900;letter-spacing:1px">INVOICE</div>
+        <div style="font-size:21pt;font-weight:800;letter-spacing:.5px;color:${INV_NAVY}">INVOICE</div>
       </td>
     </tr>
   </table>
-  <table class="info2col" style="margin-bottom:22px;padding-bottom:14px;border-bottom:2px solid #111">
+  <table class="info2col" style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #dbe1ea">
     <colgroup><col style="width:64%"><col style="width:36%"></colgroup>
     <tr valign="top">
       <td>
-        <div style="font-size:13pt;font-weight:900">${esc(sender.name||'')}</div>
-        <div style="font-size:10pt;color:#333;white-space:pre-line;margin-top:4px">${esc(sender.address||'')}</div>
-        ${sender.email?`<div style="font-size:10pt;color:#333;margin-top:2px">${esc(sender.email)}</div>`:''}
-        ${sender.phone?`<div style="font-size:10pt;color:#333">${esc(sender.phone)}</div>`:''}
-        ${sender.taxNumber?`<div style="font-size:10pt;color:#333;margin-top:14px">Tax No: ${esc(sender.taxNumber)}</div>`:''}
-        ${sender.regNumber?`<div style="font-size:10pt;color:#333;${sender.taxNumber?'':'margin-top:14px'}">Reg No: ${esc(sender.regNumber)}</div>`:''}
-        ${sender.vatNumber?`<div style="font-size:10pt;color:#333">VAT No: ${esc(sender.vatNumber)}</div>`:''}
+        <div style="font-size:12pt;font-weight:800;color:${INV_NAVY}">${esc(sender.name||'')}</div>
+        <div style="font-size:9pt;color:#444;white-space:pre-line;margin-top:4px;line-height:1.5">${esc(sender.address||'')}</div>
+        ${sender.email?`<div style="font-size:9pt;color:#444;margin-top:2px">${esc(sender.email)}</div>`:''}
+        ${sender.phone?`<div style="font-size:9pt;color:#444">${esc(sender.phone)}</div>`:''}
+        ${sender.taxNumber?`<div style="font-size:9pt;color:#444;margin-top:12px">Tax No: ${esc(sender.taxNumber)}</div>`:''}
+        ${sender.regNumber?`<div style="font-size:9pt;color:#444;${sender.taxNumber?'':'margin-top:12px'}">Reg No: ${esc(sender.regNumber)}</div>`:''}
+        ${sender.vatNumber?`<div style="font-size:9pt;color:#444">VAT No: ${esc(sender.vatNumber)}</div>`:''}
       </td>
       <td style="text-align:right;padding-right:2mm">
-        <div style="font-size:10pt;color:#333;line-height:1.6">
+        <div style="font-size:9pt;color:#444;line-height:1.55">
           <div><strong>Invoice #:</strong> ${esc(inv.invoiceNumber||'—')}</div>
           <div><strong>Invoice Date:</strong> ${dateStr}</div>
           <div><strong>Due Date:</strong> ${dueDateStr}</div>
@@ -7381,19 +7398,19 @@ function invExportPDF(id){
       </td>
     </tr>
   </table>
-  <table class="info2col" style="margin-bottom:22px">
+  <table class="info2col" style="margin-bottom:16px">
     <colgroup><col style="width:64%"><col style="width:36%"></colgroup>
     <tr valign="top">
       <td>
-        <div style="font-size:9pt;text-transform:uppercase;letter-spacing:.6px;color:#888;margin-bottom:4px">Bill To</div>
-        <div style="font-size:12pt;font-weight:800">${esc(client.name||'—')}</div>
-        <div style="font-size:10pt;color:#333;white-space:pre-line;margin-top:2px">${esc(client.address||'')}</div>
-        ${client.regNumber?`<div style="font-size:10pt;color:#333;margin-top:14px">Reg No: ${esc(client.regNumber)}</div>`:''}
-        ${client.vatNumber?`<div style="font-size:10pt;color:#333">VAT No: ${esc(client.vatNumber)}</div>`:''}
+        <div style="font-size:8pt;text-transform:uppercase;letter-spacing:.6px;color:#9aa5b1;margin-bottom:4px">Bill To</div>
+        <div style="font-size:11pt;font-weight:700;color:${INV_NAVY}">${esc(client.name||'—')}</div>
+        <div style="font-size:9pt;color:#444;white-space:pre-line;margin-top:2px;line-height:1.5">${esc(client.address||'')}</div>
+        ${client.regNumber?`<div style="font-size:9pt;color:#444;margin-top:12px">Reg No: ${esc(client.regNumber)}</div>`:''}
+        ${client.vatNumber?`<div style="font-size:9pt;color:#444">VAT No: ${esc(client.vatNumber)}</div>`:''}
       </td>
       <td style="text-align:right;padding-right:2mm">
-        ${inv.projectName?`<div style="font-size:10pt;color:#333"><strong>Project:</strong> ${esc(inv.projectName)}</div>`:''}
-        ${inv.projectCode?`<div style="font-size:10pt;color:#333"><strong>Code:</strong> ${esc(inv.projectCode)}</div>`:''}
+        ${inv.projectName?`<div style="font-size:9pt;color:#444"><strong>Project:</strong> ${esc(inv.projectName)}</div>`:''}
+        ${inv.projectCode?`<div style="font-size:9pt;color:#444"><strong>Code:</strong> ${esc(inv.projectCode)}</div>`:''}
       </td>
     </tr>
   </table>
@@ -7403,22 +7420,75 @@ function invExportPDF(id){
     <tbody>${lineRows}</tbody>
     <tfoot>${totalsHtml}</tfoot>
   </table>
-  ${(sender.bankName||sender.accountNumber)?`<div style="margin-top:26px;padding-top:12px;border-top:1px solid #ddd">
-    <div style="font-size:9pt;text-transform:uppercase;letter-spacing:.6px;color:#888;margin-bottom:6px">Banking Details</div>
-    <div style="font-size:10pt;color:#333;line-height:1.7">
+  ${(sender.bankName||sender.accountNumber)?`<div style="margin-top:18px;padding-top:10px;border-top:1px solid #dbe1ea">
+    <div style="font-size:8pt;text-transform:uppercase;letter-spacing:.6px;color:#9aa5b1;margin-bottom:5px">Banking Details</div>
+    <div style="font-size:9pt;color:#444;line-height:1.6">
       ${sender.bankName?`Bank: ${esc(sender.bankName)}<br>`:''}
       ${sender.accountHolder?`Account Holder: ${esc(sender.accountHolder)}<br>`:''}
       ${sender.accountNumber?`Account Number: ${esc(sender.accountNumber)}<br>`:''}
       ${sender.branchCode?`Branch Code: ${esc(sender.branchCode)}`:''}
     </div>
   </div>`:''}
-  ${invRemittanceEmailsStr(sender)?`<div style="margin-top:14px;font-size:9.5pt;color:#555">Please email remittances/queries to: <strong>${esc(invRemittanceEmailsStr(sender))}</strong></div>`:''}
+  ${invRemittanceEmailsStr(sender)?`<div style="margin-top:12px;font-size:8.5pt;color:#666">Please email remittances/queries to: <strong style="color:#444">${esc(invRemittanceEmailsStr(sender))}</strong></div>`:''}
   </body></html>`;
+}
+function invExportPDF(id){
+  const inv=invoicesData[id];
+  if(!inv)return;
+  const client=invClients[inv.clientId]||{};
+  const html=invBuildInvoiceHtml(inv,client);
   const win=window.open('','_blank');
   if(!win){alert('Popup blocked — please allow popups for this site.');return;}
   win.document.write(html);
   win.document.close();
   setTimeout(()=>win.print(),600);
+}
+// Live preview pane on the New/Edit Invoice screen — renders invDraft through
+// the exact same builder as the printed PDF, in a scaled iframe (same
+// technique as the Studio Script Build preview), so there's no need to
+// print-to-PDF just to check the layout.
+let _invPreviewDebounce=null;
+// Debounced wrapper for use on every keystroke — rebuilding the preview
+// iframe's srcdoc on every character would feel janky, so this waits for a
+// short pause in typing rather than firing immediately.
+function updateInvPreviewDebounced(){
+  clearTimeout(_invPreviewDebounce);
+  _invPreviewDebounce=setTimeout(updateInvPreview,300);
+}
+function updateInvPreview(){
+  const pane=document.getElementById('inv-preview-pane');
+  if(!pane||!invDraft)return;
+  const d=invDraft;
+  const client=invClients[d.clientId]||{};
+  const lineItems=d.lineItems.filter(li=>(li.description||'').trim()).map(li=>({description:li.description,qty:Number(li.qty)||0,rate:Number(li.rate)||0,amount:(Number(li.qty)||0)*(Number(li.rate)||0)}));
+  const total=lineItems.reduce((s,li)=>s+li.amount,0);
+  let vatAmount=0,netTotal=total;
+  if(d.taxChecked){vatAmount=total*0.15;netTotal=total+vatAmount;}
+  const invLike={invoiceNumber:d.invoiceNumber,invoiceDate:d.invoiceDate,poNumber:d.poNumber,terms:d.terms,projectName:d.projectName,projectCode:d.projectCode,lineItems,total,vatAddition:!!d.taxChecked,vatAmount,netTotal};
+  const html=invBuildInvoiceHtml(invLike,client);
+  pane.innerHTML='';
+  pane.style.cssText='border-radius:8px;box-shadow:0 2px 16px rgba(0,0,0,.16);overflow:hidden;background:#eef1f6;flex-shrink:0;';
+  const PAGE_W=760;
+  const availW=Math.max(pane.clientWidth||420,200);
+  const scale=availW/PAGE_W;
+  const wrapper=document.createElement('div');
+  wrapper.style.cssText=`width:${PAGE_W}px;transform:scale(${scale});transform-origin:top left;line-height:0;display:block;`;
+  const iframe=document.createElement('iframe');
+  iframe.style.cssText=`border:none;width:${PAGE_W}px;height:600px;display:block;background:#fff;`;
+  iframe.onload=()=>{
+    try{
+      const doc=iframe.contentDocument||iframe.contentWindow.document;
+      const h=Math.max(doc.body.scrollHeight,doc.documentElement.scrollHeight,300)+30;
+      iframe.style.height=h+'px';
+      const scaledH=Math.round(h*scale);
+      wrapper.style.height=h+'px';
+      wrapper.style.marginBottom=(scaledH-h)+'px';
+      pane.style.height=scaledH+'px';
+    }catch(e){}
+  };
+  wrapper.appendChild(iframe);
+  pane.appendChild(wrapper);
+  iframe.srcdoc=html;
 }
 
 function renderBroadcastList(){
@@ -13256,16 +13326,17 @@ document.addEventListener('click',function invoicesHandler(e){
 });
 document.addEventListener('input',function invoicesInputHandler(e){
   if(!invDraft)return;
-  if(e.target.id==='inv-number-inp'){invDraft.invoiceNumber=e.target.value;return;}
-  if(e.target.id==='inv-po-inp'){invDraft.poNumber=e.target.value;return;}
-  if(e.target.id==='inv-terms-inp'){invDraft.terms=e.target.value;return;}
-  if(e.target.id==='inv-project-name-inp'){invDraft.projectName=e.target.value;return;}
-  if(e.target.id==='inv-project-code-inp'){invDraft.projectCode=e.target.value;return;}
+  if(e.target.id==='inv-number-inp'){invDraft.invoiceNumber=e.target.value;updateInvPreviewDebounced();return;}
+  if(e.target.id==='inv-po-inp'){invDraft.poNumber=e.target.value;updateInvPreviewDebounced();return;}
+  if(e.target.id==='inv-terms-inp'){invDraft.terms=e.target.value;updateInvPreviewDebounced();return;}
+  if(e.target.id==='inv-project-name-inp'){invDraft.projectName=e.target.value;updateInvPreviewDebounced();return;}
+  if(e.target.id==='inv-project-code-inp'){invDraft.projectCode=e.target.value;updateInvPreviewDebounced();return;}
   if(e.target.classList.contains('inv-li-inp')){
     const row=Number(e.target.dataset.row),field=e.target.dataset.field;
     if(!invDraft.lineItems[row])return;
     invDraft.lineItems[row][field]=e.target.value;
     invRecalcLive();
+    updateInvPreviewDebounced();
     return;
   }
 });
