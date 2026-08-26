@@ -171,10 +171,10 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.309';
+const BUILD_VERSION='3.10.310';
 const BUILD_DATE='26 Aug 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
-let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvCompanies=null,unsubInvMyDetails=null,unsubInvoices=null;
+let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
 let studioCrew={}; // {epNum: {studioDirector:'', ad:'', ...}}
 let studioSchedule={}; // {epNum:{director,asstDir,makeup,autocue(Autocue Operator),floorMgr,production,bookingFrom,bookingTo}}
@@ -233,14 +233,12 @@ let srViewToken=null; // token of registration open in the read-only detail view
 let srShowArchived=false;
 // ── Invoicing (SuperAdmin only) ──────────────────────────────
 let invClients={}; // Firebase: invoice_clients — {id:{name,address,regNumber,vatNumber}}
-let invCompanies={}; // Firebase: invoice_companies — {id:{name,address,email,phone,taxNumber,regNumber,vatNumber,currencySymbol,bankName,accountHolder,accountNumber,branchCode}}
-let invMyDetails=null; // Firebase: settings/invoiceMyDetails — single doc, same shape as a company minus reg/vat
-let invoicesData={}; // Firebase: invoices — {id:{companyId,clientId,invoiceNumber,invoiceDate,projectName,projectCode,lineItems,total,vatAddition,vatAmount,payeDeduction,payeAmount,netTotal,notes,paid}}
-let invView='list'; // 'list'|'myClients'|'myCompanies'|'myDetails'|'form'
+let invMyDetails=null; // Firebase: settings/invoiceMyDetails — single doc, the one sender identity for every invoice
+let invoicesData={}; // Firebase: invoices — {id:{clientId,invoiceNumber,invoiceDate,poNumber,terms,projectName,projectCode,lineItems,total,vatAddition,vatAmount,netTotal,notes,paid}}
+let invView='list'; // 'list'|'myClients'|'myDetails'|'form'
 let invEditId=null; // id of invoice being edited, null when creating new
 let invDraft=null; // working copy of the invoice being created/edited — see invBlankLineItem()
 let invClientModal=null; // {id}|{id:null} — open state of the create/edit client modal; null = closed
-let invCompanyModal=null; // same shape, for companies
 let callSheetData={}; // {epNum: {anchor1,anchor1Time,anchor2,anchor2Time,director,floorMgr,autocue,makeup,vt,engineer,prod,prodTime,studioFacs,items:[{time,description,responsible}]}}
 let appTheme=localStorage.getItem('cb_theme')||'dark'; // 'dark' or 'light'
 let rosData={}; // {epNum: {items:[{type,label,content,duration}]}}
@@ -814,29 +812,6 @@ function subscribeInvClients(){
       if(!resolved){resolved=true;resolve();}
       else if(tab==='invoices')render();
     },e=>{console.error('Invoice clients snapshot:',e);if(!resolved){resolved=true;resolve();}});
-  });
-}
-async function saveInvCompany(id,data){
-  setSyncDot('saving');
-  try{await setDoc(doc(db,'invoice_companies',id),{...data,updatedAt:serverTimestamp()});invCompanies[id]={...invCompanies[id],...data};setSyncDot('live');}
-  catch(e){setSyncDot('offline');showToast('Company save failed: '+e.message,true);}
-}
-async function deleteInvCompany(id){
-  setSyncDot('saving');
-  try{await deleteDoc(doc(db,'invoice_companies',id));delete invCompanies[id];setSyncDot('live');}
-  catch(e){setSyncDot('offline');showToast('Delete failed: '+e.message,true);}
-}
-function subscribeInvCompanies(){
-  if(unsubInvCompanies)unsubInvCompanies();
-  return new Promise(resolve=>{
-    let resolved=false;
-    unsubInvCompanies=onSnapshot(collection(db,'invoice_companies'),snap=>{
-      const fresh={};
-      snap.docs.forEach(d=>{fresh[d.id]={...d.data()};});
-      invCompanies=fresh;
-      if(!resolved){resolved=true;resolve();}
-      else if(tab==='invoices')render();
-    },e=>{console.error('Invoice companies snapshot:',e);if(!resolved){resolved=true;resolve();}});
   });
 }
 async function saveInvMyDetails(data){
@@ -7074,17 +7049,12 @@ function invDueDateStr(invoiceDateStr){
   const last=new Date(Date.UTC(y,m,0));
   return last.toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
 }
-function invSenderFor(inv){
-  if(inv.companyId&&invCompanies[inv.companyId])return invCompanies[inv.companyId];
-  return invMyDetails||{};
-}
 // Recomputes a single line item's amount cell plus the subtotal/tax/net total
 // display directly in the DOM (no render()), so typing in a qty/rate field
 // doesn't steal focus mid-keystroke. Mirrors the Music Cue Sheets row pattern.
 function invRecalcLive(){
   if(!invDraft)return;
-  const isCompany=!!invDraft.companyId;
-  const sym=isCompany?(invCompanies[invDraft.companyId]?.currencySymbol||'R'):(invMyDetails?.currencySymbol||'R');
+  const sym=invMyDetails?.currencySymbol||'R';
   invDraft.lineItems.forEach((li,i)=>{
     const amt=(Number(li.qty)||0)*(Number(li.rate)||0);
     const cell=document.querySelector(`.inv-li-amount[data-row="${i}"]`);
@@ -7094,11 +7064,10 @@ function invRecalcLive(){
   const subEl=document.getElementById('inv-subtotal-val');
   if(subEl)subEl.textContent=invFmtMoney(sym,subtotal);
   if(invDraft.taxChecked){
-    const rate=isCompany?0.15:0.25;
-    const taxAmt=subtotal*rate;
-    const netTotal=isCompany?subtotal+taxAmt:subtotal-taxAmt;
+    const vatAmt=subtotal*0.15;
+    const netTotal=subtotal+vatAmt;
     const taxEl=document.getElementById('inv-tax-val');
-    if(taxEl)taxEl.textContent=(isCompany?'':'−')+invFmtMoney(sym,taxAmt);
+    if(taxEl)taxEl.textContent=invFmtMoney(sym,vatAmt);
     const netEl=document.getElementById('inv-net-val');
     if(netEl)netEl.textContent=invFmtMoney(sym,netTotal);
   }
@@ -7107,21 +7076,18 @@ function invRecalcLive(){
 function renderInvoices(){
   let body;
   if(invView==='myClients')body=renderInvMyClients();
-  else if(invView==='myCompanies')body=renderInvMyCompanies();
   else if(invView==='myDetails')body=renderInvMyDetailsForm();
   else if(invView==='form'&&invDraft)body=renderInvoiceForm();
   else{invView='list';body=renderInvoiceList();}
-  return body+(invClientModal?renderInvClientModal():'')+(invCompanyModal?renderInvCompanyModal():'');
+  return body+(invClientModal?renderInvClientModal():'');
 }
 
 function renderInvoiceList(){
   const rows=Object.entries(invoicesData).sort((a,b)=>(b[1].invoiceDate||'').localeCompare(a[1].invoiceDate||'')||(b[1].invoiceNumber||'').localeCompare(a[1].invoiceNumber||''));
   const noDetails=!invMyDetails||!invMyDetails.name;
+  const sym=invMyDetails?.currencySymbol||'R';
   const trs=rows.map(([id,inv])=>{
     const client=invClients[inv.clientId]||{};
-    const sender=invSenderFor(inv);
-    const sym=sender.currencySymbol||'R';
-    const fromLabel=inv.companyId?(invCompanies[inv.companyId]?.name||'—'):(invMyDetails?.name||'Myself');
     const displayTotal=inv.netTotal!=null?inv.netTotal:inv.total;
     return`<tr style="${inv.paid?'opacity:.55':''}">
       <td style="padding:8px 12px;white-space:nowrap">${esc(inv.invoiceNumber||'—')}${inv.paid?' <span style="font-size:10px;font-weight:800;background:#dcfce7;color:#16a34a;padding:1px 6px;border-radius:3px;margin-left:6px">PAID</span>':''}</td>
@@ -7129,7 +7095,6 @@ function renderInvoiceList(){
       <td style="padding:8px 12px">${esc(inv.projectName||'—')}</td>
       <td style="padding:8px 12px">${esc(inv.projectCode||'—')}</td>
       <td style="padding:8px 12px;white-space:nowrap">${inv.invoiceDate?new Date(inv.invoiceDate+'T00:00:00').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}):'—'}</td>
-      <td style="padding:8px 12px">${esc(fromLabel)}</td>
       <td style="padding:8px 12px;text-align:right;font-weight:700;white-space:nowrap">${invFmtMoney(sym,displayTotal)}</td>
       <td style="padding:8px 12px;text-align:center"><input type="checkbox" class="inv-paid-chk" data-id="${id}" ${inv.paid?'checked':''}></td>
       <td style="padding:8px 12px"><div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -7147,17 +7112,16 @@ function renderInvoiceList(){
         <button class="btn primary" id="inv-new-btn">+ New Invoice</button>
         <button class="btn" id="inv-quick-client-btn">+ Create Client</button>
         <button class="btn" id="inv-view-clients-btn">My Clients</button>
-        <button class="btn" id="inv-view-companies-btn">My Companies</button>
         <button class="btn" id="inv-view-mydetails-btn">My Details</button>
       </div>
     </div>
-    ${noDetails?`<div style="margin:16px 20px 0;padding:12px 16px;background:#fff7ed;border:1px solid #fbbf24;border-radius:6px;font-size:14px;color:#b45309">⚠ Fill in <strong>My Details</strong> first — it's your default sender identity and appears on every invoice PDF.</div>`:''}
+    ${noDetails?`<div style="margin:16px 20px 0;padding:12px 16px;background:#fff7ed;border:1px solid #fbbf24;border-radius:6px;font-size:14px;color:#b45309">⚠ Fill in <strong>My Details</strong> first — it's your sender identity and appears on every invoice PDF.</div>`:''}
     <div style="padding:20px">
       ${rows.length===0?`<div style="text-align:center;padding:60px;color:#9ca3af;font-size:16px">No invoices yet. Click <strong>+ New Invoice</strong> to create one.</div>`:`
       <table style="width:100%;border-collapse:collapse">
         <thead><tr style="background:#f8fafc">
           <th style="${th}">Invoice #</th><th style="${th}">Client</th><th style="${th}">Project</th><th style="${th}">Code</th>
-          <th style="${th}">Date</th><th style="${th}">From</th><th style="${th};text-align:right">Total</th>
+          <th style="${th}">Date</th><th style="${th};text-align:right">Total</th>
           <th style="${th};text-align:center">Paid</th><th style="${th}">Actions</th>
         </tr></thead>
         <tbody>${trs}</tbody>
@@ -7194,35 +7158,6 @@ function renderInvMyClients(){
   </div>`;
 }
 
-function renderInvMyCompanies(){
-  const rows=Object.entries(invCompanies).sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||''));
-  const th='text-align:left;padding:8px 12px;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px';
-  return`<div class="ep-wrap" style="padding:0">
-    <div style="padding:12px 20px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <button class="btn" id="inv-back-to-list-btn">◀ Back to Invoices</button>
-      <h2 style="font-size:17px;font-weight:900;color:#111827;margin:0">My Companies</h2>
-      <button class="btn primary" id="inv-company-add-btn" style="margin-left:auto">+ Add Company</button>
-    </div>
-    <div style="padding:20px">
-      ${rows.length===0?`<div style="text-align:center;padding:60px;color:#9ca3af;font-size:16px">No companies yet. Add one here if you sometimes invoice through a registered company instead of personally.</div>`:`
-      <table style="width:100%;border-collapse:collapse">
-        <thead><tr style="background:#f8fafc"><th style="${th}">Name</th><th style="${th}">Contact</th><th style="${th}">Reg #</th><th style="${th}">VAT #</th><th style="${th}">Banking</th><th style="${th}"></th></tr></thead>
-        <tbody>${rows.map(([id,c])=>`<tr>
-          <td style="padding:8px 12px;font-weight:700;white-space:nowrap">${esc(c.name)}</td>
-          <td style="padding:8px 12px;color:#6b7280">${esc(c.email||'—')}${c.phone?`<br>${esc(c.phone)}`:''}</td>
-          <td style="padding:8px 12px;white-space:nowrap">${esc(c.regNumber||'—')}</td>
-          <td style="padding:8px 12px;white-space:nowrap">${esc(c.vatNumber||'—')}</td>
-          <td style="padding:8px 12px;color:#6b7280">${esc(c.bankName||'—')}${c.accountNumber?`<br>${esc(c.accountNumber)}`:''}</td>
-          <td style="padding:8px 12px"><div style="display:flex;gap:6px">
-            <button class="btn inv-company-edit-btn" data-id="${id}" style="font-size:13px;padding:3px 10px">Edit</button>
-            <button class="btn inv-company-del-btn" data-id="${id}" style="font-size:13px;padding:3px 10px;border-color:#9ca3af;color:#9ca3af">✕</button>
-          </div></td>
-        </tr>`).join('')}</tbody>
-      </table>`}
-    </div>
-  </div>`;
-}
-
 function renderInvMyDetailsForm(){
   const d=invMyDetails||{};
   const inp='width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:16px;padding:9px 12px;outline:none;font-family:inherit;box-sizing:border-box';
@@ -7233,14 +7168,16 @@ function renderInvMyDetailsForm(){
       <h2 style="font-size:17px;font-weight:900;color:#111827;margin:0">My Details</h2>
     </div>
     <div style="padding:20px;max-width:640px">
-      <p style="color:#6b7280;font-size:14px;margin-bottom:6px;line-height:1.5">Your default sender identity — used whenever you invoice as "Myself" rather than through one of your companies. Appears on every invoice PDF.</p>
-      <label style="${lbl}">Full Name *</label>
-      <input id="inv-md-name-inp" value="${esc(d.name||'')}" placeholder="e.g. Jane Smith" style="${inp}">
+      <p style="color:#6b7280;font-size:14px;margin-bottom:6px;line-height:1.5">Your sender identity — appears on every invoice PDF.</p>
+      <label style="${lbl}">Full Name / Company Name *</label>
+      <input id="inv-md-name-inp" value="${esc(d.name||'')}" placeholder="e.g. Combined Artists Productions" style="${inp}">
       <label style="${lbl}">Address</label>
       <textarea id="inv-md-address-inp" rows="3" style="${inp};resize:vertical">${esc(d.address||'')}</textarea>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         <div><label style="${lbl}">Email</label><input id="inv-md-email-inp" value="${esc(d.email||'')}" style="${inp}"></div>
         <div><label style="${lbl}">Phone</label><input id="inv-md-phone-inp" value="${esc(d.phone||'')}" style="${inp}"></div>
+        <div><label style="${lbl}">Registration Number</label><input id="inv-md-reg-inp" value="${esc(d.regNumber||'')}" style="${inp}"></div>
+        <div><label style="${lbl}">VAT Registration Number</label><input id="inv-md-vat-inp" value="${esc(d.vatNumber||'')}" style="${inp}"></div>
         <div><label style="${lbl}">Tax Number</label><input id="inv-md-tax-inp" value="${esc(d.taxNumber||'')}" style="${inp}"></div>
         <div><label style="${lbl}">Currency Symbol</label><input id="inv-md-currency-inp" value="${esc(d.currencySymbol||'R')}" style="${inp}"></div>
       </div>
@@ -7278,50 +7215,12 @@ function renderInvClientModal(){
   </div>`;
 }
 
-function renderInvCompanyModal(){
-  const c=invCompanyModal.id?(invCompanies[invCompanyModal.id]||{}):{};
-  const isEdit=!!invCompanyModal.id;
-  return`<div class="modal-overlay" id="inv-company-overlay">
-    <div class="modal" style="width:560px;max-height:88vh;overflow-y:auto">
-      <h3>${isEdit?'Edit Company':'Add Company'}</h3>
-      <label>Company Name *</label>
-      <input id="inv-comp-name-inp" value="${esc(c.name||'')}" placeholder="e.g. Smith Media (Pty) Ltd">
-      <label>Address</label>
-      <textarea id="inv-comp-address-inp" rows="3">${esc(c.address||'')}</textarea>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div><label>Email</label><input id="inv-comp-email-inp" value="${esc(c.email||'')}"></div>
-        <div><label>Phone</label><input id="inv-comp-phone-inp" value="${esc(c.phone||'')}"></div>
-        <div><label>Tax Number</label><input id="inv-comp-tax-inp" value="${esc(c.taxNumber||'')}"></div>
-        <div><label>Currency Symbol</label><input id="inv-comp-currency-inp" value="${esc(c.currencySymbol||'R')}"></div>
-        <div><label>Registration Number</label><input id="inv-comp-reg-inp" value="${esc(c.regNumber||'')}"></div>
-        <div><label>VAT Number</label><input id="inv-comp-vat-inp" value="${esc(c.vatNumber||'')}"></div>
-      </div>
-      <div style="margin-top:8px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;border-bottom:1px solid #d1dae8;padding-bottom:6px">Banking Details</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div><label>Bank Name</label><input id="inv-comp-bank-inp" value="${esc(c.bankName||'')}"></div>
-        <div><label>Account Holder</label><input id="inv-comp-holder-inp" value="${esc(c.accountHolder||'')}"></div>
-        <div><label>Account Number</label><input id="inv-comp-acc-inp" value="${esc(c.accountNumber||'')}"></div>
-        <div><label>Branch Code</label><input id="inv-comp-branch-inp" value="${esc(c.branchCode||'')}"></div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn" id="inv-company-cancel">Cancel</button>
-        <button class="btn primary" id="inv-company-save">${isEdit?'Save Changes':'Add Company'}</button>
-      </div>
-    </div>
-  </div>`;
-}
-
 function renderInvoiceForm(){
   const d=invDraft;
-  const isCompany=!!d.companyId;
-  const sym=isCompany?(invCompanies[d.companyId]?.currencySymbol||'R'):(invMyDetails?.currencySymbol||'R');
+  const sym=invMyDetails?.currencySymbol||'R';
   const subtotal=d.lineItems.reduce((s,li)=>s+(Number(li.qty)||0)*(Number(li.rate)||0),0);
-  const taxLabel=isCompany?'Add 15% VAT':'Deduct 25% PAYE';
   let taxAmount=0,netTotal=subtotal;
-  if(d.taxChecked){
-    if(isCompany){taxAmount=subtotal*0.15;netTotal=subtotal+taxAmount;}
-    else{taxAmount=subtotal*0.25;netTotal=subtotal-taxAmount;}
-  }
+  if(d.taxChecked){taxAmount=subtotal*0.15;netTotal=subtotal+taxAmount;}
   const inp='width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:16px;padding:9px 12px;outline:none;font-family:inherit;box-sizing:border-box';
   const lbl='font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;margin-bottom:5px;display:block';
   const rowsHtml=d.lineItems.map((li,i)=>{
@@ -7346,13 +7245,6 @@ function renderInvoiceForm(){
     <div style="padding:20px;max-width:920px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
         <div>
-          <label style="${lbl}">Invoicing As</label>
-          <select id="inv-company-sel" style="${inp}">
-            <option value="">Myself${invMyDetails?.name?` (${esc(invMyDetails.name)})`:''}</option>
-            ${Object.entries(invCompanies).map(([id,c])=>`<option value="${id}" ${d.companyId===id?'selected':''}>${esc(c.name)}</option>`).join('')}
-          </select>
-        </div>
-        <div>
           <label style="${lbl}">Client *</label>
           <div style="display:flex;gap:6px">
             <select id="inv-client-sel" style="${inp};flex:1">
@@ -7369,6 +7261,14 @@ function renderInvoiceForm(){
         <div>
           <label style="${lbl}">Invoice Date *</label>
           <input type="date" id="inv-date-inp" value="${d.invoiceDate}" style="${inp}">
+        </div>
+        <div>
+          <label style="${lbl}">P.O. Number</label>
+          <input id="inv-po-inp" value="${esc(d.poNumber)}" style="${inp}">
+        </div>
+        <div>
+          <label style="${lbl}">Terms</label>
+          <input id="inv-terms-inp" value="${esc(d.terms)}" placeholder="e.g. 30 days" style="${inp}">
         </div>
         <div>
           <label style="${lbl}">Project Name</label>
@@ -7389,13 +7289,13 @@ function renderInvoiceForm(){
       <div style="margin-top:20px;display:flex;justify-content:flex-end">
         <div style="width:320px">
           <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:#111827;font-size:15px">
-            <input type="checkbox" id="inv-tax-chk" ${d.taxChecked?'checked':''}> ${taxLabel}
+            <input type="checkbox" id="inv-tax-chk" ${d.taxChecked?'checked':''}> Add 15% VAT
           </label>
           <div style="display:flex;justify-content:space-between;margin-top:12px;font-size:15px;color:#374151">
             <span>${d.taxChecked?'Subtotal':'Total'}</span><span id="inv-subtotal-val">${invFmtMoney(sym,subtotal)}</span>
           </div>
           ${d.taxChecked?`<div style="display:flex;justify-content:space-between;margin-top:4px;font-size:15px;color:#374151">
-            <span>${isCompany?'VAT (15%)':'PAYE (25%)'}</span><span id="inv-tax-val">${isCompany?'':'−'}${invFmtMoney(sym,taxAmount)}</span>
+            <span>VAT (15%)</span><span id="inv-tax-val">${invFmtMoney(sym,taxAmount)}</span>
           </div>
           <div style="display:flex;justify-content:space-between;margin-top:6px;font-weight:800;font-size:16px;color:#111827;border-top:1px solid #d1dae8;padding-top:6px">
             <span>Net Total</span><span id="inv-net-val">${invFmtMoney(sym,netTotal)}</span>
@@ -7412,7 +7312,7 @@ function renderInvoiceForm(){
 function invExportPDF(id){
   const inv=invoicesData[id];
   if(!inv)return;
-  const sender=invSenderFor(inv);
+  const sender=invMyDetails||{};
   const client=invClients[inv.clientId]||{};
   const sym=sender.currencySymbol||'R';
   const dateStr=inv.invoiceDate?new Date(inv.invoiceDate+'T00:00:00').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'}):'—';
@@ -7423,10 +7323,9 @@ function invExportPDF(id){
     <td style="padding:8px 10px;border-bottom:1px solid #e5e5e5;text-align:right">${invFmtMoney(sym,li.rate)}</td>
     <td style="padding:8px 10px;border-bottom:1px solid #e5e5e5;text-align:right">${invFmtMoney(sym,li.amount)}</td>
   </tr>`).join('');
-  const showTax=inv.vatAddition||inv.payeDeduction;
-  const totalsHtml=showTax?`
+  const totalsHtml=inv.vatAddition?`
     <tr><td colspan="3" style="text-align:right;padding:6px 10px">Subtotal</td><td style="text-align:right;padding:6px 10px">${invFmtMoney(sym,inv.total)}</td></tr>
-    <tr><td colspan="3" style="text-align:right;padding:6px 10px">${inv.vatAddition?'VAT (15%)':'PAYE (25%)'}</td><td style="text-align:right;padding:6px 10px">${inv.vatAddition?'':'−'}${invFmtMoney(sym,inv.vatAddition?inv.vatAmount:inv.payeAmount)}</td></tr>
+    <tr><td colspan="3" style="text-align:right;padding:6px 10px">VAT (15%)</td><td style="text-align:right;padding:6px 10px">${invFmtMoney(sym,inv.vatAmount)}</td></tr>
     <tr><td colspan="3" style="text-align:right;padding:8px 10px;font-weight:800;border-top:2px solid #111">Net Total</td><td style="text-align:right;padding:8px 10px;font-weight:800;border-top:2px solid #111">${invFmtMoney(sym,inv.netTotal)}</td></tr>
   `:`
     <tr><td colspan="3" style="text-align:right;padding:8px 10px;font-weight:800;border-top:2px solid #111">Total</td><td style="text-align:right;padding:8px 10px;font-weight:800;border-top:2px solid #111">${invFmtMoney(sym,inv.total)}</td></tr>
@@ -7439,7 +7338,18 @@ function invExportPDF(id){
     table{width:100%;border-collapse:collapse}
     table.li th{background:#111;color:#fff;padding:8px 10px;font-size:9.5pt;text-transform:uppercase;letter-spacing:.5px;text-align:left}
   </style></head><body>
-  <table style="margin-bottom:22px">
+  <!-- Table-based header: no flexbox = no logo squishing -->
+  <table style="margin-bottom:6px">
+    <tr valign="middle">
+      <td style="width:60px"><img src="${BAKED_CB_LOGO}" style="height:34px;width:auto;max-width:60px;object-fit:contain"></td>
+      <td style="width:70px"><img src="${BAKED_CAP_LOGO}" style="height:30px;width:auto;max-width:70px;object-fit:contain"></td>
+      <td></td>
+      <td style="text-align:right">
+        <div style="font-size:26pt;font-weight:900;letter-spacing:1px">INVOICE</div>
+      </td>
+    </tr>
+  </table>
+  <table style="margin-bottom:22px;padding-bottom:14px;border-bottom:2px solid #111">
     <tr valign="top">
       <td style="width:55%">
         <div style="font-size:15pt;font-weight:900">${esc(sender.name||'')}</div>
@@ -7451,11 +7361,12 @@ function invExportPDF(id){
         ${sender.vatNumber?`<div style="font-size:10pt;color:#333">VAT No: ${esc(sender.vatNumber)}</div>`:''}
       </td>
       <td style="width:45%;text-align:right">
-        <div style="font-size:26pt;font-weight:900;letter-spacing:1px">INVOICE</div>
-        <div style="margin-top:8px;font-size:10pt;color:#333;line-height:1.6">
+        <div style="font-size:10pt;color:#333;line-height:1.6">
           <div><strong>Invoice #:</strong> ${esc(inv.invoiceNumber||'—')}</div>
-          <div><strong>Date:</strong> ${dateStr}</div>
-          <div><strong>Due:</strong> ${dueDateStr}</div>
+          <div><strong>Tax/Invoice Date:</strong> ${dateStr}</div>
+          <div><strong>Due Date:</strong> ${dueDateStr}</div>
+          ${inv.poNumber?`<div><strong>P.O. Number:</strong> ${esc(inv.poNumber)}</div>`:''}
+          ${inv.terms?`<div><strong>Terms:</strong> ${esc(inv.terms)}</div>`:''}
         </div>
       </td>
     </tr>
@@ -7489,6 +7400,7 @@ function invExportPDF(id){
       ${sender.branchCode?`Branch Code: ${esc(sender.branchCode)}`:''}
     </div>
   </div>`:''}
+  ${sender.email?`<div style="margin-top:14px;font-size:9.5pt;color:#555">Please email remittances/queries to: <strong>${esc(sender.email)}</strong></div>`:''}
   ${inv.notes?`<div style="margin-top:22px;padding-top:12px;border-top:1px solid #ddd;font-size:10pt;color:#333;white-space:pre-line">${esc(inv.notes)}</div>`:''}
   </body></html>`;
   const win=window.open('','_blank');
@@ -13238,19 +13150,18 @@ document.addEventListener('click',function supplierRegHandler(e){
 document.addEventListener('click',function invoicesHandler(e){
   if(e.target.id==='inv-new-btn'){
     invEditId=null;
-    invDraft={companyId:'',clientId:'',invoiceNumber:'',invoiceDate:new Date().toISOString().slice(0,10),projectName:'',projectCode:'',lineItems:[invBlankLineItem()],taxChecked:false,notes:''};
+    invDraft={clientId:'',invoiceNumber:'',invoiceDate:new Date().toISOString().slice(0,10),poNumber:'',terms:'',projectName:'',projectCode:'',lineItems:[invBlankLineItem()],taxChecked:false,notes:''};
     invView='form';render();return;
   }
   if(e.target.id==='inv-quick-client-btn'){invClientModal={id:null};render();return;}
   if(e.target.id==='inv-view-clients-btn'){invView='myClients';render();return;}
-  if(e.target.id==='inv-view-companies-btn'){invView='myCompanies';render();return;}
   if(e.target.id==='inv-view-mydetails-btn'){invView='myDetails';render();return;}
   if(e.target.id==='inv-back-to-list-btn'){invView='list';render();return;}
   const editBtn=e.target.closest('.inv-edit-btn');
   if(editBtn){
     const id=editBtn.dataset.id;const inv=invoicesData[id];if(!inv)return;
     invEditId=id;
-    invDraft={companyId:inv.companyId||'',clientId:inv.clientId||'',invoiceNumber:inv.invoiceNumber||'',invoiceDate:inv.invoiceDate||'',projectName:inv.projectName||'',projectCode:inv.projectCode||'',lineItems:(inv.lineItems&&inv.lineItems.length?inv.lineItems.map(li=>({description:li.description,qty:li.qty,rate:li.rate})):[invBlankLineItem()]),taxChecked:!!(inv.vatAddition||inv.payeDeduction),notes:inv.notes||''};
+    invDraft={clientId:inv.clientId||'',invoiceNumber:inv.invoiceNumber||'',invoiceDate:inv.invoiceDate||'',poNumber:inv.poNumber||'',terms:inv.terms||'',projectName:inv.projectName||'',projectCode:inv.projectCode||'',lineItems:(inv.lineItems&&inv.lineItems.length?inv.lineItems.map(li=>({description:li.description,qty:li.qty,rate:li.rate})):[invBlankLineItem()]),taxChecked:!!inv.vatAddition,notes:inv.notes||''};
     invView='form';render();return;
   }
   const pdfBtn=e.target.closest('.inv-pdf-btn');
@@ -13278,19 +13189,15 @@ document.addEventListener('click',function invoicesHandler(e){
     if(!d.invoiceDate){showToast('Please enter an invoice date.',true);return;}
     const filledItems=d.lineItems.filter(li=>(li.description||'').trim());
     if(!filledItems.length){showToast('Add at least one line item before saving.',true);return;}
-    const isCompany=!!d.companyId;
     const lineItems=filledItems.map(li=>({description:li.description,qty:Number(li.qty)||0,rate:Number(li.rate)||0,amount:(Number(li.qty)||0)*(Number(li.rate)||0)}));
     const total=lineItems.reduce((s,li)=>s+li.amount,0);
-    let vatAmount=0,payeAmount=0,netTotal=total;
-    if(d.taxChecked){
-      if(isCompany){vatAmount=total*0.15;netTotal=total+vatAmount;}
-      else{payeAmount=total*0.25;netTotal=total-payeAmount;}
-    }
+    let vatAmount=0,netTotal=total;
+    if(d.taxChecked){vatAmount=total*0.15;netTotal=total+vatAmount;}
     const id=invEditId||invGenId();
     const payload={
-      companyId:d.companyId||'',clientId:d.clientId,invoiceNumber:d.invoiceNumber.trim(),invoiceDate:d.invoiceDate,
+      clientId:d.clientId,invoiceNumber:d.invoiceNumber.trim(),invoiceDate:d.invoiceDate,poNumber:d.poNumber||'',terms:d.terms||'',
       projectName:d.projectName||'',projectCode:d.projectCode||'',lineItems,total,
-      vatAddition:isCompany&&!!d.taxChecked,vatAmount,payeDeduction:!isCompany&&!!d.taxChecked,payeAmount,netTotal,
+      vatAddition:!!d.taxChecked,vatAmount,netTotal,
       notes:d.notes||'',paid:invEditId?!!invoicesData[invEditId]?.paid:false,
     };
     invoicesData[id]={...invoicesData[id],...payload};
@@ -13324,34 +13231,12 @@ document.addEventListener('click',function invoicesHandler(e){
     showToast('Client saved ✓');
     render();return;
   }
-  // My Companies screen + modal
-  if(e.target.id==='inv-company-add-btn'){invCompanyModal={id:null};render();return;}
-  const compEditBtn=e.target.closest('.inv-company-edit-btn');
-  if(compEditBtn){invCompanyModal={id:compEditBtn.dataset.id};render();return;}
-  const compDelBtn=e.target.closest('.inv-company-del-btn');
-  if(compDelBtn){
-    if(!confirm('Delete this company? This cannot be undone.'))return;
-    deleteInvCompany(compDelBtn.dataset.id);render();return;
-  }
-  if(e.target.id==='inv-company-cancel'||e.target.id==='inv-company-overlay'){invCompanyModal=null;render();return;}
-  if(e.target.id==='inv-company-save'){
-    const get=idv=>document.getElementById(idv)?.value.trim()||'';
-    const name=get('inv-comp-name-inp');
-    if(!name){showToast('Company name is required.',true);return;}
-    const data={name,address:get('inv-comp-address-inp'),email:get('inv-comp-email-inp'),phone:get('inv-comp-phone-inp'),taxNumber:get('inv-comp-tax-inp'),regNumber:get('inv-comp-reg-inp'),vatNumber:get('inv-comp-vat-inp'),currencySymbol:get('inv-comp-currency-inp')||'R',bankName:get('inv-comp-bank-inp'),accountHolder:get('inv-comp-holder-inp'),accountNumber:get('inv-comp-acc-inp'),branchCode:get('inv-comp-branch-inp')};
-    const id=invCompanyModal.id||invGenId();
-    invCompanies[id]={...invCompanies[id],...data};
-    saveInvCompany(id,data);
-    invCompanyModal=null;
-    showToast('Company saved ✓');
-    render();return;
-  }
   // My Details form
   if(e.target.id==='inv-mydetails-save'){
     const get=idv=>document.getElementById(idv)?.value.trim()||'';
     const name=get('inv-md-name-inp');
     if(!name){showToast('Name is required.',true);return;}
-    const data={name,address:get('inv-md-address-inp'),email:get('inv-md-email-inp'),phone:get('inv-md-phone-inp'),taxNumber:get('inv-md-tax-inp'),currencySymbol:get('inv-md-currency-inp')||'R',bankName:get('inv-md-bank-inp'),accountHolder:get('inv-md-holder-inp'),accountNumber:get('inv-md-acc-inp'),branchCode:get('inv-md-branch-inp')};
+    const data={name,address:get('inv-md-address-inp'),email:get('inv-md-email-inp'),phone:get('inv-md-phone-inp'),regNumber:get('inv-md-reg-inp'),vatNumber:get('inv-md-vat-inp'),taxNumber:get('inv-md-tax-inp'),currencySymbol:get('inv-md-currency-inp')||'R',bankName:get('inv-md-bank-inp'),accountHolder:get('inv-md-holder-inp'),accountNumber:get('inv-md-acc-inp'),branchCode:get('inv-md-branch-inp')};
     invMyDetails={...invMyDetails,...data};
     saveInvMyDetails(data);
     showToast('My Details saved ✓');
@@ -13361,6 +13246,8 @@ document.addEventListener('click',function invoicesHandler(e){
 document.addEventListener('input',function invoicesInputHandler(e){
   if(!invDraft)return;
   if(e.target.id==='inv-number-inp'){invDraft.invoiceNumber=e.target.value;return;}
+  if(e.target.id==='inv-po-inp'){invDraft.poNumber=e.target.value;return;}
+  if(e.target.id==='inv-terms-inp'){invDraft.terms=e.target.value;return;}
   if(e.target.id==='inv-project-name-inp'){invDraft.projectName=e.target.value;return;}
   if(e.target.id==='inv-project-code-inp'){invDraft.projectCode=e.target.value;return;}
   if(e.target.id==='inv-notes-inp'){invDraft.notes=e.target.value;return;}
@@ -13382,7 +13269,6 @@ document.addEventListener('change',function invoicesChangeHandler(e){
   }
   if(!invDraft)return;
   if(e.target.id==='inv-date-inp'){invDraft.invoiceDate=e.target.value;return;}
-  if(e.target.id==='inv-company-sel'){invDraft.companyId=e.target.value;render();return;}
   if(e.target.id==='inv-client-sel'){
     invDraft.clientId=e.target.value;
     if(!invEditId)invDraft.invoiceNumber=invNextNumber(e.target.value);
@@ -13466,7 +13352,6 @@ async function boot(){
         subscribeLiveTranscripts().catch(e=>console.error('LiveTranscripts error:',e)),
         ...(currentRole==='admin'?[
           subscribeInvClients().catch(e=>console.error('Invoice clients error:',e)),
-          subscribeInvCompanies().catch(e=>console.error('Invoice companies error:',e)),
           subscribeInvMyDetails().catch(e=>console.error('Invoice my details error:',e)),
           subscribeInvoices().catch(e=>console.error('Invoices error:',e)),
         ]:[]),
@@ -13498,7 +13383,6 @@ async function boot(){
       if(unsubCommTranscripts){unsubCommTranscripts();unsubCommTranscripts=null;}
       if(unsubLiveTranscripts){unsubLiveTranscripts();unsubLiveTranscripts=null;}
       if(unsubInvClients){unsubInvClients();unsubInvClients=null;}
-      if(unsubInvCompanies){unsubInvCompanies();unsubInvCompanies=null;}
       if(unsubInvMyDetails){unsubInvMyDetails();unsubInvMyDetails=null;}
       if(unsubInvoices){unsubInvoices();unsubInvoices=null;}
       render();
