@@ -171,7 +171,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.310';
+const BUILD_VERSION='3.10.311';
 const BUILD_DATE='26 Aug 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -7188,6 +7188,9 @@ function renderInvMyDetailsForm(){
         <div><label style="${lbl}">Account Number</label><input id="inv-md-acc-inp" value="${esc(d.accountNumber||'')}" style="${inp}"></div>
         <div><label style="${lbl}">Branch Code</label><input id="inv-md-branch-inp" value="${esc(d.branchCode||'')}" style="${inp}"></div>
       </div>
+      <div style="margin-top:20px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;border-bottom:1px solid #d1dae8;padding-bottom:6px">Remittances / Queries</div>
+      <label style="${lbl}">Email Address(es)</label>
+      <textarea id="inv-md-remit-inp" rows="2" placeholder="One per line, or comma-separated — shown at the bottom of every invoice PDF" style="${inp};resize:vertical">${esc(d.remittanceEmails||'')}</textarea>
       <div style="margin-top:20px;margin-bottom:20px"><button class="btn primary" id="inv-mydetails-save">Save My Details</button></div>
     </div>
   </div>`;
@@ -7302,13 +7305,16 @@ function renderInvoiceForm(){
           </div>`:''}
         </div>
       </div>
-
-      <label style="${lbl};margin-top:20px">Notes</label>
-      <textarea id="inv-notes-inp" rows="3" style="${inp};resize:vertical">${esc(d.notes)}</textarea>
     </div>
   </div>`;
 }
 
+// Splits a "remittance emails" field (comma or newline separated) into a
+// clean display string, falling back to the plain contact email if unset.
+function invRemittanceEmailsStr(sender){
+  const raw=sender.remittanceEmails||sender.email||'';
+  return raw.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean).join(', ');
+}
 function invExportPDF(id){
   const inv=invoicesData[id];
   if(!inv)return;
@@ -7318,52 +7324,56 @@ function invExportPDF(id){
   const dateStr=inv.invoiceDate?new Date(inv.invoiceDate+'T00:00:00').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'}):'—';
   const dueDateStr=invDueDateStr(inv.invoiceDate);
   const lineRows=(inv.lineItems||[]).map(li=>`<tr>
-    <td style="padding:8px 10px;border-bottom:1px solid #e5e5e5">${esc(li.description)}</td>
-    <td style="padding:8px 10px;border-bottom:1px solid #e5e5e5;text-align:center">${esc(String(li.qty))}</td>
-    <td style="padding:8px 10px;border-bottom:1px solid #e5e5e5;text-align:right">${invFmtMoney(sym,li.rate)}</td>
-    <td style="padding:8px 10px;border-bottom:1px solid #e5e5e5;text-align:right">${invFmtMoney(sym,li.amount)}</td>
+    <td style="padding:8px 10px;border-bottom:1px solid #e5e5e5;white-space:normal">${esc(li.description)}</td>
+    <td style="padding:8px 10px;border-bottom:1px solid #e5e5e5;text-align:center;white-space:nowrap">${esc(String(li.qty))}</td>
+    <td style="padding:8px 10px;border-bottom:1px solid #e5e5e5;text-align:right;white-space:nowrap">${invFmtMoney(sym,li.rate)}</td>
+    <td style="padding:8px 10px;border-bottom:1px solid #e5e5e5;text-align:right;white-space:nowrap">${invFmtMoney(sym,li.amount)}</td>
   </tr>`).join('');
   const totalsHtml=inv.vatAddition?`
-    <tr><td colspan="3" style="text-align:right;padding:6px 10px">Subtotal</td><td style="text-align:right;padding:6px 10px">${invFmtMoney(sym,inv.total)}</td></tr>
-    <tr><td colspan="3" style="text-align:right;padding:6px 10px">VAT (15%)</td><td style="text-align:right;padding:6px 10px">${invFmtMoney(sym,inv.vatAmount)}</td></tr>
-    <tr><td colspan="3" style="text-align:right;padding:8px 10px;font-weight:800;border-top:2px solid #111">Net Total</td><td style="text-align:right;padding:8px 10px;font-weight:800;border-top:2px solid #111">${invFmtMoney(sym,inv.netTotal)}</td></tr>
+    <tr><td colspan="3" style="text-align:right;padding:6px 10px">Subtotal</td><td style="text-align:right;padding:6px 10px;white-space:nowrap">${invFmtMoney(sym,inv.total)}</td></tr>
+    <tr><td colspan="3" style="text-align:right;padding:6px 10px">VAT (15%)</td><td style="text-align:right;padding:6px 10px;white-space:nowrap">${invFmtMoney(sym,inv.vatAmount)}</td></tr>
+    <tr><td colspan="3" style="text-align:right;padding:8px 10px;font-weight:800;border-top:2px solid #111">Net Total</td><td style="text-align:right;padding:8px 10px;font-weight:800;border-top:2px solid #111;white-space:nowrap">${invFmtMoney(sym,inv.netTotal)}</td></tr>
   `:`
-    <tr><td colspan="3" style="text-align:right;padding:8px 10px;font-weight:800;border-top:2px solid #111">Total</td><td style="text-align:right;padding:8px 10px;font-weight:800;border-top:2px solid #111">${invFmtMoney(sym,inv.total)}</td></tr>
+    <tr><td colspan="3" style="text-align:right;padding:8px 10px;font-weight:800;border-top:2px solid #111">Total</td><td style="text-align:right;padding:8px 10px;font-weight:800;border-top:2px solid #111;white-space:nowrap">${invFmtMoney(sym,inv.total)}</td></tr>
   `;
-  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${esc(inv.invoiceNumber||'')}</title>
+  const titleStr=`Tax Invoice ${inv.invoiceNumber||''} ${client.name||''}`.trim();
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(titleStr)}</title>
   <style>
-    @page{size:A4 portrait;margin:16mm 18mm}
+    @page{size:A4 portrait;margin:16mm 20mm}
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;font-size:11pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     table{width:100%;border-collapse:collapse}
+    table.info2col{table-layout:fixed}
+    table.li{table-layout:fixed}
     table.li th{background:#111;color:#fff;padding:8px 10px;font-size:9.5pt;text-transform:uppercase;letter-spacing:.5px;text-align:left}
   </style></head><body>
   <!-- Table-based header: no flexbox = no logo squishing -->
-  <table style="margin-bottom:6px">
+  <table style="margin-bottom:16px">
     <tr valign="middle">
-      <td style="width:60px"><img src="${BAKED_CB_LOGO}" style="height:34px;width:auto;max-width:60px;object-fit:contain"></td>
-      <td style="width:70px"><img src="${BAKED_CAP_LOGO}" style="height:30px;width:auto;max-width:70px;object-fit:contain"></td>
+      <td style="width:120px"><img src="${BAKED_CB_LOGO}" style="height:68px;width:auto;max-width:110px;object-fit:contain"></td>
+      <td style="width:170px"><img src="${BAKED_CAP_LOGO}" style="height:60px;width:auto;max-width:160px;object-fit:contain"></td>
       <td></td>
-      <td style="text-align:right">
-        <div style="font-size:26pt;font-weight:900;letter-spacing:1px">INVOICE</div>
+      <td style="text-align:right;padding-right:2mm">
+        <div style="font-size:28pt;font-weight:900;letter-spacing:1px">INVOICE</div>
       </td>
     </tr>
   </table>
-  <table style="margin-bottom:22px;padding-bottom:14px;border-bottom:2px solid #111">
+  <table class="info2col" style="margin-bottom:22px;padding-bottom:14px;border-bottom:2px solid #111">
+    <colgroup><col style="width:64%"><col style="width:36%"></colgroup>
     <tr valign="top">
-      <td style="width:55%">
-        <div style="font-size:15pt;font-weight:900">${esc(sender.name||'')}</div>
+      <td>
+        <div style="font-size:13pt;font-weight:900">${esc(sender.name||'')}</div>
         <div style="font-size:10pt;color:#333;white-space:pre-line;margin-top:4px">${esc(sender.address||'')}</div>
         ${sender.email?`<div style="font-size:10pt;color:#333;margin-top:2px">${esc(sender.email)}</div>`:''}
         ${sender.phone?`<div style="font-size:10pt;color:#333">${esc(sender.phone)}</div>`:''}
-        ${sender.taxNumber?`<div style="font-size:10pt;color:#333;margin-top:2px">Tax No: ${esc(sender.taxNumber)}</div>`:''}
-        ${sender.regNumber?`<div style="font-size:10pt;color:#333">Reg No: ${esc(sender.regNumber)}</div>`:''}
+        ${sender.taxNumber?`<div style="font-size:10pt;color:#333;margin-top:14px">Tax No: ${esc(sender.taxNumber)}</div>`:''}
+        ${sender.regNumber?`<div style="font-size:10pt;color:#333;${sender.taxNumber?'':'margin-top:14px'}">Reg No: ${esc(sender.regNumber)}</div>`:''}
         ${sender.vatNumber?`<div style="font-size:10pt;color:#333">VAT No: ${esc(sender.vatNumber)}</div>`:''}
       </td>
-      <td style="width:45%;text-align:right">
+      <td style="text-align:right;padding-right:2mm">
         <div style="font-size:10pt;color:#333;line-height:1.6">
           <div><strong>Invoice #:</strong> ${esc(inv.invoiceNumber||'—')}</div>
-          <div><strong>Tax/Invoice Date:</strong> ${dateStr}</div>
+          <div><strong>Invoice Date:</strong> ${dateStr}</div>
           <div><strong>Due Date:</strong> ${dueDateStr}</div>
           ${inv.poNumber?`<div><strong>P.O. Number:</strong> ${esc(inv.poNumber)}</div>`:''}
           ${inv.terms?`<div><strong>Terms:</strong> ${esc(inv.terms)}</div>`:''}
@@ -7371,22 +7381,24 @@ function invExportPDF(id){
       </td>
     </tr>
   </table>
-  <table style="margin-bottom:22px">
+  <table class="info2col" style="margin-bottom:22px">
+    <colgroup><col style="width:64%"><col style="width:36%"></colgroup>
     <tr valign="top">
-      <td style="width:55%">
+      <td>
         <div style="font-size:9pt;text-transform:uppercase;letter-spacing:.6px;color:#888;margin-bottom:4px">Bill To</div>
         <div style="font-size:12pt;font-weight:800">${esc(client.name||'—')}</div>
         <div style="font-size:10pt;color:#333;white-space:pre-line;margin-top:2px">${esc(client.address||'')}</div>
-        ${client.regNumber?`<div style="font-size:10pt;color:#333;margin-top:2px">Reg No: ${esc(client.regNumber)}</div>`:''}
+        ${client.regNumber?`<div style="font-size:10pt;color:#333;margin-top:14px">Reg No: ${esc(client.regNumber)}</div>`:''}
         ${client.vatNumber?`<div style="font-size:10pt;color:#333">VAT No: ${esc(client.vatNumber)}</div>`:''}
       </td>
-      <td style="width:45%;text-align:right">
+      <td style="text-align:right;padding-right:2mm">
         ${inv.projectName?`<div style="font-size:10pt;color:#333"><strong>Project:</strong> ${esc(inv.projectName)}</div>`:''}
         ${inv.projectCode?`<div style="font-size:10pt;color:#333"><strong>Code:</strong> ${esc(inv.projectCode)}</div>`:''}
       </td>
     </tr>
   </table>
   <table class="li">
+    <colgroup><col style="width:52%"><col style="width:8%"><col style="width:17%"><col style="width:23%"></colgroup>
     <thead><tr><th>Description</th><th style="text-align:center">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr></thead>
     <tbody>${lineRows}</tbody>
     <tfoot>${totalsHtml}</tfoot>
@@ -7400,8 +7412,7 @@ function invExportPDF(id){
       ${sender.branchCode?`Branch Code: ${esc(sender.branchCode)}`:''}
     </div>
   </div>`:''}
-  ${sender.email?`<div style="margin-top:14px;font-size:9.5pt;color:#555">Please email remittances/queries to: <strong>${esc(sender.email)}</strong></div>`:''}
-  ${inv.notes?`<div style="margin-top:22px;padding-top:12px;border-top:1px solid #ddd;font-size:10pt;color:#333;white-space:pre-line">${esc(inv.notes)}</div>`:''}
+  ${invRemittanceEmailsStr(sender)?`<div style="margin-top:14px;font-size:9.5pt;color:#555">Please email remittances/queries to: <strong>${esc(invRemittanceEmailsStr(sender))}</strong></div>`:''}
   </body></html>`;
   const win=window.open('','_blank');
   if(!win){alert('Popup blocked — please allow popups for this site.');return;}
@@ -13150,7 +13161,7 @@ document.addEventListener('click',function supplierRegHandler(e){
 document.addEventListener('click',function invoicesHandler(e){
   if(e.target.id==='inv-new-btn'){
     invEditId=null;
-    invDraft={clientId:'',invoiceNumber:'',invoiceDate:new Date().toISOString().slice(0,10),poNumber:'',terms:'',projectName:'',projectCode:'',lineItems:[invBlankLineItem()],taxChecked:false,notes:''};
+    invDraft={clientId:'',invoiceNumber:'',invoiceDate:new Date().toISOString().slice(0,10),poNumber:'',terms:'',projectName:'',projectCode:'',lineItems:[invBlankLineItem()],taxChecked:false};
     invView='form';render();return;
   }
   if(e.target.id==='inv-quick-client-btn'){invClientModal={id:null};render();return;}
@@ -13161,7 +13172,7 @@ document.addEventListener('click',function invoicesHandler(e){
   if(editBtn){
     const id=editBtn.dataset.id;const inv=invoicesData[id];if(!inv)return;
     invEditId=id;
-    invDraft={clientId:inv.clientId||'',invoiceNumber:inv.invoiceNumber||'',invoiceDate:inv.invoiceDate||'',poNumber:inv.poNumber||'',terms:inv.terms||'',projectName:inv.projectName||'',projectCode:inv.projectCode||'',lineItems:(inv.lineItems&&inv.lineItems.length?inv.lineItems.map(li=>({description:li.description,qty:li.qty,rate:li.rate})):[invBlankLineItem()]),taxChecked:!!inv.vatAddition,notes:inv.notes||''};
+    invDraft={clientId:inv.clientId||'',invoiceNumber:inv.invoiceNumber||'',invoiceDate:inv.invoiceDate||'',poNumber:inv.poNumber||'',terms:inv.terms||'',projectName:inv.projectName||'',projectCode:inv.projectCode||'',lineItems:(inv.lineItems&&inv.lineItems.length?inv.lineItems.map(li=>({description:li.description,qty:li.qty,rate:li.rate})):[invBlankLineItem()]),taxChecked:!!inv.vatAddition};
     invView='form';render();return;
   }
   const pdfBtn=e.target.closest('.inv-pdf-btn');
@@ -13198,7 +13209,7 @@ document.addEventListener('click',function invoicesHandler(e){
       clientId:d.clientId,invoiceNumber:d.invoiceNumber.trim(),invoiceDate:d.invoiceDate,poNumber:d.poNumber||'',terms:d.terms||'',
       projectName:d.projectName||'',projectCode:d.projectCode||'',lineItems,total,
       vatAddition:!!d.taxChecked,vatAmount,netTotal,
-      notes:d.notes||'',paid:invEditId?!!invoicesData[invEditId]?.paid:false,
+      paid:invEditId?!!invoicesData[invEditId]?.paid:false,
     };
     invoicesData[id]={...invoicesData[id],...payload};
     saveInvoice(id,payload);
@@ -13236,7 +13247,7 @@ document.addEventListener('click',function invoicesHandler(e){
     const get=idv=>document.getElementById(idv)?.value.trim()||'';
     const name=get('inv-md-name-inp');
     if(!name){showToast('Name is required.',true);return;}
-    const data={name,address:get('inv-md-address-inp'),email:get('inv-md-email-inp'),phone:get('inv-md-phone-inp'),regNumber:get('inv-md-reg-inp'),vatNumber:get('inv-md-vat-inp'),taxNumber:get('inv-md-tax-inp'),currencySymbol:get('inv-md-currency-inp')||'R',bankName:get('inv-md-bank-inp'),accountHolder:get('inv-md-holder-inp'),accountNumber:get('inv-md-acc-inp'),branchCode:get('inv-md-branch-inp')};
+    const data={name,address:get('inv-md-address-inp'),email:get('inv-md-email-inp'),phone:get('inv-md-phone-inp'),regNumber:get('inv-md-reg-inp'),vatNumber:get('inv-md-vat-inp'),taxNumber:get('inv-md-tax-inp'),currencySymbol:get('inv-md-currency-inp')||'R',bankName:get('inv-md-bank-inp'),accountHolder:get('inv-md-holder-inp'),accountNumber:get('inv-md-acc-inp'),branchCode:get('inv-md-branch-inp'),remittanceEmails:get('inv-md-remit-inp')};
     invMyDetails={...invMyDetails,...data};
     saveInvMyDetails(data);
     showToast('My Details saved ✓');
@@ -13250,7 +13261,6 @@ document.addEventListener('input',function invoicesInputHandler(e){
   if(e.target.id==='inv-terms-inp'){invDraft.terms=e.target.value;return;}
   if(e.target.id==='inv-project-name-inp'){invDraft.projectName=e.target.value;return;}
   if(e.target.id==='inv-project-code-inp'){invDraft.projectCode=e.target.value;return;}
-  if(e.target.id==='inv-notes-inp'){invDraft.notes=e.target.value;return;}
   if(e.target.classList.contains('inv-li-inp')){
     const row=Number(e.target.dataset.row),field=e.target.dataset.field;
     if(!invDraft.lineItems[row])return;
