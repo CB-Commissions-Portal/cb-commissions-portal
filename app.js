@@ -171,7 +171,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.319';
+const BUILD_VERSION='3.10.320';
 const BUILD_DATE='27 Aug 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -2323,7 +2323,8 @@ function renderCommList(epNums,nextEp){
     <option value="decom"${filter==='decom'?' selected':''}>Decommissioned</option>
     <option value="inhouse"${filter==='inhouse'?' selected':''}>In-House</option>
   </select>
-  ${currentRole==='admin'&&!previewRole?`<button class="btn primary" id="add-row-btn">+ Add Commission</button><button class="btn" id="add-ep-btn">+ Add Episode</button>`:''}
+  ${['admin','deputyadmin'].includes(currentRole)&&!previewRole?`<button class="btn primary" id="add-row-btn">+ Add Commission</button>`:''}
+  ${currentRole==='admin'&&!previewRole?`<button class="btn" id="add-ep-btn">+ Add Episode</button>`:''}
   ${(currentRole==='admin'&&!previewRole)||getEffectiveRole()==='operations'?`
     <div style="display:flex;align-items:center;gap:6px">
       <button class="btn" id="presenter-xlsx-btn" style="border-color:#3fb950;color:#3fb950">⬇ Presenter Excel</button>
@@ -2393,7 +2394,7 @@ ${filtered.map(c=>{
 </td>
 <td class="st st-4" style="min-width:180px">${ci('storyName',220)}</td>
 <td style="min-width:14ch;max-width:14ch">
-  ${['admin','operations','editorial'].includes(getEffectiveRole())
+  ${['admin','deputyadmin','operations','editorial'].includes(getEffectiveRole())
     ?`<div style="position:relative">
         <span class="comm-del-label" style="font-size:13px;color:#e3b341;cursor:pointer;display:block;padding:2px 4px;white-space:nowrap" title="Click to set delivery date">${c.deliveryDate?new Date(c.deliveryDate+'T00:00:00Z').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'2-digit'}):'—'}</span>
         <input type="date" class="comm-del-date" data-id="${c.id}" value="${esc(c.deliveryDate||'')}" style="position:absolute;top:0;left:0;opacity:0;width:100%;height:100%;cursor:pointer;border:none;background:transparent">
@@ -2404,8 +2405,8 @@ ${filtered.map(c=>{
 <td>${ci('deliveredDuration')}</td>
 <td style="${c.isInHouse?'opacity:.3;pointer-events:none':''}">${c.isInHouse?`<span class="badge ih" style="opacity:.5">N/A</span>`:ci('paidDuration',54)}</td>
 <td style="text-align:center;white-space:nowrap">
-  <label style="display:inline-flex;align-items:center;gap:3px;font-size:12px;color:#0066CC;cursor:pointer" title="In-House"><input type="checkbox" class="cb" data-field="isInHouse" tabindex="-1" ${c.isInHouse?'checked':''} ${getEffectiveRole()!=='admin'?'disabled':''}> IH</label>
-  <label style="display:inline-flex;align-items:center;gap:3px;font-size:12px;color:#3fb950;cursor:pointer;margin-left:6px" title="Licensed"><input type="checkbox" class="cb${c.isLicensed?' g':''}" data-field="isLicensed" tabindex="-1" ${c.isLicensed?'checked':''} ${getEffectiveRole()!=='admin'?'disabled':''}> LIC</label>
+  <label style="display:inline-flex;align-items:center;gap:3px;font-size:12px;color:#0066CC;cursor:pointer" title="In-House"><input type="checkbox" class="cb" data-field="isInHouse" tabindex="-1" ${c.isInHouse?'checked':''} ${!['admin','deputyadmin'].includes(getEffectiveRole())?'disabled':''}> IH</label>
+  <label style="display:inline-flex;align-items:center;gap:3px;font-size:12px;color:#3fb950;cursor:pointer;margin-left:6px" title="Licensed"><input type="checkbox" class="cb${c.isLicensed?' g':''}" data-field="isLicensed" tabindex="-1" ${c.isLicensed?'checked':''} ${!['admin','deputyadmin'].includes(getEffectiveRole())?'disabled':''}> LIC</label>
 </td>
 <td>${ci('producer')}</td>
 <td>${ci('presenterVO')}</td>
@@ -2413,7 +2414,7 @@ ${filtered.map(c=>{
 </tr>`;}).join('')}
 </tbody>
 </table>
-${currentRole==='admin'?`<button class="add-row-btn" id="add-row-btn2">+ Add Commission Row</button>`:''}
+${['admin','deputyadmin'].includes(currentRole)&&!previewRole?`<button class="add-row-btn" id="add-row-btn2">+ Add Commission Row</button>`:''}
 </div>`;}
 
 
@@ -7997,7 +7998,7 @@ function renderModals(epNums,nextEp){
       const _paidDisabled=!canEdit(_role,'approvedForPayment')||_c.isInHouse;
       const _paidChecked=!!_c.approvedForPayment;
       const _insertDisabled=!_canAdmin;
-      const _epDisabled=_role!=='admin';
+      const _epDisabled=!_canAdmin;
       // Decom section
       const _decomSection=_c.decommissioned
         ?`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -8864,7 +8865,7 @@ function bindApp(){
     // Payment
     if(canEdit(role,'approvedForPayment')&&!c.isInHouse){const el=document.getElementById('cem-paid');if(el)updateComm(id,'approvedForPayment',el.checked);}
     if(role==='admin'||role==='deputyadmin'){const el=document.getElementById('cem-insert-cost');if(el)updateComm(id,'totalInsertCost',el.value.trim());}
-    if(role==='admin'){const el=document.getElementById('cem-episode');if(el)assignEpisode(id,el.value);}
+    if(role==='admin'||role==='deputyadmin'){const el=document.getElementById('cem-episode');if(el)assignEpisode(id,el.value);}
     // Motivation (always editable per canEdit)
     {const el=document.getElementById('cem-motivation');if(el&&canEdit(role,'decommissionMotivation'))updateComm(id,'decommissionMotivation',el.value.trim());}
     // allDel notification for Super Admin
