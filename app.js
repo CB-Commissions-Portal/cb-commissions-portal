@@ -171,7 +171,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.316';
+const BUILD_VERSION='3.10.317';
 const BUILD_DATE='27 Aug 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -7089,11 +7089,12 @@ function renderInvoiceList(){
   const trs=rows.map(([id,inv])=>{
     const client=invClients[inv.clientId]||{};
     const displayTotal=inv.netTotal!=null?inv.netTotal:inv.total;
+    const tdWrap='padding:8px 12px;white-space:normal;overflow-wrap:anywhere';
     return`<tr style="${inv.paid?'opacity:.55':''}">
       <td style="padding:8px 12px;white-space:nowrap">${esc(inv.invoiceNumber||'—')}${inv.paid?' <span style="font-size:10px;font-weight:800;background:#dcfce7;color:#16a34a;padding:1px 6px;border-radius:3px;margin-left:6px">PAID</span>':''}</td>
-      <td style="padding:8px 12px">${esc(client.name||'—')}</td>
-      <td style="padding:8px 12px">${esc(inv.projectName||'—')}</td>
-      <td style="padding:8px 12px">${esc(inv.projectCode||'—')}</td>
+      <td style="${tdWrap}">${esc(client.name||'—')}</td>
+      <td style="${tdWrap}">${esc(inv.projectName||'—')}</td>
+      <td style="${tdWrap}">${esc(inv.projectCode||'—')}</td>
       <td style="padding:8px 12px;white-space:nowrap">${inv.invoiceDate?new Date(inv.invoiceDate+'T00:00:00').toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}):'—'}</td>
       <td style="padding:8px 12px;text-align:right;font-weight:700;white-space:nowrap">${invFmtMoney(sym,displayTotal)}</td>
       <td style="padding:8px 12px;text-align:center"><input type="checkbox" class="inv-paid-chk" data-id="${id}" ${inv.paid?'checked':''}></td>
@@ -7104,7 +7105,7 @@ function renderInvoiceList(){
       </div></td>
     </tr>`;
   }).join('');
-  const th='text-align:left;padding:8px 12px;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px';
+  const th='text-align:left;padding:8px 12px;font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap';
   return`<div class="ep-wrap" style="padding:0">
     <div style="padding:12px 20px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <h2 style="font-size:17px;font-weight:900;color:#111827;margin:0">Invoices</h2>
@@ -7118,7 +7119,12 @@ function renderInvoiceList(){
     ${noDetails?`<div style="margin:16px 20px 0;padding:12px 16px;background:#fff7ed;border:1px solid #fbbf24;border-radius:6px;font-size:14px;color:#b45309">⚠ Fill in <strong>My Details</strong> first — it's your sender identity and appears on every invoice PDF.</div>`:''}
     <div style="padding:20px">
       ${rows.length===0?`<div style="text-align:center;padding:60px;color:#9ca3af;font-size:16px">No invoices yet. Click <strong>+ New Invoice</strong> to create one.</div>`:`
-      <table style="width:100%;border-collapse:collapse">
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+        <colgroup>
+          <col style="width:120px"><col><col><col style="width:90px">
+          <col style="width:112px"><col style="width:120px">
+          <col style="width:56px"><col style="width:168px">
+        </colgroup>
         <thead><tr style="background:#f8fafc">
           <th style="${th}">Invoice #</th><th style="${th}">Client</th><th style="${th}">Project</th><th style="${th}">Code</th>
           <th style="${th}">Date</th><th style="${th};text-align:right">Total</th>
