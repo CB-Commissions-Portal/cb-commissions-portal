@@ -171,7 +171,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.313';
+const BUILD_VERSION='3.10.314';
 const BUILD_DATE='27 Aug 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -7325,7 +7325,7 @@ function renderInvoiceForm(){
             <button class="btn" id="inv-zoom-fit" title="Fit to width" style="padding:2px 11px;font-size:12px">Fit</button>
           </div>
         </div>
-        <div id="inv-preview-pane" style="min-height:300px;max-height:calc(100vh - 90px);overflow:auto"></div>
+        <div id="inv-preview-pane" style="height:calc(100vh - 96px);overflow:auto"></div>
       </div>
     </div>
   </div>`;
@@ -7479,33 +7479,44 @@ function updateInvPreview(){
   if(d.taxChecked){vatAmount=total*0.15;netTotal=total+vatAmount;}
   const invLike={invoiceNumber:d.invoiceNumber,invoiceDate:d.invoiceDate,poNumber:d.poNumber,terms:d.terms,projectName:d.projectName,projectCode:d.projectCode,lineItems,total,vatAddition:!!d.taxChecked,vatAmount,netTotal};
   const html=invBuildInvoiceHtml(invLike,client);
-  pane.innerHTML='';
-  pane.style.cssText='border-radius:8px;box-shadow:0 2px 16px rgba(0,0,0,.16);overflow:auto;background:#eef1f6;flex-shrink:0;max-height:calc(100vh - 90px);';
-  const PAGE_W=760;
-  const fitScale=Math.max(pane.clientWidth||420,200)/PAGE_W;
-  const scale=fitScale*_invPreviewZoom;
+
   const zl=document.getElementById('inv-zoom-lbl');
   if(zl)zl.textContent=Math.round(_invPreviewZoom*100)+'%';
-  // Outer sizer occupies the *scaled* footprint so the pane gets real
-  // scrollbars once zoomed past fit; the inner wrapper is transform-scaled.
-  const sizer=document.createElement('div');
-  sizer.style.cssText=`width:${Math.ceil(PAGE_W*scale)}px;height:${Math.ceil(600*scale)}px;`;
-  const wrapper=document.createElement('div');
-  wrapper.style.cssText=`width:${PAGE_W}px;transform:scale(${scale});transform-origin:top left;line-height:0;display:block;`;
-  const iframe=document.createElement('iframe');
-  iframe.style.cssText=`border:none;width:${PAGE_W}px;height:600px;display:block;background:#fff;`;
-  iframe.onload=()=>{
-    try{
-      const doc=iframe.contentDocument||iframe.contentWindow.document;
-      const h=Math.max(doc.body.scrollHeight,doc.documentElement.scrollHeight,300)+30;
-      iframe.style.height=h+'px';
-      sizer.style.height=Math.ceil(h*scale)+'px';
-    }catch(e){}
-  };
-  wrapper.appendChild(iframe);
-  sizer.appendChild(wrapper);
-  pane.appendChild(sizer);
-  iframe.srcdoc=html;
+
+  // The pane is a fixed-size scroll viewport. The invoice renders in an iframe
+  // at a constant PAGE_W; a CSS `zoom` on its wrapper does the scaling. Unlike
+  // transform:scale, `zoom` grows the layout box, so the pane gets true
+  // horizontal + vertical scrollbars and nothing clips off the sides when you
+  // zoom in. `_invPreviewZoom` 1.0 == fit-to-width; >1 zooms in and you pan.
+  const PAD=14;
+  pane.style.cssText=`border-radius:8px;box-shadow:0 2px 16px rgba(0,0,0,.16);overflow:auto;background:#e9edf3;flex-shrink:0;height:calc(100vh - 96px);padding:${PAD}px;`;
+  const PAGE_W=760;
+  const fitScale=Math.max((pane.clientWidth||440)-PAD*2,200)/PAGE_W;
+  const scale=fitScale*_invPreviewZoom;
+
+  // Reuse the iframe across zoom changes so only the zoom level updates (no
+  // white reload flash); only re-feed srcdoc when the invoice content changed.
+  let wrapper=pane.querySelector('.inv-pv-wrap'),iframe=pane.querySelector('.inv-pv-wrap iframe');
+  if(!iframe){
+    pane.innerHTML='';
+    wrapper=document.createElement('div');
+    wrapper.className='inv-pv-wrap';
+    iframe=document.createElement('iframe');
+    iframe.style.cssText=`border:none;width:${PAGE_W}px;height:900px;display:block;background:#fff;box-shadow:0 1px 10px rgba(0,0,0,.14)`;
+    iframe.onload=()=>{
+      try{
+        const doc=iframe.contentDocument||iframe.contentWindow.document;
+        const h=Math.max(doc.body.scrollHeight,doc.documentElement.scrollHeight,300)+24;
+        iframe.style.height=h+'px';
+      }catch(e){}
+    };
+    wrapper.appendChild(iframe);
+    pane.appendChild(wrapper);
+  }
+  // margin:auto centres the page when it is narrower than the viewport and
+  // clamps to 0 (left-aligned, scrollable) once it is wider.
+  wrapper.style.cssText=`width:${PAGE_W}px;zoom:${scale};margin:0 auto`;
+  if(pane._invHtml!==html){pane._invHtml=html;iframe.srcdoc=html;}
 }
 
 function renderBroadcastList(){
@@ -13277,7 +13288,7 @@ document.addEventListener('click',function invoicesHandler(e){
   if(e.target.id==='inv-form-quick-client'){invClientModal={id:null};render();return;}
   if(e.target.id==='inv-li-add'&&invDraft){invDraft.lineItems.push(invBlankLineItem());render();return;}
   if(e.target.id==='inv-zoom-in'){_invPreviewZoom=Math.min(3,Math.round((_invPreviewZoom+0.25)*100)/100);updateInvPreview();return;}
-  if(e.target.id==='inv-zoom-out'){_invPreviewZoom=Math.max(0.5,Math.round((_invPreviewZoom-0.25)*100)/100);updateInvPreview();return;}
+  if(e.target.id==='inv-zoom-out'){_invPreviewZoom=Math.max(1,Math.round((_invPreviewZoom-0.25)*100)/100);updateInvPreview();return;}
   if(e.target.id==='inv-zoom-fit'){_invPreviewZoom=1;updateInvPreview();return;}
   const liDelBtn=e.target.closest('.inv-li-del');
   if(liDelBtn&&invDraft){
