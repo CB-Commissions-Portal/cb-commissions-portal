@@ -171,7 +171,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.315';
+const BUILD_VERSION='3.10.316';
 const BUILD_DATE='27 Aug 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -1939,7 +1939,6 @@ function render(){
   if(ctView==='form') setTimeout(updateContractPreview,0);
   if(ctView==='preview') setTimeout(updateContractStaticPreview,0);
   if(ctSignModal) setTimeout(initCtSignCanvas,0);
-  if(tab==='invoices'&&invView==='form'&&invDraft) setTimeout(updateInvPreview,0);
 }
 
 function renderSetup(){return`<div class="setup-wrap"><div class="setup-inner">
@@ -7249,84 +7248,74 @@ function renderInvoiceForm(){
     </div>`;
   }).join('');
   return`<div class="ep-wrap" style="padding:0">
-    <div style="padding:12px 20px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:12px">
+    <div style="padding:12px 20px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5">
       <h2 style="font-size:17px;font-weight:900;color:#111827;margin:0">${invEditId?'Edit Invoice':'New Invoice'}</h2>
       <div style="margin-left:auto;display:flex;gap:8px">
         <button class="btn" id="inv-form-cancel">Cancel</button>
         <button class="btn primary" id="inv-form-save">${invEditId?'Save Changes':'Create Invoice'}</button>
       </div>
     </div>
-    <div style="padding:20px;display:flex;gap:24px;align-items:flex-start">
-      <div style="flex:1;min-width:0;max-width:560px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
-          <div>
-            <label style="${lbl}">Client *</label>
-            <div style="display:flex;gap:6px">
-              <select id="inv-client-sel" style="${inp};flex:1">
-                <option value="">Select a client…</option>
-                ${Object.entries(invClients).map(([id,c])=>`<option value="${id}" ${d.clientId===id?'selected':''}>${esc(c.name)}</option>`).join('')}
-              </select>
-              <button class="btn" id="inv-form-quick-client" style="flex-shrink:0">+ New</button>
-            </div>
-          </div>
-          <div>
-            <label style="${lbl}">Invoice Number *</label>
-            <input id="inv-number-inp" value="${esc(d.invoiceNumber)}" placeholder="e.g. INV-001" style="${inp}">
-          </div>
-          <div>
-            <label style="${lbl}">Invoice Date *</label>
-            <input type="date" id="inv-date-inp" value="${d.invoiceDate}" style="${inp}">
-          </div>
-          <div>
-            <label style="${lbl}">P.O. Number</label>
-            <input id="inv-po-inp" value="${esc(d.poNumber)}" style="${inp}">
-          </div>
-          <div>
-            <label style="${lbl}">Terms</label>
-            <input id="inv-terms-inp" value="${esc(d.terms)}" placeholder="e.g. 30 days" style="${inp}">
-          </div>
-          <div>
-            <label style="${lbl}">Project Name</label>
-            <input id="inv-project-name-inp" value="${esc(d.projectName)}" style="${inp}">
-          </div>
-          <div>
-            <label style="${lbl}">Project Code</label>
-            <input id="inv-project-code-inp" value="${esc(d.projectCode)}" style="${inp}">
+    <div style="padding:24px 28px;max-width:1000px;margin:0 auto">
+      <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;border-bottom:1px solid #d1dae8;padding-bottom:6px;margin-bottom:16px">Invoice Details</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px 20px;margin-bottom:26px">
+        <div>
+          <label style="${lbl}">Client *</label>
+          <div style="display:flex;gap:6px">
+            <select id="inv-client-sel" style="${inp};flex:1">
+              <option value="">Select a client…</option>
+              ${Object.entries(invClients).map(([id,c])=>`<option value="${id}" ${d.clientId===id?'selected':''}>${esc(c.name)}</option>`).join('')}
+            </select>
+            <button class="btn" id="inv-form-quick-client" style="flex-shrink:0">+ New</button>
           </div>
         </div>
-
-        <div id="inv-li-body">${cardsHtml}</div>
-        <button class="btn" id="inv-li-add">+ Add Line</button>
-
-        <div style="margin-top:20px;display:flex;justify-content:flex-end">
-          <div style="width:300px;max-width:100%">
-            <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:#111827;font-size:15px">
-              <input type="checkbox" id="inv-tax-chk" ${d.taxChecked?'checked':''}> Add 15% VAT
-            </label>
-            <div style="display:flex;justify-content:space-between;margin-top:12px;font-size:15px;color:#374151">
-              <span>${d.taxChecked?'Subtotal':'Total'}</span><span id="inv-subtotal-val">${invFmtMoney(sym,subtotal)}</span>
-            </div>
-            ${d.taxChecked?`<div style="display:flex;justify-content:space-between;margin-top:4px;font-size:15px;color:#374151">
-              <span>VAT (15%)</span><span id="inv-tax-val">${invFmtMoney(sym,taxAmount)}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;margin-top:6px;font-weight:800;font-size:16px;color:#111827;border-top:1px solid #d1dae8;padding-top:6px">
-              <span>Net Total</span><span id="inv-net-val">${invFmtMoney(sym,netTotal)}</span>
-            </div>`:''}
-          </div>
+        <div>
+          <label style="${lbl}">Invoice Number *</label>
+          <input id="inv-number-inp" value="${esc(d.invoiceNumber)}" placeholder="e.g. INV-001" style="${inp}">
+        </div>
+        <div>
+          <label style="${lbl}">Invoice Date *</label>
+          <input type="date" id="inv-date-inp" value="${d.invoiceDate}" style="${inp}">
+        </div>
+        <div>
+          <label style="${lbl}">P.O. Number</label>
+          <input id="inv-po-inp" value="${esc(d.poNumber)}" style="${inp}">
+        </div>
+        <div>
+          <label style="${lbl}">Terms</label>
+          <input id="inv-terms-inp" value="${esc(d.terms)}" placeholder="e.g. 30 days" style="${inp}">
+        </div>
+        <div>
+          <label style="${lbl}">Project Name</label>
+          <input id="inv-project-name-inp" value="${esc(d.projectName)}" style="${inp}">
+        </div>
+        <div>
+          <label style="${lbl}">Project Code</label>
+          <input id="inv-project-code-inp" value="${esc(d.projectCode)}" style="${inp}">
         </div>
       </div>
-      <div style="flex:1;min-width:0;position:sticky;top:12px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
-          <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280">Live Preview</div>
-          <div style="display:flex;align-items:center;gap:4px">
-            <button class="btn" id="inv-zoom-out" title="Zoom out" style="padding:2px 11px;font-size:17px;line-height:1">&minus;</button>
-            <span id="inv-zoom-lbl" style="font-size:12px;font-weight:700;color:#6b7280;min-width:46px;text-align:center">100%</span>
-            <button class="btn" id="inv-zoom-in" title="Zoom in" style="padding:2px 11px;font-size:17px;line-height:1">+</button>
-            <button class="btn" id="inv-zoom-fit" title="Fit to width" style="padding:2px 11px;font-size:12px">Fit</button>
+
+      <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;border-bottom:1px solid #d1dae8;padding-bottom:6px;margin-bottom:16px">Line Items</div>
+      <div id="inv-li-body">${cardsHtml}</div>
+      <button class="btn" id="inv-li-add">+ Add Line</button>
+
+      <div style="margin-top:24px;display:flex;justify-content:flex-end">
+        <div style="width:320px;max-width:100%">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:#111827;font-size:15px">
+            <input type="checkbox" id="inv-tax-chk" ${d.taxChecked?'checked':''}> Add 15% VAT
+          </label>
+          <div style="display:flex;justify-content:space-between;margin-top:12px;font-size:15px;color:#374151">
+            <span>${d.taxChecked?'Subtotal':'Total'}</span><span id="inv-subtotal-val">${invFmtMoney(sym,subtotal)}</span>
           </div>
+          ${d.taxChecked?`<div style="display:flex;justify-content:space-between;margin-top:4px;font-size:15px;color:#374151">
+            <span>VAT (15%)</span><span id="inv-tax-val">${invFmtMoney(sym,taxAmount)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px;font-weight:800;font-size:16px;color:#111827;border-top:1px solid #d1dae8;padding-top:6px">
+            <span>Net Total</span><span id="inv-net-val">${invFmtMoney(sym,netTotal)}</span>
+          </div>`:''}
         </div>
-        <div id="inv-preview-pane" style="height:calc(100vh - 96px);overflow:auto"></div>
       </div>
+
+      <div style="margin-top:20px;font-size:13px;color:#6b7280">Save the invoice, then use the green <strong>PDF</strong> button on the Invoices list to view or print it.</div>
     </div>
   </div>`;
 }
@@ -7337,9 +7326,8 @@ function invRemittanceEmailsStr(sender){
   const raw=sender.remittanceEmails||sender.email||'';
   return raw.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean).join(', ');
 }
-// Single source of truth for the invoice's look — used for BOTH the live
-// in-app preview (scaled iframe, see updateInvPreview) and the printed PDF
-// (invExportPDF), so what you see while editing is exactly what prints.
+// Single source of truth for the invoice's look — builds the printed PDF
+// (invExportPDF) from a saved invoice record.
 // `inv` needs: invoiceNumber, invoiceDate, poNumber, terms, projectName,
 // projectCode, lineItems (with amount already computed), total, vatAddition,
 // vatAmount, netTotal. `client` may be {} if none picked yet.
@@ -7452,92 +7440,9 @@ function invExportPDF(id){
   win.document.close();
   setTimeout(()=>win.print(),600);
 }
-// Live preview pane on the New/Edit Invoice screen — renders invDraft through
-// the exact same builder as the printed PDF, in a scaled iframe (same
-// technique as the Studio Script Build preview), so there's no need to
-// print-to-PDF just to check the layout.
-let _invPreviewDebounce=null;
-// Live-preview zoom multiplier, applied on top of the fit-to-width scale.
-// 1 = fit the preview pane width; >1 zooms in (pane scrolls). Driven by the
-// − / + / Fit buttons above the pane.
-let _invPreviewZoom=1;
-// Debounced wrapper for use on every keystroke — rebuilding the preview
-// iframe's srcdoc on every character would feel janky, so this waits for a
-// short pause in typing rather than firing immediately.
-function updateInvPreviewDebounced(){
-  clearTimeout(_invPreviewDebounce);
-  _invPreviewDebounce=setTimeout(updateInvPreview,300);
-}
-function updateInvPreview(){
-  const pane=document.getElementById('inv-preview-pane');
-  if(!pane||!invDraft)return;
-  const d=invDraft;
-  const client=invClients[d.clientId]||{};
-  const lineItems=d.lineItems.filter(li=>(li.description||'').trim()).map(li=>({description:li.description,qty:Number(li.qty)||0,rate:Number(li.rate)||0,amount:(Number(li.qty)||0)*(Number(li.rate)||0)}));
-  const total=lineItems.reduce((s,li)=>s+li.amount,0);
-  let vatAmount=0,netTotal=total;
-  if(d.taxChecked){vatAmount=total*0.15;netTotal=total+vatAmount;}
-  const invLike={invoiceNumber:d.invoiceNumber,invoiceDate:d.invoiceDate,poNumber:d.poNumber,terms:d.terms,projectName:d.projectName,projectCode:d.projectCode,lineItems,total,vatAddition:!!d.taxChecked,vatAmount,netTotal};
-  const html=invBuildInvoiceHtml(invLike,client);
-
-  // The pane is a fixed-size scroll viewport. The invoice renders in an iframe
-  // at a constant PAGE_W inside a `.inv-pv-wrap` that is transform:scale()'d.
-  // transform:scale keeps the layout box unscaled, so we wrap it in a
-  // `.inv-pv-sizer` block whose width/height are set to the SCALED footprint —
-  // that reserves real space and gives the pane true horizontal + vertical
-  // scrollbars, and margin:0 auto centres the page when it is narrower than the
-  // pane / left-aligns (scrollable, no clip) once wider.
-  // `_invPreviewZoom` 1.0 == fit-to-width; >1 zooms in and you pan.
-  const PAD=14;
-  pane.style.cssText=`border-radius:8px;box-shadow:0 2px 16px rgba(0,0,0,.16);overflow:auto;background:#e9edf3;flex-shrink:0;height:calc(100vh - 96px);padding:${PAD}px;`;
-  const PAGE_W=760;
-
-  // Reuse the iframe across zoom changes so only the scale updates (no white
-  // reload flash); only re-feed srcdoc when the invoice content changed.
-  let iframe=pane.querySelector('.inv-pv-wrap iframe');
-  if(!iframe){
-    pane.innerHTML='';
-    const sizer=document.createElement('div');
-    sizer.className='inv-pv-sizer';
-    const wrapper=document.createElement('div');
-    wrapper.className='inv-pv-wrap';
-    iframe=document.createElement('iframe');
-    iframe.style.cssText=`border:none;width:${PAGE_W}px;height:900px;display:block;background:#fff;box-shadow:0 1px 10px rgba(0,0,0,.14)`;
-    iframe.onload=()=>{
-      try{
-        const doc=iframe.contentDocument||iframe.contentWindow.document;
-        const h=Math.max(doc.body.scrollHeight,doc.documentElement.scrollHeight,300)+24;
-        iframe.style.height=h+'px';
-        pane._invContentH=h;
-      }catch(e){}
-      // onload does NOT refire on a zoom-only change (srcdoc unchanged), so the
-      // sizer is also recomputed at the end of every updateInvPreview() call.
-      invPreviewApplyScale(pane);
-    };
-    wrapper.appendChild(iframe);
-    sizer.appendChild(wrapper);
-    pane.appendChild(sizer);
-  }
-  if(pane._invHtml!==html){pane._invHtml=html;iframe.srcdoc=html;}
-  invPreviewApplyScale(pane);
-}
-// Recompute the fit-to-width * zoom scale and re-size the sizer footprint.
-// Called from updateInvPreview() (content changes) and directly from the
-// − / + / Fit buttons (zoom-only changes, where iframe.onload will not refire).
-function invPreviewApplyScale(pane){
-  if(!pane)return;
-  const wrapper=pane.querySelector('.inv-pv-wrap');
-  const sizer=pane.querySelector('.inv-pv-sizer');
-  if(!wrapper||!sizer)return;
-  const PAD=14,PAGE_W=760;
-  const fitScale=Math.max((pane.clientWidth||440)-PAD*2,200)/PAGE_W;
-  const scale=fitScale*_invPreviewZoom;
-  const contentH=pane._invContentH||900;
-  wrapper.style.cssText=`width:${PAGE_W}px;transform:scale(${scale});transform-origin:top left`;
-  sizer.style.cssText=`width:${Math.ceil(PAGE_W*scale)}px;height:${Math.ceil(contentH*scale)}px;margin:0 auto`;
-  const zl=document.getElementById('inv-zoom-lbl');
-  if(zl)zl.textContent=Math.round(_invPreviewZoom*100)+'%';
-}
+// (The New/Edit Invoice screen used to carry a live scaled-iframe preview;
+// dropped v3.10.316 for a full-width form. Check the finished invoice with the
+// green PDF button on the Invoices list.)
 
 function renderBroadcastList(){
   const q=broadcastSearch.toLowerCase().trim();
@@ -13280,7 +13185,6 @@ document.addEventListener('click',function invoicesHandler(e){
   if(e.target.id==='inv-new-btn'){
     invEditId=null;
     invDraft={clientId:'',invoiceNumber:'',invoiceDate:new Date().toISOString().slice(0,10),poNumber:'',terms:'',projectName:'',projectCode:'',lineItems:[invBlankLineItem()],taxChecked:false};
-    _invPreviewZoom=1;
     invView='form';render();return;
   }
   if(e.target.id==='inv-quick-client-btn'){invClientModal={id:null};render();return;}
@@ -13292,7 +13196,6 @@ document.addEventListener('click',function invoicesHandler(e){
     const id=editBtn.dataset.id;const inv=invoicesData[id];if(!inv)return;
     invEditId=id;
     invDraft={clientId:inv.clientId||'',invoiceNumber:inv.invoiceNumber||'',invoiceDate:inv.invoiceDate||'',poNumber:inv.poNumber||'',terms:inv.terms||'',projectName:inv.projectName||'',projectCode:inv.projectCode||'',lineItems:(inv.lineItems&&inv.lineItems.length?inv.lineItems.map(li=>({description:li.description,qty:li.qty,rate:li.rate})):[invBlankLineItem()]),taxChecked:!!inv.vatAddition};
-    _invPreviewZoom=1;
     invView='form';render();return;
   }
   const pdfBtn=e.target.closest('.inv-pdf-btn');
@@ -13307,9 +13210,6 @@ document.addEventListener('click',function invoicesHandler(e){
   if(e.target.id==='inv-form-cancel'){invView='list';invDraft=null;invEditId=null;render();return;}
   if(e.target.id==='inv-form-quick-client'){invClientModal={id:null};render();return;}
   if(e.target.id==='inv-li-add'&&invDraft){invDraft.lineItems.push(invBlankLineItem());render();return;}
-  if(e.target.id==='inv-zoom-in'){_invPreviewZoom=Math.min(3,Math.round((_invPreviewZoom+0.25)*100)/100);invPreviewApplyScale(document.getElementById('inv-preview-pane'));return;}
-  if(e.target.id==='inv-zoom-out'){_invPreviewZoom=Math.max(1,Math.round((_invPreviewZoom-0.25)*100)/100);invPreviewApplyScale(document.getElementById('inv-preview-pane'));return;}
-  if(e.target.id==='inv-zoom-fit'){_invPreviewZoom=1;invPreviewApplyScale(document.getElementById('inv-preview-pane'));return;}
   const liDelBtn=e.target.closest('.inv-li-del');
   if(liDelBtn&&invDraft){
     invDraft.lineItems.splice(Number(liDelBtn.dataset.row),1);
@@ -13379,17 +13279,16 @@ document.addEventListener('click',function invoicesHandler(e){
 });
 document.addEventListener('input',function invoicesInputHandler(e){
   if(!invDraft)return;
-  if(e.target.id==='inv-number-inp'){invDraft.invoiceNumber=e.target.value;updateInvPreviewDebounced();return;}
-  if(e.target.id==='inv-po-inp'){invDraft.poNumber=e.target.value;updateInvPreviewDebounced();return;}
-  if(e.target.id==='inv-terms-inp'){invDraft.terms=e.target.value;updateInvPreviewDebounced();return;}
-  if(e.target.id==='inv-project-name-inp'){invDraft.projectName=e.target.value;updateInvPreviewDebounced();return;}
-  if(e.target.id==='inv-project-code-inp'){invDraft.projectCode=e.target.value;updateInvPreviewDebounced();return;}
+  if(e.target.id==='inv-number-inp'){invDraft.invoiceNumber=e.target.value;return;}
+  if(e.target.id==='inv-po-inp'){invDraft.poNumber=e.target.value;return;}
+  if(e.target.id==='inv-terms-inp'){invDraft.terms=e.target.value;return;}
+  if(e.target.id==='inv-project-name-inp'){invDraft.projectName=e.target.value;return;}
+  if(e.target.id==='inv-project-code-inp'){invDraft.projectCode=e.target.value;return;}
   if(e.target.classList.contains('inv-li-inp')){
     const row=Number(e.target.dataset.row),field=e.target.dataset.field;
     if(!invDraft.lineItems[row])return;
     invDraft.lineItems[row][field]=e.target.value;
     invRecalcLive();
-    updateInvPreviewDebounced();
     return;
   }
 });
