@@ -171,8 +171,8 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.312';
-const BUILD_DATE='26 Aug 2026';
+const BUILD_VERSION='3.10.313';
+const BUILD_DATE='27 Aug 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -7316,8 +7316,16 @@ function renderInvoiceForm(){
         </div>
       </div>
       <div style="flex:1;min-width:0;position:sticky;top:12px">
-        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;margin-bottom:8px">Live Preview</div>
-        <div id="inv-preview-pane" style="min-height:300px"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7280">Live Preview</div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <button class="btn" id="inv-zoom-out" title="Zoom out" style="padding:2px 11px;font-size:17px;line-height:1">&minus;</button>
+            <span id="inv-zoom-lbl" style="font-size:12px;font-weight:700;color:#6b7280;min-width:46px;text-align:center">100%</span>
+            <button class="btn" id="inv-zoom-in" title="Zoom in" style="padding:2px 11px;font-size:17px;line-height:1">+</button>
+            <button class="btn" id="inv-zoom-fit" title="Fit to width" style="padding:2px 11px;font-size:12px">Fit</button>
+          </div>
+        </div>
+        <div id="inv-preview-pane" style="min-height:300px;max-height:calc(100vh - 90px);overflow:auto"></div>
       </div>
     </div>
   </div>`;
@@ -7386,6 +7394,7 @@ function invBuildInvoiceHtml(inv,client){
         ${sender.taxNumber?`<div style="font-size:9pt;color:#444;margin-top:12px">Tax No: ${esc(sender.taxNumber)}</div>`:''}
         ${sender.regNumber?`<div style="font-size:9pt;color:#444;${sender.taxNumber?'':'margin-top:12px'}">Reg No: ${esc(sender.regNumber)}</div>`:''}
         ${sender.vatNumber?`<div style="font-size:9pt;color:#444">VAT No: ${esc(sender.vatNumber)}</div>`:''}
+        <div style="height:18px"></div>
       </td>
       <td style="text-align:right;padding-right:2mm">
         <div style="font-size:9pt;color:#444;line-height:1.55">
@@ -7448,6 +7457,10 @@ function invExportPDF(id){
 // technique as the Studio Script Build preview), so there's no need to
 // print-to-PDF just to check the layout.
 let _invPreviewDebounce=null;
+// Live-preview zoom multiplier, applied on top of the fit-to-width scale.
+// 1 = fit the preview pane width; >1 zooms in (pane scrolls). Driven by the
+// − / + / Fit buttons above the pane.
+let _invPreviewZoom=1;
 // Debounced wrapper for use on every keystroke — rebuilding the preview
 // iframe's srcdoc on every character would feel janky, so this waits for a
 // short pause in typing rather than firing immediately.
@@ -7467,10 +7480,16 @@ function updateInvPreview(){
   const invLike={invoiceNumber:d.invoiceNumber,invoiceDate:d.invoiceDate,poNumber:d.poNumber,terms:d.terms,projectName:d.projectName,projectCode:d.projectCode,lineItems,total,vatAddition:!!d.taxChecked,vatAmount,netTotal};
   const html=invBuildInvoiceHtml(invLike,client);
   pane.innerHTML='';
-  pane.style.cssText='border-radius:8px;box-shadow:0 2px 16px rgba(0,0,0,.16);overflow:hidden;background:#eef1f6;flex-shrink:0;';
+  pane.style.cssText='border-radius:8px;box-shadow:0 2px 16px rgba(0,0,0,.16);overflow:auto;background:#eef1f6;flex-shrink:0;max-height:calc(100vh - 90px);';
   const PAGE_W=760;
-  const availW=Math.max(pane.clientWidth||420,200);
-  const scale=availW/PAGE_W;
+  const fitScale=Math.max(pane.clientWidth||420,200)/PAGE_W;
+  const scale=fitScale*_invPreviewZoom;
+  const zl=document.getElementById('inv-zoom-lbl');
+  if(zl)zl.textContent=Math.round(_invPreviewZoom*100)+'%';
+  // Outer sizer occupies the *scaled* footprint so the pane gets real
+  // scrollbars once zoomed past fit; the inner wrapper is transform-scaled.
+  const sizer=document.createElement('div');
+  sizer.style.cssText=`width:${Math.ceil(PAGE_W*scale)}px;height:${Math.ceil(600*scale)}px;`;
   const wrapper=document.createElement('div');
   wrapper.style.cssText=`width:${PAGE_W}px;transform:scale(${scale});transform-origin:top left;line-height:0;display:block;`;
   const iframe=document.createElement('iframe');
@@ -7480,14 +7499,12 @@ function updateInvPreview(){
       const doc=iframe.contentDocument||iframe.contentWindow.document;
       const h=Math.max(doc.body.scrollHeight,doc.documentElement.scrollHeight,300)+30;
       iframe.style.height=h+'px';
-      const scaledH=Math.round(h*scale);
-      wrapper.style.height=h+'px';
-      wrapper.style.marginBottom=(scaledH-h)+'px';
-      pane.style.height=scaledH+'px';
+      sizer.style.height=Math.ceil(h*scale)+'px';
     }catch(e){}
   };
   wrapper.appendChild(iframe);
-  pane.appendChild(wrapper);
+  sizer.appendChild(wrapper);
+  pane.appendChild(sizer);
   iframe.srcdoc=html;
 }
 
@@ -13232,6 +13249,7 @@ document.addEventListener('click',function invoicesHandler(e){
   if(e.target.id==='inv-new-btn'){
     invEditId=null;
     invDraft={clientId:'',invoiceNumber:'',invoiceDate:new Date().toISOString().slice(0,10),poNumber:'',terms:'',projectName:'',projectCode:'',lineItems:[invBlankLineItem()],taxChecked:false};
+    _invPreviewZoom=1;
     invView='form';render();return;
   }
   if(e.target.id==='inv-quick-client-btn'){invClientModal={id:null};render();return;}
@@ -13243,6 +13261,7 @@ document.addEventListener('click',function invoicesHandler(e){
     const id=editBtn.dataset.id;const inv=invoicesData[id];if(!inv)return;
     invEditId=id;
     invDraft={clientId:inv.clientId||'',invoiceNumber:inv.invoiceNumber||'',invoiceDate:inv.invoiceDate||'',poNumber:inv.poNumber||'',terms:inv.terms||'',projectName:inv.projectName||'',projectCode:inv.projectCode||'',lineItems:(inv.lineItems&&inv.lineItems.length?inv.lineItems.map(li=>({description:li.description,qty:li.qty,rate:li.rate})):[invBlankLineItem()]),taxChecked:!!inv.vatAddition};
+    _invPreviewZoom=1;
     invView='form';render();return;
   }
   const pdfBtn=e.target.closest('.inv-pdf-btn');
@@ -13257,6 +13276,9 @@ document.addEventListener('click',function invoicesHandler(e){
   if(e.target.id==='inv-form-cancel'){invView='list';invDraft=null;invEditId=null;render();return;}
   if(e.target.id==='inv-form-quick-client'){invClientModal={id:null};render();return;}
   if(e.target.id==='inv-li-add'&&invDraft){invDraft.lineItems.push(invBlankLineItem());render();return;}
+  if(e.target.id==='inv-zoom-in'){_invPreviewZoom=Math.min(3,Math.round((_invPreviewZoom+0.25)*100)/100);updateInvPreview();return;}
+  if(e.target.id==='inv-zoom-out'){_invPreviewZoom=Math.max(0.5,Math.round((_invPreviewZoom-0.25)*100)/100);updateInvPreview();return;}
+  if(e.target.id==='inv-zoom-fit'){_invPreviewZoom=1;updateInvPreview();return;}
   const liDelBtn=e.target.closest('.inv-li-del');
   if(liDelBtn&&invDraft){
     invDraft.lineItems.splice(Number(liDelBtn.dataset.row),1);
