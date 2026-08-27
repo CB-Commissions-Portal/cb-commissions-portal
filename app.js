@@ -171,7 +171,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.318';
+const BUILD_VERSION='3.10.319';
 const BUILD_DATE='27 Aug 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -234,7 +234,7 @@ let srShowArchived=false;
 // ── Invoicing (SuperAdmin only) ──────────────────────────────
 let invClients={}; // Firebase: invoice_clients — {id:{name,address,regNumber,vatNumber}}
 let invMyDetails=null; // Firebase: settings/invoiceMyDetails — single doc, the one sender identity for every invoice
-let invoicesData={}; // Firebase: invoices — {id:{clientId,invoiceNumber,invoiceDate,poNumber,terms,projectName,projectCode,lineItems,total,vatAddition,vatAmount,netTotal,notes,paid}}
+let invoicesData={}; // Firebase: invoices — {id:{clientId,invoiceNumber,invoiceDate,dueDate,poNumber,terms,projectName,projectCode,lineItems,total,vatAddition,vatAmount,netTotal,notes,paid}}
 let invView='list'; // 'list'|'myClients'|'myDetails'|'form'
 let invEditId=null; // id of invoice being edited, null when creating new
 let invDraft=null; // working copy of the invoice being created/edited — see invBlankLineItem()
@@ -7042,12 +7042,20 @@ function invNextNumber(clientId){
   const[,prefix,digits]=m;
   return prefix+(Number(digits)+1).toString().padStart(digits.length,'0');
 }
-// Last calendar day of the invoice's month, for display on the PDF only (not stored).
+// Last calendar day of the invoice's month — the PDF fallback when no manual
+// due date is stored (kept for invoices created before the Due Date field).
 function invDueDateStr(invoiceDateStr){
   if(!invoiceDateStr)return'—';
   const[y,m]=invoiceDateStr.split('-').map(Number);
   const last=new Date(Date.UTC(y,m,0));
   return last.toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
+}
+// Same month-end date as an ISO yyyy-mm-dd string — used only to pre-fill the
+// editable Due Date field on a new invoice; the user can change it freely.
+function invDefaultDueISO(invoiceDateStr){
+  if(!invoiceDateStr)return'';
+  const[y,m]=invoiceDateStr.split('-').map(Number);
+  return new Date(Date.UTC(y,m,0)).toISOString().slice(0,10);
 }
 // Recomputes a single line item's amount cell plus the subtotal/tax/net total
 // display directly in the DOM (no render()), so typing in a qty/rate field
@@ -7284,6 +7292,10 @@ function renderInvoiceForm(){
           <input type="date" id="inv-date-inp" value="${d.invoiceDate}" style="${inp}">
         </div>
         <div>
+          <label style="${lbl}">Due Date</label>
+          <input type="date" id="inv-duedate-inp" value="${d.dueDate||''}" style="${inp}">
+        </div>
+        <div>
           <label style="${lbl}">P.O. Number</label>
           <input id="inv-po-inp" value="${esc(d.poNumber)}" style="${inp}">
         </div>
@@ -7335,15 +7347,20 @@ function invRemittanceEmailsStr(sender){
 }
 // Single source of truth for the invoice's look — builds the printed PDF
 // (invExportPDF) from a saved invoice record.
-// `inv` needs: invoiceNumber, invoiceDate, poNumber, terms, projectName,
-// projectCode, lineItems (with amount already computed), total, vatAddition,
-// vatAmount, netTotal. `client` may be {} if none picked yet.
+// `inv` needs: invoiceNumber, invoiceDate, dueDate (optional — blank falls back
+// to month-end), poNumber, terms, projectName, projectCode, lineItems (with
+// amount already computed), total, vatAddition, vatAmount, netTotal.
+// `client` may be {} if none picked yet.
 const INV_NAVY='#0B2A4A',INV_BLUE='#0066CC';
 function invBuildInvoiceHtml(inv,client){
   const sender=invMyDetails||{};
   const sym=sender.currencySymbol||'R';
   const dateStr=inv.invoiceDate?new Date(inv.invoiceDate+'T00:00:00').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'}):'—';
-  const dueDateStr=invDueDateStr(inv.invoiceDate);
+  // Manual due date if the user set one; otherwise fall back to the old
+  // month-end rule so invoices created before the field existed still show one.
+  const dueDateStr=inv.dueDate
+    ?new Date(inv.dueDate+'T00:00:00').toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'})
+    :invDueDateStr(inv.invoiceDate);
   const lineRows=(inv.lineItems&&inv.lineItems.length?inv.lineItems:[]).map(li=>`<tr>
     <td style="padding:7px 10px;border-bottom:1px solid #eef1f6;white-space:normal">${esc(li.description)}</td>
     <td style="padding:7px 10px;border-bottom:1px solid #eef1f6;text-align:center;white-space:nowrap">${esc(String(li.qty))}</td>
@@ -13191,7 +13208,8 @@ document.addEventListener('click',function supplierRegHandler(e){
 document.addEventListener('click',function invoicesHandler(e){
   if(e.target.id==='inv-new-btn'){
     invEditId=null;
-    invDraft={clientId:'',invoiceNumber:'',invoiceDate:new Date().toISOString().slice(0,10),poNumber:'',terms:'',projectName:'',projectCode:'',lineItems:[invBlankLineItem()],taxChecked:false};
+    {const today=new Date().toISOString().slice(0,10);
+    invDraft={clientId:'',invoiceNumber:'',invoiceDate:today,dueDate:invDefaultDueISO(today),poNumber:'',terms:'',projectName:'',projectCode:'',lineItems:[invBlankLineItem()],taxChecked:false};}
     invView='form';render();return;
   }
   if(e.target.id==='inv-quick-client-btn'){invClientModal={id:null};render();return;}
@@ -13202,7 +13220,7 @@ document.addEventListener('click',function invoicesHandler(e){
   if(editBtn){
     const id=editBtn.dataset.id;const inv=invoicesData[id];if(!inv)return;
     invEditId=id;
-    invDraft={clientId:inv.clientId||'',invoiceNumber:inv.invoiceNumber||'',invoiceDate:inv.invoiceDate||'',poNumber:inv.poNumber||'',terms:inv.terms||'',projectName:inv.projectName||'',projectCode:inv.projectCode||'',lineItems:(inv.lineItems&&inv.lineItems.length?inv.lineItems.map(li=>({description:li.description,qty:li.qty,rate:li.rate})):[invBlankLineItem()]),taxChecked:!!inv.vatAddition};
+    invDraft={clientId:inv.clientId||'',invoiceNumber:inv.invoiceNumber||'',invoiceDate:inv.invoiceDate||'',dueDate:inv.dueDate||'',poNumber:inv.poNumber||'',terms:inv.terms||'',projectName:inv.projectName||'',projectCode:inv.projectCode||'',lineItems:(inv.lineItems&&inv.lineItems.length?inv.lineItems.map(li=>({description:li.description,qty:li.qty,rate:li.rate})):[invBlankLineItem()]),taxChecked:!!inv.vatAddition};
     invView='form';render();return;
   }
   const dupBtn=e.target.closest('.inv-dup-btn');
@@ -13212,10 +13230,12 @@ document.addEventListener('click',function invoicesHandler(e){
     // client / project / terms / line items, but a fresh number, today's date,
     // and not marked paid. Nothing is written until the user hits Create.
     invEditId=null;
+    const dupToday=new Date().toISOString().slice(0,10);
     invDraft={
       clientId:src.clientId||'',
       invoiceNumber:invNextNumber(src.clientId)||'',
-      invoiceDate:new Date().toISOString().slice(0,10),
+      invoiceDate:dupToday,
+      dueDate:invDefaultDueISO(dupToday),
       poNumber:src.poNumber||'',
       terms:src.terms||'',
       projectName:src.projectName||'',
@@ -13258,7 +13278,7 @@ document.addEventListener('click',function invoicesHandler(e){
     if(d.taxChecked){vatAmount=total*0.15;netTotal=total+vatAmount;}
     const id=invEditId||invGenId();
     const payload={
-      clientId:d.clientId,invoiceNumber:d.invoiceNumber.trim(),invoiceDate:d.invoiceDate,poNumber:d.poNumber||'',terms:d.terms||'',
+      clientId:d.clientId,invoiceNumber:d.invoiceNumber.trim(),invoiceDate:d.invoiceDate,dueDate:d.dueDate||'',poNumber:d.poNumber||'',terms:d.terms||'',
       projectName:d.projectName||'',projectCode:d.projectCode||'',lineItems,total,
       vatAddition:!!d.taxChecked,vatAmount,netTotal,
       paid:invEditId?!!invoicesData[invEditId]?.paid:false,
@@ -13331,6 +13351,7 @@ document.addEventListener('change',function invoicesChangeHandler(e){
   }
   if(!invDraft)return;
   if(e.target.id==='inv-date-inp'){invDraft.invoiceDate=e.target.value;return;}
+  if(e.target.id==='inv-duedate-inp'){invDraft.dueDate=e.target.value;return;}
   if(e.target.id==='inv-client-sel'){
     invDraft.clientId=e.target.value;
     if(!invEditId)invDraft.invoiceNumber=invNextNumber(e.target.value);
