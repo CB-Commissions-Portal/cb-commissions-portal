@@ -171,7 +171,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.317';
+const BUILD_VERSION='3.10.318';
 const BUILD_DATE='27 Aug 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -7100,6 +7100,7 @@ function renderInvoiceList(){
       <td style="padding:8px 12px;text-align:center"><input type="checkbox" class="inv-paid-chk" data-id="${id}" ${inv.paid?'checked':''}></td>
       <td style="padding:8px 12px"><div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn inv-edit-btn" data-id="${id}" style="font-size:13px;padding:3px 10px">Edit</button>
+        <button class="btn inv-dup-btn" data-id="${id}" style="font-size:13px;padding:3px 10px" title="Create a new invoice pre-filled from this one">Duplicate</button>
         <button class="btn inv-pdf-btn" data-id="${id}" style="font-size:13px;padding:3px 10px;border-color:#3fb950;color:#3fb950">PDF</button>
         <button class="btn inv-del-btn" data-id="${id}" style="font-size:13px;padding:3px 10px;border-color:#9ca3af;color:#9ca3af">✕</button>
       </div></td>
@@ -7121,9 +7122,9 @@ function renderInvoiceList(){
       ${rows.length===0?`<div style="text-align:center;padding:60px;color:#9ca3af;font-size:16px">No invoices yet. Click <strong>+ New Invoice</strong> to create one.</div>`:`
       <table style="width:100%;border-collapse:collapse;table-layout:fixed">
         <colgroup>
-          <col style="width:120px"><col><col><col style="width:90px">
-          <col style="width:112px"><col style="width:120px">
-          <col style="width:56px"><col style="width:168px">
+          <col style="width:116px"><col><col><col style="width:84px">
+          <col style="width:108px"><col style="width:112px">
+          <col style="width:52px"><col style="width:250px">
         </colgroup>
         <thead><tr style="background:#f8fafc">
           <th style="${th}">Invoice #</th><th style="${th}">Client</th><th style="${th}">Project</th><th style="${th}">Code</th>
@@ -13203,6 +13204,28 @@ document.addEventListener('click',function invoicesHandler(e){
     invEditId=id;
     invDraft={clientId:inv.clientId||'',invoiceNumber:inv.invoiceNumber||'',invoiceDate:inv.invoiceDate||'',poNumber:inv.poNumber||'',terms:inv.terms||'',projectName:inv.projectName||'',projectCode:inv.projectCode||'',lineItems:(inv.lineItems&&inv.lineItems.length?inv.lineItems.map(li=>({description:li.description,qty:li.qty,rate:li.rate})):[invBlankLineItem()]),taxChecked:!!inv.vatAddition};
     invView='form';render();return;
+  }
+  const dupBtn=e.target.closest('.inv-dup-btn');
+  if(dupBtn){
+    const src=invoicesData[dupBtn.dataset.id];if(!src)return;
+    // Open as a brand-new (unsaved) invoice pre-filled from the source: same
+    // client / project / terms / line items, but a fresh number, today's date,
+    // and not marked paid. Nothing is written until the user hits Create.
+    invEditId=null;
+    invDraft={
+      clientId:src.clientId||'',
+      invoiceNumber:invNextNumber(src.clientId)||'',
+      invoiceDate:new Date().toISOString().slice(0,10),
+      poNumber:src.poNumber||'',
+      terms:src.terms||'',
+      projectName:src.projectName||'',
+      projectCode:src.projectCode||'',
+      lineItems:(src.lineItems&&src.lineItems.length?src.lineItems.map(li=>({description:li.description||'',qty:li.qty,rate:li.rate})):[invBlankLineItem()]),
+      taxChecked:!!src.vatAddition,
+    };
+    invView='form';render();
+    showToast('Duplicated — review the details, then click Create Invoice');
+    return;
   }
   const pdfBtn=e.target.closest('.inv-pdf-btn');
   if(pdfBtn){invExportPDF(pdfBtn.dataset.id);return;}
