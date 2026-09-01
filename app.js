@@ -171,8 +171,8 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.320';
-const BUILD_DATE='27 Aug 2026';
+const BUILD_VERSION='3.10.321';
+const BUILD_DATE='01 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -6255,6 +6255,20 @@ const CS_SCHED_ITEMS=[
   {key:'sWrap',     label:'Wrap'},
 ];
 
+function csNewRowKey(){return 'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function csDefaultSched(){return CS_SCHED_ITEMS.map(si=>({key:si.key,label:si.label,time:'',responsible:[]}));}
+// Effective, ordered schedule list — the saved array is the source of truth; seed from the
+// standard list only when nothing has been saved yet. Every row is normalised with a stable key.
+function csGetSched(cs){
+  const arr=(cs&&Array.isArray(cs.schedItems)&&cs.schedItems.length)?cs.schedItems:csDefaultSched();
+  return arr.map(si=>({
+    key:si.key||csNewRowKey(),
+    label:si.label||'',
+    time:si.time||'',
+    responsible:Array.isArray(si.responsible)?si.responsible:[]
+  }));
+}
+
 function csGetAllNames(cs){
   const names=new Set();
   ['producer','editorialMgr','director','asstDir','floorMgr','autocue','makeup','eng1','eng2','facMgr','anchor1Name','anchor2Name'].forEach(f=>{if(cs[f])names.add(cs[f].trim());});
@@ -6308,18 +6322,23 @@ function renderCallSheet(epNums){
       <button class="cs-resp-add" data-ep="${ep}" data-key="${key}" style="background:#f9fafb;border:1px dashed #d1dae8;color:#0066CC;font-size:14px;padding:4px 10px;border-radius:4px;cursor:pointer" onmouseover="this.style.borderColor='#58a6ff'" onmouseout="this.style.borderColor='#d1dae8'">+ Add</button>
     </div>`;
   };
-  const schedData=cs.schedItems||[];
-  const schedRows=CS_SCHED_ITEMS.map(si=>{const sd=schedData.find(x=>x.key===si.key)||{};return`<tr style="border-bottom:2px solid #1e2535">
-    <td style="padding:10px 12px;font-size:17px;font-weight:700;color:#111827;white-space:nowrap;min-width:200px">${si.label}</td>
-    <td style="padding:10px 12px;width:110px">${canEdit?`<input class="cs-sched-time" data-ep="${ep}" data-key="${si.key}" value="${esc(sd.time||'')}" placeholder="00:00" style="width:95px;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#e3b341;font-size:18px;padding:8px;outline:none;font-family:monospace;text-align:center">`:`<span style="font-size:18px;color:#e3b341;font-family:monospace">${esc(sd.time||'—')}</span>`}</td>
-    <td style="padding:10px 12px">${multiSel(si.key,sd.responsible||[])}</td>
-  </tr>`;}).join('');
+  const schedList=csGetSched(cs);
+  const schedRows=schedList.map((si,ri)=>`<tr style="border-bottom:2px solid #e8edf5">
+    <td style="padding:8px 10px;min-width:220px">${canEdit?`<input class="cs-sched-label" data-ep="${ep}" data-key="${si.key}" value="${esc(si.label||'')}" placeholder="Activity" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:16px;font-weight:700;padding:8px 10px;outline:none;font-family:inherit">`:`<span style="font-size:17px;font-weight:700;color:#111827">${esc(si.label||'—')}</span>`}</td>
+    <td style="padding:8px 10px;width:110px">${canEdit?`<input class="cs-sched-time" data-ep="${ep}" data-key="${si.key}" value="${esc(si.time||'')}" placeholder="00:00" style="width:95px;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#e3b341;font-size:18px;padding:8px;outline:none;font-family:monospace;text-align:center">`:`<span style="font-size:18px;color:#e3b341;font-family:monospace">${esc(si.time||'—')}</span>`}</td>
+    <td style="padding:8px 10px">${multiSel(si.key,si.responsible||[])}</td>
+    ${canEdit?`<td style="padding:8px 6px;width:104px;white-space:nowrap;text-align:right">
+      <button class="cs-row-up btn" data-idx="${ri}" title="Move up"${ri===0?' disabled':''} style="font-size:12px;padding:4px 7px;line-height:1${ri===0?';opacity:.3':''}">▲</button>
+      <button class="cs-row-down btn" data-idx="${ri}" title="Move down"${ri===schedList.length-1?' disabled':''} style="font-size:12px;padding:4px 7px;line-height:1${ri===schedList.length-1?';opacity:.3':''}">▼</button>
+      <button class="cs-row-del btn" data-idx="${ri}" title="Delete row" style="font-size:12px;padding:4px 7px;line-height:1;border-color:#f85149;color:#f85149">✕</button>
+    </td>`:''}
+  </tr>`).join('');
   // Responsible picker modal
   let respModalHtml='';
   if(csRespModal&&csRespModal.ep===ep){
     const mkey=csRespModal.key;
-    const mSi=CS_SCHED_ITEMS.find(s=>s.key===mkey)||{};
-    const mSel=((cs.schedItems||[]).find(x=>x.key===mkey)||{}).responsible||[];
+    const mSi=schedList.find(s=>s.key===mkey)||{};
+    const mSel=(schedList.find(x=>x.key===mkey)||{}).responsible||[];
     const allNamesWithCrew=['ALL CREW',...allNames];
     const nameOpts=allNames.length
       ?allNamesWithCrew.map(n=>`<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #d1dae8;cursor:pointer;font-size:16px;color:#111827" onmouseover="this.style.background='#1e2535'" onmouseout="this.style.background='transparent'">
@@ -6332,7 +6351,7 @@ function renderCallSheet(epNums){
         <div style="padding:16px 18px;border-bottom:1px solid #d1dae8;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
           <div>
             <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:2px">Responsible for</div>
-            <div style="font-size:17px;font-weight:800;color:#111827">${mSi.label}</div>
+            <div style="font-size:17px;font-weight:800;color:#111827">${esc(mSi.label||'this row')}</div>
           </div>
           <button id="cs-resp-close" style="background:none;border:1px solid #d1dae8;color:#6b7280;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
         </div>
@@ -6383,19 +6402,24 @@ function renderCallSheet(epNums){
         </div>
       </div>
       <div style="background:#f9fafb;border:1px solid #d1dae8;border-radius:10px;overflow:hidden">
-        <div style="padding:14px 20px;background:#f0f4f8;border-bottom:2px solid #d1dae8;display:flex;align-items:center;justify-content:space-between">
+        <div style="padding:14px 20px;background:#f0f4f8;border-bottom:2px solid #d1dae8;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
           <span style="font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341">Schedule &amp; Running Order</span>
-          ${canEdit?`<button class="btn" id="cs-gen-sched-btn" style="font-size:13px;border-color:#e3b341;color:#e3b341;padding:4px 14px">⚡ Refresh Names</button>`:''}
+          ${canEdit?`<div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" id="cs-sched-reset-btn" style="font-size:13px;border-color:#6b7280;color:#6b7280;padding:4px 14px">↺ Reset to standard schedule</button>
+            <button class="btn" id="cs-gen-sched-btn" style="font-size:13px;border-color:#e3b341;color:#e3b341;padding:4px 14px">⚡ Refresh Names</button>
+          </div>`:''}
         </div>
-        <div style="padding:8px 14px;background:#f8fafc;border-bottom:1px solid #d1dae8;font-size:13px;color:#9ca3af">Hold <kbd style="background:#f9fafb;border:1px solid #d1dae8;padding:1px 5px;border-radius:3px">Ctrl</kbd> / <kbd style="background:#f9fafb;border:1px solid #d1dae8;padding:1px 5px;border-radius:3px">⌘</kbd> to select multiple people</div>
+        <div style="padding:8px 14px;background:#f8fafc;border-bottom:1px solid #d1dae8;font-size:13px;color:#9ca3af">${canEdit?'Edit the activity name and time inline · <b>▲ ▼</b> to reorder · <b>✕</b> to delete a row · ':''}Hold <kbd style="background:#f9fafb;border:1px solid #d1dae8;padding:1px 5px;border-radius:3px">Ctrl</kbd> / <kbd style="background:#f9fafb;border:1px solid #d1dae8;padding:1px 5px;border-radius:3px">⌘</kbd> to select multiple people</div>
         <table style="width:100%;border-collapse:collapse">
           <thead><tr style="background:#f8fafc">
             <th style="padding:10px 12px;font-size:13px;font-weight:800;text-transform:uppercase;color:#6b7280;text-align:left;border-bottom:2px solid #d1dae8;min-width:200px">Activity</th>
             <th style="padding:10px 12px;font-size:13px;font-weight:800;text-transform:uppercase;color:#6b7280;text-align:left;border-bottom:2px solid #d1dae8;width:110px">Time</th>
             <th style="padding:10px 12px;font-size:13px;font-weight:800;text-transform:uppercase;color:#6b7280;text-align:left;border-bottom:2px solid #d1dae8">Responsible</th>
+            ${canEdit?'<th style="border-bottom:2px solid #d1dae8;width:104px"></th>':''}
           </tr></thead>
           <tbody>${schedRows}</tbody>
         </table>
+        ${canEdit?`<div style="padding:10px 14px;border-top:1px solid #d1dae8"><button class="btn" id="cs-sched-add-btn" style="width:100%;font-size:14px;border-style:dashed;border-color:#388bfd;color:#0066CC">&#65291; Add Row</button></div>`:''}
       </div>
     </div>
   </div>`;
@@ -10943,12 +10967,24 @@ function csFlushAndGet(){
   if(!ep)return null;
   const cs={...(callSheetData[String(ep)]||{})};
   document.querySelectorAll(`.cs-field[data-ep="${ep}"]`).forEach(el=>{cs[el.dataset.field]=el.tagName==='TEXTAREA'?el.value:el.value;});
-  const schedItems=CS_SCHED_ITEMS.map(si=>{
-    const ti=document.querySelector(`.cs-sched-time[data-key="${si.key}"][data-ep="${ep}"]`);
-    const ex=(cs.schedItems||[]).find(x=>x.key===si.key)||{};
-    return{key:si.key,label:si.label,time:ti?ti.value:(ex.time||''),responsible:ex.responsible||[]};
-  });
-  cs.schedItems=schedItems;
+  // Rebuild the schedule from the DOM rows in their current visual order, keeping each row's
+  // saved responsible[] (matched by stable key). Falls back to the standard list only when
+  // nothing has been saved and no rows are on screen.
+  const prevSched=(Array.isArray(cs.schedItems)&&cs.schedItems.length)?cs.schedItems:csDefaultSched();
+  const labelEls=Array.from(document.querySelectorAll(`.cs-sched-label[data-ep="${ep}"]`));
+  if(labelEls.length){
+    cs.schedItems=labelEls.map(le=>{
+      const k=le.dataset.key;
+      const ti=document.querySelector(`.cs-sched-time[data-key="${k}"][data-ep="${ep}"]`);
+      const ex=prevSched.find(x=>x.key===k)||{};
+      return{key:k,label:le.value,time:ti?ti.value:(ex.time||''),responsible:Array.isArray(ex.responsible)?ex.responsible:[]};
+    });
+  }else{
+    cs.schedItems=prevSched.map(si=>{
+      const ti=document.querySelector(`.cs-sched-time[data-key="${si.key}"][data-ep="${ep}"]`);
+      return{key:si.key,label:si.label||'',time:ti?ti.value:(si.time||''),responsible:Array.isArray(si.responsible)?si.responsible:[]};
+    });
+  }
   const extras=[];
   document.querySelectorAll(`.cs-extra-name[data-ep="${ep}"]`).forEach(el=>{
     const i=Number(el.dataset.idx);if(!extras[i])extras[i]={designation:'',name:'',time:''};
@@ -10997,11 +11033,10 @@ function csExportPDF(){
     <td style="font-size:9pt;padding:3px 4px;border-bottom:1px solid #f0f0f0">${ec.name||''}</td>
   </tr>`).join('');
 
-  const defaultSched=CS_SCHED_ITEMS.map(si=>({key:si.key,label:si.label,time:'',responsible:[]}));
-  const schedRows=(cs.schedItems||defaultSched).map(si=>`<tr>
-    <td class="desc">${si.label}</td>
-    <td class="time">${si.time||''}</td>
-    <td class="resp">${(si.responsible||[]).join(', ')}</td>
+  const schedRows=(cs.schedItems&&cs.schedItems.length?cs.schedItems:csDefaultSched()).map(si=>`<tr>
+    <td class="desc">${esc(si.label||'')}</td>
+    <td class="time">${esc(si.time||'')}</td>
+    <td class="resp">${esc((si.responsible||[]).join(', '))}</td>
   </tr>`).join('');
 
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8">
@@ -11158,7 +11193,7 @@ document.addEventListener('click',async function csClickHandler(e){
   if(removeBtn){
     const k=removeBtn.dataset.key;const n=removeBtn.dataset.name;const epN=Number(removeBtn.dataset.ep);
     const cs2=callSheetData[String(epN)]||{};
-    cs2.schedItems=(cs2.schedItems||CS_SCHED_ITEMS.map(si=>({key:si.key,label:si.label,time:'',responsible:[]}))).map(si=>{
+    cs2.schedItems=(cs2.schedItems||csDefaultSched()).map(si=>{
       if(si.key===k)si.responsible=(si.responsible||[]).filter(x=>x!==n);
       return si;
     });
@@ -11175,7 +11210,7 @@ document.addEventListener('click',async function csClickHandler(e){
     const checked=Array.from(document.querySelectorAll('.cs-resp-cb:checked')).map(cb=>cb.dataset.name);
     const k=csRespModal.key;const epN=csRespModal.ep;
     const cs2=callSheetData[String(epN)]||{};
-    cs2.schedItems=(cs2.schedItems||CS_SCHED_ITEMS.map(si=>({key:si.key,label:si.label,time:'',responsible:[]}))).map(si=>{
+    cs2.schedItems=(cs2.schedItems||csDefaultSched()).map(si=>{
       if(si.key===k)si.responsible=checked;
       return si;
     });
@@ -11185,44 +11220,14 @@ document.addEventListener('click',async function csClickHandler(e){
   }
   // Close modal on overlay click
   if(e.target.id==='cs-resp-overlay'){csRespModal=null;render();return;}
-  // Generate schedule from contacts
+  // Refresh the responsible-picker options from the latest contacts (keeps every row as-is)
   if(e.target.id==='cs-gen-sched-btn'){
     const cs=csFlushAndGet();
     if(!cs)return;
-    const allNames=csGetAllNames(cs);
-    // Auto-suggest responsible parties for key schedule items
-    const everyone=allNames;
-    const production=[cs.producer,cs.editorialMgr,cs.director,cs.asstDir].filter(Boolean);
-    const crew=allNames; // all crew for general items
-    const suggestions={
-      sMakeup:[cs.makeup].filter(Boolean),
-      sIngest:[cs.ctFacilities_name||cs.eng1].filter(Boolean),
-      sViewing:[cs.director,cs.producer,cs.editorialMgr].filter(Boolean),
-      sFacCheck:[cs.facMgr||cs.eng1,cs.director].filter(Boolean),
-      sScript:[cs.director,cs.asstDir,cs.floorMgr].filter(Boolean),
-      sMic:[everyone[0]||'ALL CREW'].filter(Boolean),
-      sRehearsal:everyone.slice(0,3),
-      sDinner:everyone.slice(0,3),
-      sDryRun:everyone.slice(0,5),
-      sLiveTx:everyone.slice(0,5),
-      sWrap:everyone.slice(0,3),
-    };
-    // Also seed times from call times where applicable
-    const timeSuggestions={
-      sMakeup:cs.ctMakeup_time||'',
-      sIngest:cs.ctProd_time||'',
-      sViewing:cs.ctProd_time||'',
-      sFacCheck:cs.ctFacilities_time||'',
-      sLiveTx:'',sWrap:'',
-    };
-    // Just refresh the dropdown options — don't pre-fill responsible or times
-    cs.schedItems=CS_SCHED_ITEMS.map(si=>{
-      const existing=(cs.schedItems||[]).find(x=>x.key===si.key)||{};
-      return{key:si.key,label:si.label,time:existing.time||'',responsible:existing.responsible||[]};
-    });
+    cs.schedItems=csGetSched(cs);
     callSheetData[String(csCurrentEp)]=cs;
     render();
-    showToast('Schedule generated — review and adjust as needed ✓');
+    showToast('Names refreshed ✓');
     return;
   }
   // Save
@@ -11234,25 +11239,48 @@ document.addEventListener('click',async function csClickHandler(e){
     showToast('Call sheet saved ✓');
     return;
   }
-  // Add row
-  if(e.target.id==='cs-add-row-btn'){
+  // Add a schedule / running-order row
+  if(e.target.id==='cs-sched-add-btn'){
     const cs=csFlushAndGet();
     if(!cs)return;
-    cs.items=cs.items||defaultCallItems();
-    cs.items.push({time:'',description:'',responsible:''});
+    cs.schedItems=csGetSched(cs);
+    cs.schedItems.push({key:csNewRowKey(),label:'',time:'',responsible:[]});
     callSheetData[String(csCurrentEp)]=cs;
     render();return;
   }
-  // Delete row
-  const delBtn=e.target.closest('.cs-del-item');
-  if(delBtn){
-    const ep=Number(delBtn.dataset.ep);
-    const idx=Number(delBtn.dataset.idx);
+  // Reset the schedule to the standard list
+  if(e.target.id==='cs-sched-reset-btn'){
+    if(!confirm('Reset the schedule to the standard 11 activities? Custom rows, plus the times and responsible people in this table, will be cleared.'))return;
     const cs=csFlushAndGet();
     if(!cs)return;
-    cs.items=cs.items||defaultCallItems();
-    cs.items.splice(idx,1);
-    callSheetData[String(ep)]=cs;
+    cs.schedItems=csDefaultSched();
+    callSheetData[String(csCurrentEp)]=cs;
+    render();return;
+  }
+  // Move a schedule row up / down
+  const rowUp=e.target.closest('.cs-row-up');
+  const rowDown=e.target.closest('.cs-row-down');
+  if(rowUp||rowDown){
+    const cs=csFlushAndGet();
+    if(!cs)return;
+    const arr=csGetSched(cs);
+    const idx=Number((rowUp||rowDown).dataset.idx);
+    const to=rowUp?idx-1:idx+1;
+    if(to<0||to>=arr.length)return;
+    [arr[idx],arr[to]]=[arr[to],arr[idx]];
+    cs.schedItems=arr;
+    callSheetData[String(csCurrentEp)]=cs;
+    render();return;
+  }
+  // Delete a schedule row
+  const rowDel=e.target.closest('.cs-row-del');
+  if(rowDel){
+    const cs=csFlushAndGet();
+    if(!cs)return;
+    const arr=csGetSched(cs);
+    arr.splice(Number(rowDel.dataset.idx),1);
+    cs.schedItems=arr;
+    callSheetData[String(csCurrentEp)]=cs;
     render();return;
   }
   // Copy from episode
