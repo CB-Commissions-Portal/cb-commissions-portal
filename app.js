@@ -175,7 +175,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.322';
+const BUILD_VERSION='3.10.323';
 const BUILD_DATE='02 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -7685,7 +7685,7 @@ function renderLineups(epNums){
           <span style="font-size:12px;font-weight:800;padding:3px 9px;border-radius:3px;letter-spacing:.5px;${epType==='extended'?'background:#fef3c7;color:#b45309;border:1px solid #fde68a':epType==='repeat'?'background:#f1f5f9;color:#7a8ba0;border:1px solid #e2e8f0':'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0'}">${epType==='extended'?'★ EXTENDED':epType==='repeat'?'↺ REPEAT':'NORMAL'}</span>
           ${epDate?`<span style="font-size:15px;color:${past?'#7f1d1d':'#6b7280'}">${fmtDate(epDate)}</span>`:''}
         </div>
-        <span style="font-size:18px;font-weight:800;color:${totColor};font-family:monospace">Total: ${decToMmSs(tot)} <span style="font-size:13px;font-weight:600;color:#9ca3af">/ Alloc: ${decToMmSs(epAlloc)}</span></span>
+        <span style="font-size:18px;font-weight:800;color:${totColor};font-family:monospace">Total: ${decToMmSs(tot)} <span style="font-size:13px;font-weight:600;color:#9ca3af">/ Paid Allocation: ${decToMmSs(epAlloc)}</span></span>
       </div>
       <div class="lu-ep-body" style="display:${collapsed?'none':'block'}"><div style="padding:16px 22px;border-bottom:1px solid ${past?'#fecaca':'#e8edf5'};display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
         <div>
