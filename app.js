@@ -114,9 +114,13 @@ function toDecimalMins(v){
 }
 function addDays(iso,d){const p=iso.split('-');const dt=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]));dt.setUTCDate(dt.getUTCDate()+d);return dt.toISOString().split('T')[0];}
 
-function insertMinsDisplay(insertMins){
-  // 34 minutes = 2040 seconds
-  const allocatedSecs = 34 * 60;
+function allocMinsForEp(ep){
+  // Flat allocated-minutes target per episode: 51 for Extended, 34 for Normal/Repeat.
+  return (settings.epTypes||{})[String(ep)]==='extended'?51:34;
+}
+function insertMinsDisplay(insertMins,allocatedMins){
+  if(allocatedMins===undefined)allocatedMins=34;
+  const allocatedSecs = allocatedMins * 60;
   const totalSecs = Math.round(insertMins * 60);
   const diffSecs = totalSecs - allocatedSecs;
   const absSecs = Math.abs(diffSecs);
@@ -171,8 +175,8 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.321';
-const BUILD_DATE='01 Sep 2026';
+const BUILD_VERSION='3.10.322';
+const BUILD_DATE='02 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
@@ -1733,7 +1737,7 @@ function updateTicker(){
   const iv=document.querySelector('.t-val.aired'),is=document.querySelector('.t-sub.aired');
   const sv=document.querySelector('.t-val.status'),ss=document.querySelector('.t-sub.status');
   if(av)av.textContent=st.allocated;
-  if(as)as.textContent=`${st.epCount} ep${st.epCount===1?'':'s'} × 34 min`;
+  if(as)as.textContent=`${st.epCount} ep${st.epCount===1?'':'s'}${st.extCount?` (${st.extCount} ext)`:''}`;
   if(iv)iv.textContent=st.airedPaid.toFixed(1);
   if(is)is.textContent=`${st.epCount} ep${st.epCount===1?'':'s'} aired`;
   if(sv){
@@ -1823,10 +1827,11 @@ function getAiredStats(){
   // Ticker: pace-tracking vs episodes that have actually gone to air (21:00 SAST cutoff), repeats excluded.
   const airedEps=getEpNums().filter(n=>isEpBroadcast(n)&&(settings.epTypes||{})[String(n)]!=='repeat');
   const airedSet=new Set(airedEps);
-  const allocated=airedEps.length*34;
+  const extCount=airedEps.filter(n=>(settings.epTypes||{})[String(n)]==='extended').length;
+  const allocated=airedEps.reduce((s,n)=>s+allocMinsForEp(n),0);
   const airedPaid=comms.filter(c=>!c.isInHouse&&!c.decommissioned&&c.broadcastEpisode&&airedSet.has(Number(c.broadcastEpisode)))
     .reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);
-  return{epCount:airedEps.length,allocated,airedPaid,diff:airedPaid-allocated};
+  return{epCount:airedEps.length,extCount,allocated,airedPaid,diff:airedPaid-allocated};
 }
 
 function getFiltered(){
@@ -2249,17 +2254,17 @@ function renderApp(){
     <div class="t-item" title="Total insert minutes contracted for the season."><div class="t-lbl">Contracted Mins</div>${currentRole==='admin'&&!previewRole?`<input class="t-inp" type="number" id="contracted-input" tabindex="-1" value="${contracted}">`:`<div class="t-val c">${contracted}</div>`}</div>
     <div class="t-item" title="Contracted minutes minus paid insert minutes across all commissions, aired or not."><div class="t-lbl">Remaining Mins</div><div class="t-val r">${remaining.toFixed(1)}</div></div>
     ${(()=>{const st=getAiredStats();return`
-    <div class="t-item" title="Episodes that have gone to air so far × 34 min/ep — the pace budget expects by this point in the season.">
+    <div class="t-item" title="Episodes that have gone to air so far — 34 min/ep Normal, 51 min/ep Extended — the pace budget expects by this point in the season.">
       <div class="t-lbl">Allocated to Date</div>
       <div class="t-val alloc" style="color:var(--cb-navy)">${st.allocated}</div>
-      <div class="t-sub alloc" style="font-size:11px;color:#9ca3af;margin-top:2px">${st.epCount} ep${st.epCount===1?'':'s'} × 34 min</div>
+      <div class="t-sub alloc" style="font-size:11px;color:#9ca3af;margin-top:2px">${st.epCount} ep${st.epCount===1?'':'s'}${st.extCount?` (${st.extCount} ext)`:''}</div>
     </div>
     <div class="t-item" title="Actual paid insert minutes for episodes that have already gone to air.">
       <div class="t-lbl">Aired to Date</div>
       <div class="t-val aired" style="color:#0066CC">${st.airedPaid.toFixed(1)}</div>
       <div class="t-sub aired" style="font-size:11px;color:#9ca3af;margin-top:2px">${st.epCount} ep${st.epCount===1?'':'s'} aired</div>
     </div>
-    <div class="t-item" title="Aired to Date minus Allocated to Date. Red = more paid insert minutes went to air than the flat 34 min/ep pace allows. Green = under that pace.">
+    <div class="t-item" title="Aired to Date minus Allocated to Date. Red = more paid insert minutes went to air than the 34/51 min/ep pace allows. Green = under that pace.">
       <div class="t-lbl">Status</div>
       <div class="t-val status" style="color:${st.diff>0?'#dc2626':st.diff<0?'#16a34a':'#6b7280'}">${st.diff>0?'+':st.diff<0?'−':''}${Math.abs(st.diff).toFixed(1)}</div>
       <div class="t-sub status" style="font-size:11px;color:#9ca3af;margin-top:2px">${st.diff>0?'over pace':st.diff<0?'under pace':'on pace'}</div>
@@ -2629,9 +2634,9 @@ ${episodes.map(({ep,date,stories})=>{
   `<span class="ep-date-btn" data-ep-date="${ep}">${fmtDate(date)}${currentRole==='admin'?' ✎':''}</span>`}
   <span style="font-size:16px;color:#6b7280;font-weight:500">${stories.length} ${stories.length===1?'story':'stories'}</span>
   <span style="display:inline-flex;align-items:center;gap:16px;margin-left:12px;padding-left:12px;border-left:1px solid #d1dae8;font-size:15px;flex-wrap:wrap">
-    <span style="color:#6b7280">Allocated: <strong style="color:#0066CC;font-family:'JetBrains Mono',monospace;font-size:17px">00:34:00</strong></span>
+    <span style="color:#6b7280">Allocated: <strong style="color:#0066CC;font-family:'JetBrains Mono',monospace;font-size:17px">${fmtHMS(allocMinsForEp(ep))}</strong></span>
     <span style="color:#6b7280">Ep Content: <strong style="color:#111827;font-family:'JetBrains Mono',monospace;font-size:17px">${fmtHMS(epContentMins)}</strong></span>
-    <span style="color:#6b7280">Insert Mins: ${insertMinsDisplay(insertMins)}</span>
+    <span style="color:#6b7280">Insert Mins: ${insertMinsDisplay(insertMins,allocMinsForEp(ep))}</span>
     <span style="color:#6b7280">Non-Insert: <strong style="color:#b45309;font-family:'JetBrains Mono',monospace;font-size:17px">${fmtHMS(nonMins)}</strong></span>
     ${(settings.epOnAir||{})[k]?`<span style="color:#6b7280;border-left:1px solid #d1dae8;padding-left:12px">On-Air: <strong style="color:#3fb950;font-family:'JetBrains Mono',monospace;font-size:17px">${esc((settings.epOnAir||{})[k])}</strong></span>`:''}
   </span>
@@ -7638,6 +7643,9 @@ function renderLineups(epNums){
     const tot=totalMins(ep);
     const epAccent=past?'#b91c1c':'#0066CC';
     const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
+    const epType=(settings.epTypes||{})[String(ep)]||'normal';
+    const epAlloc=allocMinsForEp(ep);
+    const totColor=tot<=0?'#9ca3af':(tot>epAlloc?'#dc2626':'#16a34a');
 
     let itemsHtml='';
     items.forEach((item,idx)=>{
@@ -7674,9 +7682,10 @@ function renderLineups(epNums){
           <span class="lu-chevron" style="font-size:18px;color:${epAccent};margin-right:2px">${collapsed?'▶':'▼'}</span>
           <span style="font-size:20px;font-weight:900;color:${epAccent};font-family:monospace">2026 | ${epLabel}</span>
           ${past?`<span style="background:#fee2e2;color:#b91c1c;font-size:12px;font-weight:800;padding:3px 9px;border-radius:3px;border:1px solid #fca5a5;letter-spacing:.5px">BROADCAST</span>`:''}
+          <span style="font-size:12px;font-weight:800;padding:3px 9px;border-radius:3px;letter-spacing:.5px;${epType==='extended'?'background:#fef3c7;color:#b45309;border:1px solid #fde68a':epType==='repeat'?'background:#f1f5f9;color:#7a8ba0;border:1px solid #e2e8f0':'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0'}">${epType==='extended'?'★ EXTENDED':epType==='repeat'?'↺ REPEAT':'NORMAL'}</span>
           ${epDate?`<span style="font-size:15px;color:${past?'#7f1d1d':'#6b7280'}">${fmtDate(epDate)}</span>`:''}
         </div>
-        <span style="font-size:18px;font-weight:800;color:${tot>0?(past?'#b91c1c':'#16a34a'):'#9ca3af'};font-family:monospace">Total: ${decToMmSs(tot)}</span>
+        <span style="font-size:18px;font-weight:800;color:${totColor};font-family:monospace">Total: ${decToMmSs(tot)} <span style="font-size:13px;font-weight:600;color:#9ca3af">/ Alloc: ${decToMmSs(epAlloc)}</span></span>
       </div>
       <div class="lu-ep-body" style="display:${collapsed?'none':'block'}"><div style="padding:16px 22px;border-bottom:1px solid ${past?'#fecaca':'#e8edf5'};display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
         <div>
@@ -8609,7 +8618,8 @@ function bindApp(){
       const epContentMins=stories.reduce((s,c)=>s+toDecimalMins(c.deliveredDuration||c.commDuration),0);
       const insertMins=stories.filter(s=>!s.isInHouse&&!s.decommissioned).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);
       const nonMins=stories.filter(s=>s.isInHouse).reduce((s,c)=>s+toDecimalMins(c.deliveredDuration||c.commDuration),0);
-      const diff=insertMins-34;
+      const epAlloc=allocMinsForEp(ep);
+      const diff=insertMins-epAlloc;
       const absSecs=Math.round(Math.abs(diff)*60);
       const dh=Math.floor(absSecs/3600),dm=Math.floor((absSecs%3600)/60),ds=absSecs%60;
       const diffStr=`${String(dh).padStart(2,'0')}:${String(dm).padStart(2,'0')}:${String(ds).padStart(2,'0')}`;
@@ -8633,7 +8643,7 @@ function bindApp(){
           <span style="font-weight:700;font-size:14px;color:#222">${fmtDate(date)}</span>
           <span style="font-size:13px;color:#666">${stories.length} ${stories.length===1?'story':'stories'}</span>
           <span style="font-size:12px;color:#888;margin-left:8px;padding-left:8px;border-left:1px solid #ccc">
-            Allocated: <strong style="font-family:monospace;color:#0047ab">00:34:00</strong> &nbsp;|&nbsp;
+            Allocated: <strong style="font-family:monospace;color:#0047ab">${fmtHMS(epAlloc)}</strong> &nbsp;|&nbsp;
             Ep Content: <strong style="font-family:monospace">${fmtHMS(epContentMins)}</strong> &nbsp;|&nbsp;
             Insert: ${insertDisplay} &nbsp;|&nbsp;
             Non-Insert: <strong style="font-family:monospace;color:#b8860b">${fmtHMS(nonMins)}</strong>
@@ -8691,7 +8701,7 @@ function bindApp(){
             <div style="text-align:center;padding:0 14px">
               <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.5px;margin-bottom:2px">Allocated to Date</div>
               <div style="font-size:17px;font-weight:900;font-family:monospace;color:#1a3a6a;line-height:1">${pdfStats.allocated}</div>
-              <div style="font-size:9px;color:#888;margin-top:1px">${pdfStats.epCount} ep${pdfStats.epCount===1?'':'s'} × 34 min</div>
+              <div style="font-size:9px;color:#888;margin-top:1px">${pdfStats.epCount} ep${pdfStats.epCount===1?'':'s'}${pdfStats.extCount?` (${pdfStats.extCount} ext)`:''}</div>
             </div>
             <div style="width:1px;background:#c8d0dc;height:36px;margin:0 6px"></div>
             <div style="text-align:center;padding:0 14px">
