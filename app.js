@@ -175,7 +175,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.325';
+const BUILD_VERSION='3.10.326';
 const BUILD_DATE='02 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -4540,14 +4540,14 @@ function renderMusicCues(epNums){
 
 
 const PRESENTERS = [
-  {key:'claire',     label:'Claire',     color:'#58a6ff', bg:'rgba(88,166,255,.12)',  lane:'rgba(88,166,255,.3)'},
-  {key:'masa',       label:'Masa',       color:'#3fb950', bg:'rgba(63,185,80,.12)',   lane:'rgba(63,185,80,.3)'},
-  {key:'govan',      label:'Govan',      color:'#e3b341', bg:'rgba(227,179,65,.12)',  lane:'rgba(227,179,65,.3)'},
-  {key:'erin',       label:'Erin',       color:'#f78166', bg:'rgba(247,129,102,.12)', lane:'rgba(247,129,102,.3)'},
-  {key:'lourensa',   label:'Lourensa',   color:'#c084fc', bg:'rgba(192,132,252,.12)', lane:'rgba(192,132,252,.3)'},
-  {key:'macfarlane', label:'Macfarlane', color:'#79c0ff', bg:'rgba(121,192,255,.12)', lane:'rgba(121,192,255,.3)'},
-  {key:'catherine',  label:'Catherine',  color:'#ffa657', bg:'rgba(255,166,87,.12)',  lane:'rgba(255,166,87,.3)'},
-  {key:'xola',       label:'Xola (VO)', color:'#56d364', bg:'rgba(86,211,100,.12)',  lane:'rgba(86,211,100,.3)'},
+  {key:'claire',     label:'Claire',     full:'Claire Mawisa',      color:'#58a6ff', bg:'rgba(88,166,255,.12)',  lane:'rgba(88,166,255,.3)'},
+  {key:'masa',       label:'Masa',       full:'Masa Kekana',        color:'#3fb950', bg:'rgba(63,185,80,.12)',   lane:'rgba(63,185,80,.3)'},
+  {key:'govan',      label:'Govan',      full:'Govan Whittles',     color:'#e3b341', bg:'rgba(227,179,65,.12)',  lane:'rgba(227,179,65,.3)'},
+  {key:'erin',       label:'Erin',       full:'Erin Bates',         color:'#f78166', bg:'rgba(247,129,102,.12)', lane:'rgba(247,129,102,.3)'},
+  {key:'lourensa',   label:'Lourensa',   full:'Lourensa Eckard',    color:'#c084fc', bg:'rgba(192,132,252,.12)', lane:'rgba(192,132,252,.3)'},
+  {key:'macfarlane', label:'Macfarlane', full:'Macfarlane Moleli',  color:'#79c0ff', bg:'rgba(121,192,255,.12)', lane:'rgba(121,192,255,.3)'},
+  {key:'catherine',  label:'Catherine',  full:'Catherine Rice',     color:'#ffa657', bg:'rgba(255,166,87,.12)',  lane:'rgba(255,166,87,.3)'},
+  {key:'xola',       label:'Xola (VO)', full:'Xola Ntshinga',      color:'#56d364', bg:'rgba(86,211,100,.12)',  lane:'rgba(86,211,100,.3)'},
 ];
 
 // Maps a script cue name (e.g. "GOVAN") to its proper display casing — known presenters
