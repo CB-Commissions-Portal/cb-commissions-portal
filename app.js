@@ -175,7 +175,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.323';
+const BUILD_VERSION='3.10.324';
 const BUILD_DATE='02 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -2459,8 +2459,12 @@ async function exportCommissionsXLSX(){
     const promoUIDs=PROMO_TYPES.map(p=>uids[p.key]||'');
     const onAir=(settings.epOnAir||{})[k]||'';
     const lu=lineups[k]||{};
-    const pres1=lu.presenter1||'';
-    const pres2=lu.presenter2||'';
+    // Studio Anchors: prefer the Presenter Calendar STUDIO markings (same source as Line-Ups
+    // & Studio Schedule); fall back to the legacy lineup presenter fields (EP01–08 era).
+    let anc1='',anc2='';
+    try{const _a=getStudioAnchors(n);anc1=_a.anchor1||'';anc2=_a.anchor2||'';}catch(_e){}
+    const pres1=anc1||lu.presenter1||'';
+    const pres2=anc2||lu.presenter2||'';
     const epType=(settings.epTypes||{})[k]==='extended'?'Extended':'Normal';
     const epComms=getLineupOrderedComms(k);
     if(epComms.length===0){
@@ -4085,6 +4089,7 @@ function renderPromoScheduling(epNums){
   if(!epNums.length)return`<div class="ep-wrap"><div style="color:#6b7280;padding:32px;text-align:center">No episodes yet.</div></div>`;
   const canEd=getEffectiveRole()==='admin'||getEffectiveRole()==='operations';
   const canEditContent=['admin','operations','editorial'].includes(getEffectiveRole());
+  const canEditUID=getEffectiveRole()==='admin'; // manual per-row UID entry — Super Admin only
   const assigned=getAllAssignedUIDs();
   const avail=getAvailablePoolUIDs();
 
@@ -4177,7 +4182,9 @@ function renderPromoScheduling(epNums){
         <td style="${tdB};font-weight:700;color:${isPulled?'#9ca3af':'#111827'};width:120px;${isPulled?'text-decoration:line-through':''}">${pt.label}</td>
         <td style="${tdB};width:135px"><input class="ci promo-date-inp" value="${esc(pd['txFrom_'+pt.key]||txD.from)}" data-ep="${n}" data-field="txFrom_${pt.key}" style="font-size:13px;width:100%;box-sizing:border-box" ${!canEd||isPulled?'disabled':''}></td>
         <td style="${tdB};width:135px"><input class="ci promo-date-inp" value="${esc(pd['txTo_'+pt.key]||txD.to)}" data-ep="${n}" data-field="txTo_${pt.key}" style="font-size:13px;width:100%;box-sizing:border-box" ${!canEd||isPulled?'disabled':''}></td>
-        <td style="${tdB};width:110px"><span style="font-family:monospace;font-size:14px;font-weight:700;color:${isPulled?'#b0b8c4':'#0066CC'};letter-spacing:1px;text-decoration:${isPulled?'line-through':'none'}">${uid||'<span style="color:#9ca3af">—</span>'}</span></td>
+        <td style="${tdB};width:110px">${canEditUID
+          ?`<input class="ci promo-uid-inp" value="${esc(uid)}" data-ep="${n}" data-key="${pt.key}" placeholder="—" style="font-family:monospace;font-size:14px;font-weight:700;color:#0066CC;letter-spacing:1px;width:100%;box-sizing:border-box" ${isPulled?'disabled':''}>`
+          :`<span style="font-family:monospace;font-size:14px;font-weight:700;color:${isPulled?'#b0b8c4':'#0066CC'};letter-spacing:1px;text-decoration:${isPulled?'line-through':'none'}">${uid||'<span style="color:#9ca3af">—</span>'}</span>`}</td>
         <td style="${tdB};width:100px;text-align:center">${canEd?`<label style="display:flex;align-items:center;gap:6px;cursor:pointer;justify-content:center">
           <input type="checkbox" class="promo-pulled-cb" data-ep="${n}" data-key="${pt.key}" ${isPulled?'checked':''} tabindex="-1" style="width:16px;height:16px;accent-color:#dc2626;cursor:pointer">
           <span style="font-size:12px;font-weight:800;color:${isPulled?'#dc2626':'#9ca3af'};text-transform:uppercase;letter-spacing:.5px">${isPulled?'PULLED':'–'}</span>
