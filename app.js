@@ -175,11 +175,11 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.326';
-const BUILD_DATE='02 Sep 2026';
+const BUILD_VERSION='3.10.327';
+const BUILD_DATE='10 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
-let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',currentSeason='39',previewRole=null;
+let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',commEpFilter='all',currentSeason='39',previewRole=null;
 let studioCrew={}; // {epNum: {studioDirector:'', ad:'', ...}}
 let studioSchedule={}; // {epNum:{director,asstDir,makeup,autocue(Autocue Operator),floorMgr,production,bookingFrom,bookingTo}}
 let studioSchedMonth=''; // 'YYYY-MM'
@@ -1844,6 +1844,7 @@ function getFiltered(){
   if(filter==='hold')list=list.filter(c=>c.onHold);
   if(filter==='inhouse')list=list.filter(c=>c.isInHouse);
   if(filter==='ready')list=list.filter(c=>allDel(c)&&!c.approvedForPayment&&!c.decommissioned&&!c.onHold);
+  if(commEpFilter!=='all')list=list.filter(c=>String(c.broadcastEpisode||'')===commEpFilter);
   list.sort((a,b)=>{
     // Rows with no Comm # yet (new/unfinished commissions) always float to the top,
     // regardless of the active sort column, so they're never buried at the bottom.
@@ -2327,6 +2328,10 @@ function renderCommList(epNums,nextEp){
     <option value="hold"${filter==='hold'?' selected':''}>On Hold</option>
     <option value="decom"${filter==='decom'?' selected':''}>Decommissioned</option>
     <option value="inhouse"${filter==='inhouse'?' selected':''}>In-House</option>
+  </select>
+  <select class="f-sel" id="comm-ep-filter-sel" tabindex="-1" title="Filter by allocated episode">
+    <option value="all"${commEpFilter==='all'?' selected':''}>All Episodes</option>
+    ${epNums.map(n=>`<option value="${n}"${commEpFilter===String(n)?' selected':''}>EP ${n} · ${fmtDate(resolveDate(n))}</option>`).join('')}
   </select>
   ${['admin','deputyadmin'].includes(currentRole)&&!previewRole?`<button class="btn primary" id="add-row-btn">+ Add Commission</button>`:''}
   ${currentRole==='admin'&&!previewRole?`<button class="btn" id="add-ep-btn">+ Add Episode</button>`:''}
@@ -8467,6 +8472,7 @@ function bindApp(){
     window._searchDebounce=setTimeout(()=>render(),400);
   });
   document.getElementById('filter-sel')?.addEventListener('change',e=>{filter=e.target.value;render();});
+  document.getElementById('comm-ep-filter-sel')?.addEventListener('change',e=>{commEpFilter=e.target.value;render();});
   ['add-row-btn','add-row-btn2'].forEach(id=>document.getElementById(id)?.addEventListener('click',addRow));
   ['add-ep-btn','add-ep-btn2'].forEach(id=>document.getElementById(id)?.addEventListener('click',()=>{const e=getEpNums();newEpNum=String(e.length?Math.max(...e)+1:1);addEpModal=true;render();}));
 
