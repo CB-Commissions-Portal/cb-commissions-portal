@@ -175,7 +175,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.328';
+const BUILD_VERSION='3.10.329';
 const BUILD_DATE='10 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -1260,6 +1260,11 @@ function subscribeMusicCues(){
       else if(tab==='musiccues')render();
     },e=>{console.error('MusicCues snapshot:',e);if(!resolved){resolved=true;resolve();}});
   });
+}
+// Duration must be a full HH:MM:SS:FF timecode (8 digits), e.g. 00:01:25:00
+function mcDurationOk(v){
+  const m=/^(\d{2}):(\d{2}):(\d{2}):(\d{2})$/.exec((v||'').trim());
+  return !!m&&Number(m[2])<60&&Number(m[3])<60;
 }
 function blankMCRow(){return{cue:'',trackTitle:'',composer:'',publisher:'',cmo:'',label:'',artist:'',albumNumber:'',albumTitle:'',trackNumber:'',usage:'',musicType:'PRODUCTION',duration:''}}
 
@@ -4406,7 +4411,7 @@ function renderMusicCues(epNums){
         <option value="Background Vocal (BV)" ${r.usage==='Background Vocal (BV)'?'selected':''}>Background Vocal (BV)</option>
       </select></td>
       <td style="padding:4px;white-space:nowrap"><input value="PRODUCTION" disabled style="${inpS};min-width:90px;color:#6b7280;cursor:not-allowed"></td>
-      <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="duration" value="${esc(r.duration)}" placeholder="00:00:00:00" style="${inpS};min-width:110px;font-family:monospace"></td>
+      <td style="padding:4px;white-space:nowrap"><input class="mc-row-inp" data-row="${i}" data-field="duration" value="${esc(r.duration)}" placeholder="HH:MM:SS:FF" maxlength="11" title="Full timecode required: HH:MM:SS:FF (e.g. 00:01:25:00)" style="${inpS};min-width:110px;font-family:monospace${r.duration&&!mcDurationOk(r.duration)?';border-color:#f85149;background:#fef2f2':''}"></td>
       <td style="padding:4px;white-space:nowrap;width:1%"><button class="btn danger mc-del-row" data-row="${i}" style="padding:3px 7px;font-size:13px">✕</button></td>
     </tr>`).join('');
 
@@ -4421,7 +4426,9 @@ function renderMusicCues(epNums){
             const fieldNames=['trackTitle','composer','publisher','cmo','label','artist','albumTitle','trackNumber','usage','duration'];
             const rowErrors=draft.rows.map((r,i)=>{
               const missing=fieldNames.filter(f=>(r[f]||'').trim().length===0);
-              return missing.length?`Cue ${i+1}: missing ${missing.join(', ')}`:null;
+              if(missing.length)return`Cue ${i+1}: missing ${missing.join(', ')}`;
+              if(!mcDurationOk(r.duration))return`Cue ${i+1}: duration must be HH:MM:SS:FF (e.g. 00:01:25:00)`;
+              return null;
             }).filter(Boolean);
             const allFilled=draft.rows.length>0&&rowErrors.length===0;
             const hasHeader=!!(draft.afmName||userName)&&!!draft.commNum;
@@ -9673,7 +9680,12 @@ function bindApp(){
         if(field==='composer'&&!mcDraft.rows[row].artist)mcDraft.rows[row].artist=e.target.value;
         // Re-evaluate submit button state live
         const fieldNames=['trackTitle','composer','publisher','cmo','label','artist','albumTitle','trackNumber','usage','duration'];
-        const allOk=mcDraft.rows.length>0&&mcDraft.rows.every(r=>fieldNames.every(f=>(r[f]||'').trim().length>0));
+        if(field==='duration'){
+          const bad=!!e.target.value.trim()&&!mcDurationOk(e.target.value);
+          e.target.style.borderColor=bad?'#f85149':'#d1dae8';
+          e.target.style.background=bad?'#fef2f2':'#f9fafb';
+        }
+        const allOk=mcDraft.rows.length>0&&mcDraft.rows.every(r=>fieldNames.every(f=>(r[f]||'').trim().length>0)&&mcDurationOk(r.duration));
         const hasHdr=!!(mcDraft.afmName||currentUser?.displayName)&&!!mcDraft.commNum;
         const submitBtn=document.getElementById('mc-submit-btn');
         if(submitBtn){
@@ -9847,6 +9859,7 @@ function bindApp(){
       if(!r.musicType?.trim())missing.push('Music Type');
       if(!r.duration?.trim())missing.push('Duration');
       if(missing.length)errors.push(`Cue ${i+1}: ${missing.join(', ')} required`);
+      else if(!mcDurationOk(r.duration))errors.push(`Cue ${i+1}: Duration must be the full HH:MM:SS:FF timecode (e.g. 00:01:25:00)`);
     });
     if(errors.length){
       showToast(errors[0]+(errors.length>1?` (+ ${errors.length-1} more)`:''),true);
