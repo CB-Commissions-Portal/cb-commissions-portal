@@ -175,7 +175,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.327';
+const BUILD_VERSION='3.10.328';
 const BUILD_DATE='10 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -3580,25 +3580,26 @@ document.addEventListener('selectionchange',()=>{
 });
 
 const DELIVERABLE_TASKS = [
-  {key:'comm_list_update',      label:'Commission List – Episode Update'},
-  {key:'fcc_sheet',             label:'Recue – FCC Sheet'},
-  {key:'ep_music_cue',          label:'Recue – Episode Music Cue Sheet'},
-  {key:'live_transcript',       label:'Recue – Live Show Transcript'},
+  {key:'content_frames_studio', label:'Content Frames'},
+  {key:'credit_list',           label:'Credit List'},
+  {key:'crew_list',             label:'Crew List'},
+  {key:'epg_info',              label:'EPG Information'},
+  {key:'episode_duration',      label:'Episode Duration'},
+  {key:'ep_music_cue',          label:'Episode Music Cue Sheet'},
+  {key:'ep_synopsis',           label:'Episode Synopsis'},
+  {key:'fcc_sheet',             label:'FCC Sheet'},
+  {key:'footage_declaration',   label:'Footage Declaration'},
+  {key:'insert_delivery_duration', label:'Insert Delivery Duration'},
+  {key:'insert_episode_allocation',label:'Insert Episode Allocation'},
+  {key:'insert_paid_duration',  label:'Insert Paid Duration'},
+  {key:'live_transcript',       label:'Live Show Transcript'},
+  {key:'location_agreements',   label:'Location Agreements'},
+  {key:'minor_release',         label:'Minor Release Forms'},
+  {key:'participants_release',  label:'Participants Release Forms'},
+  {key:'producer_contracts',    label:'Producer Contracts'},
+  {key:'promo_music_cue',       label:'Promo Music Cue Sheets'},
   {key:'promo_scheduling',      label:'Promo Scheduling'},
-  {key:'footage_declaration',   label:'Recue – Footage Declaration'},
-  {key:'ep_synopsis',           label:'Recue – Episode Synopsis'},
-  {key:'participants_release',  label:'Recue – Participants Release Forms'},
-  {key:'minor_release',         label:'Recue – Minor Release Forms'},
-  {key:'location_agreements',   label:'Recue – Location Agreements'},
-  {key:'producer_contracts',    label:'Recue – Producer Contracts'},
-  {key:'crew_list',             label:'Recue – Crew List'},
-  {key:'credit_list',           label:'Recue – Credit List'},
-  {key:'script_ros',            label:'Build – Script & ROS'},
-  {key:'promo_music_cue',       label:'Recue – Promo Music Cue Sheets'},
-  {key:'epg_info',              label:'Recue – EPG Information'},
-  {key:'content_frames_studio', label:'Content Frames – Studio'},
-  {key:'supplier_agreements',   label:'Recue – Supplier Agreements'},
-  {key:'barter_agreements',     label:'Recue – Barter Agreements'},
+  {key:'supplier_agreements',   label:'Supplier Agreements'},
 ];
 
 
@@ -8169,11 +8170,11 @@ function renderModals(epNums,nextEp){
       const checked=!!d[task.key];
       const bg=checked?'#f0fdf4':'#fff';
       const altBg=checked?'#e8faf0':'#f9fafb';
-      return`<label style="display:flex;align-items:center;gap:18px;padding:16px 24px;background:${ti%2===0?bg:altBg};cursor:pointer;border-bottom:1px solid #e8edf5;user-select:none">
+      return`<label class="deliv-row" data-ti="${ti}" style="display:flex;align-items:center;gap:18px;padding:16px 24px;background:${ti%2===0?bg:altBg};cursor:pointer;border-bottom:1px solid #e8edf5;user-select:none">
         <input type="checkbox" class="deliv-cb" data-ep="${n}" data-key="${task.key}" ${checked?'checked':''}
           style="width:22px;height:22px;flex-shrink:0;cursor:pointer;accent-color:#0066CC">
-        <span style="font-size:16px;font-weight:600;color:${checked?'#111827':'#6b7280'};text-decoration:${checked?'none':'none'}">${task.label}</span>
-        ${checked?`<span style="margin-left:auto;font-size:15px;font-weight:900;color:#16a34a">✓</span>`:''}
+        <span class="deliv-lbl" style="font-size:16px;font-weight:600;color:${checked?'#111827':'#6b7280'}">${task.label}</span>
+        <span class="deliv-tick" style="margin-left:auto;font-size:15px;font-weight:900;color:#16a34a">${checked?'✓':''}</span>
       </label>`;
     }).join('');
     out+=`<div class="modal-overlay" id="deliv-edit-overlay"><div class="modal" style="width:min(680px,96vw);max-height:92vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
@@ -8184,13 +8185,13 @@ function renderModals(epNums,nextEp){
         </div>
         <div style="display:flex;align-items:center;gap:16px">
           <div style="text-align:right">
-            <div style="font-size:24px;font-weight:900;color:${pctCol};line-height:1">${pct}%</div>
-            <div style="font-size:13px;color:#6b7280;margin-top:3px">${done} / ${total} done</div>
+            <div id="deliv-modal-pct" style="font-size:24px;font-weight:900;color:${pctCol};line-height:1">${pct}%</div>
+            <div id="deliv-modal-count" style="font-size:13px;color:#6b7280;margin-top:3px">${done} / ${total} done</div>
           </div>
           <button id="deliv-edit-close" class="btn" style="font-size:15px;padding:6px 16px;flex-shrink:0">✕ Close</button>
         </div>
       </div>
-      <div style="height:5px;background:#d1dae8;flex-shrink:0"><div style="height:5px;background:${pctCol};width:${pct}%"></div></div>
+      <div style="height:5px;background:#d1dae8;flex-shrink:0"><div id="deliv-modal-bar" style="height:5px;background:${pctCol};width:${pct}%"></div></div>
       <div id="deliv-checklist-scroll" style="flex:1;overflow-y:auto">
         ${taskList}
       </div>
@@ -9351,7 +9352,27 @@ function bindApp(){
       const key=cb.dataset.key;
       if(!deliverables[ep])deliverables[ep]={};
       deliverables[ep][key]=cb.checked;
-      render();
+      // Update in place (no full render) so the checklist keeps its scroll position
+      const d=deliverables[ep];
+      const done=DELIVERABLE_TASKS.filter(t=>d[t.key]).length;
+      const total=DELIVERABLE_TASKS.length;
+      const pct=Math.round(done/total*100);
+      const pctCol=pct===100?'#4ade80':pct>=50?'#e3b341':'#f85149';
+      const row=cb.closest('.deliv-row');
+      if(row){
+        const ti=Number(row.dataset.ti);
+        const bg=cb.checked?'#f0fdf4':'#fff';
+        const altBg=cb.checked?'#e8faf0':'#f9fafb';
+        row.style.background=ti%2===0?bg:altBg;
+        row.querySelector('.deliv-lbl').style.color=cb.checked?'#111827':'#6b7280';
+        row.querySelector('.deliv-tick').textContent=cb.checked?'✓':'';
+      }
+      const pctEl=document.getElementById('deliv-modal-pct');
+      if(pctEl){pctEl.textContent=pct+'%';pctEl.style.color=pctCol;}
+      const cntEl=document.getElementById('deliv-modal-count');
+      if(cntEl)cntEl.textContent=done+' / '+total+' done';
+      const barEl=document.getElementById('deliv-modal-bar');
+      if(barEl){barEl.style.width=pct+'%';barEl.style.background=pctCol;}
       saveDeliverables(ep,deliverables[ep]);
     });
   });
