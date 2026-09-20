@@ -176,8 +176,8 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.333';
-const BUILD_DATE='10 Sep 2026';
+const BUILD_VERSION='3.10.334';
+const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',commEpFilter='all',currentSeason='39',previewRole=null;
@@ -991,6 +991,16 @@ async function saveLiveTranscript(epNum,data){
   }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);return false;}
   finally{setTimeout(()=>{trLiveLocalWrite=false;},1500);}
 }
+// Which commission each Live Show Transcript insert block belongs to. Purely positional: the 1st
+// insert row in the running order gets the 1st story in Line-Ups, the 2nd gets the 2nd, etc.
+// The typed "INSERT 4" label is a manual number and must never drive the pairing (it used to,
+// via item.key — which put the wrong story on any insert whose label didn't match its position).
+// Returns an array parallel to rosItems: commNum for insert rows, null for everything else.
+function insertCommNumsByRow(rosItems,ep){
+  const epComs=getLineupOrderedComms(ep);
+  let n=0;
+  return rosItems.map(it=>it.type==='insert'?(epComs[n++]?.commNum||null):null);
+}
 // Resolves the editable block array for an episode's Live Show Transcript: the saved blocks
 // if "Build from Script" has ever run, otherwise the same ROS-script-derived list the screen
 // falls back to showing (renderTranscripts' displayBlocks). Any handler that writes to a block
@@ -1002,12 +1012,11 @@ function liveTranscriptBlocksFor(ep){
   const lt=liveTranscripts[String(ep)]||{};
   if(lt.blocks&&lt.blocks.length)return JSON.parse(JSON.stringify(lt.blocks));
   const rosItems=(rosData[String(ep)]?.items)||[];
-  const epComs=getLineupOrderedComms(ep);
-  function iComm(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComs[Number(m[1])-1]?.commNum||null;}
-  return rosItems.map(item=>({
+  const insComms=insertCommNumsByRow(rosItems,ep);
+  return rosItems.map((item,i)=>({
     itemKey:rosItemTransKey(item),itemLabel:item.label,itemType:item.type||'live',
     content:scriptToTranscriptText(item.script||''),
-    commNum:item.type==='insert'?iComm(item.key):null
+    commNum:insComms[i]
   }));
 }
 async function exportAllDataToJSON(){
@@ -8519,15 +8528,15 @@ function renderTranscripts(epNums){
   const ep=transcriptLiveEp;
   const lt=ep?(liveTranscripts[String(ep)]||{}):{};
   const epComms=getLineupOrderedComms(ep);
-  function insertComm(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComms[Number(m[1])-1]||null;}
   const readyEpComms=epComms.filter(c=>commTranscripts[String(c.commNum)]?.status==='ready');
   function blockBg(type,status){if(status==='approved')return'#67BCF7';if(status==='inprogress')return'#FD8086';return{fixed:'#f8fafc',break:'#f8fafc',live:'#eff6ff',insert:'#f0fdf4',coldstart:'#faf5ff',upnext:'#f0fdf4'}[type]||'#f9fafb';}
   function blockAccent(type,status){if(status==='approved')return'#34A6F4';if(status==='inprogress')return'#FB2C36';return{fixed:'#484f58',break:'#484f58',live:'#1f6feb',insert:'#3fb950',coldstart:'#8957e5',upnext:'#2ea043'}[type]||'#484f58';}
   const rosItems=ep?(rosData[String(ep)]?.items||[]):[];
-  const displayBlocks=(lt.blocks&&lt.blocks.length)?lt.blocks:rosItems.map(item=>({
+  const _insComms=insertCommNumsByRow(rosItems,ep);
+  const displayBlocks=(lt.blocks&&lt.blocks.length)?lt.blocks:rosItems.map((item,i)=>({
     itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',
     content:scriptToTranscriptText(item.script||''),
-    commNum:item.type==='insert'?(insertComm(item.key)?.commNum||null):null
+    commNum:_insComms[i]
   }));
   return`<div style="display:flex;flex:1;min-height:0;overflow:hidden;background:#f8fafc">
     <div style="width:300px;flex-shrink:0;border-right:1px solid #d1dae8;display:flex;flex-direction:column;background:#ffffff">
@@ -10248,19 +10257,18 @@ function bindApp(){
       let uidsAdded=false;
       rosItems.forEach(item=>{if(!item.uid){item.uid=rosGenUid();uidsAdded=true;}});
       if(uidsAdded)await saveROS(Number(ep),{items:rosItems,epNum:Number(ep)});
-      const epComs=getLineupOrderedComms(ep);
-      function iComm(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComs[Number(m[1])-1]?.commNum||null;}
+      const insComms=insertCommNumsByRow(rosItems,ep);
       const existing=(liveTranscripts[String(ep)]?.blocks)||[];
       const existMap={};existing.forEach(b=>{existMap[b.itemKey]=b;});
       // Falls back to the legacy raw item.key match (pre-uid transcripts) so content already
       // typed in isn't wiped by the first Build after this fix — see rosItemTransKey.
-      const newBlocks=rosItems.map(item=>{
+      const newBlocks=rosItems.map((item,i)=>{
         const tKey=rosItemTransKey(item);
         const match=existMap[tKey]||existMap[item.key];
         return{
           itemKey:tKey,itemLabel:item.label,itemType:item.type||'live',
           content:match?.content||scriptToTranscriptText(item.script||''),
-          commNum:(item.type==='insert'?iComm(item.key):null)||(match?.commNum||null)
+          commNum:insComms[i]||(match?.commNum||null)
         };
       });
       await saveLiveTranscript(ep,{epNum:ep,blocks:newBlocks});
@@ -10275,12 +10283,11 @@ function bindApp(){
       let uidsAdded=false;
       rosItems.forEach(item=>{if(!item.uid){item.uid=rosGenUid();uidsAdded=true;}});
       if(uidsAdded)await saveROS(Number(ep),{items:rosItems,epNum:Number(ep)});
-      const epComs=getLineupOrderedComms(ep);
-      function iComm2(key){const m=key.match(/^insert(\d+)$/);if(!m)return null;return epComs[Number(m[1])-1]?.commNum||null;}
-      const newBlocks=rosItems.map(item=>({
+      const insComms=insertCommNumsByRow(rosItems,ep);
+      const newBlocks=rosItems.map((item,i)=>({
         itemKey:rosItemTransKey(item),itemLabel:item.label,itemType:item.type||'live',
         content:scriptToTranscriptText(item.script||''),
-        commNum:item.type==='insert'?iComm2(item.key):null
+        commNum:insComms[i]
       }));
       await saveLiveTranscript(ep,{epNum:ep,blocks:newBlocks});
       showToast(`Transcript cleared and rebuilt — ${newBlocks.length} items from EP${ep} script`);
