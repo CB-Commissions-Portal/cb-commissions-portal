@@ -23,6 +23,7 @@ const PERM_MAP=[
   {group:'PRODUCTION',rows:[
     {label:'Post Production',   admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'View',            operations:'Full Edit', production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'—'},
     {label:'Shooting Schedule', admin:'View',       deputyadmin:'View',       editorial:'View',            operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'View',    transcripts:'View'},
+    {label:'Crew List',         admin:'View',       deputyadmin:'—',          editorial:'—',               operations:'View',      production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'—',     director:'—',       transcripts:'—'},
     {label:'Presenter Calendar',admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'Full Edit',       operations:'Full Edit', production:'Full Edit', prodmgmt:'Full Edit',afm:'—',        capstaff:'—',         content:'View',     finance:'View',  director:'View'},
     {label:'Deliverables',      admin:'Full Edit',  deputyadmin:'—',          editorial:'—',               operations:'—',         production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'—',     director:'—'},
     {label:'Promo Scheduling',  admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'View',            operations:'View',      production:'—',         prodmgmt:'View',    afm:'—',         capstaff:'—',         content:'—',        finance:'View',  director:'—'},
@@ -175,7 +176,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.331';
+const BUILD_VERSION='3.10.332';
 const BUILD_DATE='10 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -2003,6 +2004,7 @@ function renderHome(){
     {label:'Production',items:[
       mk('postprod','Post Production','Schedule',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>`,'#f7768e','rgba(247,118,142,.1)',['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role),'Weekly post production schedule'),
       mk('shootsched','Shooting Schedule','Calendar',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,'#1a6b35','rgba(26,107,53,.1)',role!=='afm','Monthly bird\'s-eye view of who is shooting what, where'),
+      mk('crewlist','Crew List',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>`,'#0066CC','rgba(0,102,204,.1)',['admin','operations'].includes(role),'Story crew and studio crew per episode, in broadcast order, with PDF export'),
       mk('prescal','Presenter Calendar','Scheduling',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,'#f472b6','rgba(244,114,182,.1)',['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance','director'].includes(role),'Daily presenter scheduling'),
       mk('deliverables','Deliverables',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`,'#3fb950','rgba(63,185,80,.1)',currentRole==='admin'&&!previewRole,'Commission deliverable tracking and overview'),
       mk('promos','Promo Scheduling',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,'#ffa657','rgba(255,166,87,.1)',['admin','deputyadmin','operations','prodmgmt','editorial','finance'].includes(role),'UID codes and promo scheduling per episode'),
@@ -2163,6 +2165,7 @@ function renderSidebar(){
   const production=[
     item('postprod','Post Production',['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role)),
     item('shootsched','Shooting Schedule',role!=='afm'),
+    item('crewlist','Crew List',['admin','operations'].includes(role)),
     item('prescal','Presenter Calendar',['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance','director'].includes(role)),
     item('deliverables','Deliverables',currentRole==='admin'&&!previewRole),
     item('promos','Promo Scheduling',['admin','deputyadmin','operations','prodmgmt','editorial','finance'].includes(role)),
@@ -2305,6 +2308,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='leave'&&userHasLeaveAccess())return renderLeave();
   if(tab==='postprod'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role))return renderPostProd();
   if(tab==='shootsched'&&role!=='afm')return renderShootingSchedule();
+  if(tab==='crewlist'&&['admin','operations'].includes(role))return renderCrewList(epNums,nextEp);
   if(tab==='deliverables'&&['admin','deputyadmin'].includes(currentRole)&&!previewRole)return renderDeliverables(epNums);
   if(tab==='lineups'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','director','transcripts'].includes(role))return renderLineups(epNums);
   if(tab==='ros'&&['admin','deputyadmin','editorial','content','director'].includes(role))return(rosWysActive&&rosCurrentEp&&!rosEpModal)?renderRunOfShowWysiwyg():renderRunOfShow();
@@ -2344,11 +2348,6 @@ function renderCommList(epNums,nextEp){
     <div style="display:flex;align-items:center;gap:6px">
       <button class="btn" id="presenter-xlsx-btn" style="border-color:#3fb950;color:#3fb950">⬇ Presenter Excel</button>
       <button class="btn" id="presenter-pdf-btn" style="border-color:#3fb950;color:#3fb950">⬇ Presenter PDF</button>
-      <button class="btn" id="comm-report-btn" style="border-color:#388bfd;color:#0066CC">⬇ Crew List PDF</button>
-      <select id="crew-ep-sel" class="f-sel" tabindex="-1" style="font-size:14px">
-        <option value="all">All Episodes</option>
-        ${getEpNums().map(n=>`<option value="${n}">Episode ${n} only</option>`).join('')}
-      </select>
     </div>
   `:''}
   ${getEffectiveRole()==='prodmgmt'?`
@@ -3981,6 +3980,223 @@ function renderPPCalendar(){
 // Read-only, birds-eye monthly calendar of SHOOT entries — aggregated from the Post Production
 // grid (any cell whose free text contains "shoot"). No separate data entry: Ops Manager keeps
 // typing into the PP schedule as before, this just surfaces comm #/story/producer per shoot day.
+// ── Crew List tab: shared story list + PDF export ──────────────────
+function crewListStories(n){
+  // Stories for an episode in Line-Up (broadcast) order; in-house items are not crew-listed.
+  return sortByLineup(comms.filter(c=>
+    c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse
+  ).sort((a,b)=>a.commNum>b.commNum?1:-1),n);
+}
+async function exportCrewListPDF(btn,filterEp){
+    btn.innerHTML='⏳ Preparing Crew List…';
+    btn.disabled=true;
+
+    if(!window.html2pdf){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+        s.onload=res;s.onerror=rej;
+        document.head.appendChild(s);
+      });
+    }
+
+    const CB_LOGO=BAKED_CB_LOGO;
+    const CAP_LOGO=BAKED_CAP_LOGO;
+    const printDate=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
+    const epNums=getEpNums().filter(n=>filterEp==='all'||String(n)===filterEp);
+
+    function labelRow(label,value,bold=false){
+      return`<tr>
+        <td style="padding:5px 0 5px 0;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;width:38%;vertical-align:top">${label}:</td>
+        <td style="padding:5px 0 5px 12px;font-size:13px;font-weight:${bold?'800':'500'};color:#111;vertical-align:top">${value||'—'}</td>
+      </tr>`;
+    }
+
+    const headerHTML=`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;margin-bottom:0">
+        <img src="${CB_LOGO}" style="height:56px;width:auto;object-fit:contain">
+        <div style="text-align:center;flex:1;padding:0 24px">
+          <div style="font-size:20px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#111;line-height:1.1">CARTE BLANCHE CREW LIST</div>
+          <div style="font-size:11px;color:#888;margin-top:5px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">Combined Artists Productions · Production Portal</div>
+        </div>
+        <img src="${CAP_LOGO}" style="height:34px;width:auto;object-fit:contain">
+      </div>`;
+
+    const epPages=epNums.map(n=>{
+      const date=resolveDate(n);
+      const stories=crewListStories(n);
+      if(!stories.length)return'';
+      const lineupOrder=getLineupOrder(n);
+
+      const epBanner=`
+        <div style="background:#1a3a6a;color:#fff;padding:10px 16px;margin:16px 0;border-radius:4px;display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:14px">
+            <span style="background:#fff;color:#1a3a6a;font-family:monospace;font-weight:900;font-size:16px;padding:4px 12px;border-radius:3px">EP ${n}</span>
+            <span style="font-size:17px;font-weight:800">${fmtDate(date)}</span>
+            <span style="font-size:12px;opacity:.7;padding-left:12px;border-left:1px solid rgba(255,255,255,.3)">${stories.length} ${stories.length===1?'story':'stories'}</span>
+          </div>
+          <span style="font-size:11px;opacity:.6">Generated: ${printDate}</span>
+        </div>`;
+
+      const storyBlocks=stories.map((s,i)=>{
+        const del=s.deliveredDuration?fmtHMS(toDecimalMins(s.deliveredDuration)):'—';
+        const isIH=s.isInHouse;
+        const sep=i>0?`<div style="height:1px;background:#e0e8f0;margin:16px 0"></div>`:'';
+        return`${sep}
+        <div style="padding:0 0 4px 0;break-inside:avoid;page-break-inside:avoid">
+          <table style="width:100%;border-collapse:collapse">
+            ${(()=>{const rank=lineupOrder.indexOf(String(s.commNum))+1;return labelRow('Story',`<strong style="font-size:14px">${rank?rank+'. ':''}${esc(s.storyName||'')}${isIH?` <span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:2px;font-size:11px;font-weight:700;margin-left:6px">IN-HOUSE</span>`:''}</strong>`,true);})()}
+            ${labelRow('Commission No.',`<span style="font-family:monospace;font-weight:800;color:#1a3a6a">${esc(String(s.commNum||''))}</span>`)}
+            ${labelRow('Delivered Duration',`<span style="font-family:monospace;font-weight:800;color:#1a5c1a;background:#e8f5e8;padding:2px 8px;border-radius:3px;border:1px solid #aad4aa">${del}</span>`)}
+            ${labelRow('Producer',esc(s.producer||''))}
+            ${labelRow('Presenter / VO',esc(s.presenterVO||''))}
+            ${isIH?'':labelRow('Director of Photography',esc(s.dop||''))}
+            ${isIH?'':labelRow('Camera Assistant',esc(s.ca||''))}
+            ${labelRow('Editor',isIH?'N/A':esc(s.editor||''))}
+            ${labelRow('AFM Operator',esc(s.afm||''))}
+          </table>
+        </div>`;
+      }).join('');
+
+      // Build studio crew section for PDF
+      const sc=studioCrew[String(n)]||{};
+      const hasStudio=STUDIO_FIELDS.some(([k])=>sc[k]&&String(sc[k]).trim());
+      const half=Math.ceil(STUDIO_FIELDS.length/2);
+      const scCol1=STUDIO_FIELDS.slice(0,half);
+      const scCol2=STUDIO_FIELDS.slice(half);
+      const studioCrHTML=hasStudio?`
+        <div style="margin-top:20px;page-break-inside:avoid;break-inside:avoid;page-break-before:auto">
+          <div style="background:#1a3a6a;color:#fff;padding:8px 14px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Studio Crew — Episode ${n}</div>
+          <table style="width:100%;border-collapse:collapse;border:1px solid #d0d8e8;border-top:none">
+            ${STUDIO_FIELDS.map(([k,l],i)=>{
+              const bg=i%2===0?'#ffffff':'#f8fafc';
+              return`<tr style="background:${bg}">
+                <td style="padding:7px 12px;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.4px;width:30%;border-bottom:1px solid #eef2f7;border-right:1px solid #eef2f7">${l}</td>
+                <td style="padding:7px 12px;font-size:13px;color:#111;border-bottom:1px solid #eef2f7">${esc(sc[k]||'—')}</td>
+              </tr>`;
+            }).join('')}
+          </table>
+        </div>`:'';
+
+      return`<div class="cl-ep-page" style="break-after:page;page-break-after:always">
+        ${headerHTML}
+        ${epBanner}
+        <div style="padding:4px 0">
+          ${storyBlocks}
+        </div>
+        ${studioCrHTML}
+        <div style="margin-top:20px;padding-top:8px;display:flex;justify-content:space-between;font-size:10px;color:#bbb">
+          <span>CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason}</span>
+          <span>Episode ${n} · ${fmtDate(date)}</span>
+        </div>
+      </div>`;
+    }).filter(Boolean).map((h,i,arr)=>i===arr.length-1?h.replace('class="cl-ep-page" style="break-after:page;page-break-after:always"','class="cl-ep-page"'):h).join('');
+
+    const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;padding:24px;font-size:13px}
+      @page{margin:14mm;size:A4 portrait}
+    </style></head><body>
+    ${epPages||'<p style="color:#888">No episodes found.</p>'}
+    </body></html>`;
+
+    const filename=filterEp==='all'
+      ?`CB-Crew-List-${currentSeason}-All-Episodes.pdf`
+      :`CB-Crew-List-${currentSeason}-Episode-${filterEp}.pdf`;
+
+        html2pdf().set({
+      margin:[10,14,10,14],
+      filename,
+      image:{type:'jpeg',quality:0.98},
+      html2canvas:{scale:2,useCORS:true,allowTaint:true,letterRendering:true},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+    }).from(html).save().then(()=>{
+      btn.innerHTML='⬇ Export PDF';
+      btn.disabled=false;
+    });
+}
+
+
+let crewListEp=null; // 'all' | episode number string; null = default to next episode
+function renderCrewList(epNums,nextEp){
+  const todayIso=new Date().toISOString().split('T')[0];
+  const upcoming=epNums.find(n=>(resolveDate(n)||'')>=todayIso);
+  const sel=crewListEp||(upcoming!=null?String(upcoming):(epNums.length?String(epNums[epNums.length-1]):'all'));
+  const shown=epNums.filter(n=>sel==='all'||String(n)===sel);
+  const th='padding:9px 12px;text-align:left;font-size:13px;font-weight:700;color:#fff;background:#1a3a6a;white-space:normal';
+  const td='padding:9px 12px;font-size:15px;color:#111;border-bottom:1px solid #e6ecf5;white-space:normal;vertical-align:top';
+  const blocks=shown.map(n=>{
+    const stories=crewListStories(n);
+    const order=getLineupOrder(n);
+    const sc=studioCrew[String(n)]||{};
+    const hasStudio=STUDIO_FIELDS.some(([k])=>sc[k]&&String(sc[k]).trim());
+    const half=Math.ceil(STUDIO_FIELDS.length/2);
+    const studioRows=[];
+    for(let i=0;i<half;i++){
+      const a=STUDIO_FIELDS[i],b=STUDIO_FIELDS[i+half];
+      const cell=f=>f?`<td style="${td};font-weight:700;color:#555;font-size:13px;text-transform:uppercase;width:16%">${f[1]}</td><td style="${td};width:34%">${esc(sc[f[0]]||'—')}</td>`:'<td style="'+td+'"></td><td style="'+td+'"></td>';
+      studioRows.push(`<tr>${cell(a)}${cell(b)}</tr>`);
+    }
+    return`
+    <div style="margin-bottom:28px">
+      <div style="background:#1a3a6a;color:#fff;padding:10px 16px;border-radius:6px 6px 0 0;display:flex;align-items:center;gap:14px">
+        <span style="background:#fff;color:#1a3a6a;font-family:monospace;font-weight:900;font-size:16px;padding:3px 12px;border-radius:3px">EP ${n}</span>
+        <span style="font-size:17px;font-weight:800">${fmtDate(resolveDate(n))}</span>
+        <span style="font-size:13px;opacity:.75">${stories.length} ${stories.length===1?'story':'stories'}</span>
+      </div>
+      ${stories.length?`
+      <div style="overflow-x:auto;border:1px solid #d0d8e8;border-top:none">
+      <table style="width:100%;border-collapse:collapse;background:#fff">
+        <thead><tr>
+          <th style="${th}">#</th><th style="${th}">Comm No.</th><th style="${th}">Story</th><th style="${th}">Duration</th><th style="${th}">Producer</th><th style="${th}">Presenter / VO</th><th style="${th}">DOP</th><th style="${th}">Camera Asst.</th><th style="${th}">Editor</th><th style="${th}">AFM</th>
+        </tr></thead>
+        <tbody>
+        ${stories.map(s=>{
+          const rank=order.indexOf(String(s.commNum))+1;
+          const del=s.deliveredDuration?fmtHMS(toDecimalMins(s.deliveredDuration)):'—';
+          return`<tr>
+            <td style="${td};font-weight:800">${rank||'—'}</td>
+            <td style="${td};font-family:monospace;color:#1a3a6a;font-weight:700">${esc(String(s.commNum))}</td>
+            <td style="${td};font-weight:700">${esc(s.storyName||'')}</td>
+            <td style="${td};font-family:monospace">${del}</td>
+            <td style="${td}">${esc(s.producer||'—')}</td>
+            <td style="${td}">${esc(s.presenterVO||'—')}</td>
+            <td style="${td}">${esc(s.dop||'—')}</td>
+            <td style="${td}">${esc(s.ca||'—')}</td>
+            <td style="${td}">${esc(s.editor||'—')}</td>
+            <td style="${td}">${esc(s.afm||'—')}</td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table></div>`:`<div style="padding:16px;border:1px solid #d0d8e8;border-top:none;color:#888;background:#fff">No stories allocated to this episode yet.</div>`}
+      ${hasStudio?`
+      <div style="margin-top:14px;border:1px solid #d0d8e8;border-radius:6px;overflow:hidden;background:#fff">
+        <div style="${th}">STUDIO CREW — EPISODE ${n}</div>
+        <table style="width:100%;border-collapse:collapse"><tbody>${studioRows.join('')}</tbody></table>
+      </div>`:''}
+    </div>`;
+  }).join('');
+  return`
+<div class="toolbar">
+  <select class="f-sel" id="crew-list-ep-sel" tabindex="-1">
+    <option value="all"${sel==='all'?' selected':''}>All Episodes</option>
+    ${epNums.map(n=>`<option value="${n}"${sel===String(n)?' selected':''}>EP ${n} · ${fmtDate(resolveDate(n))}</option>`).join('')}
+  </select>
+  <button class="btn" id="crew-export-btn" style="border-color:#388bfd;color:#0066CC">⬇ Export PDF</button>
+  <span class="count-lbl">Stories are in Line-Ups (broadcast) order · in-house items not listed</span>
+</div>
+<div style="padding:16px 20px">${blocks||'<p style="color:#888">No episodes found.</p>'}</div>`;
+}
+document.addEventListener('change',function crewListChange(e){
+  if(e.target.id==='crew-list-ep-sel'){crewListEp=e.target.value;render();}
+});
+document.addEventListener('click',function crewListClick(e){
+  const b=e.target.closest?.('#crew-export-btn');
+  if(!b||b.disabled)return;
+  const selEl=document.getElementById('crew-list-ep-sel');
+  exportCrewListPDF(b,selEl?selEl.value:'all');
+});
 function renderShootingSchedule(){
   const today=new Date().toISOString().split('T')[0];
   if(!shootCalMonth) shootCalMonth=today.slice(0,7);
@@ -8483,141 +8699,6 @@ function bindApp(){
   document.getElementById('comm-ep-filter-sel')?.addEventListener('change',e=>{commEpFilter=e.target.value;render();});
   ['add-row-btn','add-row-btn2'].forEach(id=>document.getElementById(id)?.addEventListener('click',addRow));
   ['add-ep-btn','add-ep-btn2'].forEach(id=>document.getElementById(id)?.addEventListener('click',()=>{const e=getEpNums();newEpNum=String(e.length?Math.max(...e)+1:1);addEpModal=true;render();}));
-
-  document.getElementById('comm-report-btn')?.addEventListener('click',async()=>{
-    const btn=document.getElementById('comm-report-btn');
-    const epSel=document.getElementById('crew-ep-sel');
-    const filterEp=epSel?epSel.value:'all';
-    btn.innerHTML='⏳ Preparing Crew List…';
-    btn.disabled=true;
-
-    if(!window.html2pdf){
-      await new Promise((res,rej)=>{
-        const s=document.createElement('script');
-        s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-        s.onload=res;s.onerror=rej;
-        document.head.appendChild(s);
-      });
-    }
-
-    const CB_LOGO=BAKED_CB_LOGO;
-    const CAP_LOGO=BAKED_CAP_LOGO;
-    const printDate=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
-    const epNums=getEpNums().filter(n=>filterEp==='all'||String(n)===filterEp);
-
-    function labelRow(label,value,bold=false){
-      return`<tr>
-        <td style="padding:5px 0 5px 0;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;width:38%;vertical-align:top">${label}:</td>
-        <td style="padding:5px 0 5px 12px;font-size:13px;font-weight:${bold?'800':'500'};color:#111;vertical-align:top">${value||'—'}</td>
-      </tr>`;
-    }
-
-    const headerHTML=`
-      <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;margin-bottom:0">
-        <img src="${CB_LOGO}" style="height:56px;width:auto;object-fit:contain">
-        <div style="text-align:center;flex:1;padding:0 24px">
-          <div style="font-size:20px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#111;line-height:1.1">CARTE BLANCHE CREW LIST</div>
-          <div style="font-size:11px;color:#888;margin-top:5px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">Combined Artists Productions · Production Portal</div>
-        </div>
-        <img src="${CAP_LOGO}" style="height:34px;width:auto;object-fit:contain">
-      </div>`;
-
-    const epPages=epNums.map(n=>{
-      const date=resolveDate(n);
-      const stories=sortByLineup(comms.filter(c=>
-        c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse
-      ).sort((a,b)=>a.commNum>b.commNum?1:-1),n);
-      if(!stories.length)return'';
-      const lineupOrder=getLineupOrder(n);
-
-      const epBanner=`
-        <div style="background:#1a3a6a;color:#fff;padding:10px 16px;margin:16px 0;border-radius:4px;display:flex;align-items:center;justify-content:space-between">
-          <div style="display:flex;align-items:center;gap:14px">
-            <span style="background:#fff;color:#1a3a6a;font-family:monospace;font-weight:900;font-size:16px;padding:4px 12px;border-radius:3px">EP ${n}</span>
-            <span style="font-size:17px;font-weight:800">${fmtDate(date)}</span>
-            <span style="font-size:12px;opacity:.7;padding-left:12px;border-left:1px solid rgba(255,255,255,.3)">${stories.length} ${stories.length===1?'story':'stories'}</span>
-          </div>
-          <span style="font-size:11px;opacity:.6">Generated: ${printDate}</span>
-        </div>`;
-
-      const storyBlocks=stories.map((s,i)=>{
-        const del=s.deliveredDuration?fmtHMS(toDecimalMins(s.deliveredDuration)):'—';
-        const isIH=s.isInHouse;
-        const sep=i>0?`<div style="height:1px;background:#e0e8f0;margin:16px 0"></div>`:'';
-        return`${sep}
-        <div style="padding:0 0 4px 0;break-inside:avoid;page-break-inside:avoid">
-          <table style="width:100%;border-collapse:collapse">
-            ${(()=>{const rank=lineupOrder.indexOf(String(s.commNum))+1;return labelRow('Story',`<strong style="font-size:14px">${rank?rank+'. ':''}${esc(s.storyName||'')}${isIH?` <span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:2px;font-size:11px;font-weight:700;margin-left:6px">IN-HOUSE</span>`:''}</strong>`,true);})()}
-            ${labelRow('Commission No.',`<span style="font-family:monospace;font-weight:800;color:#1a3a6a">${esc(String(s.commNum||''))}</span>`)}
-            ${labelRow('Delivered Duration',`<span style="font-family:monospace;font-weight:800;color:#1a5c1a;background:#e8f5e8;padding:2px 8px;border-radius:3px;border:1px solid #aad4aa">${del}</span>`)}
-            ${labelRow('Producer',esc(s.producer||''))}
-            ${labelRow('Presenter / VO',esc(s.presenterVO||''))}
-            ${isIH?'':labelRow('Director of Photography',esc(s.dop||''))}
-            ${isIH?'':labelRow('Camera Assistant',esc(s.ca||''))}
-            ${labelRow('Editor',isIH?'N/A':esc(s.editor||''))}
-            ${labelRow('AFM Operator',esc(s.afm||''))}
-          </table>
-        </div>`;
-      }).join('');
-
-      // Build studio crew section for PDF
-      const sc=studioCrew[String(n)]||{};
-      const hasStudio=STUDIO_FIELDS.some(([k])=>sc[k]&&String(sc[k]).trim());
-      const half=Math.ceil(STUDIO_FIELDS.length/2);
-      const scCol1=STUDIO_FIELDS.slice(0,half);
-      const scCol2=STUDIO_FIELDS.slice(half);
-      const studioCrHTML=hasStudio?`
-        <div style="margin-top:20px;page-break-inside:avoid;break-inside:avoid;page-break-before:auto">
-          <div style="background:#1a3a6a;color:#fff;padding:8px 14px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Studio Crew — Episode ${n}</div>
-          <table style="width:100%;border-collapse:collapse;border:1px solid #d0d8e8;border-top:none">
-            ${STUDIO_FIELDS.map(([k,l],i)=>{
-              const bg=i%2===0?'#ffffff':'#f8fafc';
-              return`<tr style="background:${bg}">
-                <td style="padding:7px 12px;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.4px;width:30%;border-bottom:1px solid #eef2f7;border-right:1px solid #eef2f7">${l}</td>
-                <td style="padding:7px 12px;font-size:13px;color:#111;border-bottom:1px solid #eef2f7">${esc(sc[k]||'—')}</td>
-              </tr>`;
-            }).join('')}
-          </table>
-        </div>`:'';
-
-      return`<div class="cl-ep-page" style="break-after:page;page-break-after:always">
-        ${headerHTML}
-        ${epBanner}
-        <div style="padding:4px 0">
-          ${storyBlocks}
-        </div>
-        ${studioCrHTML}
-        <div style="margin-top:20px;padding-top:8px;display:flex;justify-content:space-between;font-size:10px;color:#bbb">
-          <span>CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason}</span>
-          <span>Episode ${n} · ${fmtDate(date)}</span>
-        </div>
-      </div>`;
-    }).filter(Boolean).map((h,i,arr)=>i===arr.length-1?h.replace('class="cl-ep-page" style="break-after:page;page-break-after:always"','class="cl-ep-page"'):h).join('');
-
-    const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
-    <style>
-      *{box-sizing:border-box;margin:0;padding:0}
-      body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#111;background:#fff;padding:24px;font-size:13px}
-      @page{margin:14mm;size:A4 portrait}
-    </style></head><body>
-    ${epPages||'<p style="color:#888">No episodes found.</p>'}
-    </body></html>`;
-
-    const filename=filterEp==='all'
-      ?`CB-Crew-List-${currentSeason}-All-Episodes.pdf`
-      :`CB-Crew-List-${currentSeason}-Episode-${filterEp}.pdf`;
-
-        html2pdf().set({
-      margin:[10,14,10,14],
-      filename,
-      image:{type:'jpeg',quality:0.98},
-      html2canvas:{scale:2,useCORS:true,allowTaint:true,letterRendering:true},
-      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
-    }).from(html).save().then(()=>{
-      btn.innerHTML='⬇ Crew List PDF';
-      btn.disabled=false;
-    });
-  });
 
     // PDF Export
   document.getElementById('export-pdf-btn')?.addEventListener('click',()=>{
