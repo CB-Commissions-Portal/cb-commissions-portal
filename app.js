@@ -176,7 +176,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.332';
+const BUILD_VERSION='3.10.333';
 const BUILD_DATE='10 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -3981,10 +3981,17 @@ function renderPPCalendar(){
 // grid (any cell whose free text contains "shoot"). No separate data entry: Ops Manager keeps
 // typing into the PP schedule as before, this just surfaces comm #/story/producer per shoot day.
 // ── Crew List tab: shared story list + PDF export ──────────────────
+function crewTypeBadge(c,size){
+  // LICENSED / IN-HOUSE tag for a story (commissioned stories get none). size: font px.
+  const base=`font-size:${size}px;font-weight:800;padding:1px 6px;border-radius:3px;margin-left:8px;letter-spacing:.4px;white-space:nowrap;vertical-align:middle`;
+  if(c.isLicensed)return`<span style="${base};background:#dcfce7;color:#166534;border:1px solid #86efac">LICENSED</span>`;
+  if(c.isInHouse)return`<span style="${base};background:#fff3cd;color:#856404;border:1px solid #f0d78c">IN-HOUSE</span>`;
+  return'';
+}
 function crewListStories(n){
-  // Stories for an episode in Line-Up (broadcast) order; in-house items are not crew-listed.
+  // Stories for an episode in Line-Up (broadcast) order — commissioned, licensed and in-house.
   return sortByLineup(comms.filter(c=>
-    c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse
+    c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName
   ).sort((a,b)=>a.commNum>b.commNum?1:-1),n);
 }
 async function exportCrewListPDF(btn,filterEp){
@@ -4040,19 +4047,18 @@ async function exportCrewListPDF(btn,filterEp){
 
       const storyBlocks=stories.map((s,i)=>{
         const del=s.deliveredDuration?fmtHMS(toDecimalMins(s.deliveredDuration)):'—';
-        const isIH=s.isInHouse;
         const sep=i>0?`<div style="height:1px;background:#e0e8f0;margin:16px 0"></div>`:'';
         return`${sep}
         <div style="padding:0 0 4px 0;break-inside:avoid;page-break-inside:avoid">
           <table style="width:100%;border-collapse:collapse">
-            ${(()=>{const rank=lineupOrder.indexOf(String(s.commNum))+1;return labelRow('Story',`<strong style="font-size:14px">${rank?rank+'. ':''}${esc(s.storyName||'')}${isIH?` <span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:2px;font-size:11px;font-weight:700;margin-left:6px">IN-HOUSE</span>`:''}</strong>`,true);})()}
+            ${(()=>{const rank=lineupOrder.indexOf(String(s.commNum))+1;return labelRow('Story',`<strong style="font-size:14px">${rank?rank+'. ':''}${esc(s.storyName||'')}${crewTypeBadge(s,11)}</strong>`,true);})()}
             ${labelRow('Commission No.',`<span style="font-family:monospace;font-weight:800;color:#1a3a6a">${esc(String(s.commNum||''))}</span>`)}
             ${labelRow('Delivered Duration',`<span style="font-family:monospace;font-weight:800;color:#1a5c1a;background:#e8f5e8;padding:2px 8px;border-radius:3px;border:1px solid #aad4aa">${del}</span>`)}
             ${labelRow('Producer',esc(s.producer||''))}
             ${labelRow('Presenter / VO',esc(s.presenterVO||''))}
-            ${isIH?'':labelRow('Director of Photography',esc(s.dop||''))}
-            ${isIH?'':labelRow('Camera Assistant',esc(s.ca||''))}
-            ${labelRow('Editor',isIH?'N/A':esc(s.editor||''))}
+            ${labelRow('Director of Photography',esc(s.dop||''))}
+            ${labelRow('Camera Assistant',esc(s.ca||''))}
+            ${labelRow('Editor',esc(s.editor||''))}
             ${labelRow('AFM Operator',esc(s.afm||''))}
           </table>
         </div>`;
@@ -4158,7 +4164,7 @@ function renderCrewList(epNums,nextEp){
           return`<tr>
             <td style="${td};font-weight:800">${rank||'—'}</td>
             <td style="${td};font-family:monospace;color:#1a3a6a;font-weight:700">${esc(String(s.commNum))}</td>
-            <td style="${td};font-weight:700">${esc(s.storyName||'')}</td>
+            <td style="${td};font-weight:700">${esc(s.storyName||'')}${crewTypeBadge(s,11)}</td>
             <td style="${td};font-family:monospace">${del}</td>
             <td style="${td}">${esc(s.producer||'—')}</td>
             <td style="${td}">${esc(s.presenterVO||'—')}</td>
@@ -4184,7 +4190,7 @@ function renderCrewList(epNums,nextEp){
     ${epNums.map(n=>`<option value="${n}"${sel===String(n)?' selected':''}>EP ${n} · ${fmtDate(resolveDate(n))}</option>`).join('')}
   </select>
   <button class="btn" id="crew-export-btn" style="border-color:#388bfd;color:#0066CC">⬇ Export PDF</button>
-  <span class="count-lbl">Stories are in Line-Ups (broadcast) order · in-house items not listed</span>
+  <span class="count-lbl">Stories are in Line-Ups (broadcast) order · includes licensed and in-house</span>
 </div>
 <div style="padding:16px 20px">${blocks||'<p style="color:#888">No episodes found.</p>'}</div>`;
 }
