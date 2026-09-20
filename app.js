@@ -175,7 +175,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.330';
+const BUILD_VERSION='3.10.331';
 const BUILD_DATE='10 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -8580,7 +8580,7 @@ function bindApp(){
           </table>
         </div>`:'';
 
-      return`<div style="break-after:page;page-break-after:always">
+      return`<div class="cl-ep-page" style="break-after:page;page-break-after:always">
         ${headerHTML}
         ${epBanner}
         <div style="padding:4px 0">
@@ -8592,7 +8592,7 @@ function bindApp(){
           <span>Episode ${n} · ${fmtDate(date)}</span>
         </div>
       </div>`;
-    }).filter(Boolean).join('');
+    }).filter(Boolean).map((h,i,arr)=>i===arr.length-1?h.replace('class="cl-ep-page" style="break-after:page;page-break-after:always"','class="cl-ep-page"'):h).join('');
 
     const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
     <style>
