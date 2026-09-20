@@ -175,7 +175,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.329';
+const BUILD_VERSION='3.10.330';
 const BUILD_DATE='10 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -8524,9 +8524,9 @@ function bindApp(){
 
     const epPages=epNums.map(n=>{
       const date=resolveDate(n);
-      const stories=comms.filter(c=>
+      const stories=sortByLineup(comms.filter(c=>
         c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse
-      ).sort((a,b)=>a.commNum>b.commNum?1:-1);
+      ).sort((a,b)=>a.commNum>b.commNum?1:-1),n);
       if(!stories.length)return'';
       const lineupOrder=getLineupOrder(n);
 
@@ -8547,7 +8547,8 @@ function bindApp(){
         return`${sep}
         <div style="padding:0 0 4px 0;break-inside:avoid;page-break-inside:avoid">
           <table style="width:100%;border-collapse:collapse">
-            ${(()=>{const rank=lineupOrder.indexOf(String(s.commNum))+1;return labelRow('Story',`<strong style="font-size:14px">${rank?rank+'. ':''} &nbsp;<span style="font-family:monospace;font-size:12px;color:#1a3a6a">[${s.commNum}]</span>${isIH?` <span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:2px;font-size:11px;font-weight:700;margin-left:6px">IN-HOUSE</span>`:''}</strong>`,true);})()}
+            ${(()=>{const rank=lineupOrder.indexOf(String(s.commNum))+1;return labelRow('Story',`<strong style="font-size:14px">${rank?rank+'. ':''}${esc(s.storyName||'')}${isIH?` <span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:2px;font-size:11px;font-weight:700;margin-left:6px">IN-HOUSE</span>`:''}</strong>`,true);})()}
+            ${labelRow('Commission No.',`<span style="font-family:monospace;font-weight:800;color:#1a3a6a">${esc(String(s.commNum||''))}</span>`)}
             ${labelRow('Delivered Duration',`<span style="font-family:monospace;font-weight:800;color:#1a5c1a;background:#e8f5e8;padding:2px 8px;border-radius:3px;border:1px solid #aad4aa">${del}</span>`)}
             ${labelRow('Producer',esc(s.producer||''))}
             ${labelRow('Presenter / VO',esc(s.presenterVO||''))}
