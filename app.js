@@ -176,7 +176,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.334';
+const BUILD_VERSION='3.10.335';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -409,7 +409,10 @@ let mcImportKind='xl';           // 'xl' = admin's Import from Excel, 'csv' = AF
 let creditsExpandedEp=null;
 let ecLocalWrite=false,ecSaveTimers={},ecDirty={},ecDefaultCredits=[],ecShowDefModal=false;
 let luLocalWrite=false,scLocalWrite=false,rosLocalWrite=false;
-let trCommLocalWrite=false,trLiveLocalWrite=false;
+let trCommLocalWrite=false;
+// Live Show Transcript per-block editing state (v3.10.335): unsaved keystrokes + their debounce timers, keyed ep::blockKey
+let trPending={},trTimers={},trSig='',trStructDirty=false;
+const trPKey=(ep,key)=>String(ep)+'::'+key;
 let showPermModal=false;
 let expandedEps=new Set(); // Episode Register expanded episodes
 let decomModal=null,decomText='',addEpModal=false,newEpNum='',editingDate=null,tempDate='';
@@ -950,18 +953,21 @@ function subscribeCommTranscripts(){
   });
 }
 function subscribeLiveTranscripts(){
+  // Per-block model (v3.10.335): every snapshot is accepted — there is no "ignore while viewing" guard any
+  // more, because saves only ever touch the block that was edited, and unsaved keystrokes are protected by
+  // trPending. trApplyRemote() patches other people's changes into the open screen without disturbing typing.
   if(unsubLiveTranscripts)unsubLiveTranscripts();
   return new Promise(resolve=>{
     let resolved=false;
     unsubLiveTranscripts=onSnapshot(collection(db,'live_transcripts'),snap=>{
-      if(trLiveLocalWrite){if(!resolved){resolved=true;resolve();}return;}
-      snap.docs.forEach(d=>{
-        const epId=d.id;
-        const editingThisEp=tab==='transcripts'&&transcriptView==='live'&&String(transcriptLiveEp)===epId;
-        if(!editingThisEp)liveTranscripts[epId]={...d.data()};
+      const changedEps=[];
+      snap.docChanges().forEach(ch=>{
+        if(ch.type==='removed')delete liveTranscripts[ch.doc.id];
+        else liveTranscripts[ch.doc.id]={...ch.doc.data()};
+        changedEps.push(ch.doc.id);
       });
-      if(!resolved){resolved=true;resolve();}
-      else if(tab==='transcripts'&&transcriptView==='live'){if(!document.activeElement?.classList.contains('tr-live-area'))render();}
+      if(!resolved){resolved=true;resolve();return;}
+      if(tab==='transcripts'&&transcriptView==='live'&&changedEps.includes(String(transcriptLiveEp)))trApplyRemote();
     },e=>{console.error('LiveTranscripts error:',e);if(!resolved){resolved=true;resolve();}});
   });
 }
@@ -978,46 +984,84 @@ async function saveCommTranscript(commNum,data){
   }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);return false;}
   finally{setTimeout(()=>{trCommLocalWrite=false;},1500);}
 }
-async function saveLiveTranscript(epNum,data){
-  setSyncDot('saving');
-  trLiveLocalWrite=true;
-  const updatedByName=currentUser?.displayName||currentUser?.email||'Unknown';
-  const updatedAtStr=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  liveTranscripts[String(epNum)]={...data,updatedByName,updatedAtStr};
-  try{
-    await setDoc(doc(db,'live_transcripts',String(epNum)),{...data,updatedAt:serverTimestamp(),updatedByName,updatedAtStr});
-    setSyncDot('live');
-    return true;
-  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);return false;}
-  finally{setTimeout(()=>{trLiveLocalWrite=false;},1500);}
+// ── Live Show Transcript data model (v3.10.335) ──────────────────────────────────────────────
+// live_transcripts/{ep}.blockData = { [blockKey]: {content, commNum, checkStatus, itemLabel, itemType} }
+// Order, labels and types always come from the Studio Script Build rows (rosData), never from the saved
+// doc, and a save only writes the block(s) that changed (Firestore merge) — so two people editing
+// different blocks can't overwrite each other, and reordering the script can't scramble saved text.
+// Old docs (a `blocks` array, matched by itemKey) are still read as a fallback until a block is edited.
+function liveBlockKeys(rosItems){
+  const dup={};rosItems.forEach(it=>{if(!it.uid)dup[it.key]=(dup[it.key]||0)+1;});
+  return rosItems.map((it,i)=>it.uid||(dup[it.key]>1?it.key+'#'+i:it.key));
 }
-// Which commission each Live Show Transcript insert block belongs to. Purely positional: the 1st
-// insert row in the running order gets the 1st story in Line-Ups, the 2nd gets the 2nd, etc.
-// The typed "INSERT 4" label is a manual number and must never drive the pairing (it used to,
-// via item.key — which put the wrong story on any insert whose label didn't match its position).
-// Returns an array parallel to rosItems: commNum for insert rows, null for everything else.
+// Which commission each insert block belongs to. Purely positional: the 1st insert row in the running
+// order gets the 1st story in Line-Ups, the 2nd gets the 2nd, etc. The typed "INSERT 4" label is a manual
+// number and must never drive the pairing. Returns an array parallel to rosItems.
 function insertCommNumsByRow(rosItems,ep){
   const epComs=getLineupOrderedComms(ep);
   let n=0;
   return rosItems.map(it=>it.type==='insert'?(epComs[n++]?.commNum||null):null);
 }
-// Resolves the editable block array for an episode's Live Show Transcript: the saved blocks
-// if "Build from Script" has ever run, otherwise the same ROS-script-derived list the screen
-// falls back to showing (renderTranscripts' displayBlocks). Any handler that writes to a block
-// by index (bi) MUST go through this — reading raw liveTranscripts[ep].blocks||[] instead
-// silently no-ops (blocks[bi] is undefined) whenever that fallback is on screen, since an empty
-// []  was saved (e.g. someone typed/saved before ever clicking Build). Fixed the "Copy In
-// Transcript does nothing" report — see project_transcripts memory.
-function liveTranscriptBlocksFor(ep){
+// The blocks for an episode, in script order. Every screen/handler reads this — never the raw doc.
+function resolveLiveBlocks(ep){
   const lt=liveTranscripts[String(ep)]||{};
-  if(lt.blocks&&lt.blocks.length)return JSON.parse(JSON.stringify(lt.blocks));
   const rosItems=(rosData[String(ep)]?.items)||[];
+  const keys=liveBlockKeys(rosItems);
+  const bd=lt.blockData||{};
+  const legacy={};(lt.blocks||[]).forEach(b=>{if(b&&b.itemKey!==undefined)legacy[b.itemKey]=b;});
+  const keyCount={};rosItems.forEach(it=>{keyCount[it.key]=(keyCount[it.key]||0)+1;});
   const insComms=insertCommNumsByRow(rosItems,ep);
-  return rosItems.map((item,i)=>({
-    itemKey:rosItemTransKey(item),itemLabel:item.label,itemType:item.type||'live',
-    content:scriptToTranscriptText(item.script||''),
-    commNum:insComms[i]
-  }));
+  return rosItems.map((item,i)=>{
+    const key=keys[i];
+    const lk=keyCount[item.key]===1?item.key:undefined; // pre-uid raw-key fallback, only when unambiguous
+    const st=bd[key]||(lk!==undefined?bd[lk]:undefined)||{};
+    const lg=legacy[key]||(lk!==undefined?legacy[lk]:undefined)||{};
+    const pick=f=>st[f]!==undefined?st[f]:lg[f];
+    const content=pick('content');
+    return{
+      itemKey:key,itemLabel:item.label,itemType:item.type||'live',
+      content:content!==undefined?content:scriptToTranscriptText(item.script||''),
+      commNum:item.type==='insert'?(insComms[i]||pick('commNum')||null):null,
+      checkStatus:pick('checkStatus')||''
+    };
+  });
+}
+// Writes only the given blocks ({key:{fields}}). replace=true rewrites the whole doc (Clear & Rebuild).
+async function saveLiveBlocks(ep,map,replace){
+  setSyncDot('saving');
+  const updatedByName=currentUser?.displayName||currentUser?.email||'Unknown';
+  const updatedAtStr=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const k=String(ep);
+  const base=replace?{epNum:ep}:(liveTranscripts[k]||{epNum:ep});
+  const bd=replace?{}:{...(base.blockData||{})};
+  Object.keys(map).forEach(key=>{bd[key]={...(bd[key]||{}),...map[key]};});
+  liveTranscripts[k]={...base,blockData:bd,updatedByName,updatedAtStr};
+  try{
+    const payload={epNum:ep,blockData:map,updatedAt:serverTimestamp(),updatedByName,updatedAtStr};
+    if(replace)await setDoc(doc(db,'live_transcripts',k),payload);
+    else await setDoc(doc(db,'live_transcripts',k),payload,{merge:true});
+    setSyncDot('live');
+    return true;
+  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);return false;}
+}
+function trAutoResize(ta){ta.style.height='0px';ta.style.height=Math.max(60,ta.scrollHeight)+'px';}
+// Applies a change that arrived from another user to the open Live Show Transcript screen.
+// Text in blocks you aren't touching is patched in place (no re-render, cursor untouched); a change to
+// labels/story links/status re-renders straight away, or right after you click out of the block you're in.
+function trApplyRemote(){
+  const ep=transcriptLiveEp;if(!ep||!document.getElementById('tr-live-blocks'))return;
+  const blocks=resolveLiveBlocks(ep);
+  const active=document.activeElement;
+  document.querySelectorAll('.tr-live-area').forEach(ta=>{
+    const key=ta.dataset.key;
+    if(ta===active||trPending[trPKey(ep,key)]!==undefined)return;
+    const b=blocks.find(x=>x.itemKey===key);
+    if(b&&ta.value!==b.content){ta.value=b.content;trAutoResize(ta);}
+  });
+  const sig=JSON.stringify(blocks.map(b=>[b.itemKey,b.itemLabel,b.itemType,b.commNum,b.checkStatus]));
+  if(sig===trSig)return;
+  if(active?.classList?.contains('tr-live-area'))trStructDirty=true;
+  else render();
 }
 async function exportAllDataToJSON(){
   showToast('Collecting data — this may take a moment…');
@@ -8531,13 +8575,11 @@ function renderTranscripts(epNums){
   const readyEpComms=epComms.filter(c=>commTranscripts[String(c.commNum)]?.status==='ready');
   function blockBg(type,status){if(status==='approved')return'#67BCF7';if(status==='inprogress')return'#FD8086';return{fixed:'#f8fafc',break:'#f8fafc',live:'#eff6ff',insert:'#f0fdf4',coldstart:'#faf5ff',upnext:'#f0fdf4'}[type]||'#f9fafb';}
   function blockAccent(type,status){if(status==='approved')return'#34A6F4';if(status==='inprogress')return'#FB2C36';return{fixed:'#484f58',break:'#484f58',live:'#1f6feb',insert:'#3fb950',coldstart:'#8957e5',upnext:'#2ea043'}[type]||'#484f58';}
-  const rosItems=ep?(rosData[String(ep)]?.items||[]):[];
-  const _insComms=insertCommNumsByRow(rosItems,ep);
-  const displayBlocks=(lt.blocks&&lt.blocks.length)?lt.blocks:rosItems.map((item,i)=>({
-    itemKey:item.key,itemLabel:item.label,itemType:item.type||'live',
-    content:scriptToTranscriptText(item.script||''),
-    commNum:_insComms[i]
-  }));
+  const _resolved=ep?resolveLiveBlocks(ep):[];
+  trSig=JSON.stringify(_resolved.map(b=>[b.itemKey,b.itemLabel,b.itemType,b.commNum,b.checkStatus]));
+  trStructDirty=false;
+  // unsaved keystrokes (still inside the autosave delay) stay on screen across a re-render
+  const displayBlocks=_resolved.map(b=>{const pend=trPending[trPKey(ep,b.itemKey)];return pend!==undefined?{...b,content:pend}:b;});
   return`<div style="display:flex;flex:1;min-height:0;overflow:hidden;background:#f8fafc">
     <div style="width:300px;flex-shrink:0;border-right:1px solid #d1dae8;display:flex;flex-direction:column;background:#ffffff">
       <div style="padding:12px 14px;border-bottom:1px solid #d1dae8;flex-shrink:0">
@@ -8572,7 +8614,7 @@ function renderTranscripts(epNums){
       </div>
     </div>
     <div id="tr-live-blocks" style="flex:1;min-width:0;overflow-y:auto;padding:16px 20px">
-      ${!displayBlocks.length?`<div style="color:#9ca3af;font-size:16px;padding:60px 0;text-align:center">No script items yet.<br><br>Select an episode and click <strong style="color:#111827">BUILD FROM SCRIPT</strong> to get started.</div>`:
+      ${!displayBlocks.length?`<div style="color:#9ca3af;font-size:16px;padding:60px 0;text-align:center">No script items for this episode yet.<br><br>Add them in <strong style="color:#111827">Studio Script Build</strong> and they will appear here.</div>`:
       displayBlocks.map((block,bi)=>{
         const isFixed=['fixed','break'].includes(block.itemType);
         const checkStatus=block.checkStatus||'';
@@ -8582,8 +8624,8 @@ function renderTranscripts(epNums){
         const linkedTd=block.commNum?commTranscripts[String(block.commNum)]:null;
         const canCheck=['admin','deputyadmin'].includes(getEffectiveRole());
         const checkBtns=canCheck?`<div style="display:flex;gap:4px;flex-shrink:0">
-          <button class="btn tr-status-btn" data-bi="${bi}" data-status="inprogress" style="font-size:11px;padding:3px 8px;font-weight:800;letter-spacing:.3px;white-space:nowrap;${checkStatus==='inprogress'?'background:#FB2C36;border-color:#FB2C36;color:#fff':'color:#FB2C36;border-color:#fecaca'}">◐ IN PROGRESS</button>
-          <button class="btn tr-status-btn" data-bi="${bi}" data-status="approved" style="font-size:11px;padding:3px 8px;font-weight:800;letter-spacing:.3px;white-space:nowrap;${checkStatus==='approved'?'background:#34A6F4;border-color:#34A6F4;color:#fff':'color:#34A6F4;border-color:#bfdbfe'}">✓ APPROVED</button>
+          <button class="btn tr-status-btn" data-key="${esc(block.itemKey)}" data-status="inprogress" style="font-size:11px;padding:3px 8px;font-weight:800;letter-spacing:.3px;white-space:nowrap;${checkStatus==='inprogress'?'background:#FB2C36;border-color:#FB2C36;color:#fff':'color:#FB2C36;border-color:#fecaca'}">◐ IN PROGRESS</button>
+          <button class="btn tr-status-btn" data-key="${esc(block.itemKey)}" data-status="approved" style="font-size:11px;padding:3px 8px;font-weight:800;letter-spacing:.3px;white-space:nowrap;${checkStatus==='approved'?'background:#34A6F4;border-color:#34A6F4;color:#fff':'color:#34A6F4;border-color:#bfdbfe'}">✓ APPROVED</button>
         </div>`:'';
         return`<div style="margin-bottom:10px;border:1px solid ${accent}40;border-radius:8px;overflow:hidden;background:${blockBg(block.itemType,checkStatus)}">
           <div style="padding:7px 14px;border-bottom:1px solid ${accent}30;display:flex;align-items:center;gap:10px">
@@ -8594,12 +8636,12 @@ function renderTranscripts(epNums){
           ${linked?`<div style="padding:6px 14px;background:${accent}08;border-bottom:1px solid ${accent}25;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span style="font-size:13px;color:#6b7280">Comm <strong style="color:#111827">${esc(String(linked.commNum))}</strong> · ${esc(linked.storyName||'')}</span>
             ${statusBadge(linkedTd?.status)}
-            ${linkedTd?.status==='ready'&&linkedTd?.transcript?`<button class="btn tr-copy-in" data-bi="${bi}" data-commnum="${esc(String(linked.commNum))}" style="font-size:12px;padding:3px 9px;margin-left:auto;background:#dcfce7;color:#16a34a;border-color:#86efac">↓ Copy In Transcript</button>`:''}
+            ${linkedTd?.status==='ready'&&linkedTd?.transcript?`<button class="btn tr-copy-in" data-key="${esc(block.itemKey)}" data-commnum="${esc(String(linked.commNum))}" style="font-size:12px;padding:3px 9px;margin-left:auto;background:#dcfce7;color:#16a34a;border-color:#86efac">↓ Copy In Transcript</button>`:''}
           </div>`:(block.itemType==='insert'?`<div style="padding:6px 14px;background:${accent}08;border-bottom:1px solid ${accent}25;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            ${readyEpComms.length?`<select class="tr-insert-pick" data-bi="${bi}" style="flex:1;min-width:0;background:#f9fafb;border:1px solid #d1dae8;border-radius:4px;color:#111827;font-size:13px;padding:4px 8px;font-family:inherit"><option value="">— select commission transcript —</option>${readyEpComms.map(c=>`<option value="${esc(String(c.commNum))}">${esc(String(c.commNum))} · ${esc(c.storyName||'')}</option>`).join('')}</select><button class="btn tr-add-trans-btn" data-bi="${bi}" style="font-size:12px;padding:3px 9px;background:#dcfce7;color:#16a34a;border-color:#86efac;white-space:nowrap">ADD TRANSCRIPT</button>`:`<span style="font-size:13px;color:#9ca3af;font-style:italic">No commission transcripts marked Ready for EP${ep}</span>`}
+            ${readyEpComms.length?`<select class="tr-insert-pick" data-key="${esc(block.itemKey)}" style="flex:1;min-width:0;background:#f9fafb;border:1px solid #d1dae8;border-radius:4px;color:#111827;font-size:13px;padding:4px 8px;font-family:inherit"><option value="">— select commission transcript —</option>${readyEpComms.map(c=>`<option value="${esc(String(c.commNum))}">${esc(String(c.commNum))} · ${esc(c.storyName||'')}</option>`).join('')}</select><button class="btn tr-add-trans-btn" data-key="${esc(block.itemKey)}" style="font-size:12px;padding:3px 9px;background:#dcfce7;color:#16a34a;border-color:#86efac;white-space:nowrap">ADD TRANSCRIPT</button>`:`<span style="font-size:13px;color:#9ca3af;font-style:italic">No commission transcripts marked Ready for EP${ep}</span>`}
           </div>`:'')}
           ${isFixed?`<div style="padding:10px 14px;font-size:15px;color:#9ca3af;font-style:italic">Fixed/break item — no dialogue</div>`:
-            `<textarea class="tr-live-area" data-bi="${bi}" placeholder="Enter dialogue / transcript here…" style="width:100%;min-height:60px;height:auto;background:transparent;border:none;color:#111827;font-size:17px;padding:12px 14px;resize:none;outline:none;font-family:inherit;line-height:1.8;box-sizing:border-box;overflow:hidden;display:block">${esc(block.content||'')}</textarea>`}
+            `<textarea class="tr-live-area" data-key="${esc(block.itemKey)}" placeholder="Enter dialogue / transcript here…" style="width:100%;min-height:60px;height:auto;background:transparent;border:none;color:#111827;font-size:17px;padding:12px 14px;resize:none;outline:none;font-family:inherit;line-height:1.8;box-sizing:border-box;overflow:hidden;display:block">${esc(block.content||'')}</textarea>`}
         </div>`;
       }).join('')}
     </div>
@@ -10254,25 +10296,24 @@ function bindApp(){
       const ep=transcriptLiveEp;if(!ep){showToast('Select an episode first',true);return;}
       const rosItems=(rosData[String(ep)]?.items)||[];
       if(!rosItems.length){showToast('No script items found for EP'+ep+'. Add items in Studio Script Build first.',true);return;}
+      // Read what's there BEFORE any uid is added (keys change when a uid is assigned)
+      const before=resolveLiveBlocks(ep);
       let uidsAdded=false;
       rosItems.forEach(item=>{if(!item.uid){item.uid=rosGenUid();uidsAdded=true;}});
       if(uidsAdded)await saveROS(Number(ep),{items:rosItems,epNum:Number(ep)});
+      const keys=liveBlockKeys(rosItems);
       const insComms=insertCommNumsByRow(rosItems,ep);
-      const existing=(liveTranscripts[String(ep)]?.blocks)||[];
-      const existMap={};existing.forEach(b=>{existMap[b.itemKey]=b;});
-      // Falls back to the legacy raw item.key match (pre-uid transcripts) so content already
-      // typed in isn't wiped by the first Build after this fix — see rosItemTransKey.
-      const newBlocks=rosItems.map((item,i)=>{
-        const tKey=rosItemTransKey(item);
-        const match=existMap[tKey]||existMap[item.key];
-        return{
-          itemKey:tKey,itemLabel:item.label,itemType:item.type||'live',
-          content:match?.content||scriptToTranscriptText(item.script||''),
-          commNum:insComms[i]||(match?.commNum||null)
+      const map={};
+      rosItems.forEach((item,i)=>{
+        map[keys[i]]={
+          itemLabel:item.label,itemType:item.type||'live',
+          content:before[i]?.content||scriptToTranscriptText(item.script||''),
+          commNum:item.type==='insert'?(insComms[i]||before[i]?.commNum||null):null,
+          checkStatus:before[i]?.checkStatus||''
         };
       });
-      await saveLiveTranscript(ep,{epNum:ep,blocks:newBlocks});
-      showToast(`Live Show Transcript built — ${newBlocks.length} items from EP${ep} script`);
+      await saveLiveBlocks(ep,map,false);
+      showToast(`Live Show Transcript built — ${rosItems.length} items from EP${ep} script`);
       render();
     });
     document.getElementById('tr-rebuild-btn')?.addEventListener('click',async()=>{
@@ -10283,74 +10324,81 @@ function bindApp(){
       let uidsAdded=false;
       rosItems.forEach(item=>{if(!item.uid){item.uid=rosGenUid();uidsAdded=true;}});
       if(uidsAdded)await saveROS(Number(ep),{items:rosItems,epNum:Number(ep)});
+      const keys=liveBlockKeys(rosItems);
       const insComms=insertCommNumsByRow(rosItems,ep);
-      const newBlocks=rosItems.map((item,i)=>({
-        itemKey:rosItemTransKey(item),itemLabel:item.label,itemType:item.type||'live',
-        content:scriptToTranscriptText(item.script||''),
-        commNum:insComms[i]
-      }));
-      await saveLiveTranscript(ep,{epNum:ep,blocks:newBlocks});
-      showToast(`Transcript cleared and rebuilt — ${newBlocks.length} items from EP${ep} script`);
+      const map={};
+      rosItems.forEach((item,i)=>{
+        map[keys[i]]={
+          itemLabel:item.label,itemType:item.type||'live',
+          content:scriptToTranscriptText(item.script||''),
+          commNum:item.type==='insert'?insComms[i]:null,
+          checkStatus:''
+        };
+      });
+      Object.keys(trTimers).forEach(k=>{if(k.startsWith(String(ep)+'::')){clearTimeout(trTimers[k]);delete trTimers[k];}});
+      Object.keys(trPending).forEach(k=>{if(k.startsWith(String(ep)+'::'))delete trPending[k];});
+      await saveLiveBlocks(ep,map,true);
+      showToast(`Transcript cleared and rebuilt — ${rosItems.length} items from EP${ep} script`);
       render();
     });
     document.querySelectorAll('.tr-status-btn').forEach(btn=>{
       btn.addEventListener('click',async()=>{
         const ep=transcriptLiveEp;if(!ep)return;
-        const bi=Number(btn.dataset.bi);
+        const key=btn.dataset.key;
+        const b=resolveLiveBlocks(ep).find(x=>x.itemKey===key);
+        if(!b)return;
         const status=btn.dataset.status;
-        const blocks=liveTranscriptBlocksFor(ep);
-        if(!blocks[bi])return;
-        blocks[bi].checkStatus=blocks[bi].checkStatus===status?'':status;
-        await saveLiveTranscript(ep,{epNum:ep,blocks});
+        await saveLiveBlocks(ep,{[key]:{checkStatus:b.checkStatus===status?'':status}},false);
         render();
       });
     });
     // Auto-resize all live-area textareas to fit content
-    function autoResizeTa(ta){ta.style.height='0px';ta.style.height=Math.max(60,ta.scrollHeight)+'px';}
-    document.querySelectorAll('.tr-live-area').forEach(ta=>{
-      autoResizeTa(ta);
-    });
-    let _trLiveTimer=null;
+    document.querySelectorAll('.tr-live-area').forEach(ta=>trAutoResize(ta));
+    // Autosave: one timer PER BLOCK, and only that block is written
     document.querySelectorAll('.tr-live-area').forEach(ta=>{
       ta.addEventListener('input',()=>{
-        autoResizeTa(ta);
-        clearTimeout(_trLiveTimer);
-        _trLiveTimer=setTimeout(async()=>{
-          const ep=transcriptLiveEp;if(!ep)return;
-          const blocks=liveTranscriptBlocksFor(ep);
-          const bi=Number(ta.dataset.bi);
-          if(blocks[bi])blocks[bi].content=ta.value;
-          const ok=await saveLiveTranscript(ep,{epNum:ep,blocks});
-          if(ok)showToast('Saved ✓');
+        trAutoResize(ta);
+        const ep=transcriptLiveEp;if(!ep)return;
+        const key=ta.dataset.key,pk=trPKey(ep,key);
+        trPending[pk]=ta.value;
+        clearTimeout(trTimers[pk]);
+        trTimers[pk]=setTimeout(async()=>{
+          const v=trPending[pk];if(v===undefined)return;
+          delete trTimers[pk];
+          const ok=await saveLiveBlocks(ep,{[key]:{content:v}},false);
+          if(ok){if(trPending[pk]===v)delete trPending[pk];showToast('Saved ✓');}
         },1500);
       });
     });
+    // A change from another user that needed a re-render waits until you leave the block you were typing in
+    document.getElementById('tr-live-blocks')?.addEventListener('focusout',()=>{
+      if(!trStructDirty)return;
+      setTimeout(()=>{if(trStructDirty&&!document.activeElement?.classList?.contains('tr-live-area'))render();},600);
+    });
     document.getElementById('tr-live-save-btn')?.addEventListener('click',async()=>{
       const ep=transcriptLiveEp;if(!ep){showToast('Select an episode first',true);return;}
-      clearTimeout(_trLiveTimer);
-      const blocks=liveTranscriptBlocksFor(ep);
+      const blocks=resolveLiveBlocks(ep);
+      const map={};
       document.querySelectorAll('.tr-live-area').forEach(ta=>{
-        const bi=Number(ta.dataset.bi);
-        if(blocks[bi])blocks[bi].content=ta.value;
+        const b=blocks.find(x=>x.itemKey===ta.dataset.key);
+        if(b&&ta.value!==b.content)map[b.itemKey]={content:ta.value};
       });
-      await saveLiveTranscript(ep,{epNum:ep,blocks});
+      Object.keys(trTimers).forEach(k=>{if(k.startsWith(String(ep)+'::')){clearTimeout(trTimers[k]);delete trTimers[k];}});
+      if(Object.keys(map).length){
+        const ok=await saveLiveBlocks(ep,map,false);
+        if(!ok)return;
+      }
+      Object.keys(trPending).forEach(k=>{if(k.startsWith(String(ep)+'::'))delete trPending[k];});
       showToast('Live Show Transcript saved ✓');
       render();
     });
     document.getElementById('tr-live-refresh-btn')?.addEventListener('click',async()=>{
       const ep=transcriptLiveEp;if(!ep){showToast('Select an episode first',true);return;}
-      clearTimeout(_trLiveTimer);
       try{
         const snap=await getDoc(doc(db,'live_transcripts',String(ep)));
         if(!snap.exists()){showToast('No saved transcript found for this episode yet',true);return;}
-        const fresh=snap.data();
-        // Keep whatever's currently on screen for any block — refresh should never discard
-        // keystrokes that haven't autosaved yet, only pull in blocks nobody here is touching.
-        document.querySelectorAll('.tr-live-area').forEach(ta=>{
-          const bi=Number(ta.dataset.bi);
-          if(fresh.blocks?.[bi])fresh.blocks[bi].content=ta.value;
-        });
-        liveTranscripts[String(ep)]=fresh;
+        // Unsaved keystrokes are kept (trPending); everything else comes straight from the saved copy
+        liveTranscripts[String(ep)]={...snap.data()};
         render();
         showToast('Refreshed ✓');
       }catch(e){showToast('Refresh failed: '+e.message,true);}
@@ -10359,16 +10407,14 @@ function bindApp(){
     document.getElementById('tr-export-txt-btn')?.addEventListener('click',()=>{
       const ep=transcriptLiveEp;
       if(!ep){showToast('Select an episode first',true);return;}
-      const lt=liveTranscripts[String(ep)]||{};
-      const blocks=lt.blocks&&lt.blocks.length?lt.blocks:[];
+      const blocks=resolveLiveBlocks(ep);
       if(!blocks.length){showToast('No transcript content to export',true);return;}
-      // collect live textarea values first (in case of unsaved keystrokes)
       const taMap={};
-      document.querySelectorAll('.tr-live-area').forEach(ta=>{taMap[ta.dataset.bi]=ta.value;});
+      document.querySelectorAll('.tr-live-area').forEach(ta=>{taMap[ta.dataset.key]=ta.value;});
       const parts=[];
-      blocks.forEach((block,bi)=>{
+      blocks.forEach(block=>{
         if(['fixed','break'].includes(block.itemType))return;
-        const content=(taMap[String(bi)]!==undefined?taMap[String(bi)]:block.content||'').trim();
+        const content=(taMap[block.itemKey]!==undefined?taMap[block.itemKey]:block.content||'').trim();
         if(content)parts.push(content);
       });
       if(!parts.length){showToast('No transcript text to export',true);return;}
@@ -10383,36 +10429,30 @@ function bindApp(){
     });
     document.querySelectorAll('.tr-copy-in').forEach(btn=>{
       btn.addEventListener('click',()=>{
-        const bi=Number(btn.dataset.bi);
+        const key=btn.dataset.key;
         const commNum=btn.dataset.commnum;
         const td=commTranscripts[String(commNum)]||{};
         const ep=transcriptLiveEp;if(!ep)return;
-        const blocks=liveTranscriptBlocksFor(ep);
-        if(blocks[bi]){
-          blocks[bi].content=td.transcript||'';
-          saveLiveTranscript(ep,{epNum:ep,blocks});
-          const ta=document.querySelector(`.tr-live-area[data-bi="${bi}"]`);
-          if(ta)ta.value=td.transcript||'';
-          showToast('Commission transcript copied in');
-        }else{
-          showToast('Could not find this line — try Refresh, then copy in again',true);
-        }
+        if(!resolveLiveBlocks(ep).some(x=>x.itemKey===key)){showToast('Could not find this line — try Refresh, then copy in again',true);return;}
+        const pk=trPKey(ep,key);clearTimeout(trTimers[pk]);delete trTimers[pk];delete trPending[pk];
+        saveLiveBlocks(ep,{[key]:{content:td.transcript||''}},false);
+        const ta=[...document.querySelectorAll('.tr-live-area')].find(x=>x.dataset.key===key);
+        if(ta){ta.value=td.transcript||'';trAutoResize(ta);}
+        showToast('Commission transcript copied in');
       });
     });
     document.querySelectorAll('.tr-add-trans-btn').forEach(btn=>{
       btn.addEventListener('click',async()=>{
-        const bi=Number(btn.dataset.bi);
-        const sel=document.querySelector(`.tr-insert-pick[data-bi="${bi}"]`);
+        const key=btn.dataset.key;
+        const sel=[...document.querySelectorAll('.tr-insert-pick')].find(x=>x.dataset.key===key);
         const commNum=sel?.value;
         if(!commNum){showToast('Select a commission first',true);return;}
         const td=commTranscripts[String(commNum)];
         if(td?.status!=='ready'||!td?.transcript){showToast('Commission transcript not marked Ready',true);return;}
         const ep=transcriptLiveEp;if(!ep)return;
-        const blocks=liveTranscriptBlocksFor(ep);
-        if(!blocks[bi]){showToast('Could not find this line — try Refresh, then try again',true);return;}
-        blocks[bi].content=td.transcript;
-        blocks[bi].commNum=commNum;
-        await saveLiveTranscript(ep,{epNum:ep,blocks});
+        if(!resolveLiveBlocks(ep).some(x=>x.itemKey===key)){showToast('Could not find this line — try Refresh, then try again',true);return;}
+        const pk=trPKey(ep,key);clearTimeout(trTimers[pk]);delete trTimers[pk];delete trPending[pk];
+        await saveLiveBlocks(ep,{[key]:{content:td.transcript,commNum}},false);
         showToast('Comm '+commNum+' transcript added');
         render();
       });
