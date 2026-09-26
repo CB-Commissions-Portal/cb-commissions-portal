@@ -176,7 +176,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.337';
+const BUILD_VERSION='3.10.338';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -6000,10 +6000,11 @@ function buildRosWysMenuHtml(epNum,itemIdx,col,partKind,partType,partBlockId){
   return html||`<div style="padding:9px 16px;font-size:13px;color:#9ca3af">No actions here</div>`;
 }
 
-// Script text shows in blue for Cold Start clips marked UPS and for UP NEXT VISUAL items.
+// Script text shows in blue for Voice Over Cold Start clips (VOICE OVER ticked, or a VOICE +
+// sound) and for UP NEXT VISUAL items. Upsound Cold Start clips stay black.
 const ROS_BLUE='0000FF';
 function rosScriptIsBlue(item){
-  if(item.type==='coldstart')return !!item.upsound;
+  if(item.type==='coldstart'){const _s=rosResolveSound(item);return !!item.voiceOver||/^VOICE\b/i.test(_s.grams||'')||/^VOICE\b/i.test(_s.clipJockey||'');}
   if(item.type==='upnext')return /^upvis/.test(item.key||'')||/UP NEXT VISUAL/i.test(item.label||'');
   return false;
 }
