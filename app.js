@@ -176,7 +176,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.336';
+const BUILD_VERSION='3.10.337';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -6000,6 +6000,13 @@ function buildRosWysMenuHtml(epNum,itemIdx,col,partKind,partType,partBlockId){
   return html||`<div style="padding:9px 16px;font-size:13px;color:#9ca3af">No actions here</div>`;
 }
 
+// Script text shows in blue for Cold Start clips marked UPS and for UP NEXT VISUAL items.
+const ROS_BLUE='0000FF';
+function rosScriptIsBlue(item){
+  if(item.type==='coldstart')return !!item.upsound;
+  if(item.type==='upnext')return /^upvis/.test(item.key||'')||/UP NEXT VISUAL/i.test(item.label||'');
+  return false;
+}
 // Interactive per-row cell renderer for the WYSIWYG TESTING tab. Mirrors rosBuildWordRow's
 // exact visual style for Production/Sound/Description so the read state looks identical to
 // the real export, but wraps content in right-click targets and swaps the active field
@@ -6108,7 +6115,7 @@ function rosWysBuildRow(item,i,epNum){
   const _canScript=['live','coldstart','upnext'].includes(item.type);
   if(_canScript&&item.position&&!_isEditing('position')){
     _descBody+=_p('&nbsp;')+_p('<u><b>POSITION:</b></u>');
-    item.position.split('\n').forEach(line=>{_descBody+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');});
+    item.position.split('\n').forEach(line=>{_descBody+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#'+ROS_BLUE);});
   }
   let desc;
   if(_canScript&&_isEditing('script')){
@@ -6135,12 +6142,13 @@ function rosWysBuildRow(item,i,epNum){
     let _scriptHtml='';
     if(_canScript&&item.script){
       _scriptHtml+=_p('&nbsp;');
+      const _sc=rosScriptIsBlue(item)?'#'+ROS_BLUE:'#000';
       item.script.split('\n').forEach(line=>{
         const tr=line.trim();
         if(/^[^:]+:\s+CAM\s*\S.*\s*$/i.test(tr)||/^[^:]+:\s*$/.test(tr)){
-          _scriptHtml+=_p(`<u><b>${escHtml(tr)}</b></u>`,'color:#000');
+          _scriptHtml+=_p(`<u><b>${escHtml(tr)}</b></u>`,'color:'+_sc);
         } else {
-          _scriptHtml+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');
+          _scriptHtml+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:'+_sc);
         }
       });
       _scriptHtml+=_p('&nbsp;');
@@ -11768,13 +11776,6 @@ function parseCamCues(script){
 // data-ros-idx + explicit white-space:normal are inert in Word/the popup preview, but
 // required when this markup is embedded directly in the main app page (which has a
 // global td{white-space:nowrap} rule) and to let the WYSIWYG view target/click rows.
-// Script text shows in blue for Cold Start clips marked UPS and for UP NEXT VISUAL items.
-const ROS_BLUE='0000FF';
-function rosScriptIsBlue(item){
-  if(item.type==='coldstart')return !!item.upsound;
-  if(item.type==='upnext')return /^upvis/.test(item.key||'')||/UP NEXT VISUAL/i.test(item.label||'');
-  return false;
-}
 function rosBuildWordRow(item,i,highlightIdx=-1){
   const escHtml=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const _durMmSs=d=>{if(!d)return'';const p=String(d).split(':');if(p.length===3){const mm=Number(p[0])*60+Number(p[1]);return`${String(mm).padStart(2,'0')}:${p[2]}`;}return d;};
