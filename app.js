@@ -176,7 +176,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.335';
+const BUILD_VERSION='3.10.336';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -11768,6 +11768,13 @@ function parseCamCues(script){
 // data-ros-idx + explicit white-space:normal are inert in Word/the popup preview, but
 // required when this markup is embedded directly in the main app page (which has a
 // global td{white-space:nowrap} rule) and to let the WYSIWYG view target/click rows.
+// Script text shows in blue for Cold Start clips marked UPS and for UP NEXT VISUAL items.
+const ROS_BLUE='0000FF';
+function rosScriptIsBlue(item){
+  if(item.type==='coldstart')return !!item.upsound;
+  if(item.type==='upnext')return /^upvis/.test(item.key||'')||/UP NEXT VISUAL/i.test(item.label||'');
+  return false;
+}
 function rosBuildWordRow(item,i,highlightIdx=-1){
   const escHtml=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const _durMmSs=d=>{if(!d)return'';const p=String(d).split(':');if(p.length===3){const mm=Number(p[0])*60+Number(p[1]);return`${String(mm).padStart(2,'0')}:${p[2]}`;}return d;};
@@ -11822,18 +11829,19 @@ function rosBuildWordRow(item,i,highlightIdx=-1){
   if(item.type==='insert'&&item.outWords)desc+=_p('&nbsp;')+_p('<u><b>OUT WORDS:</b></u>')+_p(escHtml(item.outWords),'font-weight:normal;color:#000')+_p('&nbsp;');
   if(['live','coldstart','upnext'].includes(item.type)&&item.position){
     desc+=_p('&nbsp;')+_p('<u><b>POSITION:</b></u>');
-    item.position.split('\n').forEach(line=>{desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');});
+    item.position.split('\n').forEach(line=>{desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#'+ROS_BLUE);});
   }
   if(['live','coldstart','upnext'].includes(item.type)&&item.script){
     desc+=_p('&nbsp;');
+    const _sc=rosScriptIsBlue(item)?'#'+ROS_BLUE:'#000';
     item.script.split('\n').forEach(line=>{
       const tr=line.trim();
       if(/^[^:]+:\s+CAM\s*\S.*\s*$/i.test(tr)){
-        desc+=_p(`<u><b>${escHtml(tr)}</b></u>`,'color:#000');
+        desc+=_p(`<u><b>${escHtml(tr)}</b></u>`,'color:'+_sc);
       } else if(/^[^:]+:\s*$/.test(tr)){
-        desc+=_p(`<u><b>${escHtml(tr)}</b></u>`,'color:#000');
+        desc+=_p(`<u><b>${escHtml(tr)}</b></u>`,'color:'+_sc);
       } else {
-        desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#000');
+        desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:'+_sc);
       }
     });
     desc+=_p('&nbsp;');
@@ -12117,20 +12125,21 @@ async function rosExportDocx(ep,items){
         descParas.push(emptyPara());
         descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:'POSITION:',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ})]}));
         item.position.split('\n').forEach(line=>{
-          descParas.push(line?new Paragraph({spacing:SP0,children:[new TextRun({text:line,font:FONT,size:SZ,color:'000000'})]}):emptyPara());
+          descParas.push(line?new Paragraph({spacing:SP0,children:[new TextRun({text:line,font:FONT,size:SZ,color:ROS_BLUE})]}):emptyPara());
         });
       }
       const _hasScript=['live','coldstart','upnext'].includes(item.type)&&item.script;
       if(_hasScript){
         descParas.push(emptyPara());
+        const _sc=rosScriptIsBlue(item)?ROS_BLUE:'000000';
         item.script.split('\n').forEach(line=>{
           const tr=line.trim();
           if(!line){descParas.push(emptyPara());}
           else if(/^[^:]+:\s+CAM\s*\S.*\s*$/i.test(tr)){
-            descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:tr,bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ,color:'000000'})]}));
+            descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:tr,bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ,color:_sc})]}));
           } else if(/^[^:]+:\s*$/.test(tr)){
-            descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:tr,bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ,color:'000000'})]}))}
-          else{descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:line,font:FONT,size:SZ,color:'000000'})]}))}
+            descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:tr,bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ,color:_sc})]}))}
+          else{descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:line,font:FONT,size:SZ,color:_sc})]}))}
         });
         descParas.push(emptyPara());
       }
