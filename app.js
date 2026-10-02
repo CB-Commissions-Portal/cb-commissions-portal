@@ -176,7 +176,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.338';
+const BUILD_VERSION='3.10.339';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -262,7 +262,7 @@ let rosWysActive=false;  // toggles the 'ros' tab between the classic landing pa
 // unrelated snapshot elsewhere in the app before the user ever got a chance to save them.
 function rosWysEditorActive(){return!!document.activeElement?.closest('[data-wys-editor]');}
 const SOUND_CLIP_JOCKEY_OPTS=['A','B','C','D'];
-const SOUND_GRAMS_OPTS=["COLD START IN","VOICE + COLD START IN","COLD START CONT'D","B + COLD START CONT'D","C + COLD START CONT'D","D + COLD START CONT'D","VOICE + COLD START CONT'D","GENERIC IN","CLEAN"];
+const SOUND_GRAMS_OPTS=["COLD START IN","VOICE + COLD START IN","C + COLD START IN","D + COLD START IN","COLD START CONT'D","B + COLD START CONT'D","C + COLD START CONT'D","D + COLD START CONT'D","VOICE + COLD START CONT'D","GENERIC IN","CLEAN"];
 // Resolves an item's Sound into the new two-slot model {clipJockey,grams}. Once soundClipJockey/
 // soundGrams have been touched by the WYSIWYG UI (even to '') they're the source of truth; until
 // then, falls back to classifying the legacy single `sound` string so old episodes show correctly.
