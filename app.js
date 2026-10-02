@@ -176,7 +176,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.339';
+const BUILD_VERSION='3.10.340';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -3259,6 +3259,7 @@ function renderLeave(){
               <div style="font-size:14px;color:#111827;text-align:left">${r.startDate} → ${r.endDate} <span style="color:#6b7280">(${d} day${d!==1?'s':''})</span></div>
               ${r.reason?`<div style="font-size:13px;color:#6b7280;margin-top:1px;text-align:left">${esc(r.reason)}</div>`:''}
               ${r.submittedBy?`<div style="font-size:12px;color:#b45309;margin-top:2px;text-align:left">Applied on your behalf by ${esc(r.submittedBy)}</div>`:''}
+              ${r.status==='cancelled'&&r.cancelledBy?`<div style="font-size:12px;color:#b45309;margin-top:2px;text-align:left">Cancelled by ${esc(r.cancelledBy)}${r.cancelReason?`: ${esc(r.cancelReason)}`:''}</div>`:''}
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px">
@@ -3335,10 +3336,11 @@ function renderLeave(){
   const pending=Object.entries(leaveRequests).filter(([,r])=>r.status==='pending').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
   const approved=Object.entries(leaveRequests).filter(([,r])=>r.status==='approved').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
   const declined=Object.entries(leaveRequests).filter(([,r])=>r.status==='declined').sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
+  const cancelled=Object.entries(leaveRequests).filter(([,r])=>r.status==='cancelled').sort((a,b)=>String(b[1].cancelledAt||'').localeCompare(String(a[1].cancelledAt||'')));
   function reqCard([id,r],showActions){
     const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5];
     const d=countCalendarDays(r.startDate,r.endDate);
-    const sc=r.status==='approved'?'#3fb950':r.status==='declined'?'#f85149':'#e3b341';
+    const sc=r.status==='approved'?'#3fb950':r.status==='declined'?'#f85149':r.status==='cancelled'?'#6b7280':'#e3b341';
     const nm=getLeaveName(r);
     return`<div style="background:#f8fafc;border:1px solid #e8edf5;border-radius:8px;padding:14px 16px;margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
@@ -3353,10 +3355,12 @@ function renderLeave(){
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:12px;font-weight:700;color:${sc};text-transform:uppercase;background:${sc}22;padding:2px 8px;border-radius:3px">${r.status}</span>
           ${showActions?`<button class="btn primary" data-leave-review="${id}" style="font-size:13px">Review</button>`:''}
+          ${isSuperAdmin&&r.status==='approved'?`<button class="btn danger" data-leave-cancel="${id}" data-leave-status="approved" data-leave-admin="1" style="font-size:13px">Cancel Leave</button>`:''}
           ${r.adminNote?`<span style="font-size:13px;color:#6b7280;font-style:italic">"${esc(r.adminNote)}"</span>`:''}
         </div>
       </div>
       ${r.reason?`<div style="margin-top:8px;font-size:13px;color:#6b7280;text-align:left">Reason: ${esc(r.reason)}</div>`:''}
+      ${r.status==='cancelled'?`<div style="margin-top:4px;font-size:13px;color:#6b7280;text-align:left">${r.wasApproved?'Approved leave cancelled':'Cancelled'}${r.cancelledBy?` by ${esc(r.cancelledBy)}`:' by staff member'}${r.cancelReason?`: ${esc(r.cancelReason)}`:''}</div>`:''}
       ${r.attachmentUrl?`<div style="margin-top:4px;font-size:13px;text-align:left"><a href="${r.attachmentUrl}" target="_blank" style="color:#3fb950;text-decoration:none">📎 View attached document</a></div>`:r.hasSickNote?`<div style="margin-top:4px;font-size:13px;color:#3fb950;text-align:left">📎 Document attached</div>`:''}
     </div>`;
   }
@@ -3386,11 +3390,16 @@ function renderLeave(){
       <div style="font-size:16px;font-weight:700;color:#f85149;margin-bottom:10px;text-align:left">✗ Declined</div>
       ${declined.length?declined.map(r=>reqCard(r,false)).join(''):'<div style="color:#9ca3af;font-size:14px;padding:8px 0;text-align:left">None yet.</div>'}
     </div>
+    <div style="margin-bottom:28px">
+      <div style="font-size:16px;font-weight:700;color:#6b7280;margin-bottom:10px;text-align:left">⊘ Cancelled</div>
+      ${cancelled.length?cancelled.map(r=>reqCard(r,false)).join(''):'<div style="color:#9ca3af;font-size:14px;padding:8px 0;text-align:left">None yet.</div>'}
+    </div>
     <div class="ep-card" style="margin-bottom:16px">
       <div class="ep-head"><span style="font-size:16px;font-weight:800;color:#111827">Leave Balances</span><span style="font-size:13px;color:#6b7280">Set starting balances per staff member</span><button class="btn" id="leave-bal-export-btn" style="font-size:13px;border-color:#3fb950;color:#3fb950;margin-left:auto">⬇ Export Balance Report</button></div>
       <div style="padding:12px 16px">${balEditor||'<div style="color:#9ca3af;font-size:14px;text-align:left">No CAP Staff users found.</div>'}</div>
     </div>
     ${leaveReviewModal?renderLeaveReviewModal():''}
+    ${leaveCancelModal?renderLeaveCancelModal():''}
   </div>`;
 }
 
@@ -3526,11 +3535,12 @@ async function exportLeaveBalancesXLSX(){
 
 function renderLeaveDeclineModal(){return '';}
 function renderLeaveCancelModal(){
-  const {id,reason='',wasApproved}=leaveCancelModal||{};
+  const {id,reason='',wasApproved,byAdmin}=leaveCancelModal||{};
+  const _cr=leaveRequests[id];
   return`<div id="lv-cancel-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center">
     <div style="background:#f8fafc;border:1px solid #d1dae8;border-radius:12px;width:420px;max-width:95vw;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.6)">
-      <div style="font-size:17px;font-weight:800;color:#111827;margin-bottom:8px">Cancel Leave Request</div>
-      ${wasApproved?`<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 12px;font-size:14px;color:#b45309;margin-bottom:14px">&#9888; This leave has been approved. Cancelling will notify your admin.</div>`:''}
+      <div style="font-size:17px;font-weight:800;color:#111827;margin-bottom:8px">${byAdmin?'Cancel Approved Leave':'Cancel Leave Request'}</div>
+      ${byAdmin&&_cr?`<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 12px;font-size:14px;color:#b45309;margin-bottom:14px">&#9888; You are cancelling <strong>${esc(getLeaveName(_cr))}</strong>'s approved leave (${_cr.startDate} → ${_cr.endDate}). The days will be returned to their balance and they will see your reason.</div>`:wasApproved?`<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 12px;font-size:14px;color:#b45309;margin-bottom:14px">&#9888; This leave has been approved. Cancelling will notify your admin.</div>`:''}
       <div style="font-size:14px;color:#6b7280;margin-bottom:6px">Please provide a reason for cancelling:</div>
       <textarea id="lv-cancel-reason" placeholder="Reason for cancellation…" style="width:100%;min-height:80px;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:15px;padding:8px 10px;outline:none;font-family:inherit;resize:vertical;box-sizing:border-box">${esc(reason||'')}</textarea>
       <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
@@ -9651,7 +9661,8 @@ function bindApp(){
     btn.addEventListener('click',()=>{
       const id=btn.dataset.leaveCancel;
       const wasApproved=btn.dataset.leaveStatus==='approved';
-      leaveCancelModal={id,reason:'',wasApproved};render();
+      const byAdmin=btn.dataset.leaveAdmin==='1'&&getEffectiveRole()==='admin';
+      leaveCancelModal={id,reason:'',wasApproved,byAdmin};render();
     });
   });
   // Cancel modal — close
@@ -9661,8 +9672,8 @@ function bindApp(){
   document.getElementById('lv-cancel-confirm')?.addEventListener('click',async()=>{
     const reason=document.getElementById('lv-cancel-reason')?.value.trim();
     if(!reason){showToast('Please enter a reason',true);return;}
-    const {id,wasApproved}=leaveCancelModal;
-    const cancelPayload={...leaveRequests[id],status:'cancelled',cancelReason:reason,wasApproved,cancelledAt:new Date().toISOString()};
+    const {id,wasApproved,byAdmin}=leaveCancelModal;
+    const cancelPayload={...leaveRequests[id],status:'cancelled',cancelReason:reason,wasApproved,cancelledAt:new Date().toISOString(),...(byAdmin?{cancelledBy:currentUser.displayName||currentUser.email,cancelledByUid:currentUser.uid}:{})};
     leaveRequests[id]=cancelPayload;
     showToast('Leave request cancelled');leaveCancelModal=null;render();
     saveLeaveRequest(id,cancelPayload);
