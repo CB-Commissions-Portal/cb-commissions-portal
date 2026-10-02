@@ -366,3 +366,7 @@ td.needs-attention-cb{background:rgba(245,166,35,.06)!important}
 .ph-item .ph-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#666;margin-bottom:2px}
 .ph-item .ph-val{font-size:28px;font-weight:900;line-height:1;font-family:'JetBrains Mono',monospace}
 test123
+
+/* Date inputs — make the calendar icon clearly visible and clickable (Chrome/Edge render it very faint) */
+input[type="date"]::-webkit-calendar-picker-indicator{opacity:1;cursor:pointer;width:18px;height:18px}
+input[type="date"]{cursor:pointer}

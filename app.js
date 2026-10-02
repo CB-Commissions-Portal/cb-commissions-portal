@@ -176,7 +176,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.340';
+const BUILD_VERSION='3.10.341';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -3229,7 +3229,7 @@ function renderLeave(){
             <label style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">End Date *</label>
             <input type="date" id="leave-end" value="${fd.endDate||''}" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:8px 10px;border-radius:5px;font-size:15px">
           </div>
-          ${days>0?`<div style="padding-bottom:8px;white-space:nowrap;font-size:14px;color:#0066CC;font-weight:700">${days} day${days!==1?'s':''}</div>`:''}
+          <div id="leave-day-count" style="padding-bottom:8px;white-space:nowrap;font-size:14px;color:#0066CC;font-weight:700">${days>0?`${days} day${days!==1?'s':''}`:''}</div>
         </div>
         <div style="grid-column:1/-1">
           <label style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">Reason</label>
@@ -9595,13 +9595,22 @@ function bindApp(){
   document.getElementById('leave-target-sel')?.addEventListener('change',e=>{leaveDraft.targetUid=e.target.value;leaveDraft.autoApprove=false;render();});
   document.getElementById('leave-auto-approve')?.addEventListener('change',e=>{leaveDraft.autoApprove=e.target.checked;});
   document.getElementById('leave-type-sel')?.addEventListener('change',e=>{leaveDraft.leaveType=e.target.value;render();});
-  document.getElementById('leave-start')?.addEventListener('change',e=>{
-    leaveDraft.startDate=e.target.value;
-    // Update day count in-place
-    if(leaveDraft.endDate){render();}
-  });
-  document.getElementById('leave-end')?.addEventListener('change',e=>{
-    leaveDraft.endDate=e.target.value;render();
+  // Date fields never trigger a full re-render: Chrome/Edge fire 'change' after each typed
+  // year digit (e.g. year 0002), so re-rendering mid-typing rebuilt the input and the year
+  // could never be finished. The day count is updated in place instead.
+  const _leaveDayCount=()=>{
+    const el=document.getElementById('leave-day-count');if(!el)return;
+    const ok=d=>/^\d{4}-/.test(d||'')&&+d.slice(0,4)>=2000;
+    const n=ok(leaveDraft.startDate)&&ok(leaveDraft.endDate)?countCalendarDays(leaveDraft.startDate,leaveDraft.endDate):0;
+    el.textContent=n>0?`${n} day${n!==1?'s':''}`:'';
+  };
+  ['leave-start','leave-end'].forEach(fid=>{
+    const inp=document.getElementById(fid);if(!inp)return;
+    const key=fid==='leave-start'?'startDate':'endDate';
+    const upd=()=>{leaveDraft[key]=inp.value;_leaveDayCount();};
+    inp.addEventListener('input',upd);inp.addEventListener('change',upd);
+    // Clicking anywhere in the field opens the calendar (Chrome/Edge only open it from the small icon)
+    inp.addEventListener('click',()=>{try{inp.showPicker?.();}catch(_){}});
   });
   document.getElementById('leave-reason')?.addEventListener('blur',e=>{leaveDraft.reason=e.target.value;});
   document.getElementById('leave-attachment')?.addEventListener('change',e=>{
