@@ -176,7 +176,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.341';
+const BUILD_VERSION='3.10.342';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
@@ -3092,6 +3092,55 @@ const LEAVE_POLICY={
   },
 };
 
+// ── Leave cycles ──────────────────────────────────────────────────
+// Annual / Family / Study: calendar year (Jan–Dec), no carry-over.
+// Sick: 36-month cycle, current one started 1 Jan 2026 (cycles are 2026–2028, 2029–2031, …).
+// Editorial: 1 day per calendar month for editorial staff, lapses at month end.
+// Balances are always worked out live: allowance minus approved days falling inside the cycle.
+const SICK_CYCLE_START_YEAR=2026;
+const _lvPad=n=>String(n).padStart(2,'0');
+function leaveTodayStr(){return new Date().toLocaleDateString('en-CA');}
+function leavePeriod(type,dateStr){
+  const d=dateStr||leaveTodayStr();
+  const y=+d.slice(0,4),m=+d.slice(5,7);
+  if(type==='editorial'){
+    const last=new Date(Date.UTC(y,m,0)).getUTCDate();
+    return{start:`${y}-${_lvPad(m)}-01`,end:`${y}-${_lvPad(m)}-${_lvPad(last)}`,label:new Date(Date.UTC(y,m-1,1)).toLocaleDateString('en-ZA',{month:'long',year:'numeric',timeZone:'UTC'})};
+  }
+  if(type==='sick'){
+    const sy=SICK_CYCLE_START_YEAR+Math.floor((y-SICK_CYCLE_START_YEAR)/3)*3;
+    return{start:`${sy}-01-01`,end:`${sy+2}-12-31`,label:`${sy}–${sy+2} cycle`};
+  }
+  return{start:`${y}-01-01`,end:`${y}-12-31`,label:String(y)};
+}
+// Editorial is stored as 1 (editorial staff) / 0 (not); anything above 0 counts as 1 day a month.
+function leaveAllowance(uid,type){
+  const v=(leaveBalances[uid]||{})[type]??21;
+  return type==='editorial'?(v>0?1:0):v;
+}
+function leaveDaysInPeriod(r,p){
+  const s=r.startDate>p.start?r.startDate:p.start;
+  const e=r.endDate<p.end?r.endDate:p.end;
+  return countCalendarDays(s,e);
+}
+function leaveBalanceFor(uid,type,dateStr){
+  const period=leavePeriod(type,dateStr);
+  const total=leaveAllowance(uid,type);
+  const used=Object.values(leaveRequests).filter(r=>r.uid===uid&&r.leaveType===type&&r.status==='approved').reduce((s,r)=>s+leaveDaysInPeriod(r,period),0);
+  return{total,used,remaining:Math.max(0,total-used),period};
+}
+// Splits a date range into the cycles it touches, e.g. annual leave over New Year → two years.
+function leavePeriodsForRange(type,startDate,endDate){
+  const out=[];let cur=startDate;
+  while(cur&&cur<=endDate){
+    const p=leavePeriod(type,cur);
+    out.push(p);
+    const nx=new Date(p.end+'T00:00:00Z');nx.setUTCDate(nx.getUTCDate()+1);
+    cur=nx.toISOString().slice(0,10);
+  }
+  return out;
+}
+
 function hasLeaveAccess(role,extraRoles){
   if(!role)return false;
   if(role==='admin'||role==='capstaff'||role==='content'||role==='finance')return true;
@@ -3180,16 +3229,14 @@ function renderLeave(){
   // ── MY LEAVE ─────────────────────────────────────────────────────
   if(leaveViewMode==='my'){
     const myRequests=Object.entries(leaveRequests).filter(([,r])=>r.uid===uid).sort((a,b)=>b[1].submittedAt-a[1].submittedAt);
-    const myBal=leaveBalances[uid]||{};
     const balCards=LEAVE_TYPES.filter(t=>t.deductsBalance).map(t=>{
-      const total=myBal[t.key]??21;
-      const used=myRequests.filter(([,r])=>r.leaveType===t.key&&r.status==='approved').reduce((s,[,r])=>s+countCalendarDays(r.startDate,r.endDate),0);
-      const remaining=Math.max(0,total-used);
+      const {total,used,remaining,period}=leaveBalanceFor(uid,t.key);
       const pct=total>0?Math.round((remaining/total)*100):0;
       return`<div style="background:#f8fafc;border:1px solid #e8edf5;border-radius:10px;padding:14px 16px;min-width:150px;flex:1">
         <div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:6px">${t.label}</div>
         <div style="font-size:24px;font-weight:900;color:${remaining<=3?'#f85149':remaining<=7?'#e3b341':'#3fb950'}">${remaining}</div>
-        <div style="font-size:12px;color:#9ca3af;margin-top:2px">of ${total} days remaining</div>
+        <div style="font-size:12px;color:#9ca3af;margin-top:2px">of ${total} day${total!==1?'s':''} remaining</div>
+        <div style="font-size:11px;color:#9ca3af;margin-top:1px">${used} used · ${t.key==='editorial'?period.label:t.key==='sick'?period.label:'Jan–Dec '+period.label}</div>
         <div style="margin-top:7px;height:3px;background:#e8edf5;border-radius:2px">
           <div style="height:3px;border-radius:2px;background:${remaining<=3?'#f85149':remaining<=7?'#e3b341':'#3fb950'};width:${pct}%"></div>
         </div>
@@ -3369,11 +3416,18 @@ function renderLeave(){
     const bal=leaveBalances[u.uid]||{};
     return`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #d1dae8;flex-wrap:wrap">
       <div style="min-width:160px;font-size:15px;font-weight:600;color:#111827;text-align:left">${esc(u.displayName||u.email)}</div>
-      ${LEAVE_TYPES.filter(t=>t.deductsBalance).map(t=>`
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:12px;color:#6b7280;text-transform:uppercase;width:70px;text-align:left">${t.label.replace(' Leave','')}</span>
-          <input type="number" class="ci leave-bal-inp" data-uid="${u.uid}" data-type="${t.key}" value="${esc(String(bal[t.key]??21))}" min="0" max="365" style="width:52px;font-size:14px;text-align:left">
-        </div>`).join('')}
+      ${LEAVE_TYPES.filter(t=>t.deductsBalance).map(t=>{
+        const b=leaveBalanceFor(u.uid,t.key);
+        const inp=t.key==='editorial'
+          ?`<label style="display:flex;align-items:center;gap:4px;font-size:13px;color:#111827;cursor:pointer"><input type="checkbox" class="leave-bal-inp" data-uid="${u.uid}" data-type="editorial" ${(bal.editorial??21)>0?'checked':''}>Yes</label>`
+          :`<input type="number" class="ci leave-bal-inp" data-uid="${u.uid}" data-type="${t.key}" value="${esc(String(bal[t.key]??21))}" min="0" max="365" style="width:52px;font-size:14px;text-align:left">`;
+        return`<div style="display:flex;flex-direction:column;gap:2px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px;color:#6b7280;text-transform:uppercase;width:70px;text-align:left">${t.label.replace(' Leave','').replace('Family Responsibility','Family')}</span>
+            ${inp}
+          </div>
+          <div style="font-size:12px;color:${b.total>0&&b.remaining===0?'#f85149':'#6b7280'};padding-left:76px;text-align:left">${b.used} used · <strong>${b.remaining} left</strong></div>
+        </div>`;}).join('')}
       <button class="btn" data-save-balance="${u.uid}" style="font-size:13px">Save</button>
     </div>`;
   }).join('');
@@ -3396,6 +3450,7 @@ function renderLeave(){
     </div>
     <div class="ep-card" style="margin-bottom:16px">
       <div class="ep-head"><span style="font-size:16px;font-weight:800;color:#111827">Leave Balances</span><span style="font-size:13px;color:#6b7280">Set starting balances per staff member</span><button class="btn" id="leave-bal-export-btn" style="font-size:13px;border-color:#3fb950;color:#3fb950;margin-left:auto">⬇ Export Balance Report</button></div>
+      <div style="padding:10px 16px 0;font-size:13px;color:#6b7280;text-align:left;line-height:1.5">Numbers are each person's allowance. <strong>Annual, Family &amp; Study</strong> reset every 1 January (no carry-over) · <strong>Sick</strong> runs on the 36-month cycle (${leavePeriod('sick').label}) · <strong>Editorial</strong>: tick for editorial staff — 1 day per month, lapses at month end. "Used / left" is for the current year, cycle or month.</div>
       <div style="padding:12px 16px">${balEditor||'<div style="color:#9ca3af;font-size:14px;text-align:left">No CAP Staff users found.</div>'}</div>
     </div>
     ${leaveReviewModal?renderLeaveReviewModal():''}
@@ -3457,21 +3512,18 @@ async function exportLeaveBalancesXLSX(){
   const wb=XLSX.utils.book_new();
 
   // ── Sheet 1: Balance Summary ──────────────────────────────────
-  const sumHeaders=['Employee',...balTypes.flatMap(t=>[`${t.label} — Total`,`${t.label} — Used`,`${t.label} — Remaining`])];
+  const sumHeaders=['Employee',...balTypes.flatMap(t=>{const pl=leavePeriod(t.key).label;return[`${t.label} (${pl}) — Total`,`${t.label} (${pl}) — Used`,`${t.label} (${pl}) — Remaining`];})];
   const sumRows=[sumHeaders];
   leaveUsers.forEach(u=>{
-    const bal=leaveBalances[u.uid]||{};
-    const approved=Object.values(leaveRequests).filter(r=>r.uid===u.uid&&r.status==='approved');
     const row=[u.displayName||u.email];
     balTypes.forEach(t=>{
-      const total=bal[t.key]??21;
-      const used=approved.filter(r=>r.leaveType===t.key).reduce((s,r)=>s+countCalendarDays(r.startDate,r.endDate),0);
-      row.push(total,used,Math.max(0,total-used));
+      const b=leaveBalanceFor(u.uid,t.key);
+      row.push(b.total,b.used,b.remaining);
     });
     sumRows.push(row);
   });
   const wsSummary=XLSX.utils.aoa_to_sheet(sumRows);
-  wsSummary['!cols']=[{wch:28},...balTypes.flatMap(()=>[{wch:22},{wch:12},{wch:14}])];
+  wsSummary['!cols']=[{wch:28},...balTypes.flatMap(()=>[{wch:30},{wch:26},{wch:30}])];
   XLSX.utils.book_append_sheet(wb,wsSummary,'Balance Summary');
 
   // ── Sheet 2: Leave History ────────────────────────────────────
@@ -3498,35 +3550,40 @@ async function exportLeaveBalancesXLSX(){
     [],
   ];
   leaveUsers.forEach(u=>{
-    const bal=leaveBalances[u.uid]||{};
     const approved=Object.values(leaveRequests)
       .filter(r=>r.uid===u.uid&&r.status==='approved')
       .sort((a,b)=>a.startDate.localeCompare(b.startDate));
     detailRows.push([`── ${u.displayName||u.email} ──`,'','','','']);
     detailRows.push(['Leave Type','Start Date','End Date','Days Taken','Balance After']);
+    // Running balance restarts each cycle (year / sick cycle / month for editorial)
     const running={};
-    balTypes.forEach(t=>{running[t.key]=bal[t.key]??21;});
     if(approved.length){
       approved.forEach(r=>{
         const lt=LEAVE_TYPES.find(t=>t.key===r.leaveType)||LEAVE_TYPES[5];
         const d=countCalendarDays(r.startDate,r.endDate);
-        if(lt.deductsBalance)running[lt.key]=Math.max(0,(running[lt.key]||0)-d);
-        const balAfter=lt.deductsBalance?`${running[lt.key]} days remaining`:'N/A';
+        let balAfter='N/A';
+        if(lt.deductsBalance){
+          balAfter=leavePeriodsForRange(lt.key,r.startDate,r.endDate).map(p=>{
+            const k=lt.key+'|'+p.start;
+            if(running[k]===undefined)running[k]=leaveAllowance(u.uid,lt.key);
+            running[k]=Math.max(0,running[k]-leaveDaysInPeriod(r,p));
+            return`${running[k]} remaining (${p.label})`;
+          }).join(' / ');
+        }
         detailRows.push([lt.label,r.startDate,r.endDate,d,balAfter]);
       });
     } else {
       detailRows.push(['No approved leave on record','','','','']);
     }
-    detailRows.push(['Balance Summary','','','','']);
+    detailRows.push(['Current Balance','','','','']);
     balTypes.forEach(t=>{
-      const total=bal[t.key]??21;
-      const used=approved.filter(r=>r.leaveType===t.key).reduce((s,r)=>s+countCalendarDays(r.startDate,r.endDate),0);
-      detailRows.push([`  ${t.label}`,`Total: ${total}`,`Used: ${used}`,`Remaining: ${Math.max(0,total-used)}`,'']);
+      const b=leaveBalanceFor(u.uid,t.key);
+      detailRows.push([`  ${t.label} (${b.period.label})`,`Total: ${b.total}`,`Used: ${b.used}`,`Remaining: ${b.remaining}`,'']);
     });
     detailRows.push([]);
   });
   const wsDetail=XLSX.utils.aoa_to_sheet(detailRows);
-  wsDetail['!cols']=[{wch:32},{wch:14},{wch:14},{wch:14},{wch:22}];
+  wsDetail['!cols']=[{wch:40},{wch:14},{wch:14},{wch:14},{wch:44}];
   XLSX.utils.book_append_sheet(wb,wsDetail,'Per-Person Detail');
 
   XLSX.writeFile(wb,`CB-Leave-Balance-Report-${dateStr}.xlsx`);
@@ -9638,12 +9695,12 @@ function bindApp(){
     // Check balance (against the applicant's own balance, not the Super Admin's)
     const lt=LEAVE_TYPES.find(t=>t.key===leaveType);
     if(lt?.deductsBalance){
-      const bal=leaveBalances[applyUid]||{};
-      const total=bal[leaveType]??21;
-      const used=Object.values(leaveRequests).filter(r=>r.uid===applyUid&&r.leaveType===leaveType&&r.status==='approved').reduce((s,r)=>s+countCalendarDays(r.startDate,r.endDate),0);
-      const remaining=total-used;
-      if(days>remaining){
-        if(!confirm(`${applyName} has ${remaining} days remaining for ${lt.label}. This request is for ${days} days. Submit anyway?`))return;
+      for(const p of leavePeriodsForRange(leaveType,startDate,endDate)){
+        const b=leaveBalanceFor(applyUid,leaveType,p.start);
+        const want=leaveDaysInPeriod({startDate,endDate},p);
+        if(want>b.remaining){
+          if(!confirm(`${applyName} has ${b.remaining} day${b.remaining!==1?'s':''} of ${lt.label} remaining for ${p.label}. This request uses ${want} day${want!==1?'s':''} in that period. Submit anyway?`))return;
+        }
       }
     }
     const id='leave_'+applyUid+'_'+Date.now();
@@ -9731,7 +9788,7 @@ function bindApp(){
       const uid=btn.dataset.saveBalance;
       const inps=document.querySelectorAll('.leave-bal-inp[data-uid="'+uid+'"]');
       const data={};
-      inps.forEach(i=>{data[i.dataset.type]=Number(i.value)||0;});
+      inps.forEach(i=>{data[i.dataset.type]=i.type==='checkbox'?(i.checked?1:0):(Number(i.value)||0);});
       leaveBalances[uid]=data;
       showToast('Balance saved');
       saveLeaveBalance(uid,data);
