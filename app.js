@@ -176,7 +176,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.347';
+const BUILD_VERSION='3.10.348';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -4264,12 +4264,23 @@ const PREREC_CONTACTS=[
 // Fixed wording printed on every pre-record (replaced the free-text Notes field in v3.10.347)
 const PREREC_NOTICE='This episode is not a live transmission from Stark Studios.';
 let preRecData={};
+// Contacts are shared by every pre-record episode (settings/preRecords → contacts:{schedName:…}),
+// so they're entered once. Before v3.10.348 they were per-episode; preRecContactVal() falls back
+// to the most recently saved per-episode value until the shared one is set.
+let preRecContacts={};
+const PREREC_CONTACT_FIELDS=PREREC_CONTACTS.flatMap(c=>[c.key+'Name',c.key+'Phone',c.key+'Email']);
+function preRecContactVal(f){
+  if(f in preRecContacts)return preRecContacts[f]||'';
+  const eps=Object.values(preRecData).filter(d=>d&&d[f]).sort((a,b)=>(b.savedAt||'').localeCompare(a.savedAt||''));
+  return eps.length?eps[0][f]:'';
+}
 function subscribePreRecords(){
   if(unsubPreRecords)unsubPreRecords();
   return new Promise(resolve=>{
     let resolved=false;
     unsubPreRecords=onSnapshot(doc(db,'settings','preRecords'),snap=>{
       preRecData=snap.exists()?{...(snap.data().eps||{})}:{};
+      preRecContacts=snap.exists()?{...(snap.data().contacts||{})}:{};
       if(!resolved){resolved=true;resolve();return;}
       // Don't redraw under someone mid-typing (also avoids the Chrome date-input year bug)
       if(tab==='prerecords'&&!document.activeElement?.classList?.contains('prerec-inp'))render();
@@ -4280,10 +4291,13 @@ async function savePreRecFields(ep,fields){
   // Resolves true only once Firestore has confirmed the write. Every save stamps who/when so the
   // card can show "Last saved".
   setSyncDot('saving');
-  const stamped={...fields,savedAt:new Date().toISOString(),savedBy:currentUser?.displayName||currentUser?.email||'Unknown'};
+  const epFields={},shared={};
+  Object.entries(fields).forEach(([f,v])=>{(PREREC_CONTACT_FIELDS.includes(f)?shared:epFields)[f]=v;});
+  const stamped={...epFields,savedAt:new Date().toISOString(),savedBy:currentUser?.displayName||currentUser?.email||'Unknown'};
   try{
-    await setDoc(doc(db,'settings','preRecords'),{eps:{[ep]:stamped},updatedAt:serverTimestamp()},{merge:true});
+    await setDoc(doc(db,'settings','preRecords'),{eps:{[ep]:stamped},...(Object.keys(shared).length?{contacts:shared}:{}),updatedAt:serverTimestamp()},{merge:true});
     preRecData[ep]={...(preRecData[ep]||{}),...stamped};
+    preRecContacts={...preRecContacts,...shared};
     setSyncDot('live');
     return true;
   }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);return false;}
@@ -4334,7 +4348,7 @@ function renderPreRecords(){
   const secHead=t=>`<div style="background:#1a3a6a;color:#fff;padding:8px 14px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;border-radius:5px 5px 0 0">${t}</div>`;
   const ro=v=>`<div style="font-size:15px;font-weight:600;color:#111827;padding:6px 0;white-space:normal;word-break:break-word">${v||'<span style="color:#9ca3af">—</span>'}</div>`;
   const field=(n,f,type,ph,extra='')=>{
-    const v=(preRecData[String(n)]||{})[f]||'';
+    const v=PREREC_CONTACT_FIELDS.includes(f)?preRecContactVal(f):((preRecData[String(n)]||{})[f]||'');
     if(!canEd)return ro(type==='date'&&v?fmtDate(v):esc(v));
     return`<input type="${type}" class="prerec-inp" data-ep="${n}" data-field="${f}" value="${esc(v)}" placeholder="${ph}" style="${inp};${extra}">`;
   };
@@ -4392,7 +4406,7 @@ function renderPreRecords(){
           </div>
         </div>
         <div>
-          ${secHead('3. Contact Information')}
+          ${secHead('3. Contact Information <span style="text-transform:none;font-weight:600;opacity:.75;letter-spacing:0;margin-left:6px">· shared by all pre-record episodes</span>')}
           <div style="border:1px solid #d1dae8;border-top:none;border-radius:0 0 5px 5px;padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;background:#f9fafb">${contacts}</div>
         </div>
         <div>
@@ -4410,7 +4424,8 @@ function renderPreRecords(){
 </div>`;
 }
 function exportPreRecordPDF(n){
-  const k=String(n),d=preRecData[k]||{};
+  const k=String(n),d={...(preRecData[k]||{})};
+  PREREC_CONTACT_FIELDS.forEach(f=>{d[f]=preRecContactVal(f);});
   // Pick up anything typed but not yet blurred/saved
   document.querySelectorAll(`.prerec-inp[data-ep="${k}"]`).forEach(el=>{d[el.dataset.field]=el.value.trim();});
   const tx=resolveDate(n);
@@ -4494,6 +4509,9 @@ document.addEventListener('change',function preRecChange(e){
   if(!el.classList?.contains('prerec-inp'))return;
   if(!PREREC_EDIT_ROLES.includes(getEffectiveRole()))return;
   savePreRecField(el.dataset.ep,el.dataset.field,el.value.trim()).then(ok=>{
+    // Shared contact → show the new value on every other episode card straight away
+    if(ok&&PREREC_CONTACT_FIELDS.includes(el.dataset.field))
+      document.querySelectorAll(`.prerec-inp[data-field="${el.dataset.field}"]`).forEach(o=>{if(o!==el)o.value=el.value.trim();});
     const lblEl=document.querySelector(`.prerec-saved-lbl[data-ep="${el.dataset.ep}"]`);
     if(ok&&lblEl){lblEl.textContent='✓ '+preRecSavedLabel(preRecData[el.dataset.ep]||{});lblEl.style.color='#16a34a';}
     // RX date changes which day presenters are read from — redraw once saved
