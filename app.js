@@ -176,7 +176,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.348';
+const BUILD_VERSION='3.10.349';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -4454,7 +4454,7 @@ function exportPreRecordPDF(n){
     <div style="font-size:12px;font-weight:700">${esc(d[c.key+'Name']||'—')}</div>
     <div style="font-size:12px;margin-top:3px">${esc(d[c.key+'Phone']||'')}</div>
     <div style="font-size:12px;margin-top:3px;word-break:break-all">${esc(d[c.key+'Email']||'')}</div></td>`).join('');
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>CB S${currentSeason} EP${epStr} Holiday Pre-Record</title>
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>CARTE BLANCHE - S${String(currentSeason).padStart(2,'0')} E${epStr} - PRE-RECORD SCHEDULING INFORMATION</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:10pt;padding:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm;size:A4 portrait}table{width:100%;border-collapse:collapse}tr{page-break-inside:avoid}</style>
   </head><body>
   <table style="margin-bottom:6px;border-bottom:3px solid #1a3a6a">
