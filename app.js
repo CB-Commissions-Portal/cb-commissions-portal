@@ -138,7 +138,9 @@ function epFlagBadges(ep,size=12){
     +(isRepeatContent(ep)?`<span style="${b};background:#f1f5f9;color:#475569;border:1px solid #cbd5e1">↺ REPEAT CONTENT</span>`:'');
 }
 function allocMinsForEp(ep){
-  // Flat allocated-minutes target per episode: 51 for Extended, 34 for Normal/Repeat.
+  // Flat allocated-minutes target per episode: 51 for Extended, 34 for Normal.
+  // Repeat Content episodes have no paid allocation (they're also left out of the ticker).
+  if(isRepeatContent(ep))return 0;
   return (settings.epTypes||{})[String(ep)]==='extended'?51:34;
 }
 function insertMinsDisplay(insertMins,allocatedMins){
@@ -198,7 +200,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.351';
+const BUILD_VERSION='3.10.352';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -2725,9 +2727,9 @@ ${episodes.map(({ep,date,stories})=>{
   `<span class="ep-date-btn" data-ep-date="${ep}">${fmtDate(date)}${currentRole==='admin'?' ✎':''}</span>`}
   <span style="font-size:16px;color:#6b7280;font-weight:500">${stories.length} ${stories.length===1?'story':'stories'}</span>
   <span style="display:inline-flex;align-items:center;gap:16px;margin-left:12px;padding-left:12px;border-left:1px solid #d1dae8;font-size:15px;flex-wrap:wrap">
-    <span style="color:#6b7280">Allocated: <strong style="color:#0066CC;font-family:'JetBrains Mono',monospace;font-size:17px">${fmtHMS(allocMinsForEp(ep))}</strong></span>
+    <span style="color:#6b7280">Allocated: ${isRepeatContent(ep)?`<strong style="color:#475569;font-size:15px">— Repeat content</strong>`:`<strong style="color:#0066CC;font-family:'JetBrains Mono',monospace;font-size:17px">${fmtHMS(allocMinsForEp(ep))}</strong>`}</span>
     <span style="color:#6b7280">Ep Content: <strong style="color:#111827;font-family:'JetBrains Mono',monospace;font-size:17px">${fmtHMS(epContentMins)}</strong></span>
-    <span style="color:#6b7280">Insert Mins: ${insertMinsDisplay(insertMins,allocMinsForEp(ep))}</span>
+    <span style="color:#6b7280">Insert Mins: ${isRepeatContent(ep)?`<strong style="color:#475569;font-family:'JetBrains Mono',monospace;font-size:15px">${fmtHMS(insertMins)}</strong>`:insertMinsDisplay(insertMins,allocMinsForEp(ep))}</span>
     <span style="color:#6b7280">Non-Insert: <strong style="color:#b45309;font-family:'JetBrains Mono',monospace;font-size:17px">${fmtHMS(nonMins)}</strong></span>
     ${(settings.epOnAir||{})[k]?`<span style="color:#6b7280;border-left:1px solid #d1dae8;padding-left:12px">On-Air: <strong style="color:#3fb950;font-family:'JetBrains Mono',monospace;font-size:17px">${esc((settings.epOnAir||{})[k])}</strong></span>`:''}
   </span>
@@ -8316,7 +8318,7 @@ function renderLineups(epNums){
     const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
     const epType=epTypeOf(ep);
     const epAlloc=allocMinsForEp(ep);
-    const totColor=tot<=0?'#9ca3af':(tot>epAlloc?'#dc2626':'#16a34a');
+    const totColor=tot<=0?'#9ca3af':isRepeatContent(ep)?'#475569':(tot>epAlloc?'#dc2626':'#16a34a');
 
     let itemsHtml='';
     items.forEach((item,idx)=>{
@@ -8357,7 +8359,7 @@ function renderLineups(epNums){
           ${epFlagBadges(ep)}
           ${epDate?`<span style="font-size:15px;color:${past?'#7f1d1d':'#6b7280'}">${fmtDate(epDate)}</span>`:''}
         </div>
-        <span style="font-size:18px;font-weight:800;color:${totColor};font-family:monospace">Total: ${decToMmSs(tot)} <span style="font-size:13px;font-weight:600;color:#9ca3af">/ Paid Allocation: ${decToMmSs(epAlloc)}</span></span>
+        <span style="font-size:18px;font-weight:800;color:${totColor};font-family:monospace">Total: ${decToMmSs(tot)} <span style="font-size:13px;font-weight:600;color:#9ca3af">${isRepeatContent(ep)?'/ Repeat content — no paid allocation':`/ Paid Allocation: ${decToMmSs(epAlloc)}`}</span></span>
       </div>
       <div class="lu-ep-body" style="display:${collapsed?'none':'block'}"><div style="padding:16px 22px;border-bottom:1px solid ${past?'#fecaca':'#e8edf5'};display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
         <div>
@@ -9160,7 +9162,7 @@ function bindApp(){
       const absSecs=Math.round(Math.abs(diff)*60);
       const dh=Math.floor(absSecs/3600),dm=Math.floor((absSecs%3600)/60),ds=absSecs%60;
       const diffStr=`${String(dh).padStart(2,'0')}:${String(dm).padStart(2,'0')}:${String(ds).padStart(2,'0')}`;
-      const insertDisplay=diff>0?`<span style="color:#c0392b">${fmtHMS(insertMins)} <small>(+${diffStr})</small></span>`:
+      const insertDisplay=isRepeatContent(ep)?`<span style="color:#475569">${fmtHMS(insertMins)}</span>`:diff>0?`<span style="color:#c0392b">${fmtHMS(insertMins)} <small>(+${diffStr})</small></span>`:
                           diff<0?`<span style="color:#1a7a1a">${fmtHMS(insertMins)} <small>(-${diffStr})</small></span>`:
                           `<span style="color:#1a7a1a">${fmtHMS(insertMins)}</span>`;
       const rows=stories.map(s=>{
@@ -9180,7 +9182,7 @@ function bindApp(){
           <span style="font-weight:700;font-size:14px;color:#222">${fmtDate(date)}</span>
           <span style="font-size:13px;color:#666">${stories.length} ${stories.length===1?'story':'stories'}</span>
           <span style="font-size:12px;color:#888;margin-left:8px;padding-left:8px;border-left:1px solid #ccc">
-            Allocated: <strong style="font-family:monospace;color:#0047ab">${fmtHMS(epAlloc)}</strong> &nbsp;|&nbsp;
+            Allocated: ${isRepeatContent(ep)?'<strong style="color:#475569">— Repeat content</strong>':`<strong style="font-family:monospace;color:#0047ab">${fmtHMS(epAlloc)}</strong>`} &nbsp;|&nbsp;
             Ep Content: <strong style="font-family:monospace">${fmtHMS(epContentMins)}</strong> &nbsp;|&nbsp;
             Insert: ${insertDisplay} &nbsp;|&nbsp;
             Non-Insert: <strong style="font-family:monospace;color:#b8860b">${fmtHMS(nonMins)}</strong>
