@@ -115,6 +115,21 @@ function toDecimalMins(v){
 }
 function addDays(iso,d){const p=iso.split('-');const dt=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]));dt.setUTCDate(dt.getUTCDate()+d);return dt.toISOString().split('T')[0];}
 
+function epTypeOf(ep){
+  // Episode format is Normal or Extended only. "repeat" was a third type before v3.10.350 —
+  // repeat content is now its own flag (isRepeatContent), so old "repeat" values read as Normal.
+  return (settings.epTypes||{})[String(ep)]==='extended'?'extended':'normal';
+}
+function isPreRecordEp(ep){return !!(settings.preRecordEps||{})[String(ep)];}
+function isRepeatContent(ep){
+  // Repeat content can only be set on a Pre-Record episode; these are left out of the ticker.
+  return isPreRecordEp(ep)&&!!(settings.repeatEps||{})[String(ep)];
+}
+function epFlagBadges(ep,size=12){
+  const b=`font-size:${size}px;font-weight:800;padding:3px 9px;border-radius:3px;letter-spacing:.5px;white-space:nowrap`;
+  return(isPreRecordEp(ep)?`<span style="${b};background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd">● PRE-RECORD</span>`:'')
+    +(isRepeatContent(ep)?`<span style="${b};background:#f1f5f9;color:#475569;border:1px solid #cbd5e1">↺ REPEAT CONTENT</span>`:'');
+}
 function allocMinsForEp(ep){
   // Flat allocated-minutes target per episode: 51 for Extended, 34 for Normal/Repeat.
   return (settings.epTypes||{})[String(ep)]==='extended'?51:34;
@@ -176,7 +191,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.349';
+const BUILD_VERSION='3.10.350';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -1884,7 +1899,7 @@ function getPaidMins(){
 }
 function getAiredStats(){
   // Ticker: pace-tracking vs episodes that have actually gone to air (21:00 SAST cutoff), repeats excluded.
-  const airedEps=getEpNums().filter(n=>isEpBroadcast(n)&&(settings.epTypes||{})[String(n)]!=='repeat');
+  const airedEps=getEpNums().filter(n=>isEpBroadcast(n)&&!isRepeatContent(n));
   const airedSet=new Set(airedEps);
   const extCount=airedEps.filter(n=>(settings.epTypes||{})[String(n)]==='extended').length;
   const allocated=airedEps.reduce((s,n)=>s+allocMinsForEp(n),0);
@@ -2687,7 +2702,7 @@ function renderEpisodes(epNums,paid,remaining){
 </div>
 <div class="ep-reg-list">
 ${episodes.map(({ep,date,stories})=>{
-  const k=String(ep),epType=(settings.epTypes||{})[k]||'normal';
+  const k=String(ep),epType=epTypeOf(ep);
   // Ep Content = sum of ALL delivered durations (paid + inhouse)
   const epContentMins=stories.reduce((s,c)=>s+toDecimalMins(c.deliveredDuration||c.commDuration),0);
   // Insert Mins = paidDuration for NON-inhouse, NON-decommissioned stories ONLY
@@ -2712,11 +2727,12 @@ ${episodes.map(({ep,date,stories})=>{
   <div class="type-toggle no-print" style="margin-left:auto" onclick="event.stopPropagation()">
     <button class="type-btn normal${epType==='normal'?' on':''}" data-eptype="${k}" data-val="normal">Normal</button>
     <button class="type-btn extended${epType==='extended'?' on':''}" data-eptype="${k}" data-val="extended">Extended</button>
-    <button class="type-btn repeat${epType==='repeat'?' on':''}" data-eptype="${k}" data-val="repeat">Repeat</button>
-    <button class="type-btn prerecord${(settings.preRecordEps||{})[k]?' on':''}" data-prerec-ep="${k}" style="margin-left:8px" title="Mark this episode as a Holiday Pre-Record — it will appear on the Holiday Pre-Records tab">Pre-Record</button>
+    <button class="type-btn prerecord${isPreRecordEp(ep)?' on':''}" data-prerec-ep="${k}" style="margin-left:8px" title="Mark this episode as a Holiday Pre-Record — it will appear on the Holiday Pre-Records tab">Pre-Record</button>
+    ${isPreRecordEp(ep)?`<button class="type-btn repeat${isRepeatContent(ep)?' on':''}" data-repeat-ep="${k}" title="This pre-record episode contains repeat content — it is left out of the minutes ticker">Repeat Content</button>`:''}
   </div>
-  <span style="font-size:15px;font-weight:600;margin-left:4px;color:${epType==='extended'?'#d29922':epType==='repeat'?'#7a8ba0':'#3fb950'}">${epType==='extended'?'★ Extended':epType==='repeat'?'↺ Repeat':'Normal'}</span>
-  ${(settings.preRecordEps||{})[k]?`<span style="font-size:15px;font-weight:700;margin-left:6px;color:#7c3aed">● Pre-Record</span>`:''}
+  <span style="font-size:15px;font-weight:600;margin-left:4px;color:${epType==='extended'?'#d29922':'#3fb950'}">${epType==='extended'?'★ Extended':'Normal'}</span>
+  ${isPreRecordEp(ep)?`<span style="font-size:15px;font-weight:700;margin-left:6px;color:#7c3aed">● Pre-Record</span>`:''}
+  ${isRepeatContent(ep)?`<span style="font-size:15px;font-weight:700;margin-left:6px;color:#475569">↺ Repeat Content</span>`:''}
   <span style="font-size:15px;color:#9ca3af;margin-left:8px" class="no-print">${isExpEp?'▲':'▼'}</span>
 </div>
 ${isExpEp?`<div style="overflow:hidden">`+'':(``)}${isExpEp&&stories.length>0?`<div class="ep-body"><table class="ep-tbl"><thead><tr>
@@ -2753,7 +2769,7 @@ return`<tr data-ep-row="${s.id}">
   <div class="ep-stat">Ep Content: <b style="color:#111827">${fmtHMS(epContentMins)}</b></div>
   <div class="ep-stat">Insert Mins: <b class="gr">${fmtHMS(insertMins)}</b></div>
   <div class="ep-stat">Non-Insert: <b class="am">${fmtHMS(nonMins)}</b></div>
-  <div class="ep-stat">Type: <b style="color:#111827">${epType==='extended'?'★ Extended':epType==='repeat'?'↺ Repeat':'Normal'}</b></div>
+  <div class="ep-stat">Type: <b style="color:#111827">${epType==='extended'?'★ Extended':'Normal'}${isPreRecordEp(ep)?' · Pre-Record':''}${isRepeatContent(ep)?' · Repeat Content':''}</b></div>
   <div class="ep-stat no-print" style="margin-left:auto;display:flex;align-items:center;gap:8px">
     <span style="color:#6b7280;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">On-Air Duration:</span>
     ${['admin','deputyadmin'].includes(currentRole)?`<input class="ep-onair-inp" data-ep="${ep}" value="${esc((settings.epOnAir||{})[k]||'')}" placeholder="00:00:00" style="background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#3fb950;font-size:15px;font-family:'JetBrains Mono',monospace;padding:4px 8px;width:100px;outline:none;text-align:center">`:
@@ -4356,7 +4372,7 @@ function renderPreRecords(){
     const k=String(n);
     const d=preRecData[k]||{};
     const tx=resolveDate(n);
-    const epType=(settings.epTypes||{})[k]||'normal';
+    const epType=epTypeOf(n);
     const pd=promoData[k]||{};
     const pres=preRecPresenters(n,d.rxDate);
     const promoRows=preRecPromoRows(n).map((r,i)=>`<tr style="background:${r.pulled?'#fff5f5':i%2?'#f9fafb':'#fff'}">
@@ -4377,7 +4393,8 @@ function renderPreRecords(){
         <span class="ep-num">EP ${n}</span>
         <span style="font-size:17px;font-weight:800;color:#111827">TX: ${tx?fmtDate(tx):'—'}</span>
         <span style="font-size:13px;font-weight:800;padding:3px 9px;border-radius:3px;background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd">● PRE-RECORD</span>
-        ${epType!=='normal'?`<span style="font-size:13px;font-weight:700;color:${epType==='extended'?'#b45309':'#7a8ba0'}">${epType==='extended'?'★ Extended':'↺ Repeat'}</span>`:''}
+        ${epType==='extended'?`<span style="font-size:13px;font-weight:700;color:#b45309">★ Extended</span>`:''}
+        ${isRepeatContent(n)?`<span style="font-size:13px;font-weight:800;padding:3px 9px;border-radius:3px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1">↺ REPEAT CONTENT</span>`:''}
         <span class="prerec-saved-lbl" data-ep="${n}" style="margin-left:auto;font-size:13px;color:${d.savedAt?'#16a34a':'#9ca3af'};font-weight:600">${d.savedAt?'✓ ':''}${esc(preRecSavedLabel(d))}</span>
         ${canEd?`<button class="btn prerec-save-btn" data-ep="${n}" style="border-color:#16a34a;color:#16a34a;font-weight:700">💾 Save</button>`:''}
         <button class="btn prerec-pdf-btn" data-ep="${n}" style="border-color:#388bfd;color:#0066CC">⬇ Export PDF</button>
@@ -5313,7 +5330,7 @@ function renderFCC(epNums){
     const uid=pd.liveUID||'';
     const txDate=resolveDate(ep);
     const txFmt=txDate?new Date(txDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'';
-    const epType=(settings.epTypes||{})[String(ep)]||'normal';
+    const epType=epTypeOf(ep);
     const segCount=epType==='extended'?7:5;
     const breakCount=epType==='extended'?6:4;
     const past=txDate&&txDate<new Date().toISOString().split('T')[0];
@@ -5335,7 +5352,8 @@ function renderFCC(epNums){
         <span style="font-size:18px;font-weight:900;color:${past?'#f85149':'#f7768e'};font-family:monospace">S${currentSeason} EP ${String(ep).padStart(2,'0')}</span>
         ${txFmt?`<span style="font-size:15px;color:#6b7280">${txFmt}</span>`:''}
         ${uid?`<span style="font-size:15px;font-family:monospace;color:#e3b341;font-weight:700">UID: ${uid}</span>`:''}
-        <span style="font-size:13px;color:#9ca3af;border:1px solid #d1dae8;padding:2px 8px;border-radius:3px">${epType==='extended'?'★ EXTENDED — 7 segs / 6 breaks':epType==='repeat'?'↺ REPEAT':'NORMAL — 5 segs / 4 breaks'}</span>
+        <span style="font-size:13px;color:#9ca3af;border:1px solid #d1dae8;padding:2px 8px;border-radius:3px">${epType==='extended'?'★ EXTENDED — 7 segs / 6 breaks':'NORMAL — 5 segs / 4 breaks'}</span>
+        ${epFlagBadges(ep,11)}
         <div style="margin-left:auto;display:flex;gap:8px">
           ${canEdit?`<button class="btn fcc-save-btn" data-ep="${ep}" style="font-size:13px;padding:4px 14px;border-color:#3fb950;color:#3fb950">💾 Save</button>`:''}
           <button class="btn fcc-print-btn" data-ep="${ep}" style="font-size:13px;padding:4px 14px;border-color:#388bfd;color:#0066CC">⬇ Print / PDF</button>
@@ -5401,7 +5419,7 @@ function fccExportPDF(ep){
   const uid=pd.liveUID||'';
   const txDate=resolveDate(ep);
   const txFmt=txDate?new Date(txDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'';
-  const epType=(settings.epTypes||{})[String(ep)]||'normal';
+  const epType=epTypeOf(ep);
   const segCount=epType==='extended'?7:5;
   const breakCount=epType==='extended'?6:4;
   const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
@@ -5732,8 +5750,8 @@ function renderStudioSchedule(epNums){
     const {anchor1,anchor2}=getStudioAnchors(n);
     const txDate=resolveDate(n);
     const txFmt=txDate?new Date(txDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}):'—';
-    const epType=(settings.epTypes||{})[k]==='extended'?'EXTENDED':(settings.epTypes||{})[k]==='repeat'?'REPEAT':'NORMAL';
-    const typeColor=epType==='EXTENDED'?'#e3b341':epType==='REPEAT'?'#7a8ba0':'#3fb950';
+    const epType=epTypeOf(n)==='extended'?'EXTENDED':'NORMAL';
+    const typeColor=epType==='EXTENDED'?'#e3b341':'#3fb950';
     // Pre-fill from studioCrew if ss fields empty
     const dir=ss.director!==undefined?ss.director:(sc.studioDirector||'');
     const asst=ss.asstDir!==undefined?ss.asstDir:(sc.assistantDirector||'');
@@ -5814,7 +5832,7 @@ async function exportStudioSchedPDF(){
     const {anchor1,anchor2}=getStudioAnchors(n);
     const txDate=resolveDate(n);
     const txFmt=txDate?new Date(txDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'—';
-    const epType=(settings.epTypes||{})[k]==='extended'?'EXTENDED':(settings.epTypes||{})[k]==='repeat'?'REPEAT':'NORMAL';
+    const epType=epTypeOf(n)==='extended'?'EXTENDED':'NORMAL';
     const dir=ss.director!==undefined?ss.director:(sc.studioDirector||'');
     const asst=ss.asstDir!==undefined?ss.asstDir:(sc.assistantDirector||'');
     const fmgr=ss.floorMgr!==undefined?ss.floorMgr:(sc.floorManager||'');
@@ -8289,7 +8307,7 @@ function renderLineups(epNums){
     const tot=totalMins(ep);
     const epAccent=past?'#b91c1c':'#0066CC';
     const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
-    const epType=(settings.epTypes||{})[String(ep)]||'normal';
+    const epType=epTypeOf(ep);
     const epAlloc=allocMinsForEp(ep);
     const totColor=tot<=0?'#9ca3af':(tot>epAlloc?'#dc2626':'#16a34a');
 
@@ -8328,7 +8346,8 @@ function renderLineups(epNums){
           <span class="lu-chevron" style="font-size:18px;color:${epAccent};margin-right:2px">${collapsed?'▶':'▼'}</span>
           <span style="font-size:20px;font-weight:900;color:${epAccent};font-family:monospace">2026 | ${epLabel}</span>
           ${past?`<span style="background:#fee2e2;color:#b91c1c;font-size:12px;font-weight:800;padding:3px 9px;border-radius:3px;border:1px solid #fca5a5;letter-spacing:.5px">BROADCAST</span>`:''}
-          <span style="font-size:12px;font-weight:800;padding:3px 9px;border-radius:3px;letter-spacing:.5px;${epType==='extended'?'background:#fef3c7;color:#b45309;border:1px solid #fde68a':epType==='repeat'?'background:#f1f5f9;color:#7a8ba0;border:1px solid #e2e8f0':'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0'}">${epType==='extended'?'★ EXTENDED':epType==='repeat'?'↺ REPEAT':'NORMAL'}</span>
+          <span style="font-size:12px;font-weight:800;padding:3px 9px;border-radius:3px;letter-spacing:.5px;${epType==='extended'?'background:#fef3c7;color:#b45309;border:1px solid #fde68a':'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0'}">${epType==='extended'?'★ EXTENDED':'NORMAL'}</span>
+          ${epFlagBadges(ep)}
           ${epDate?`<span style="font-size:15px;color:${past?'#7f1d1d':'#6b7280'}">${fmtDate(epDate)}</span>`:''}
         </div>
         <span style="font-size:18px;font-weight:800;color:${totColor};font-family:monospace">Total: ${decToMmSs(tot)} <span style="font-size:13px;font-weight:600;color:#9ca3af">/ Paid Allocation: ${decToMmSs(epAlloc)}</span></span>
@@ -9125,7 +9144,7 @@ function bindApp(){
       .map(n=>({ep:n,date:resolveDate(n),stories:comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned)}));
 
     const epCards=episodes.map(({ep,date,stories})=>{
-      const k=String(ep),epType=(settings.epTypes||{})[k]||'normal';
+      const k=String(ep),epType=epTypeOf(ep);
       const epContentMins=stories.reduce((s,c)=>s+toDecimalMins(c.deliveredDuration||c.commDuration),0);
       const insertMins=stories.filter(s=>!s.isInHouse&&!s.decommissioned).reduce((s,c)=>s+toDecimalMins(c.paidDuration),0);
       const nonMins=stories.filter(s=>s.isInHouse).reduce((s,c)=>s+toDecimalMins(c.deliveredDuration||c.commDuration),0);
@@ -9159,7 +9178,7 @@ function bindApp(){
             Insert: ${insertDisplay} &nbsp;|&nbsp;
             Non-Insert: <strong style="font-family:monospace;color:#b8860b">${fmtHMS(nonMins)}</strong>
           </span>
-          <span style="margin-left:auto;font-size:12px;font-weight:700;color:${epType==='extended'?'#b8860b':epType==='repeat'?'#7a8ba0':'#1a7a1a'}">${epType==='extended'?'★ EXTENDED':epType==='repeat'?'↺ REPEAT':'NORMAL'}</span>
+          <span style="margin-left:auto;font-size:12px;font-weight:700;color:${epType==='extended'?'#b8860b':'#1a7a1a'}">${epType==='extended'?'★ EXTENDED':'NORMAL'}${isPreRecordEp(ep)?' · PRE-RECORD':''}${isRepeatContent(ep)?' · REPEAT CONTENT':''}</span>
         </div>
         ${stories.length>0?`
         <table style="width:100%;border-collapse:collapse;table-layout:fixed">
@@ -9358,7 +9377,11 @@ function bindApp(){
 
   document.querySelectorAll('[data-eptype]').forEach(btn=>btn.addEventListener('click',()=>{const k=btn.dataset.eptype;settings.epTypes={...(settings.epTypes||{}),[k]:btn.dataset.val};saveSettings();render();}));
   // Pre-Record flag — independent of Normal/Extended/Repeat (an Extended ep can also be a pre-record)
-  document.querySelectorAll('[data-prerec-ep]').forEach(btn=>btn.addEventListener('click',()=>{const k=btn.dataset.prerecEp;const m={...(settings.preRecordEps||{})};if(m[k])delete m[k];else m[k]=true;settings.preRecordEps=m;saveSettings();render();}));
+  document.querySelectorAll('[data-prerec-ep]').forEach(btn=>btn.addEventListener('click',()=>{const k=btn.dataset.prerecEp;const m={...(settings.preRecordEps||{})};
+    if(m[k]){delete m[k];const r={...(settings.repeatEps||{})};delete r[k];settings.repeatEps=r;} // un-marking Pre-Record also clears Repeat Content
+    else m[k]=true;
+    settings.preRecordEps=m;saveSettings();render();}));
+  document.querySelectorAll('[data-repeat-ep]').forEach(btn=>btn.addEventListener('click',()=>{const k=btn.dataset.repeatEp;const r={...(settings.repeatEps||{})};if(r[k])delete r[k];else r[k]=true;settings.repeatEps=r;saveSettings();render();}));
   // On-Air Duration
   // Commission Excel export
   document.getElementById('ep-comm-export-btn')?.addEventListener('click',()=>exportCommissionsXLSX());
