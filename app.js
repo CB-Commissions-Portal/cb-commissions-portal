@@ -176,7 +176,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.343';
+const BUILD_VERSION='3.10.344';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -4293,6 +4293,17 @@ function preRecPresenters(n,rxDate){
   const tx=resolveDate(n);
   return{names:tx?names(tx):[],from:'TX'};
 }
+function preRecPromoRows(n){
+  // Shared by the screen + PDF: one row per promo type with TX window and full scheduling code
+  const k=String(n),tx=resolveDate(n),pd=promoData[k]||{},uids=pd.uids||{},pulled=pd.pulled||{};
+  return PROMO_TYPES.map(pt=>{
+    const txD=getPromoTXDates(tx,pt.txType);
+    const uid=uids[pt.key]||'';
+    const isPulled=!!pulled[pt.key];
+    return{label:pt.label,from:pd['txFrom_'+pt.key]||txD.from,to:pd['txTo_'+pt.key]||txD.to,
+      pulled:isPulled,code:uid&&!isPulled?`${uid} ${buildSlug(currentSeason,n,pt.slug)}`:''};
+  });
+}
 function renderPreRecords(){
   const role=getEffectiveRole();
   const canEd=PREREC_EDIT_ROLES.includes(role);
@@ -4303,12 +4314,11 @@ function renderPreRecords(){
   const inp='background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;font-size:15px;padding:6px 8px;width:100%;box-sizing:border-box;color:#111827';
   const th='padding:7px 10px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:left;white-space:nowrap';
   const td='padding:7px 10px;font-size:14px;border-bottom:1px solid #e6ecf5;vertical-align:middle';
+  const secHead=t=>`<div style="background:#1a3a6a;color:#fff;padding:8px 14px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;border-radius:5px 5px 0 0">${t}</div>`;
+  const ro=v=>`<div style="font-size:15px;font-weight:600;color:#111827;padding:6px 0;white-space:normal;word-break:break-word">${v||'<span style="color:#9ca3af">—</span>'}</div>`;
   const field=(n,f,type,ph,extra='')=>{
     const v=(preRecData[String(n)]||{})[f]||'';
-    if(!canEd){
-      const shown=type==='date'&&v?fmtDate(v):esc(v);
-      return`<div style="font-size:15px;font-weight:600;color:#111827;padding:6px 0;white-space:normal;word-break:break-word">${shown||'<span style="color:#9ca3af">—</span>'}</div>`;
-    }
+    if(!canEd)return ro(type==='date'&&v?fmtDate(v):esc(v));
     return`<input type="${type}" class="prerec-inp" data-ep="${n}" data-field="${f}" value="${esc(v)}" placeholder="${ph}" style="${inp};${extra}">`;
   };
   const cards=eps.map(n=>{
@@ -4317,20 +4327,13 @@ function renderPreRecords(){
     const tx=resolveDate(n);
     const epType=(settings.epTypes||{})[k]||'normal';
     const pd=promoData[k]||{};
-    const uids=pd.uids||{};
-    const pulled=pd.pulled||{};
     const pres=preRecPresenters(n,d.rxDate);
-    const promoRows=PROMO_TYPES.map((pt,i)=>{
-      const txD=getPromoTXDates(tx,pt.txType);
-      const isPulled=!!pulled[pt.key];
-      const uid=uids[pt.key]||'';
-      return`<tr style="background:${i%2?'#f9fafb':'#fff'}">
-        <td style="${td};font-weight:700;${isPulled?'color:#9ca3af;text-decoration:line-through':''}">${pt.label}</td>
-        <td style="${td};font-family:'JetBrains Mono',monospace;font-size:13px">${esc(pd['txFrom_'+pt.key]||txD.from)}</td>
-        <td style="${td};font-family:'JetBrains Mono',monospace;font-size:13px">${esc(pd['txTo_'+pt.key]||txD.to)}</td>
-        <td style="${td};font-family:monospace;font-weight:700;color:${isPulled?'#9ca3af':'#0066CC'};letter-spacing:.5px">${isPulled?'<span style="color:#dc2626;font-size:12px;font-weight:800">PULLED</span>':(uid?esc(uid):'<span style="color:#9ca3af">—</span>')}</td>
-      </tr>`;
-    }).join('');
+    const promoRows=preRecPromoRows(n).map((r,i)=>`<tr style="background:${r.pulled?'#fff5f5':i%2?'#f9fafb':'#fff'}">
+        <td style="${td};font-weight:700;${r.pulled?'color:#9ca3af;text-decoration:line-through':''}">${r.label}</td>
+        <td style="${td};font-family:'JetBrains Mono',monospace;font-size:13px">${esc(r.from)}</td>
+        <td style="${td};font-family:'JetBrains Mono',monospace;font-size:13px">${esc(r.to)}</td>
+        <td style="${td};font-family:monospace;font-weight:700;color:#1a5c1a;letter-spacing:.3px;white-space:nowrap">${r.pulled?'<span style="color:#dc2626;font-size:12px;font-weight:800">PULLED</span>':(r.code?esc(r.code):'<span style="color:#9ca3af">—</span>')}</td>
+      </tr>`).join('');
     const contacts=PREREC_CONTACTS.map(c=>`
       <div style="${box}">
         <div style="font-size:14px;font-weight:800;color:#7c3aed;margin-bottom:10px">${c.label}</div>
@@ -4338,42 +4341,123 @@ function renderPreRecords(){
         <div style="${lbl};margin-top:8px">Phone</div>${field(n,c.key+'Phone','tel','Phone number')}
         <div style="${lbl};margin-top:8px">Email</div>${field(n,c.key+'Email','email','Email address')}
       </div>`).join('');
+    const notesVal=d.notes||'';
     return`<div class="ep-card" style="margin-bottom:18px">
       <div class="ep-head">
         <span class="ep-num">EP ${n}</span>
         <span style="font-size:17px;font-weight:800;color:#111827">TX: ${tx?fmtDate(tx):'—'}</span>
         <span style="font-size:13px;font-weight:800;padding:3px 9px;border-radius:3px;background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd">● PRE-RECORD</span>
         ${epType!=='normal'?`<span style="font-size:13px;font-weight:700;color:${epType==='extended'?'#b45309':'#7a8ba0'}">${epType==='extended'?'★ Extended':'↺ Repeat'}</span>`:''}
-        ${d.rxDate?`<span style="margin-left:auto;font-size:15px;color:#6b7280">RX: <b style="color:#111827">${fmtDate(d.rxDate)}</b></span>`:''}
+        <button class="btn prerec-pdf-btn" data-ep="${n}" style="margin-left:auto;border-color:#388bfd;color:#0066CC">⬇ Export PDF</button>
       </div>
-      <div style="padding:14px;display:flex;flex-direction:column;gap:14px">
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
-          <div style="${box}"><div style="${lbl}">RX Date (record)</div>${field(n,'rxDate','date','')}</div>
-          <div style="${box}"><div style="${lbl}">Slug</div>${field(n,'slug','text','Enter slug…',"font-family:'JetBrains Mono',monospace")}</div>
-          <div style="${box}"><div style="${lbl}">File Delivery Date (to M-Net)</div>${field(n,'fileDelivery','date','')}</div>
-          <div style="${box}"><div style="${lbl}">Presenters <span style="text-transform:none;font-weight:600;color:#9ca3af">(Presenter Calendar · ${pres.from} date)</span></div>
-            <div style="font-size:15px;font-weight:600;color:#111827;padding:6px 0;white-space:normal">${pres.names.length?pres.names.map(esc).join('<br>'):'<span style="color:#9ca3af">None marked STUDIO</span>'}</div></div>
-        </div>
-        <div style="${box};padding:0;overflow-x:auto">
-          <div style="padding:10px 14px;font-size:14px;font-weight:800;color:#111827;border-bottom:1px solid #d1dae8">Promo UIDs &amp; TX Dates
-            <span style="font-weight:600;color:#6b7280;margin-left:10px">Live show UID: <b style="font-family:monospace;color:#0066CC">${esc(pd.liveUID||'—')}</b></span></div>
-          <table style="width:100%;border-collapse:collapse"><thead><tr>
-            <th style="${th}">Type</th><th style="${th}">TX From</th><th style="${th}">TX To</th><th style="${th}">UID</th>
-          </tr></thead><tbody>${promoRows}</tbody></table>
+      <div style="padding:14px;display:flex;flex-direction:column;gap:18px">
+        <div>
+          ${secHead('1. Episode Information')}
+          <div style="border:1px solid #d1dae8;border-top:none;border-radius:0 0 5px 5px;padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;background:#f9fafb">
+            <div style="${box}"><div style="${lbl}">Episode Number</div>${ro(`EP ${n}`)}</div>
+            <div style="${box}"><div style="${lbl}">TX Date</div>${ro(tx?fmtDate(tx):'')}</div>
+            <div style="${box}"><div style="${lbl}">Episode Scheduling Code / UID</div>${field(n,'slug','text','Enter code / UID…',"font-family:'JetBrains Mono',monospace")}</div>
+            <div style="${box}"><div style="${lbl}">RX Date</div>${field(n,'rxDate','date','')}</div>
+            <div style="${box}"><div style="${lbl}">File Delivery Date</div>${field(n,'fileDelivery','date','')}</div>
+            <div style="${box}"><div style="${lbl}">Presenters <span style="text-transform:none;font-weight:600;color:#9ca3af">(Calendar · ${pres.from} date)</span></div>${ro(pres.names.map(esc).join('<br>')||'<span style="color:#9ca3af">None marked STUDIO</span>')}</div>
+          </div>
         </div>
         <div>
-          <div style="font-size:14px;font-weight:800;color:#111827;margin-bottom:8px">Contacts</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">${contacts}</div>
+          ${secHead('2. Promo Information')}
+          <div style="border:1px solid #d1dae8;border-top:none;border-radius:0 0 5px 5px;overflow-x:auto;background:#fff">
+            <table style="width:100%;border-collapse:collapse"><thead><tr>
+              <th style="${th}">Type</th><th style="${th}">TX From</th><th style="${th}">TX To</th><th style="${th}">Promo Scheduling Code / UID</th>
+            </tr></thead><tbody>${promoRows}</tbody></table>
+          </div>
+        </div>
+        <div>
+          ${secHead('3. Contact Information')}
+          <div style="border:1px solid #d1dae8;border-top:none;border-radius:0 0 5px 5px;padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;background:#f9fafb">${contacts}</div>
+        </div>
+        <div>
+          ${secHead('4. Notes')}
+          <div style="border:1px solid #d1dae8;border-top:none;border-radius:0 0 5px 5px;padding:12px;background:#f9fafb">
+            ${canEd?`<textarea class="prerec-inp" data-ep="${n}" data-field="notes" rows="5" placeholder="Add any notes for the channel…" style="${inp};resize:vertical;font-family:inherit;white-space:pre-wrap">${esc(notesVal)}</textarea>`
+              :ro(esc(notesVal).replace(/\n/g,'<br>'))}
+          </div>
         </div>
       </div>
     </div>`;
   }).join('');
-  return`
+  return`<div class="ep-wrap">
 <div class="toolbar">
   <span class="count-lbl" style="margin-left:0">${eps.length} pre-record ${eps.length===1?'episode':'episodes'} · flag episodes on the Episode Register · TX date, promos and presenters update automatically</span>
 </div>
-<div style="padding:16px 20px">${cards}</div>`;
+<div style="padding:16px 20px">${cards}</div>
+</div>`;
 }
+function exportPreRecordPDF(n){
+  const k=String(n),d=preRecData[k]||{};
+  // Pick up anything typed but not yet blurred/saved
+  document.querySelectorAll(`.prerec-inp[data-ep="${k}"]`).forEach(el=>{d[el.dataset.field]=el.value.trim();});
+  const tx=resolveDate(n);
+  const epStr=String(n).padStart(2,'0');
+  const longDate=iso=>iso?new Date(iso+'T00:00:00').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'—';
+  const printDate=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
+  const pres=preRecPresenters(n,d.rxDate);
+  const thS='padding:7px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#fff;background:#1a3a6a;text-align:left';
+  const tdS='padding:7px 10px;font-size:12px;vertical-align:middle;border-bottom:1px solid #e6ecf5';
+  const sec=t=>`<div style="background:#1a3a6a;color:#fff;padding:7px 12px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:16px 0 0">${t}</div>`;
+  const row=(l,v,i)=>`<tr style="background:${i%2?'#f7f9fc':'#fff'}"><td style="${tdS};width:32%;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.4px">${l}</td><td style="${tdS};font-weight:600">${v||'—'}</td></tr>`;
+  const epInfo=[
+    ['Episode Number',`Season ${currentSeason} · Episode ${epStr}`],
+    ['TX Date',longDate(tx)],
+    ['Episode Scheduling Code / UID',d.slug?`<span style="font-family:monospace;font-weight:800;color:#1a3a6a">${esc(d.slug)}</span>`:''],
+    ['RX Date',d.rxDate?longDate(d.rxDate):''],
+    ['File Delivery Date',d.fileDelivery?longDate(d.fileDelivery):''],
+    ['Presenters',pres.names.map(esc).join(', ')],
+  ].map((r,i)=>row(r[0],r[1],i)).join('');
+  const promoRows=preRecPromoRows(n).map((r,i)=>`<tr style="background:${r.pulled?'#fff5f5':i%2?'#f7f9fc':'#fff'}">
+    <td style="${tdS};font-weight:700;${r.pulled?'text-decoration:line-through;color:#aaa':''}">${r.label}</td>
+    <td style="${tdS}">${esc(r.from)}</td><td style="${tdS}">${esc(r.to)}</td>
+    <td style="${tdS};font-family:monospace;font-weight:700;color:${r.pulled?'#cc0000':'#1a5c1a'};white-space:nowrap">${r.pulled?'PULLED':esc(r.code||'—')}</td></tr>`).join('');
+  const contactCells=PREREC_CONTACTS.map(c=>`<td style="vertical-align:top;padding:10px 12px;border:1px solid #d0d8e8;width:33.33%">
+    <div style="font-size:11px;font-weight:800;color:#1a3a6a;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">${c.label}</div>
+    <div style="font-size:12px;font-weight:700">${esc(d[c.key+'Name']||'—')}</div>
+    <div style="font-size:12px;margin-top:3px">${esc(d[c.key+'Phone']||'')}</div>
+    <div style="font-size:12px;margin-top:3px;word-break:break-all">${esc(d[c.key+'Email']||'')}</div></td>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>CB S${currentSeason} EP${epStr} Holiday Pre-Record</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:10pt;padding:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm;size:A4 portrait}table{width:100%;border-collapse:collapse}tr{page-break-inside:avoid}</style>
+  </head><body>
+  <table style="margin-bottom:6px;border-bottom:3px solid #1a3a6a">
+    <tr valign="middle">
+      <td style="width:80px;padding-bottom:10px"><img src="${BAKED_CB_LOGO}" style="height:44px;width:auto"></td>
+      <td style="text-align:center;padding:0 16px 10px">
+        <div style="font-size:17px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px">CARTE BLANCHE HOLIDAY PRE-RECORD</div>
+        <div style="font-size:11px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase">Season ${currentSeason} · Episode ${epStr} · TX: ${longDate(tx)} · Generated: ${printDate}</div>
+      </td>
+      <td style="width:80px;padding-bottom:10px"><img src="${BAKED_CAP_LOGO}" style="height:36px;width:auto;max-width:76px;display:block"></td>
+    </tr>
+  </table>
+  ${sec('1. Episode Information')}
+  <table style="border:1px solid #d0d8e8;border-top:none">${epInfo}</table>
+  ${sec('2. Promo Information')}
+  <table style="table-layout:fixed;border:1px solid #d0d8e8;border-top:none">
+    <colgroup><col style="width:16%"><col style="width:14%"><col style="width:14%"><col style="width:56%"></colgroup>
+    <thead><tr><th style="${thS};background:#2d5288">Type</th><th style="${thS};background:#2d5288">TX From</th><th style="${thS};background:#2d5288">TX To</th><th style="${thS};background:#2d5288">Promo Scheduling Code / UID</th></tr></thead>
+    <tbody>${promoRows}</tbody>
+  </table>
+  ${sec('3. Contact Information')}
+  <table style="table-layout:fixed"><tr>${contactCells}</tr></table>
+  ${sec('4. Notes')}
+  <div style="border:1px solid #d0d8e8;border-top:none;padding:10px 12px;font-size:12px;line-height:1.5;white-space:pre-wrap;min-height:40px">${esc(d.notes||'—')}</div>
+  <div style="margin-top:14px;text-align:center;font-size:9px;color:#aaa;border-top:1px solid #ddd;padding-top:6px">CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason} · Episode ${epStr}</div>
+  </body></html>`;
+  const win=window.open('','_blank');
+  if(!win){alert('Popup blocked — please allow popups for this site.');return;}
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),600);
+}
+document.addEventListener('click',function preRecPdfClick(e){
+  const b=e.target.closest?.('.prerec-pdf-btn');
+  if(b)exportPreRecordPDF(Number(b.dataset.ep));
+});
 document.addEventListener('change',function preRecChange(e){
   const el=e.target;
   if(!el.classList?.contains('prerec-inp'))return;
