@@ -176,7 +176,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.344';
+const BUILD_VERSION='3.10.345';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -4293,6 +4293,11 @@ function preRecPresenters(n,rxDate){
   const tx=resolveDate(n);
   return{names:tx?names(tx):[],from:'TX'};
 }
+function preRecEpCode(n){
+  // Episode scheduling code, generated like the promo codes: <live show UID>_CARTE_BLANCHE_S39_E38
+  const uid=(promoData[String(n)]||{}).liveUID||'';
+  return uid?`${uid}_CARTE_BLANCHE_S${String(currentSeason).padStart(2,'0')}_E${String(n).padStart(2,'0')}`:'';
+}
 function preRecPromoRows(n){
   // Shared by the screen + PDF: one row per promo type with TX window and full scheduling code
   const k=String(n),tx=resolveDate(n),pd=promoData[k]||{},uids=pd.uids||{},pulled=pd.pulled||{};
@@ -4356,7 +4361,7 @@ function renderPreRecords(){
           <div style="border:1px solid #d1dae8;border-top:none;border-radius:0 0 5px 5px;padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;background:#f9fafb">
             <div style="${box}"><div style="${lbl}">Episode Number</div>${ro(`EP ${n}`)}</div>
             <div style="${box}"><div style="${lbl}">TX Date</div>${ro(tx?fmtDate(tx):'')}</div>
-            <div style="${box}"><div style="${lbl}">Episode Scheduling Code / UID</div>${field(n,'slug','text','Enter code / UID…',"font-family:'JetBrains Mono',monospace")}</div>
+            <div style="${box}"><div style="${lbl}">Episode Scheduling Code / UID</div>${ro(preRecEpCode(n)?`<span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:#1a5c1a;word-break:break-all">${esc(preRecEpCode(n))}</span>`:'<span style="color:#9ca3af;font-weight:500">No episode UID allocated yet — add it on Promo Scheduling</span>')}</div>
             <div style="${box}"><div style="${lbl}">RX Date</div>${field(n,'rxDate','date','')}</div>
             <div style="${box}"><div style="${lbl}">File Delivery Date</div>${field(n,'fileDelivery','date','')}</div>
             <div style="${box}"><div style="${lbl}">Presenters <span style="text-transform:none;font-weight:600;color:#9ca3af">(Calendar · ${pres.from} date)</span></div>${ro(pres.names.map(esc).join('<br>')||'<span style="color:#9ca3af">None marked STUDIO</span>')}</div>
@@ -4407,7 +4412,7 @@ function exportPreRecordPDF(n){
   const epInfo=[
     ['Episode Number',`Season ${currentSeason} · Episode ${epStr}`],
     ['TX Date',longDate(tx)],
-    ['Episode Scheduling Code / UID',d.slug?`<span style="font-family:monospace;font-weight:800;color:#1a3a6a">${esc(d.slug)}</span>`:''],
+    ['Episode Scheduling Code / UID',preRecEpCode(n)?`<span style="font-family:monospace;font-weight:800;color:#1a5c1a">${esc(preRecEpCode(n))}</span>`:''],
     ['RX Date',d.rxDate?longDate(d.rxDate):''],
     ['File Delivery Date',d.fileDelivery?longDate(d.fileDelivery):''],
     ['Presenters',pres.names.map(esc).join(', ')],
