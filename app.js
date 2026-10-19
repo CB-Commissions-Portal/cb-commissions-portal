@@ -221,7 +221,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.357';
+const BUILD_VERSION='3.10.358';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -263,6 +263,7 @@ let mcImportModal=false;
 let presCalData={}; // {dateStr: {presenterKey: {commNum,storyName,producer,notAvailable}}}
 let lineups={}; // {epNum: {director:'', presenter1:'', presenter2:'', items:[{commNum,liveStudio,liveDuration,liveNote}], savedAt}}
 let luCollapsed=new Set();
+let luHoldOpen=false; // Line-Ups sidebar: Inserts on Hold section expanded?
 let studioCollapsed=new Set();
 let ppData={};
 let broadcastSearch='';
@@ -8503,7 +8504,7 @@ function renderLineups(epNums){
 
   if(!eps.length)epsHtml=`<div style="text-align:center;padding:40px;color:#9ca3af;font-size:15px">No episodes in the Commission List yet.</div>`;
 
-  let sideHtml=sidebarInserts.map(c=>{
+  const luInsertCard=c=>{
     const isLic=c.isLicensed;
     const isIH=c.isInHouse;
     const borderCol=isLic?'#3fb950':isIH?'#6e7681':'#e3b341';
@@ -8525,8 +8526,17 @@ function renderLineups(epNums){
         <span style="font-size:13px;color:#6b7280;font-family:monospace">${dur}</span>
       </div>
     </div>`;
-  }).join('');
+  };
+  const holdInserts=sidebarInserts.filter(c=>c.onHold);
+  let sideHtml=sidebarInserts.filter(c=>!c.onHold).map(luInsertCard).join('');
   if(!sideHtml)sideHtml=`<div style="font-size:13px;color:#9ca3af;font-style:italic">No inserts in production.</div>`;
+  const holdHtml=holdInserts.length?`<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;margin-top:14px">
+        <div id="lu-hold-toggle" style="font-size:13px;font-weight:800;color:#c2410c;text-transform:uppercase;letter-spacing:.6px;cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center" title="${luHoldOpen?'Click to collapse':'Click to expand'}">
+          <span><span id="lu-hold-chev">${luHoldOpen?'▼':'▶'}</span> Inserts on Hold</span>
+          <span style="background:#fff;border:1px solid #fed7aa;border-radius:10px;padding:1px 8px;font-size:12px">${holdInserts.length}</span>
+        </div>
+        <div id="lu-hold-list" style="display:${luHoldOpen?'block':'none'};margin-top:12px">${holdInserts.map(luInsertCard).join('')}</div>
+      </div>`:'';
 
   return`<div style="display:flex;gap:0;height:100%;overflow:hidden">
     <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
@@ -8546,6 +8556,7 @@ function renderLineups(epNums){
         <div style="font-size:13px;font-weight:800;color:#e3b341;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;border-bottom:1px solid #d1dae8;padding-bottom:10px">Inserts in Production</div>
         ${sideHtml}
       </div>
+      ${holdHtml}
     </div>
   </div>`;
 }
@@ -11603,6 +11614,13 @@ document.addEventListener('change',function luChangeHandler(e){
     saveLineup(ep,lineups[ep]);
     luFlushFields();render();
   }
+});
+document.addEventListener('click',function luHoldToggle(e){
+  if(!e.target.closest('#lu-hold-toggle'))return;
+  luHoldOpen=!luHoldOpen;
+  const list=document.getElementById('lu-hold-list'),chev=document.getElementById('lu-hold-chev');
+  if(list)list.style.display=luHoldOpen?'block':'none';
+  if(chev)chev.textContent=luHoldOpen?'▼':'▶';
 });
 document.addEventListener('click',function luHeaderToggle(e){
   const hdr=e.target.closest('.lu-ep-header');
