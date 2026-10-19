@@ -176,7 +176,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.346';
+const BUILD_VERSION='3.10.347';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -4261,6 +4261,8 @@ const PREREC_CONTACTS=[
   {key:'file', label:'File Delivery'},
   {key:'emerg',label:'Emergency Contact'},
 ];
+// Fixed wording printed on every pre-record (replaced the free-text Notes field in v3.10.347)
+const PREREC_NOTICE='This episode is not a live transmission from Stark Studios.';
 let preRecData={};
 function subscribePreRecords(){
   if(unsubPreRecords)unsubPreRecords();
@@ -4356,7 +4358,6 @@ function renderPreRecords(){
         <div style="${lbl};margin-top:8px">Phone</div>${field(n,c.key+'Phone','tel','Phone number')}
         <div style="${lbl};margin-top:8px">Email</div>${field(n,c.key+'Email','email','Email address')}
       </div>`).join('');
-    const notesVal=d.notes||'';
     return`<div class="ep-card" style="margin-bottom:18px">
       <div class="ep-head">
         <span class="ep-num">EP ${n}</span>
@@ -4395,11 +4396,8 @@ function renderPreRecords(){
           <div style="border:1px solid #d1dae8;border-top:none;border-radius:0 0 5px 5px;padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;background:#f9fafb">${contacts}</div>
         </div>
         <div>
-          ${secHead('4. Notes')}
-          <div style="border:1px solid #d1dae8;border-top:none;border-radius:0 0 5px 5px;padding:12px;background:#f9fafb">
-            ${canEd?`<textarea class="prerec-inp" data-ep="${n}" data-field="notes" rows="5" placeholder="Add any notes for the channel…" style="${inp};resize:vertical;font-family:inherit;white-space:pre-wrap">${esc(notesVal)}</textarea>`
-              :ro(esc(notesVal).replace(/\n/g,'<br>'))}
-          </div>
+          ${secHead('4. Important Notice')}
+          <div style="border:1px solid #d1dae8;border-top:none;border-radius:0 0 5px 5px;padding:12px 14px;background:#f9fafb;font-size:15px;font-weight:700;color:#111827">${PREREC_NOTICE}</div>
         </div>
       </div>
     </div>`;
@@ -4449,7 +4447,7 @@ function exportPreRecordPDF(n){
       <td style="width:80px;padding-bottom:10px"><img src="${BAKED_CB_LOGO}" style="height:44px;width:auto"></td>
       <td style="text-align:center;padding:0 16px 10px">
         <div style="font-size:17px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px">CARTE BLANCHE HOLIDAY PRE-RECORD</div>
-        <div style="font-size:11px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase">Season ${currentSeason} · Episode ${epStr} · TX: ${longDate(tx)} · Generated: ${printDate}</div>
+        <div style="font-size:11px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase">Season ${currentSeason} · Episode ${epStr} · TX: ${longDate(tx)}</div>
       </td>
       <td style="width:80px;padding-bottom:10px"><img src="${BAKED_CAP_LOGO}" style="height:36px;width:auto;max-width:76px;display:block"></td>
     </tr>
@@ -4465,9 +4463,9 @@ function exportPreRecordPDF(n){
   </table>
   ${sec('3. Contact Information')}
   <table style="table-layout:fixed"><tr>${contactCells}</tr></table>
-  ${sec('4. Notes')}
-  <div style="border:1px solid #d0d8e8;border-top:none;padding:10px 12px;font-size:12px;line-height:1.5;white-space:pre-wrap;min-height:40px">${esc(d.notes||'—')}</div>
-  <div style="margin-top:14px;text-align:center;font-size:9px;color:#aaa;border-top:1px solid #ddd;padding-top:6px">CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason} · Episode ${epStr}</div>
+  ${sec('4. Important Notice')}
+  <div style="border:1px solid #d0d8e8;border-top:none;padding:10px 12px;font-size:13px;font-weight:700;line-height:1.5">${PREREC_NOTICE}</div>
+  <div style="margin-top:14px;text-align:center;font-size:9px;color:#aaa;border-top:1px solid #ddd;padding-top:6px">CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason} · Episode ${epStr} · Generated: ${printDate}</div>
   </body></html>`;
   const win=window.open('','_blank');
   if(!win){alert('Popup blocked — please allow popups for this site.');return;}
