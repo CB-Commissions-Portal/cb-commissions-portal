@@ -200,7 +200,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.352';
+const BUILD_VERSION='3.10.353';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -733,7 +733,8 @@ function subscribePresCalData(){
     unsubPresCalData=onSnapshot(collection(db,'presenter_calendar'),snap=>{
       const fresh={};snap.docs.forEach(d=>{fresh[d.id]={...d.data()};});presCalData=fresh;presCalLoaded=true;
       if(!calResolved){calResolved=true;tryResolve();}
-      else if(tab==='prescal')render();
+      // Our own edit: the cell was already updated in place (updatePresCalCell) — no full redraw
+      else if(tab==='prescal'&&!snap.metadata.hasPendingWrites)render();
     },e=>{console.error('PresCalData snapshot:',e);if(!calResolved){calResolved=true;tryResolve();}});
     unsubPresCalEnd=onSnapshot(doc(db,'settings','presCalEnd'),snap=>{
       if(snap.exists()&&snap.data().endDate)PRES_CAL_END=snap.data().endDate;
@@ -1973,6 +1974,8 @@ function render(){
   const _delivScrollTop=_delivScroll?_delivScroll.scrollTop:0;
   const _roswysScroll=document.getElementById('roswys-scroll');
   const _roswysScrollTop=_roswysScroll?_roswysScroll.scrollTop:0;
+  const _presCalScroll=document.getElementById('prescal-scroll');
+  const _presCalTop=_presCalScroll?_presCalScroll.scrollTop:0,_presCalLeft=_presCalScroll?_presCalScroll.scrollLeft:0;
   const root=document.getElementById('root');
   const cfg=getCfg();
   if(!cfg){root.innerHTML=renderSetup();bindSetup();return;}
@@ -1998,6 +2001,8 @@ function render(){
   if(_delivScroll2&&_delivScrollTop)_delivScroll2.scrollTop=_delivScrollTop;
   const _roswysScroll2=document.getElementById('roswys-scroll');
   if(_roswysScroll2&&_roswysScrollTop)_roswysScroll2.scrollTop=_roswysScrollTop;
+  const _presCalScroll2=document.getElementById('prescal-scroll');
+  if(_presCalScroll2){if(_presCalTop)_presCalScroll2.scrollTop=_presCalTop;if(_presCalLeft)_presCalScroll2.scrollLeft=_presCalLeft;}
   if(pendingFocusId!==null){
     const newRow=document.querySelector(`tr[data-id="${pendingFocusId}"]`);
     if(newRow){
@@ -5702,7 +5707,7 @@ function renderPresenterCalendar(){
         <span style="display:flex;align-items:center;gap:6px;background:#f9fafb;border:1px solid rgba(56,139,253,.4);border-radius:6px;padding:6px 12px;font-size:14px;color:#388bfd"><span style="width:12px;height:12px;background:rgba(56,139,253,.07);display:inline-block;border-radius:3px;border-left:3px solid #388bfd;flex-shrink:0"></span>Today</span>
       </div>
     </div>
-    <div style="overflow-x:auto;overflow-y:auto;flex:1;min-height:0">
+    <div id="prescal-scroll" style="overflow-x:auto;overflow-y:auto;flex:1;min-height:0">
       ${monthBlocks}
     </div>
   </div>`;
