@@ -125,6 +125,27 @@ function isRepeatContent(ep){
   // Repeat content can only be set on a Pre-Record episode; these are left out of the ticker.
   return isPreRecordEp(ep)&&!!(settings.repeatEps||{})[String(ep)];
 }
+// ── Repeat airings: a commission keeps its original episode (broadcastEpisode — where it's paid and
+// counted on the ticker) and can ALSO repeat in Repeat Content episodes, listed in c.repeatEps.
+function commRepeatEps(c){return Array.isArray(c&&c.repeatEps)?c.repeatEps.map(String):[];}
+function isRepeatAiring(c,ep){return !!c&&String(c.broadcastEpisode||'')!==String(ep)&&commRepeatEps(c).includes(String(ep));}
+function commInEp(c,ep){return !!c&&(String(c.broadcastEpisode||'')===String(ep)||commRepeatEps(c).includes(String(ep)));}
+function repeatTag(c,ep,size=11){
+  return isRepeatAiring(c,ep)?`<span style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;font-size:${size}px;font-weight:800;padding:1px 6px;border-radius:3px;letter-spacing:.4px;white-space:nowrap">↺ REPEAT${c.broadcastEpisode?' · FIRST AIRED EP '+esc(String(c.broadcastEpisode)):''}</span>`:'';
+}
+function repeatEpChips(c,size=11){
+  // Small grey "↺ EP38" chips for the Repeat Content episodes a commission also airs in.
+  return commRepeatEps(c).filter(e=>e!==String(c.broadcastEpisode||'')).map(e=>`<span title="Repeats in EP ${e}" style="font-size:${size}px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:1px 5px;border-radius:3px;font-weight:700;white-space:nowrap">↺ EP${e}</span>`).join(' ');
+}
+function setCommRepeatEp(c,ep,on){
+  // Adds/removes a Repeat Content episode on a commission (Firestore via updateComm).
+  if(!c)return;
+  const cur=commRepeatEps(c);
+  const k=String(ep);
+  const next=on?(cur.includes(k)?cur:[...cur,k].sort((a,b)=>a-b)):cur.filter(x=>x!==k);
+  if(next.length===cur.length&&next.every((x,i)=>x===cur[i]))return;
+  updateComm(c.id,'repeatEps',next);
+}
 function epTypeLabel(ep){
   // Display wording: a Pre-Record isn't a "Normal" episode, so it replaces Normal (an Extended
   // pre-record reads "Extended · Pre-Record").
@@ -200,7 +221,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.354';
+const BUILD_VERSION='3.10.355';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -1261,7 +1282,7 @@ function getLineupItems(ep){
   // merge renderLineups() itself uses, so the two never disagree.
   const saved=lineups[String(ep)];
   const epComms=comms
-    .filter(c=>!c.decommissioned&&Number(c.broadcastEpisode)===Number(ep)&&c.commNum&&c.storyName)
+    .filter(c=>!c.decommissioned&&commInEp(c,ep)&&c.commNum&&c.storyName)
     .sort((a,b)=>(a.broadcastOrder||999)-(b.broadcastOrder||999));
   const autoItems=epComms.map(c=>({commNum:String(c.commNum),liveStudio:false}));
   if(!saved)return autoItems;
@@ -1398,7 +1419,7 @@ function exportCreditsPDF(epNum){
   function cGap(){return`<div class="gap"></div>`;}
   function cBigGap(){return`<div class="biggap"></div>`;}
 
-  const storyHTML=comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName&&!c.isInHouse).map((s,i)=>`
+  const storyHTML=comms.filter(c=>commInEp(c,n)&&!c.decommissioned&&c.storyName&&!c.isInHouse).map((s,i)=>`
     ${i>0?cBigGap():''}
     <p class="story">"${esc(s.storyName.toUpperCase())}"</p>
     ${s.isLicensed
@@ -1928,7 +1949,7 @@ function getFiltered(){
   if(filter==='hold')list=list.filter(c=>c.onHold);
   if(filter==='inhouse')list=list.filter(c=>c.isInHouse);
   if(filter==='ready')list=list.filter(c=>allDel(c)&&!c.approvedForPayment&&!c.decommissioned&&!c.onHold);
-  if(commEpFilter!=='all')list=list.filter(c=>String(c.broadcastEpisode||'')===commEpFilter);
+  if(commEpFilter!=='all')list=list.filter(c=>commInEp(c,commEpFilter));
   list.sort((a,b)=>{
     // Rows with no Comm # yet (new/unfinished commissions) always float to the top,
     // regardless of the active sort column, so they're never buried at the bottom.
@@ -2484,6 +2505,7 @@ ${filtered.map(c=>{
       ${c.isLicensed?'<span style="background:#dcfce7;color:#3fb950;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #86efac;white-space:nowrap">LICENSED</span>':''}
       ${c.isInHouse?'<span style="background:#eff6ff;color:#0066CC;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #1a3a6a;white-space:nowrap">IN-HOUSE</span>':''}
       ${c.onHold?'<span style="background:#fff7ed;color:#c2410c;font-size:11px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #fed7aa;white-space:nowrap">ON HOLD</span>':''}
+      ${repeatEpChips(c,9)}
     </div>
   </div>
 </td>
@@ -2695,7 +2717,7 @@ function exportPresenterPDF(btn){
 }
 
 function renderEpisodes(epNums,paid,remaining){
-  const episodes=epNums.map(n=>({ep:n,date:resolveDate(n),stories:sortByLineup(comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned),n)}));
+  const episodes=epNums.map(n=>({ep:n,date:resolveDate(n),stories:sortByLineup(comms.filter(c=>commInEp(c,n)&&!c.decommissioned),n)}));
 
   return`<div class="ep-wrap">
 <div class="ep-reg-header no-print">
@@ -2765,7 +2787,7 @@ return`<tr data-ep-row="${s.id}">
 <td style="text-align:center;vertical-align:middle;white-space:nowrap">
   <span style="color:#e3b341;font-weight:700;font-size:13px" title="Insert order — set from the Line-Ups tab">${idx+1}</span>
 </td>
-<td class="story" style="font-weight:600;color:#111827;font-size:16px;white-space:normal">${esc(s.storyName||'')}</td>
+<td class="story" style="font-weight:600;color:#111827;font-size:16px;white-space:normal">${esc(s.storyName||'')} ${repeatTag(s,ep)}</td>
 <td style="text-align:right;font-family:'JetBrains Mono',monospace;color:#0066CC;font-size:15px">${s.commNum}</td>
 <td style="text-align:right">
   ${dd ? (s.isInHouse ? `<span class="dur am">${fmtHMS(dd)}</span>` : `<span class="dur gr">${fmtHMS(dd)}</span>`) : '—'}
@@ -4146,7 +4168,7 @@ function crewTypeBadge(c,size){
 function crewListStories(n){
   // Stories for an episode in Line-Up (broadcast) order — commissioned, licensed and in-house.
   return sortByLineup(comms.filter(c=>
-    c.broadcastEpisode===String(n)&&!c.decommissioned&&c.storyName
+    commInEp(c,n)&&!c.decommissioned&&c.storyName
   ).sort((a,b)=>a.commNum>b.commNum?1:-1),n);
 }
 async function exportCrewListPDF(btn,filterEp){
@@ -5138,7 +5160,7 @@ function renderMusicCues(epNums){
   const filtered=allSheets.filter(s=>{
     if(mcEpFilter==='all')return true;
     const c=comms.find(c=>c.commNum===s.commNum);
-    return c&&String(c.broadcastEpisode)===mcEpFilter;
+    return c&&commInEp(c,mcEpFilter);
   });
 
   const sheetRows=filtered.map(s=>{
@@ -5161,6 +5183,7 @@ function renderMusicCues(epNums){
             ${epNum!=='—'?`<div style="text-align:right">
               <div style="font-size:13px;font-weight:700;color:#3fb950">EP ${String(epNum).padStart(2,'0')}</div>
               <div style="font-size:12px;color:#6b7280">${date}</div>
+              ${c&&commRepeatEps(c).length?`<div style="margin-top:3px">${repeatEpChips(c)}</div>`:''}
             </div>`:'<div style="font-size:12px;color:#9ca3af">Not yet assigned to episode</div>'}
             ${s.submitted?`<span style="background:#dcfce7;color:#3fb950;font-size:10px;font-weight:800;padding:2px 8px;border-radius:3px;letter-spacing:.5px;text-transform:uppercase;border:1px solid #86efac">✓ Submitted${s.submittedAt?.seconds?' · '+new Date(s.submittedAt.seconds*1000).toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}):'' }</span>`:`<span style="background:#fff7ed;color:#b45309;font-size:10px;font-weight:800;padding:2px 8px;border-radius:3px;letter-spacing:.5px;text-transform:uppercase;border:1px solid #fcd34d">⏳ Draft</span>`}
           </div>
@@ -8418,7 +8441,7 @@ function renderLineups(epNums){
             <button class="lu-move-dn" data-ep="${ep}" data-idx="${idx}" ${idx===items.length-1?'disabled':''} style="background:#fef9c3;border:1px solid #fcd34d;color:#e3b341;width:22px;height:16px;cursor:${idx===items.length-1?'default':'pointer'};font-size:11px;line-height:1;border-radius:0 0 3px 3px;padding:0;opacity:${idx===items.length-1?'.3':'1'}" title="Move down">▼</button>
           </div>`:`<span style="color:#e3b341;font-weight:700;font-size:13px;width:20px;text-align:center;flex-shrink:0">${idx+1}</span>`}
           <span style="font-size:16px;font-weight:900;color:${past?'#b91c1c':'#0066CC'};width:60px;font-family:monospace;flex-shrink:0">${esc(String(item.commNum))}</span>
-          <span style="font-size:16px;font-weight:700;color:${past?'#7f1d1d':'#111827'};flex:1;min-width:100px">${esc(c?.storyName||String(item.commNum))}${c?.isLicensed?'<span style="margin-left:5px;font-size:10px;font-weight:800;background:#dcfce7;color:#16a34a;padding:1px 4px;border-radius:2px;vertical-align:middle">LIC</span>':''}${c?.isInHouse?'<span style="margin-left:5px;font-size:10px;font-weight:800;background:#eff6ff;color:#6b7280;padding:1px 4px;border-radius:2px;vertical-align:middle">IH</span>':''}${c?.onHold?'<span style="margin-left:5px;font-size:11px;font-weight:800;background:#fff7ed;color:#f97316;padding:1px 5px;border-radius:2px;border:1px solid #fed7aa;vertical-align:middle">ON HOLD</span>':''}</span>
+          <span style="font-size:16px;font-weight:700;color:${past?'#7f1d1d':'#111827'};flex:1;min-width:100px">${esc(c?.storyName||String(item.commNum))}${isRepeatAiring(c,ep)?' '+repeatTag(c,ep,10):''}${c?.isLicensed?'<span style="margin-left:5px;font-size:10px;font-weight:800;background:#dcfce7;color:#16a34a;padding:1px 4px;border-radius:2px;vertical-align:middle">LIC</span>':''}${c?.isInHouse?'<span style="margin-left:5px;font-size:10px;font-weight:800;background:#eff6ff;color:#6b7280;padding:1px 4px;border-radius:2px;vertical-align:middle">IH</span>':''}${c?.onHold?'<span style="margin-left:5px;font-size:11px;font-weight:800;background:#fff7ed;color:#f97316;padding:1px 5px;border-radius:2px;border:1px solid #fed7aa;vertical-align:middle">ON HOLD</span>':''}</span>
           <span style="font-size:13px;color:#6b7280;min-width:70px">${esc(c?.presenterVO||'')}</span>
           <span style="font-size:13px;color:#6b7280;min-width:70px">${esc(c?.producer||'')}</span>
           <span style="font-size:13px;font-family:monospace;color:${isDelivered?'#16a34a':'#6b7280'};min-width:50px;text-align:right" title="${isDelivered?'Delivered':'Commissioned'}">${decToMmSs(toDecimalMins(dur))}${isDelivered?' ✓':''}</span>
@@ -8465,7 +8488,7 @@ function renderLineups(epNums){
         ${canEdit&&!past?`<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center">
           <select class="lu-add-comm" data-ep="${ep}" style="flex:1;min-width:220px;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:8px 12px;border-radius:5px;font-size:15px">
             <option value="">+ Add commission…</option>
-            ${availableComms.map(c=>`<option value="${esc(String(c.commNum))}">${esc(String(c.commNum))} | ${esc(c.storyName)}${c.onHold?' [ON HOLD]':''} (${decToMmSs(toDecimalMins(durForComm(c)))})</option>`).join('')}
+            ${availableComms.map(c=>`<option value="${esc(String(c.commNum))}">${esc(String(c.commNum))} | ${esc(c.storyName)}${c.onHold?' [ON HOLD]':''} (${decToMmSs(toDecimalMins(durForComm(c)))})${isRepeatContent(ep)&&c.broadcastEpisode&&String(c.broadcastEpisode)!==String(ep)?' — repeat from EP '+esc(String(c.broadcastEpisode)):''}</option>`).join('')}
           </select>
         </div>`:''}
       </div></div>
@@ -8789,6 +8812,17 @@ function renderModals(epNums,nextEp){
       const _paidChecked=!!_c.approvedForPayment;
       const _insertDisabled=!_canAdmin;
       const _epDisabled=!_canAdmin;
+      // Repeat airings — Repeat Content episodes this story also airs in (plus any already linked)
+      const _rptLinked=commRepeatEps(_c);
+      const _rptEps=[...new Set([..._epNums2.filter(n=>isRepeatContent(n)).map(String),..._rptLinked])]
+        .filter(e=>e!==String(_c.broadcastEpisode||'')).sort((a,b)=>a-b);
+      const _rptHtml=_rptEps.length?_rptEps.map(e=>{
+        const on=_rptLinked.includes(e);
+        return`<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${on?'#f1f5f9':'#f9fafb'};border:1px solid ${on?'#94a3b8':'#d1dae8'};border-radius:8px;cursor:${_canAdmin?'pointer':'default'}">
+          <input type="checkbox" class="cem-rpt" data-ep="${e}" ${on?'checked':''} ${_canAdmin?'':'disabled'} style="width:18px;height:18px;accent-color:#475569;flex-shrink:0;cursor:${_canAdmin?'pointer':'default'}">
+          <span style="font-size:16px;color:${on?'#334155':'#374151'};font-weight:${on?'700':'500'}">↺ EP ${e}${resolveDate(Number(e))?' · '+fmtDate(resolveDate(Number(e))):''}${isRepeatContent(e)?'':' <span style="color:#b45309;font-size:13px">(no longer Repeat Content)</span>'}</span>
+        </label>`;}).join('')
+        :`<div style="font-size:15px;color:#9ca3af;font-style:italic">No Repeat Content episodes yet — mark an episode as Pre-Record + Repeat Content in the Episode Register first.</div>`;
       // Decom section
       const _decomSection=_c.decommissioned
         ?`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -8870,6 +8904,13 @@ function renderModals(epNums,nextEp){
                 </select>
               </div>
             </div>
+          </div>
+
+          <!-- Repeat airings -->
+          <div>
+            <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:4px">Repeat In Episode</div>
+            <div style="font-size:14px;color:#6b7280;margin-bottom:12px">The story stays allocated to ${_c.broadcastEpisode?'EP '+esc(String(_c.broadcastEpisode)):'its episode'} (paid and counted there once) and also appears in the Line-Up, Music Cue Sheets, Transcripts and credits of the ticked repeat episode(s).</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">${_rptHtml}</div>
           </div>
 
           <!-- Decommission -->
@@ -8968,7 +9009,7 @@ function renderTranscripts(epNums){
   if(transcriptView==='comm'){
     const epFilteredComms=activeComms.filter(c=>{
       if(transcriptEpFilter==='all')return true;
-      return String(c.broadcastEpisode||'')===transcriptEpFilter;
+      return commInEp(c,transcriptEpFilter);
     });
     let rightPanel='';
     if(transcriptSelectedComm!==null){
@@ -9018,6 +9059,7 @@ function renderTranscripts(epNums){
               <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">
                 <span style="font-size:15px;font-weight:800;color:#111827">${esc(String(c.commNum))}</span>
                 ${c.broadcastEpisode?`<span style="font-size:11px;background:#dcfce7;color:#16a34a;padding:1px 5px;border-radius:3px;font-weight:700">EP${c.broadcastEpisode}</span>`:''}
+                ${repeatEpChips(c)}
                 <span style="margin-left:auto">${statusBadge(td.status)}</span>
               </div>
               <div style="font-size:13px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName||'Untitled')}</div>
@@ -9233,7 +9275,7 @@ function bindApp(){
     const epNums=getEpNums();
     const episodes=epNums
       .filter(n=>filterEp==='all'||String(n)===filterEp)
-      .map(n=>({ep:n,date:resolveDate(n),stories:comms.filter(c=>c.broadcastEpisode===String(n)&&!c.decommissioned)}));
+      .map(n=>({ep:n,date:resolveDate(n),stories:sortByLineup(comms.filter(c=>commInEp(c,n)&&!c.decommissioned),n)}));
 
     const epCards=episodes.map(({ep,date,stories})=>{
       const k=String(ep),epType=epTypeOf(ep);
@@ -9251,7 +9293,7 @@ function bindApp(){
       const rows=stories.map(s=>{
         const pd=toDecimalMins(s.paidDuration),dd=toDecimalMins(s.deliveredDuration)||toDecimalMins(s.commDuration)||0;
         return`<tr>
-          <td style="padding:5px 7px;border-bottom:1px solid #eee;font-weight:600;color:#111;font-size:12px;word-wrap:break-word;overflow-wrap:break-word">${esc(s.storyName||'')}</td>
+          <td style="padding:5px 7px;border-bottom:1px solid #eee;font-weight:600;color:#111;font-size:12px;word-wrap:break-word;overflow-wrap:break-word">${esc(s.storyName||'')}${isRepeatAiring(s,ep)?` <span style="color:#475569;font-size:10px;font-weight:800">↺ REPEAT${s.broadcastEpisode?' · FIRST AIRED EP '+esc(String(s.broadcastEpisode)):''}</span>`:''}</td>
           <td style="padding:5px 7px;border-bottom:1px solid #eee;text-align:right;font-family:monospace;color:#1a3a6a;font-size:12px">${s.commNum}</td>
           <td style="padding:5px 7px;border-bottom:1px solid #eee;text-align:right;font-size:12px">${dd?`<span style="background:${s.isInHouse?'#fff8e8':'#e8f5e8'};color:${s.isInHouse?'#b8860b':'#1a5c1a'};padding:2px 7px;border-radius:3px;font-family:monospace;font-weight:700">${fmtHMS(dd)}</span>`:'—'}</td>
           <td style="padding:5px 7px;border-bottom:1px solid #eee;text-align:right;font-size:12px">${!s.isInHouse&&pd>0?`<span style="background:#e8f5e8;color:#1a5c1a;padding:2px 7px;border-radius:3px;font-family:monospace;font-weight:700">${fmtHMS(pd)}</span>`:'—'}</td>
@@ -9531,6 +9573,24 @@ function bindApp(){
     if(canEdit(role,'approvedForPayment')&&!c.isInHouse){const el=document.getElementById('cem-paid');if(el)updateComm(id,'approvedForPayment',el.checked);}
     if(role==='admin'||role==='deputyadmin'){const el=document.getElementById('cem-insert-cost');if(el)updateComm(id,'totalInsertCost',el.value.trim());}
     if(role==='admin'||role==='deputyadmin'){const el=document.getElementById('cem-episode');if(el)assignEpisode(id,el.value);}
+    // Repeat airings
+    if(role==='admin'||role==='deputyadmin'){
+      document.querySelectorAll('.cem-rpt').forEach(cb=>{
+        const ep=String(cb.dataset.ep);
+        const cur=comms.find(x=>x.id===id);
+        if(!cur)return;
+        const was=commRepeatEps(cur).includes(ep);
+        if(cb.checked===was)return;
+        setCommRepeatEp(cur,ep,cb.checked);
+        const lu=lineups[ep];
+        if(cb.checked){
+          // Un-exclude so the Line-Up picks it up again if it was removed there before
+          if(lu&&(lu.excluded||[]).map(String).includes(String(cur.commNum))){lu.excluded=lu.excluded.filter(x=>String(x)!==String(cur.commNum));saveLineup(ep,lu);}
+        } else if(lu&&(lu.items||[]).some(i=>String(i.commNum)===String(cur.commNum))){
+          lu.items=lu.items.filter(i=>String(i.commNum)!==String(cur.commNum));saveLineup(ep,lu);
+        }
+      });
+    }
     // Motivation (always editable per canEdit)
     {const el=document.getElementById('cem-motivation');if(el&&canEdit(role,'decommissionMotivation'))updateComm(id,'decommissionMotivation',el.value.trim());}
     // allDel notification for Super Admin
@@ -10501,7 +10561,7 @@ function bindApp(){
     const sheets=Object.values(musicCues).filter(s=>{
       if(mcEpFilter==='all')return true;
       const c=comms.find(c=>c.commNum===s.commNum);
-      return (c&&String(c.broadcastEpisode)===mcEpFilter)||(s.commNum&&s.commNum.includes('E'+String(mcEpFilter).padStart(2,'0')));
+      return (c&&commInEp(c,mcEpFilter))||(s.commNum&&s.commNum.includes('E'+String(mcEpFilter).padStart(2,'0')));
     });
     const allRows=[['CUE','TRACK TITLE','COMPOSER','PUBLISHER','CMO','LABEL','ARTIST/PERFORMER','ALBUM TITLE','ALBUM NUMBER','TRACK NUMBER','USAGE','MUSIC TYPE','DURATION']];
     sheets.forEach(s=>{s.rows?.forEach((r,i)=>{allRows.push([i+1,r.trackTitle,r.composer,r.publisher,r.cmo,r.label||'Unknown',r.artist||r.composer,r.albumTitle||'N/A',r.albumNumber||'',r.trackNumber||'0',r.usage,r.musicType||'PRODUCTION',r.duration]);});});
@@ -11516,6 +11576,12 @@ document.addEventListener('change',function luChangeHandler(e){
     if(!lineups[ep])lineups[ep]={director:'',presenter1:'',presenter2:'',items:[]};
     if(!lineups[ep].items)lineups[ep].items=[];
     lineups[ep].items.push({commNum:String(cn),liveStudio:false});
+    if(lineups[ep].excluded)lineups[ep].excluded=lineups[ep].excluded.filter(x=>String(x)!==String(cn));
+    // Repeat Content episode: link the story as a repeat airing (it keeps its original episode)
+    if(isRepeatContent(ep)){
+      const rc=comms.find(c=>String(c.commNum)===String(cn)&&!c.decommissioned);
+      if(rc&&String(rc.broadcastEpisode||'')!==String(ep)){setCommRepeatEp(rc,ep,true);showToast(`${cn} added to EP ${ep} as a repeat`);}
+    }
     saveLineup(ep,lineups[ep]);
     luFlushFields();render();
   }
@@ -11606,6 +11672,9 @@ document.addEventListener('click',function luClickHandler(e){
       lineups[ep].excluded=lineups[ep].excluded||[];
       if(!lineups[ep].excluded.includes(String(commNum)))
         lineups[ep].excluded.push(String(commNum));
+      // Removing a repeat airing also removes the repeat link from the commission
+      const rc=comms.find(c=>String(c.commNum)===String(commNum));
+      if(rc&&commRepeatEps(rc).includes(String(ep)))setCommRepeatEp(rc,ep,false);
     } else {
       // Live Studio item — remove by idx
       lineups[ep].items.splice(idx,1);
