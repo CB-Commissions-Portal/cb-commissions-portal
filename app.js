@@ -221,7 +221,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.355';
+const BUILD_VERSION='3.10.356';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -1997,6 +1997,8 @@ function render(){
   const _roswysScrollTop=_roswysScroll?_roswysScroll.scrollTop:0;
   const _presCalScroll=document.getElementById('prescal-scroll');
   const _presCalTop=_presCalScroll?_presCalScroll.scrollTop:0,_presCalLeft=_presCalScroll?_presCalScroll.scrollLeft:0;
+  const _luScroll=document.getElementById('lu-scroll'),_luScrollTop=_luScroll?_luScroll.scrollTop:0;
+  const _luSide=document.getElementById('lu-side-scroll'),_luSideTop=_luSide?_luSide.scrollTop:0;
   const root=document.getElementById('root');
   const cfg=getCfg();
   if(!cfg){root.innerHTML=renderSetup();bindSetup();return;}
@@ -2024,6 +2026,8 @@ function render(){
   if(_roswysScroll2&&_roswysScrollTop)_roswysScroll2.scrollTop=_roswysScrollTop;
   const _presCalScroll2=document.getElementById('prescal-scroll');
   if(_presCalScroll2){if(_presCalTop)_presCalScroll2.scrollTop=_presCalTop;if(_presCalLeft)_presCalScroll2.scrollLeft=_presCalLeft;}
+  const _luScroll2=document.getElementById('lu-scroll');if(_luScroll2&&_luScrollTop)_luScroll2.scrollTop=_luScrollTop;
+  const _luSide2=document.getElementById('lu-side-scroll');if(_luSide2&&_luSideTop)_luSide2.scrollTop=_luSideTop;
   if(pendingFocusId!==null){
     const newRow=document.querySelector(`tr[data-id="${pendingFocusId}"]`);
     if(newRow){
@@ -8531,11 +8535,11 @@ function renderLineups(epNums){
           <a href="lineups-guide.html" target="_blank" class="btn" style="font-size:15px;padding:8px 16px;font-weight:700;border-color:#9ca3af;color:#6b7280;text-decoration:none">? Guide</a>
         </div>
       </div>
-      <div style="flex:1;overflow-y:auto;padding:16px 8px 16px 16px">
+      <div id="lu-scroll" style="flex:1;overflow-y:auto;padding:16px 8px 16px 16px">
         ${epsHtml}
       </div>
     </div>
-    <div style="width:280px;flex-shrink:0;padding:16px 16px 16px 0;overflow-y:auto;height:100%">
+    <div id="lu-side-scroll" style="width:280px;flex-shrink:0;padding:16px 16px 16px 0;overflow-y:auto;height:100%">
       <div style="background:#f8fafc;border:1px solid #e8edf5;border-radius:8px;padding:16px">
         <div style="font-size:13px;font-weight:800;color:#e3b341;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;border-bottom:1px solid #d1dae8;padding-bottom:10px">Inserts in Production</div>
         ${sideHtml}
