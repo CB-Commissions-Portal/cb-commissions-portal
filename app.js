@@ -125,6 +125,13 @@ function isRepeatContent(ep){
   // Repeat content can only be set on a Pre-Record episode; these are left out of the ticker.
   return isPreRecordEp(ep)&&!!(settings.repeatEps||{})[String(ep)];
 }
+function epTypeLabel(ep){
+  // Display wording: a Pre-Record isn't a "Normal" episode, so it replaces Normal (an Extended
+  // pre-record reads "Extended · Pre-Record").
+  const ext=epTypeOf(ep)==='extended';
+  if(isPreRecordEp(ep))return ext?'Extended · Pre-Record':'Pre-Record';
+  return ext?'Extended':'Normal';
+}
 function epFlagBadges(ep,size=12){
   const b=`font-size:${size}px;font-weight:800;padding:3px 9px;border-radius:3px;letter-spacing:.5px;white-space:nowrap`;
   return(isPreRecordEp(ep)?`<span style="${b};background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd">● PRE-RECORD</span>`:'')
@@ -191,7 +198,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.350';
+const BUILD_VERSION='3.10.351';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -2545,7 +2552,7 @@ async function exportCommissionsXLSX(){
     try{const _a=getStudioAnchors(n);anc1=_a.anchor1||'';anc2=_a.anchor2||'';}catch(_e){}
     const pres1=anc1||lu.presenter1||'';
     const pres2=anc2||lu.presenter2||'';
-    const epType=(settings.epTypes||{})[k]==='extended'?'Extended':'Normal';
+    const epType=epTypeLabel(n)+(isRepeatContent(n)?' · Repeat Content':'');
     const epComms=getLineupOrderedComms(k);
     if(epComms.length===0){
       rows.push([currentSeason,n,txDate,epUID,...promoUIDs,onAir,pres1,pres2,epType,'','','','','','','','','','']);
@@ -2725,12 +2732,12 @@ ${episodes.map(({ep,date,stories})=>{
     ${(settings.epOnAir||{})[k]?`<span style="color:#6b7280;border-left:1px solid #d1dae8;padding-left:12px">On-Air: <strong style="color:#3fb950;font-family:'JetBrains Mono',monospace;font-size:17px">${esc((settings.epOnAir||{})[k])}</strong></span>`:''}
   </span>
   <div class="type-toggle no-print" style="margin-left:auto" onclick="event.stopPropagation()">
-    <button class="type-btn normal${epType==='normal'?' on':''}" data-eptype="${k}" data-val="normal">Normal</button>
+    <button class="type-btn normal${epType==='normal'&&!isPreRecordEp(ep)?' on':''}" data-eptype="${k}" data-val="normal" title="${isPreRecordEp(ep)?'Make this a normal live episode (removes Pre-Record)':'Normal live episode'}">Normal</button>
     <button class="type-btn extended${epType==='extended'?' on':''}" data-eptype="${k}" data-val="extended">Extended</button>
     <button class="type-btn prerecord${isPreRecordEp(ep)?' on':''}" data-prerec-ep="${k}" style="margin-left:8px" title="Mark this episode as a Holiday Pre-Record — it will appear on the Holiday Pre-Records tab">Pre-Record</button>
     ${isPreRecordEp(ep)?`<button class="type-btn repeat${isRepeatContent(ep)?' on':''}" data-repeat-ep="${k}" title="This pre-record episode contains repeat content — it is left out of the minutes ticker">Repeat Content</button>`:''}
   </div>
-  <span style="font-size:15px;font-weight:600;margin-left:4px;color:${epType==='extended'?'#d29922':'#3fb950'}">${epType==='extended'?'★ Extended':'Normal'}</span>
+  ${isPreRecordEp(ep)&&epType!=='extended'?'':`<span style="font-size:15px;font-weight:600;margin-left:4px;color:${epType==='extended'?'#d29922':'#3fb950'}">${epType==='extended'?'★ Extended':'Normal'}</span>`}
   ${isPreRecordEp(ep)?`<span style="font-size:15px;font-weight:700;margin-left:6px;color:#7c3aed">● Pre-Record</span>`:''}
   ${isRepeatContent(ep)?`<span style="font-size:15px;font-weight:700;margin-left:6px;color:#475569">↺ Repeat Content</span>`:''}
   <span style="font-size:15px;color:#9ca3af;margin-left:8px" class="no-print">${isExpEp?'▲':'▼'}</span>
@@ -2769,7 +2776,7 @@ return`<tr data-ep-row="${s.id}">
   <div class="ep-stat">Ep Content: <b style="color:#111827">${fmtHMS(epContentMins)}</b></div>
   <div class="ep-stat">Insert Mins: <b class="gr">${fmtHMS(insertMins)}</b></div>
   <div class="ep-stat">Non-Insert: <b class="am">${fmtHMS(nonMins)}</b></div>
-  <div class="ep-stat">Type: <b style="color:#111827">${epType==='extended'?'★ Extended':'Normal'}${isPreRecordEp(ep)?' · Pre-Record':''}${isRepeatContent(ep)?' · Repeat Content':''}</b></div>
+  <div class="ep-stat">Type: <b style="color:#111827">${epTypeLabel(ep)}${isRepeatContent(ep)?' · Repeat Content':''}</b></div>
   <div class="ep-stat no-print" style="margin-left:auto;display:flex;align-items:center;gap:8px">
     <span style="color:#6b7280;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">On-Air Duration:</span>
     ${['admin','deputyadmin'].includes(currentRole)?`<input class="ep-onair-inp" data-ep="${ep}" value="${esc((settings.epOnAir||{})[k]||'')}" placeholder="00:00:00" style="background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#3fb950;font-size:15px;font-family:'JetBrains Mono',monospace;padding:4px 8px;width:100px;outline:none;text-align:center">`:
@@ -5352,7 +5359,7 @@ function renderFCC(epNums){
         <span style="font-size:18px;font-weight:900;color:${past?'#f85149':'#f7768e'};font-family:monospace">S${currentSeason} EP ${String(ep).padStart(2,'0')}</span>
         ${txFmt?`<span style="font-size:15px;color:#6b7280">${txFmt}</span>`:''}
         ${uid?`<span style="font-size:15px;font-family:monospace;color:#e3b341;font-weight:700">UID: ${uid}</span>`:''}
-        <span style="font-size:13px;color:#9ca3af;border:1px solid #d1dae8;padding:2px 8px;border-radius:3px">${epType==='extended'?'★ EXTENDED — 7 segs / 6 breaks':'NORMAL — 5 segs / 4 breaks'}</span>
+        <span style="font-size:13px;color:#9ca3af;border:1px solid #d1dae8;padding:2px 8px;border-radius:3px">${epType==='extended'?'★ EXTENDED — 7 segs / 6 breaks':(isPreRecordEp(ep)?'5 segs / 4 breaks':'NORMAL — 5 segs / 4 breaks')}</span>
         ${epFlagBadges(ep,11)}
         <div style="margin-left:auto;display:flex;gap:8px">
           ${canEdit?`<button class="btn fcc-save-btn" data-ep="${ep}" style="font-size:13px;padding:4px 14px;border-color:#3fb950;color:#3fb950">💾 Save</button>`:''}
@@ -5750,8 +5757,8 @@ function renderStudioSchedule(epNums){
     const {anchor1,anchor2}=getStudioAnchors(n);
     const txDate=resolveDate(n);
     const txFmt=txDate?new Date(txDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}):'—';
-    const epType=epTypeOf(n)==='extended'?'EXTENDED':'NORMAL';
-    const typeColor=epType==='EXTENDED'?'#e3b341':'#3fb950';
+    const epType=epTypeLabel(n).toUpperCase();
+    const typeColor=epType.includes('EXTENDED')?'#e3b341':epType.includes('PRE-RECORD')?'#7c3aed':'#3fb950';
     // Pre-fill from studioCrew if ss fields empty
     const dir=ss.director!==undefined?ss.director:(sc.studioDirector||'');
     const asst=ss.asstDir!==undefined?ss.asstDir:(sc.assistantDirector||'');
@@ -5832,7 +5839,7 @@ async function exportStudioSchedPDF(){
     const {anchor1,anchor2}=getStudioAnchors(n);
     const txDate=resolveDate(n);
     const txFmt=txDate?new Date(txDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'—';
-    const epType=epTypeOf(n)==='extended'?'EXTENDED':'NORMAL';
+    const epType=epTypeLabel(n).toUpperCase();
     const dir=ss.director!==undefined?ss.director:(sc.studioDirector||'');
     const asst=ss.asstDir!==undefined?ss.asstDir:(sc.assistantDirector||'');
     const fmgr=ss.floorMgr!==undefined?ss.floorMgr:(sc.floorManager||'');
@@ -8346,7 +8353,7 @@ function renderLineups(epNums){
           <span class="lu-chevron" style="font-size:18px;color:${epAccent};margin-right:2px">${collapsed?'▶':'▼'}</span>
           <span style="font-size:20px;font-weight:900;color:${epAccent};font-family:monospace">2026 | ${epLabel}</span>
           ${past?`<span style="background:#fee2e2;color:#b91c1c;font-size:12px;font-weight:800;padding:3px 9px;border-radius:3px;border:1px solid #fca5a5;letter-spacing:.5px">BROADCAST</span>`:''}
-          <span style="font-size:12px;font-weight:800;padding:3px 9px;border-radius:3px;letter-spacing:.5px;${epType==='extended'?'background:#fef3c7;color:#b45309;border:1px solid #fde68a':'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0'}">${epType==='extended'?'★ EXTENDED':'NORMAL'}</span>
+          ${epType==='normal'&&isPreRecordEp(ep)?'':`<span style="font-size:12px;font-weight:800;padding:3px 9px;border-radius:3px;letter-spacing:.5px;${epType==='extended'?'background:#fef3c7;color:#b45309;border:1px solid #fde68a':'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0'}">${epType==='extended'?'★ EXTENDED':'NORMAL'}</span>`}
           ${epFlagBadges(ep)}
           ${epDate?`<span style="font-size:15px;color:${past?'#7f1d1d':'#6b7280'}">${fmtDate(epDate)}</span>`:''}
         </div>
@@ -9178,7 +9185,7 @@ function bindApp(){
             Insert: ${insertDisplay} &nbsp;|&nbsp;
             Non-Insert: <strong style="font-family:monospace;color:#b8860b">${fmtHMS(nonMins)}</strong>
           </span>
-          <span style="margin-left:auto;font-size:12px;font-weight:700;color:${epType==='extended'?'#b8860b':'#1a7a1a'}">${epType==='extended'?'★ EXTENDED':'NORMAL'}${isPreRecordEp(ep)?' · PRE-RECORD':''}${isRepeatContent(ep)?' · REPEAT CONTENT':''}</span>
+          <span style="margin-left:auto;font-size:12px;font-weight:700;color:${epType==='extended'?'#b8860b':'#1a7a1a'}">${epTypeLabel(ep).toUpperCase()}${isRepeatContent(ep)?' · REPEAT CONTENT':''}</span>
         </div>
         ${stories.length>0?`
         <table style="width:100%;border-collapse:collapse;table-layout:fixed">
@@ -9196,7 +9203,7 @@ function bindApp(){
         <div style="background:#f8f8f8;padding:8px 14px;border-top:2px solid #ddd;display:flex;gap:20px;font-size:12px;font-weight:600;color:#444">
           <span>Insert Mins: <strong style="font-family:monospace;color:#1a5c1a">${fmtHMS(insertMins)}</strong></span>
           <span>Non-Insert: <strong style="font-family:monospace;color:#b8860b">${fmtHMS(nonMins)}</strong></span>
-          <span>Type: <strong>${epType==='extended'?'Extended ★':'Normal'}</strong></span>
+          <span>Type: <strong>${epTypeLabel(ep)}${isRepeatContent(ep)?' · Repeat Content':''}</strong></span>
         </div>`:'<div style="padding:12px 14px;color:#888;font-size:13px;font-style:italic">No stories assigned yet.</div>'}
       </div>`;
     }).join('');
@@ -9375,7 +9382,10 @@ function bindApp(){
     }
   });
 
-  document.querySelectorAll('[data-eptype]').forEach(btn=>btn.addEventListener('click',()=>{const k=btn.dataset.eptype;settings.epTypes={...(settings.epTypes||{}),[k]:btn.dataset.val};saveSettings();render();}));
+  document.querySelectorAll('[data-eptype]').forEach(btn=>btn.addEventListener('click',()=>{const k=btn.dataset.eptype;settings.epTypes={...(settings.epTypes||{}),[k]:btn.dataset.val};
+    // "Normal" means a normal live episode — on a pre-record it takes Pre-Record (and Repeat Content) off
+    if(btn.dataset.val==='normal'&&(settings.preRecordEps||{})[k]){const m={...settings.preRecordEps};delete m[k];settings.preRecordEps=m;const r={...(settings.repeatEps||{})};delete r[k];settings.repeatEps=r;}
+    saveSettings();render();}));
   // Pre-Record flag — independent of Normal/Extended/Repeat (an Extended ep can also be a pre-record)
   document.querySelectorAll('[data-prerec-ep]').forEach(btn=>btn.addEventListener('click',()=>{const k=btn.dataset.prerecEp;const m={...(settings.preRecordEps||{})};
     if(m[k]){delete m[k];const r={...(settings.repeatEps||{})};delete r[k];settings.repeatEps=r;} // un-marking Pre-Record also clears Repeat Content
