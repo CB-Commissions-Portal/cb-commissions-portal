@@ -176,10 +176,10 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.342';
+const BUILD_VERSION='3.10.343';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
-let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null;
+let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',commEpFilter='all',currentSeason='39',previewRole=null;
 let studioCrew={}; // {epNum: {studioDirector:'', ad:'', ...}}
 let studioSchedule={}; // {epNum:{director,asstDir,makeup,autocue(Autocue Operator),floorMgr,production,bookingFrom,bookingTo}}
@@ -2058,6 +2058,7 @@ function renderHome(){
       mk('postprod','Post Production','Schedule',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>`,'#f7768e','rgba(247,118,142,.1)',['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role),'Weekly post production schedule'),
       mk('shootsched','Shooting Schedule','Calendar',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,'#1a6b35','rgba(26,107,53,.1)',role!=='afm','Monthly bird\'s-eye view of who is shooting what, where'),
       mk('crewlist','Crew List',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>`,'#0066CC','rgba(0,102,204,.1)',['admin','operations'].includes(role),'Story crew and studio crew per episode, in broadcast order, with PDF export'),
+      mk('prerecords','Holiday Pre-Records',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>`,'#7c3aed','rgba(124,58,237,.1)',PREREC_VIEW_ROLES.includes(role),'Pre-recorded episodes: RX dates, slugs, file delivery and contacts'),
       mk('prescal','Presenter Calendar','Scheduling',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,'#f472b6','rgba(244,114,182,.1)',['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance','director'].includes(role),'Daily presenter scheduling'),
       mk('deliverables','Deliverables',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`,'#3fb950','rgba(63,185,80,.1)',currentRole==='admin'&&!previewRole,'Commission deliverable tracking and overview'),
       mk('promos','Promo Scheduling',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,'#ffa657','rgba(255,166,87,.1)',['admin','deputyadmin','operations','prodmgmt','editorial','finance'].includes(role),'UID codes and promo scheduling per episode'),
@@ -2219,6 +2220,7 @@ function renderSidebar(){
     item('postprod','Post Production',['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role)),
     item('shootsched','Shooting Schedule',role!=='afm'),
     item('crewlist','Crew List',['admin','operations'].includes(role)),
+    item('prerecords','Holiday Pre-Records',PREREC_VIEW_ROLES.includes(role)),
     item('prescal','Presenter Calendar',['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance','director'].includes(role)),
     item('deliverables','Deliverables',currentRole==='admin'&&!previewRole),
     item('promos','Promo Scheduling',['admin','deputyadmin','operations','prodmgmt','editorial','finance'].includes(role)),
@@ -2362,6 +2364,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='postprod'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role))return renderPostProd();
   if(tab==='shootsched'&&role!=='afm')return renderShootingSchedule();
   if(tab==='crewlist'&&['admin','operations'].includes(role))return renderCrewList(epNums,nextEp);
+  if(tab==='prerecords'&&PREREC_VIEW_ROLES.includes(role))return renderPreRecords();
   if(tab==='deliverables'&&['admin','deputyadmin'].includes(currentRole)&&!previewRole)return renderDeliverables(epNums);
   if(tab==='lineups'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','director','transcripts'].includes(role))return renderLineups(epNums);
   if(tab==='ros'&&['admin','deputyadmin','editorial','content','director'].includes(role))return(rosWysActive&&rosCurrentEp&&!rosEpModal)?renderRunOfShowWysiwyg():renderRunOfShow();
@@ -2710,8 +2713,10 @@ ${episodes.map(({ep,date,stories})=>{
     <button class="type-btn normal${epType==='normal'?' on':''}" data-eptype="${k}" data-val="normal">Normal</button>
     <button class="type-btn extended${epType==='extended'?' on':''}" data-eptype="${k}" data-val="extended">Extended</button>
     <button class="type-btn repeat${epType==='repeat'?' on':''}" data-eptype="${k}" data-val="repeat">Repeat</button>
+    <button class="type-btn prerecord${(settings.preRecordEps||{})[k]?' on':''}" data-prerec-ep="${k}" style="margin-left:8px" title="Mark this episode as a Holiday Pre-Record — it will appear on the Holiday Pre-Records tab">Pre-Record</button>
   </div>
   <span style="font-size:15px;font-weight:600;margin-left:4px;color:${epType==='extended'?'#d29922':epType==='repeat'?'#7a8ba0':'#3fb950'}">${epType==='extended'?'★ Extended':epType==='repeat'?'↺ Repeat':'Normal'}</span>
+  ${(settings.preRecordEps||{})[k]?`<span style="font-size:15px;font-weight:700;margin-left:6px;color:#7c3aed">● Pre-Record</span>`:''}
   <span style="font-size:15px;color:#9ca3af;margin-left:8px" class="no-print">${isExpEp?'▲':'▼'}</span>
 </div>
 ${isExpEp?`<div style="overflow:hidden">`+'':(``)}${isExpEp&&stories.length>0?`<div class="ep-body"><table class="ep-tbl"><thead><tr>
@@ -4243,6 +4248,141 @@ async function exportCrewListPDF(btn,filterEp){
     });
 }
 
+
+// ── Holiday Pre-Records tab ─────────────────────────────────────────
+// Episodes are flagged "Pre-Record" on the Episode Register (settings.preRecordEps, same doc as
+// epTypes). TX date, promo UIDs/TX dates and presenters are pulled live from Episode Register,
+// Promo Scheduling and Presenter Calendar. The pre-record-only details (RX date, slug, file
+// delivery date, contacts) live in settings/preRecords → {eps:{[ep]:{field:value}}}.
+const PREREC_VIEW_ROLES=['admin','deputyadmin','operations','production','prodmgmt','editorial','finance'];
+const PREREC_EDIT_ROLES=['admin','deputyadmin','operations'];
+const PREREC_CONTACTS=[
+  {key:'sched',label:'Scheduling Queries'},
+  {key:'file', label:'File Delivery'},
+  {key:'emerg',label:'Emergency Contact'},
+];
+let preRecData={};
+function subscribePreRecords(){
+  if(unsubPreRecords)unsubPreRecords();
+  return new Promise(resolve=>{
+    let resolved=false;
+    unsubPreRecords=onSnapshot(doc(db,'settings','preRecords'),snap=>{
+      preRecData=snap.exists()?{...(snap.data().eps||{})}:{};
+      if(!resolved){resolved=true;resolve();return;}
+      // Don't redraw under someone mid-typing (also avoids the Chrome date-input year bug)
+      if(tab==='prerecords'&&!document.activeElement?.classList?.contains('prerec-inp'))render();
+    },e=>{console.error('Pre-records snapshot:',e);if(!resolved){resolved=true;resolve();}});
+  });
+}
+async function savePreRecField(ep,field,value){
+  setSyncDot('saving');
+  try{
+    await setDoc(doc(db,'settings','preRecords'),{eps:{[ep]:{[field]:value}},updatedAt:serverTimestamp()},{merge:true});
+    preRecData[ep]={...(preRecData[ep]||{}),[field]:value};
+    setSyncDot('live');
+  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}
+}
+function preRecPresenters(n,rxDate){
+  // Presenters marked STUDIO on the Presenter Calendar — the RX (record) date if anyone is
+  // marked there, otherwise the TX date.
+  const names=d=>{
+    const day=presCalData[d]||{};
+    return PRESENTERS.filter(p=>day[p.key]&&day[p.key].studio).map(p=>p.full||p.label);
+  };
+  if(rxDate){const r=names(rxDate);if(r.length)return{names:r,from:'RX'};}
+  const tx=resolveDate(n);
+  return{names:tx?names(tx):[],from:'TX'};
+}
+function renderPreRecords(){
+  const role=getEffectiveRole();
+  const canEd=PREREC_EDIT_ROLES.includes(role);
+  const eps=getEpNums().filter(n=>(settings.preRecordEps||{})[String(n)]);
+  if(!eps.length)return`<div class="ep-wrap"><div style="color:#6b7280;padding:32px;text-align:center;font-size:16px">No pre-record episodes yet. Mark an episode as <b>Pre-Record</b> on the Episode Register and it will appear here.</div></div>`;
+  const lbl='font-size:12px;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px';
+  const box='background:#fff;border:1px solid #d1dae8;border-radius:6px;padding:12px 14px';
+  const inp='background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;font-size:15px;padding:6px 8px;width:100%;box-sizing:border-box;color:#111827';
+  const th='padding:7px 10px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;border-bottom:2px solid #d1dae8;text-align:left;white-space:nowrap';
+  const td='padding:7px 10px;font-size:14px;border-bottom:1px solid #e6ecf5;vertical-align:middle';
+  const field=(n,f,type,ph,extra='')=>{
+    const v=(preRecData[String(n)]||{})[f]||'';
+    if(!canEd){
+      const shown=type==='date'&&v?fmtDate(v):esc(v);
+      return`<div style="font-size:15px;font-weight:600;color:#111827;padding:6px 0;white-space:normal;word-break:break-word">${shown||'<span style="color:#9ca3af">—</span>'}</div>`;
+    }
+    return`<input type="${type}" class="prerec-inp" data-ep="${n}" data-field="${f}" value="${esc(v)}" placeholder="${ph}" style="${inp};${extra}">`;
+  };
+  const cards=eps.map(n=>{
+    const k=String(n);
+    const d=preRecData[k]||{};
+    const tx=resolveDate(n);
+    const epType=(settings.epTypes||{})[k]||'normal';
+    const pd=promoData[k]||{};
+    const uids=pd.uids||{};
+    const pulled=pd.pulled||{};
+    const pres=preRecPresenters(n,d.rxDate);
+    const promoRows=PROMO_TYPES.map((pt,i)=>{
+      const txD=getPromoTXDates(tx,pt.txType);
+      const isPulled=!!pulled[pt.key];
+      const uid=uids[pt.key]||'';
+      return`<tr style="background:${i%2?'#f9fafb':'#fff'}">
+        <td style="${td};font-weight:700;${isPulled?'color:#9ca3af;text-decoration:line-through':''}">${pt.label}</td>
+        <td style="${td};font-family:'JetBrains Mono',monospace;font-size:13px">${esc(pd['txFrom_'+pt.key]||txD.from)}</td>
+        <td style="${td};font-family:'JetBrains Mono',monospace;font-size:13px">${esc(pd['txTo_'+pt.key]||txD.to)}</td>
+        <td style="${td};font-family:monospace;font-weight:700;color:${isPulled?'#9ca3af':'#0066CC'};letter-spacing:.5px">${isPulled?'<span style="color:#dc2626;font-size:12px;font-weight:800">PULLED</span>':(uid?esc(uid):'<span style="color:#9ca3af">—</span>')}</td>
+      </tr>`;
+    }).join('');
+    const contacts=PREREC_CONTACTS.map(c=>`
+      <div style="${box}">
+        <div style="font-size:14px;font-weight:800;color:#7c3aed;margin-bottom:10px">${c.label}</div>
+        <div style="${lbl}">Name</div>${field(n,c.key+'Name','text','Name')}
+        <div style="${lbl};margin-top:8px">Phone</div>${field(n,c.key+'Phone','tel','Phone number')}
+        <div style="${lbl};margin-top:8px">Email</div>${field(n,c.key+'Email','email','Email address')}
+      </div>`).join('');
+    return`<div class="ep-card" style="margin-bottom:18px">
+      <div class="ep-head">
+        <span class="ep-num">EP ${n}</span>
+        <span style="font-size:17px;font-weight:800;color:#111827">TX: ${tx?fmtDate(tx):'—'}</span>
+        <span style="font-size:13px;font-weight:800;padding:3px 9px;border-radius:3px;background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd">● PRE-RECORD</span>
+        ${epType!=='normal'?`<span style="font-size:13px;font-weight:700;color:${epType==='extended'?'#b45309':'#7a8ba0'}">${epType==='extended'?'★ Extended':'↺ Repeat'}</span>`:''}
+        ${d.rxDate?`<span style="margin-left:auto;font-size:15px;color:#6b7280">RX: <b style="color:#111827">${fmtDate(d.rxDate)}</b></span>`:''}
+      </div>
+      <div style="padding:14px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+          <div style="${box}"><div style="${lbl}">RX Date (record)</div>${field(n,'rxDate','date','')}</div>
+          <div style="${box}"><div style="${lbl}">Slug</div>${field(n,'slug','text','Enter slug…',"font-family:'JetBrains Mono',monospace")}</div>
+          <div style="${box}"><div style="${lbl}">File Delivery Date (to M-Net)</div>${field(n,'fileDelivery','date','')}</div>
+          <div style="${box}"><div style="${lbl}">Presenters <span style="text-transform:none;font-weight:600;color:#9ca3af">(Presenter Calendar · ${pres.from} date)</span></div>
+            <div style="font-size:15px;font-weight:600;color:#111827;padding:6px 0;white-space:normal">${pres.names.length?pres.names.map(esc).join('<br>'):'<span style="color:#9ca3af">None marked STUDIO</span>'}</div></div>
+        </div>
+        <div style="${box};padding:0;overflow-x:auto">
+          <div style="padding:10px 14px;font-size:14px;font-weight:800;color:#111827;border-bottom:1px solid #d1dae8">Promo UIDs &amp; TX Dates
+            <span style="font-weight:600;color:#6b7280;margin-left:10px">Live show UID: <b style="font-family:monospace;color:#0066CC">${esc(pd.liveUID||'—')}</b></span></div>
+          <table style="width:100%;border-collapse:collapse"><thead><tr>
+            <th style="${th}">Type</th><th style="${th}">TX From</th><th style="${th}">TX To</th><th style="${th}">UID</th>
+          </tr></thead><tbody>${promoRows}</tbody></table>
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:800;color:#111827;margin-bottom:8px">Contacts</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">${contacts}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  return`
+<div class="toolbar">
+  <span class="count-lbl" style="margin-left:0">${eps.length} pre-record ${eps.length===1?'episode':'episodes'} · flag episodes on the Episode Register · TX date, promos and presenters update automatically</span>
+</div>
+<div style="padding:16px 20px">${cards}</div>`;
+}
+document.addEventListener('change',function preRecChange(e){
+  const el=e.target;
+  if(!el.classList?.contains('prerec-inp'))return;
+  if(!PREREC_EDIT_ROLES.includes(getEffectiveRole()))return;
+  savePreRecField(el.dataset.ep,el.dataset.field,el.value.trim()).then(()=>{
+    // RX date affects the header + which day presenters are read from — redraw once saved
+    if(el.dataset.field==='rxDate'&&tab==='prerecords')render();
+  });
+});
 
 let crewListEp=null; // 'all' | episode number string; null = default to next episode
 function renderCrewList(epNums,nextEp){
@@ -9082,6 +9222,8 @@ function bindApp(){
   });
 
   document.querySelectorAll('[data-eptype]').forEach(btn=>btn.addEventListener('click',()=>{const k=btn.dataset.eptype;settings.epTypes={...(settings.epTypes||{}),[k]:btn.dataset.val};saveSettings();render();}));
+  // Pre-Record flag — independent of Normal/Extended/Repeat (an Extended ep can also be a pre-record)
+  document.querySelectorAll('[data-prerec-ep]').forEach(btn=>btn.addEventListener('click',()=>{const k=btn.dataset.prerecEp;const m={...(settings.preRecordEps||{})};if(m[k])delete m[k];else m[k]=true;settings.preRecordEps=m;saveSettings();render();}));
   // On-Air Duration
   // Commission Excel export
   document.getElementById('ep-comm-export-btn')?.addEventListener('click',()=>exportCommissionsXLSX());
@@ -13742,6 +13884,7 @@ async function boot(){
         subscribeLeaveBalances().catch(e=>console.error('Leave balances error:',e)),
         subscribeCommTranscripts().catch(e=>console.error('CommTranscripts error:',e)),
         subscribeLiveTranscripts().catch(e=>console.error('LiveTranscripts error:',e)),
+        subscribePreRecords().catch(e=>console.error('Pre-records error:',e)),
         ...(currentRole==='admin'?[
           subscribeInvClients().catch(e=>console.error('Invoice clients error:',e)),
           subscribeInvMyDetails().catch(e=>console.error('Invoice my details error:',e)),
@@ -13777,6 +13920,7 @@ async function boot(){
       if(unsubInvClients){unsubInvClients();unsubInvClients=null;}
       if(unsubInvMyDetails){unsubInvMyDetails();unsubInvMyDetails=null;}
       if(unsubInvoices){unsubInvoices();unsubInvoices=null;}
+      if(unsubPreRecords){unsubPreRecords();unsubPreRecords=null;}
       render();
     }
   });

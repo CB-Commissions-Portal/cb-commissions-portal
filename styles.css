@@ -225,6 +225,7 @@ td.needs-attention-cb{background:rgba(245,166,35,.06)!important}
 .type-btn.on.normal{background:#dcfce7;color:#16a34a;border-color:#86efac}
 .type-btn.on.extended{background:#fffbeb;color:#b45309;border-color:#fcd34d}
 .type-btn.on.repeat{background:#f0f4f8;color:#6b7280;border-color:#d1dae8}
+.type-btn.on.prerecord{background:#ede9fe;color:#7c3aed;border-color:#c4b5fd}
 .ep-body{padding:0;overflow-x:auto}
 .ep-tbl{width:100%;min-width:900px;border-collapse:collapse;font-size:16px;table-layout:fixed}
 .ep-tbl th{color:#4b5563;font-size:14px;font-weight:800;padding:12px 16px;text-align:left;border-bottom:2px solid #d1dae8;background:#f8fafc;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
