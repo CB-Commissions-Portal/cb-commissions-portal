@@ -221,7 +221,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.356';
+const BUILD_VERSION='3.10.357';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -466,7 +466,7 @@ let addUserModal=false,newUserData={email:'',password:'',displayName:'',role:'ed
 let toast=null,toastTimer=null,pendingFocusId=null;
 let draftCommIds=new Set(); // commission ids added locally but not yet saved to Firestore (still fully blank)
 function isCommBlank(c){
-  return !c.commNum&&!c.shortName&&!c.storyName&&!c.commDuration&&!c.deliveredDuration&&!c.paidDuration&&!c.producer&&!c.presenterVO&&!c.dop&&!c.ca&&!c.editor&&!c.afm&&!c.deliveryDate&&!c.broadcastEpisode&&!c.portal&&!c.isInHouse&&!c.isLicensed&&!c.onHold&&!c.decommissioned&&!DEL_KEYS.some(k=>c[k]);
+  return !c.commNum&&!c.shortName&&!c.storyName&&!c.commDuration&&!c.deliveredDuration&&!c.paidDuration&&!c.producer&&!c.presenterVO&&!c.dop&&!c.ca&&!c.editor&&!c.afm&&!c.deliveryDate&&!c.broadcastEpisode&&!c.portal&&!c.isInHouse&&!c.isLicensed&&!c.onHold&&!c.prevSeason&&!c.decommissioned&&!DEL_KEYS.some(k=>c[k]);
 }
 
 let storage;
@@ -2509,6 +2509,7 @@ ${filtered.map(c=>{
       ${c.isLicensed?'<span style="background:#dcfce7;color:#3fb950;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #86efac;white-space:nowrap">LICENSED</span>':''}
       ${c.isInHouse?'<span style="background:#eff6ff;color:#0066CC;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #1a3a6a;white-space:nowrap">IN-HOUSE</span>':''}
       ${c.onHold?'<span style="background:#fff7ed;color:#c2410c;font-size:11px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #fed7aa;white-space:nowrap">ON HOLD</span>':''}
+      ${c.prevSeason?'<span style="background:#f3f4f6;color:#4b5563;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;border:1px solid #d1d5db;white-space:nowrap">PREV SEASON</span>':''}
       ${repeatEpChips(c,9)}
     </div>
   </div>
@@ -8381,6 +8382,7 @@ function renderLineups(epNums){
   const insertsInProd=activeComms.filter(c=>{
     if(!c.storyName)return false;
     if(c.decommissioned)return false;
+    if(c.prevSeason)return false; // aired in a previous season — still available for repeats
     // Hide if already on air (has episode with a past broadcast date)
     if(c.broadcastEpisode){
       const txDate=resolveDate(Number(c.broadcastEpisode));
@@ -8492,7 +8494,7 @@ function renderLineups(epNums){
         ${canEdit&&!past?`<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center">
           <select class="lu-add-comm" data-ep="${ep}" style="flex:1;min-width:220px;background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:8px 12px;border-radius:5px;font-size:15px">
             <option value="">+ Add commission…</option>
-            ${availableComms.map(c=>`<option value="${esc(String(c.commNum))}">${esc(String(c.commNum))} | ${esc(c.storyName)}${c.onHold?' [ON HOLD]':''} (${decToMmSs(toDecimalMins(durForComm(c)))})${isRepeatContent(ep)&&c.broadcastEpisode&&String(c.broadcastEpisode)!==String(ep)?' — repeat from EP '+esc(String(c.broadcastEpisode)):''}</option>`).join('')}
+            ${availableComms.map(c=>`<option value="${esc(String(c.commNum))}">${esc(String(c.commNum))} | ${esc(c.storyName)}${c.onHold?' [ON HOLD]':''}${c.prevSeason?' [PREV SEASON]':''} (${decToMmSs(toDecimalMins(durForComm(c)))})${isRepeatContent(ep)&&c.broadcastEpisode&&String(c.broadcastEpisode)!==String(ep)?' — repeat from EP '+esc(String(c.broadcastEpisode)):''}</option>`).join('')}
           </select>
         </div>`:''}
       </div></div>
@@ -8851,6 +8853,7 @@ function renderModals(epNums,nextEp){
             ${_c.storyName?`<span style="font-size:16px;color:#6b7280;margin-left:12px">· ${esc(_c.storyName)}</span>`:''}
             ${_c.decommissioned?'<span style="background:#fee2e2;color:#b91c1c;font-size:12px;font-weight:800;padding:2px 8px;border-radius:3px;margin-left:10px;letter-spacing:.5px;border:1px solid #fca5a5">DECOM</span>':''}
             ${_c.onHold&&!_c.decommissioned?'<span style="background:#fff7ed;color:#c2410c;font-size:12px;font-weight:800;padding:2px 8px;border-radius:3px;margin-left:10px;letter-spacing:.5px;border:1px solid #fed7aa">ON HOLD</span>':''}
+            ${_c.prevSeason?'<span style="background:#f3f4f6;color:#4b5563;font-size:12px;font-weight:800;padding:2px 8px;border-radius:3px;margin-left:10px;letter-spacing:.5px;border:1px solid #d1d5db">PREV SEASON</span>':''}
           </div>
           <button id="cem-close" class="btn" style="font-size:15px;padding:6px 16px;flex-shrink:0">✕ Close</button>
         </div>
@@ -8934,6 +8937,16 @@ function renderModals(epNums,nextEp){
                   </div>`
                 : `<button id="cem-hold-on" class="btn" style="border-color:#f97316;color:#f97316;font-size:16px;padding:8px 20px;font-weight:700">Place On Hold</button>`
               : '<span style="font-size:15px;color:#9ca3af;padding:8px 0">No permission to change hold status</span>'
+            }
+          </div>
+
+          <!-- Previous Season -->
+          <div>
+            <div style="font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:4px">Previous Season</div>
+            <div style="font-size:14px;color:#6b7280;margin-bottom:12px">Story aired in a previous season. Hidden from Inserts in Production on Line-Ups, but still available to add to a repeat episode.</div>
+            ${_role==='admin'
+              ? `<label style="display:inline-flex;align-items:center;gap:10px;font-size:16px;font-weight:700;color:#111827;cursor:pointer"><input type="checkbox" id="cem-prev-season" ${_c.prevSeason?'checked':''} style="width:18px;height:18px;cursor:pointer"> Previous season story</label>`
+              : `<span style="font-size:15px;color:${_c.prevSeason?'#4b5563':'#9ca3af'};padding:8px 0">${_c.prevSeason?'Marked as previous season':'Not marked'} · Super Admin only</span>`
             }
           </div>
 
@@ -9577,6 +9590,7 @@ function bindApp(){
     if(canEdit(role,'approvedForPayment')&&!c.isInHouse){const el=document.getElementById('cem-paid');if(el)updateComm(id,'approvedForPayment',el.checked);}
     if(role==='admin'||role==='deputyadmin'){const el=document.getElementById('cem-insert-cost');if(el)updateComm(id,'totalInsertCost',el.value.trim());}
     if(role==='admin'||role==='deputyadmin'){const el=document.getElementById('cem-episode');if(el)assignEpisode(id,el.value);}
+    if(role==='admin'){const el=document.getElementById('cem-prev-season');if(el&&el.checked!==!!c.prevSeason)updateComm(id,'prevSeason',el.checked);}
     // Repeat airings
     if(role==='admin'||role==='deputyadmin'){
       document.querySelectorAll('.cem-rpt').forEach(cb=>{
