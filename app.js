@@ -221,7 +221,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.361';
+const BUILD_VERSION='3.10.362';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -5131,6 +5131,7 @@ function renderMusicCues(epNums){
             <div style="display:flex;align-items:center;gap:8px">
               <span style="font-size:15px;font-weight:700;color:#111827;margin-right:6px">${draft.rows.length} cue${draft.rows.length!==1?'s':''}</span>
               <button class="btn" id="mc-select-mode-btn" style="font-size:14px${mcSelectMode?';background:#eff6ff;border-color:#0066CC;color:#0066CC':''}">${mcSelectMode?'✓ Done Selecting':'☐ Select Cues'}</button>
+              <button class="btn" id="mc-sel-all-btn" ${draft.rows.length?'':'disabled'} style="font-size:14px${draft.rows.length?'':';opacity:0.45;cursor:not-allowed'}">${mcSelectMode&&draft.rows.length&&mcSelected.size===draft.rows.length?'☐ Clear Selection':'☑ Select All Cues'}</button>
               ${mcSelectMode?`
                 <span id="mc-sel-count" style="font-size:13px;color:#6b7280">${mcSelected.size} selected</span>
                 <button class="btn" id="mc-dup-sel-btn" ${mcSelected.size?'':'disabled'} style="font-size:14px${mcSelected.size?'':';opacity:0.45;cursor:not-allowed'}">⧉ Duplicate Selected Cues</button>
@@ -6841,7 +6842,7 @@ But first…</pre>
         <li>Click <strong>+ New Music Cue Sheet</strong> to create one — enter the commission number to auto-fill story details</li>
         <li>Click <strong>+ Add Cue</strong> to add music tracks. Required fields are marked with <strong>*</strong></li>
         <li>Or click <strong>⬆ Import from Excel/CSV</strong> (next to + Add Cue) to bring cues in from your audio software — they're added below any existing cues</li>
-        <li>Use <strong>☐ Select Cues</strong> to tick cues, then <strong>Duplicate Selected Cues</strong> (copies appear right below, still editable) or <strong>Delete Selected Cues</strong></li>
+        <li>Use <strong>☐ Select Cues</strong> to tick cues (or <strong>☑ Select All Cues</strong> to tick every cue at once), then <strong>Duplicate Selected Cues</strong> (copies appear right below, still editable) or <strong>Delete Selected Cues</strong></li>
         <li><strong>💾 Save for Later</strong> keeps an unfinished sheet — it shows an orange <strong>IN PROGRESS</strong> badge until submitted</li>
         <li>All fields must be completed before <strong>Submit to Production</strong> activates. Album Number: if not applicable, type "0"</li>
         <li>Submitted sheets show <strong>SUBMITTED BY [name] ON [date] AT [time]</strong>. Only the sheet's own AFM Operator (or Super Admin) can reopen it — saving it again sets it back to IN PROGRESS</li>
@@ -10402,7 +10403,9 @@ function bindApp(){
     const n=mcSelected.size;
     const cnt=document.getElementById('mc-sel-count');if(cnt)cnt.textContent=n+' selected';
     ['mc-dup-sel-btn','mc-del-sel-btn'].forEach(id=>{const b=document.getElementById(id);if(b){b.disabled=!n;b.style.opacity=n?'1':'0.45';b.style.cursor=n?'pointer':'not-allowed';}});
-    const all=document.getElementById('mc-sel-all');if(all)all.checked=mcDraft.rows.length>0&&n===mcDraft.rows.length;
+    const allOn=mcDraft.rows.length>0&&n===mcDraft.rows.length;
+    const all=document.getElementById('mc-sel-all');if(all)all.checked=allOn;
+    const allBtn=document.getElementById('mc-sel-all-btn');if(allBtn)allBtn.textContent=allOn?'☐ Clear Selection':'☑ Select All Cues';
     document.querySelectorAll('.mc-sel-row').forEach(cb=>{cb.checked=mcSelected.has(Number(cb.dataset.row));cb.closest('tr').style.background=cb.checked?'#eff6ff':'';});
   };
   document.querySelectorAll('.mc-sel-row').forEach(cb=>{
@@ -10410,6 +10413,13 @@ function bindApp(){
   });
   document.getElementById('mc-sel-all')?.addEventListener('change',e=>{
     mcSelected=e.target.checked?new Set(mcDraft.rows.map((_,i)=>i)):new Set();mcSyncSelUI();
+  });
+  // Select All Cues — turns on Select mode if needed; toggles to Clear Selection once everything is ticked
+  document.getElementById('mc-sel-all-btn')?.addEventListener('click',()=>{
+    if(!mcDraft.rows.length)return;
+    const allOn=mcSelectMode&&mcSelected.size===mcDraft.rows.length;
+    mcSelected=allOn?new Set():new Set(mcDraft.rows.map((_,i)=>i));
+    if(!mcSelectMode){mcSelectMode=true;render();}else mcSyncSelUI();
   });
   document.getElementById('mc-dup-sel-btn')?.addEventListener('click',()=>{
     if(!mcSelected.size)return;
