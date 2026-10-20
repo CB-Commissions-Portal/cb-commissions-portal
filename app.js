@@ -221,7 +221,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.358';
+const BUILD_VERSION='3.10.359';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -4932,7 +4932,7 @@ function renderPromoScheduling(epNums){
 function renderMusicImportModal(){
   const importModal=mcImportModal?`<div class="modal-overlay" id="mc-import-overlay">
     <div class="modal" style="width:1200px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:28px">
-      <h3 style="margin-bottom:12px;font-size:20px">${mcImportKind==='csv'?'Import Music Cues from CSV':'Import Music Cues from Excel'}</h3>
+      <h3 style="margin-bottom:12px;font-size:20px">${mcImportKind==='csv'?'Import Music Cues from CSV':'Import Music Cues from Excel/CSV'}</h3>
       ${!mcImportData.length?`
         <p style="font-size:15px;color:#6b7280;margin-bottom:16px">${mcImportKind==='csv'?'Select a CSV file to import cue data.':'Select an Excel or CSV file to import cue data.'}</p>
         <label class="btn primary" style="cursor:pointer;display:inline-block">
@@ -5214,7 +5214,7 @@ function renderMusicCues(epNums){
         </select>
         ${canExport&&mcEpFilter!=='all'?`<button class="btn" id="mc-export-xl" style="font-size:13px;border-color:#3fb950;color:#3fb950">⬇ Export Episode Excel</button>`:''}
         <button class="btn primary" id="mc-new-story-btn">+ New Music Cue Sheet</button>
-        ${canImportXL?`<button class="btn" id="mc-import-xl-btn" style="border-color:#7a3fbf;color:#c084fc;font-size:13px">⬆ Import from Excel</button>`:''}
+        ${canImportXL?`<button class="btn" id="mc-import-xl-btn" style="border-color:#7a3fbf;color:#c084fc;font-size:13px">⬆ Import from Excel/CSV</button>`:''}
         ${canImportCSV?`<button class="btn" id="mc-import-csv-btn" style="border-color:#7a3fbf;color:#c084fc;font-size:13px">⬆ Import CSV</button>`:''}
       </div>
     </div>
