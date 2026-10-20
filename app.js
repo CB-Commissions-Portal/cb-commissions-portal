@@ -221,7 +221,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.360';
+const BUILD_VERSION='3.10.361';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -3228,11 +3228,14 @@ function leavePeriodsForRange(type,startDate,endDate){
 
 function hasLeaveAccess(role,extraRoles){
   if(!role)return false;
+  if(role==='afm')return false; // AFM Operators are freelancers — never on CAP leave, even with a capstaff extra role
   if(role==='admin'||role==='capstaff'||role==='content'||role==='finance')return true;
   return (extraRoles||[]).includes('capstaff');
 }
 
 function userHasLeaveAccess(){
+  // Previewing another role: judge by that role alone (extra roles belong to the real login)
+  if(previewRole)return hasLeaveAccess(previewRole,[]);
   return hasLeaveAccess(currentRole, currentUserExtraRoles);
 }
 
@@ -10583,7 +10586,10 @@ function bindApp(){
       return (c&&commInEp(c,mcEpFilter))||(s.commNum&&s.commNum.includes('E'+String(mcEpFilter).padStart(2,'0')));
     });
     const allRows=[['CUE','TRACK TITLE','COMPOSER','PUBLISHER','CMO','LABEL','ARTIST/PERFORMER','ALBUM NUMBER','ALBUM TITLE','TRACK NUMBER','USAGE','MUSIC TYPE','DURATION']];
-    sheets.forEach(s=>{s.rows?.forEach((r,i)=>{allRows.push([i+1,r.trackTitle,r.composer,r.publisher,r.cmo,r.label||'Unknown',r.artist||r.composer,r.albumNumber||'',r.albumTitle||'N/A',r.trackNumber||'0',r.usage,r.musicType||'PRODUCTION',r.duration]);});});
+    // Channel treats the episode as one cue sheet — pool every commission's cues, A→Z by track title, renumber 1..n
+    const epCues=[];sheets.forEach(s=>{s.rows?.forEach(r=>epCues.push(r));});
+    epCues.sort((a,b)=>String(a.trackTitle||'').trim().localeCompare(String(b.trackTitle||'').trim(),'en',{sensitivity:'base',numeric:true}));
+    epCues.forEach((r,i)=>{allRows.push([i+1,r.trackTitle,r.composer,r.publisher,r.cmo,r.label||'Unknown',r.artist||r.composer,r.albumNumber||'',r.albumTitle||'N/A',r.trackNumber||'0',r.usage,r.musicType||'PRODUCTION',r.duration]);});
     const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet(allRows);
     ws['!cols']=[{wch:5},{wch:30},{wch:22},{wch:22},{wch:10},{wch:20},{wch:22},{wch:12},{wch:22},{wch:10},{wch:28},{wch:20},{wch:14}];
     XLSX.utils.book_append_sheet(wb,ws,'EP'+mcEpFilter+' Music Cues');
