@@ -221,7 +221,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.362';
+const BUILD_VERSION='3.10.363';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -260,7 +260,7 @@ let mcEditId=null;
 let mcDraft={afmName:'',commNum:'',storyName:'',producer:'',rows:[]};
 let mcEpFilter='all';
 let mcImportModal=false;
-let presCalData={}; // {dateStr: {presenterKey: {commNum,storyName,producer,notAvailable}}}
+let presCalData={}; // {dateStr: {presenterKey: {entries:[{commNum,storyName,producer}|{studio}|{notAvailable}|{custom,customNote}]}}} — legacy docs hold one entry directly (see presCalEntries)
 let lineups={}; // {epNum: {director:'', presenter1:'', presenter2:'', items:[{commNum,liveStudio,liveDuration,liveNote}], savedAt}}
 let luCollapsed=new Set();
 let luHoldOpen=false; // Line-Ups sidebar: Inserts on Hold section expanded?
@@ -4396,7 +4396,7 @@ function preRecPresenters(n){
   // calendar is always marked by TX date, even for pre-recorded episodes.
   const tx=resolveDate(n);
   const day=tx?(presCalData[tx]||{}):{};
-  return{names:PRESENTERS.filter(p=>day[p.key]&&day[p.key].studio).map(p=>p.full||p.label),from:'TX'};
+  return{names:PRESENTERS.filter(p=>presCalEntries(day[p.key]).some(e=>e.studio)).map(p=>p.full||p.label),from:'TX'};
 }
 function preRecEpCode(n){
   // Episode scheduling code, generated like the promo codes: <live show UID>_CARTE_BLANCHE_S39_E38
@@ -5612,6 +5612,44 @@ function fccExportPDF(ep){
   }
 }
 
+// A presenter/day cell can hold several entries (e.g. shoot in the morning, studio at night).
+// New saves use {entries:[...]}; older docs hold a single entry object directly.
+function presCalEntries(cell){
+  if(!cell)return[];
+  if(Array.isArray(cell.entries))return cell.entries;
+  return(cell.notAvailable||cell.studio||cell.custom||cell.commNum)?[cell]:[];
+}
+function presCalCellInner(dateStr,presKey,canEd){
+  const entries=presCalEntries((presCalData[dateStr]||{})[presKey]);
+  const isNA=entries.some(e=>e.notAvailable);
+  const badges=entries.map((cell,i)=>{
+    const a=`data-pres-badge="1" data-date="${dateStr}" data-pres="${presKey}" data-idx="${i}" title="Click to remove"`;
+    const gap=i?'margin-top:6px;':'';
+    if(cell.notAvailable)return`<div style="${gap}background:#fff1f2;border-radius:6px;padding:6px 14px;font-size:16px;font-weight:800;color:#f85149;text-align:center;cursor:pointer;letter-spacing:.3px" ${a}>NOT AVAILABLE</div>`;
+    if(cell.studio)return`<div style="${gap}background:#eff6ff;border-radius:6px;padding:6px 14px;font-size:16px;font-weight:800;color:#c084fc;text-align:center;cursor:pointer;letter-spacing:.3px" ${a}>STUDIO</div>`;
+    if(cell.custom)return`<div style="${gap}background:#fef9c3;border-radius:6px;padding:6px 14px;font-size:16px;font-weight:700;color:#e3b341;word-break:break-word;cursor:pointer" ${a}>${esc(cell.customNote||'Note')}</div>`;
+    const commNum=cell.commNum||'';
+    const comm=commNum?comms.find(c=>c.commNum===commNum):null;
+    const storyName=comm?.storyName||cell.storyName||'';
+    const producer=comm?.producer||cell.producer||'';
+    return`<div style="${gap}background:#eff6ff;border-radius:6px;padding:8px 12px;cursor:pointer;border:1px solid #2e4a70" ${a}>
+        <div style="font-size:17px;font-weight:900;color:#0066CC;font-family:monospace">${esc(commNum)}</div>
+        ${storyName?`<div style="font-size:14px;color:#4b5563;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:175px" title="${esc(storyName)}">${esc(storyName)}</div>`:''}
+        ${producer?`<div style="font-size:13px;color:#6b7280;margin-top:3px">${esc(producer)}</div>`:''}
+      </div>`;
+  }).join('');
+  // Not Available stands alone — nothing can be added alongside it
+  if(!canEd||isNA)return badges;
+  const first=!entries.length;
+  return badges+`<select class="pres-cal-sel" data-date="${dateStr}" data-pres="${presKey}" style="width:100%;background:transparent;border:none;font-size:14px;color:${first?'#3a4858':'#0066CC'};cursor:pointer;padding:2px 0;opacity:.7;${first?'':'margin-top:6px;font-weight:700'}">
+      <option value="">${first?'— assign —':'+ add'}</option>
+      ${first?'<option value="na">Not Available</option>':''}
+      <option value="studio">Studio</option>
+      <option value="custom">Custom note…</option>
+      ${comms.filter(c=>!c.decommissioned&&c.commNum).map(c=>`<option value="${esc(c.commNum)}">${esc(c.commNum)} ${esc(c.storyName||'')} </option>`).join('')}
+    </select>`;
+}
+
 function renderPresenterCalendar(){
   const canEd=['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole());
   // Auto-jump to current month on first open
@@ -5658,42 +5696,8 @@ function renderPresenterCalendar(){
       const dateTxtCol=isHol?'#e3b341':isWE?'#484f58':isToday?'#79c0ff':'#eaf0ff';
       const todayAccent=isToday?'border-left:3px solid #388bfd;padding-left:11px;':'';
 
-      const cells=PRESENTERS.map(p=>{
-        const dayData=presCalData[dateStr]||{};
-        const cell=dayData[p.key]||{};
-        const isNA=cell.notAvailable;
-        const commNum=cell.commNum||'';
-        const comm=commNum?comms.find(c=>c.commNum===commNum):null;
-        const storyName=comm?.storyName||cell.storyName||'';
-        const producer=comm?.producer||cell.producer||'';
-
-        // All days are assignable (weekends and holidays too)
-
-        const hasContent=isNA||cell.studio||cell.custom||!!commNum;
-        return`<td style="padding:16px 14px;border-bottom:1px solid #d1dae8;border-left:2px solid ${p.lane};vertical-align:top;${rowBg};min-width:200px">
-          ${isNA
-            ?`<div style="background:#fff1f2;border-radius:6px;padding:6px 14px;font-size:16px;font-weight:800;color:#f85149;text-align:center;cursor:pointer;letter-spacing:.3px" data-pres-badge="1" title="Click to edit or remove">NOT AVAILABLE</div>`
-            :cell.studio
-            ?`<div style="background:#eff6ff;border-radius:6px;padding:6px 14px;font-size:16px;font-weight:800;color:#c084fc;text-align:center;cursor:pointer;letter-spacing:.3px" data-pres-badge="1" title="Click to edit or remove">STUDIO</div>`
-            :cell.custom
-            ?`<div style="background:#fef9c3;border-radius:6px;padding:6px 14px;font-size:16px;font-weight:700;color:#e3b341;word-break:break-word;cursor:pointer" data-pres-badge="1" title="Click to edit or remove">${esc(cell.customNote||'Note')}</div>`
-            :commNum
-              ?`<div style="background:#eff6ff;border-radius:6px;padding:8px 12px;cursor:pointer;border:1px solid #2e4a70" data-pres-badge="1" title="Click to edit or remove">
-                  <div style="font-size:17px;font-weight:900;color:#0066CC;font-family:monospace">${esc(commNum)}</div>
-                  ${storyName?`<div style="font-size:14px;color:#4b5563;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:175px" title="${esc(storyName)}">${esc(storyName)}</div>`:''}
-                  ${producer?`<div style="font-size:13px;color:#6b7280;margin-top:3px">${esc(producer)}</div>`:''}
-                </div>`
-              :''}
-          ${canEd&&!hasContent?`<select class="pres-cal-sel" data-date="${dateStr}" data-pres="${p.key}" style="width:100%;background:transparent;border:none;font-size:14px;color:#3a4858;cursor:pointer;padding:2px 0;opacity:.7">
-            <option value="">— assign —</option>
-            <option value="na">Not Available</option>
-            <option value="studio">Studio</option>
-            <option value="custom">Custom note…</option>
-            ${comms.filter(c=>!c.decommissioned&&c.commNum).map(c=>`<option value="${esc(c.commNum)}">${esc(c.commNum)} ${esc(c.storyName||'')} </option>`).join('')}
-          </select>
-          `:`<span class="pres-cal-sel" data-date="${dateStr}" data-pres="${p.key}" style="display:none"></span>`}
-        </td>`;
-      }).join('');
+      // All days are assignable (weekends and holidays too)
+      const cells=PRESENTERS.map(p=>`<td style="padding:16px 14px;border-bottom:1px solid #d1dae8;border-left:2px solid ${p.lane};vertical-align:top;${rowBg};min-width:200px" data-pres-td="${dateStr}|${p.key}">${presCalCellInner(dateStr,p.key,canEd)}</td>`).join('');
 
       return`<tr style="${rowBg}">
         <td style="${dateThBase};${rowBg};${todayAccent}">
@@ -5755,7 +5759,7 @@ function getStudioAnchors(ep){
   if(!txDate)return{anchor1:'',anchor2:''};
   const dayData=presCalData[txDate]||{};
   const nameFor=k=>{const p=PRESENTERS.find(p=>p.key===k);return p?(p.full||p.label):'';};
-  const studioPresKeys=PRESENTERS.map(p=>p.key).filter(k=>dayData[k]&&dayData[k].studio);
+  const studioPresKeys=PRESENTERS.map(p=>p.key).filter(k=>presCalEntries(dayData[k]).some(e=>e.studio));
   return{anchor1:studioPresKeys[0]?nameFor(studioPresKeys[0]):'',anchor2:studioPresKeys[1]?nameFor(studioPresKeys[1]):''};
 }
 
@@ -11419,31 +11423,23 @@ document.addEventListener('click',function presCalNavHandler(e){
   // (added once at boot, not per-render, so inputs are never unbound)
   // (lu-add-comm, lu-add-live, lu-remove-item, lu-live-dur handled by global delegated listeners below)
 
-// Presenter calendar badge click — step 1: show inline confirm; step 2: clear
+// Presenter calendar badge click — step 1: show inline confirm; step 2: remove that one entry
+function presCalCanEdit(){return['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole());}
 document.addEventListener('click',function presCalBadgeHandler(e){
-  // Step 2: confirm button clicked — actually clear the cell
+  // Step 2: confirm button clicked — remove just this entry, keep the others
   const confirmBtn=e.target.closest('.pres-cal-confirm-clear');
   if(confirmBtn){
     e.stopPropagation();
     const dateStr=confirmBtn.dataset.date;
     const presKey=confirmBtn.dataset.pres;
-    if(!dateStr||!presKey)return;
+    const idx=parseInt(confirmBtn.dataset.idx,10);
+    if(!dateStr||!presKey||isNaN(idx))return;
     if(!presCalData[dateStr])presCalData[dateStr]={};
-    delete presCalData[dateStr][presKey];
+    const entries=presCalEntries(presCalData[dateStr][presKey]).filter((_,i)=>i!==idx);
+    if(entries.length)presCalData[dateStr][presKey]={entries};
+    else delete presCalData[dateStr][presKey];
     savePresCalDay(dateStr,presCalData[dateStr]);
-    const td=confirmBtn.closest('td');
-    if(td){
-      // Rebuild td contents with a fresh working select
-      const commOptions=comms.filter(c=>!c.decommissioned&&c.commNum)
-        .map(c=>`<option value="${esc(c.commNum)}">${esc(c.commNum)} ${esc(c.storyName||'')}</option>`).join('');
-      td.innerHTML=`<select class="pres-cal-sel" data-date="${dateStr}" data-pres="${presKey}" style="width:100%;background:transparent;border:none;font-size:13px;color:#9ca3af;cursor:pointer;padding:2px 0">
-        <option value="">— assign —</option>
-        <option value="na">Not Available</option>
-        <option value="studio">Studio</option>
-        <option value="custom">Custom note…</option>
-        ${commOptions}
-      </select>`;
-    }
+    updatePresCalCell(dateStr,presKey);
     return;
   }
   // Cancel button clicked — dismiss confirm prompt, restore badge
@@ -11458,92 +11454,60 @@ document.addEventListener('click',function presCalBadgeHandler(e){
   }
   // Step 1: badge clicked — show inline confirm prompt
   const badge=e.target.closest('[data-pres-badge]');
-  if(!badge)return;
+  if(!badge||!presCalCanEdit())return;
   const td=badge.closest('td');
   if(!td)return;
   // Don't open a second confirm if one is already showing
   if(td.querySelector('[data-pres-confirm]'))return;
-  // Get dateStr and presKey from the select inside this td
-  const sel=td.querySelector('.pres-cal-sel,[data-date][data-pres]');
-  if(!sel)return;
-  const dateStr=sel.dataset.date;
-  const presKey=sel.dataset.pres;
+  const {date:dateStr,pres:presKey,idx}=badge.dataset;
   if(!dateStr||!presKey)return;
-  // Hide the badge, show confirm strip
+  // Hide the badge, show confirm strip in its place
   badge.style.display='none';
   const confirm=document.createElement('div');
   confirm.setAttribute('data-pres-confirm','1');
-  confirm.style.cssText='background:#fff1f2;border:1px solid #f85149;border-radius:4px;padding:5px 7px;display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px';
+  confirm.style.cssText='background:#fff1f2;border:1px solid #f85149;border-radius:4px;padding:5px 7px;display:flex;align-items:center;justify-content:space-between;gap:6px;margin:2px 0';
   confirm.innerHTML=`<span style="font-size:12px;font-weight:700;color:#f85149">Remove?</span>`+
     `<div style="display:flex;gap:4px">`+
-    `<button class="pres-cal-confirm-clear" data-date="${dateStr}" data-pres="${presKey}" style="background:#f85149;border:none;color:#fff;font-size:12px;font-weight:700;padding:2px 8px;border-radius:3px;cursor:pointer">✕ Yes</button>`+
+    `<button class="pres-cal-confirm-clear" data-date="${dateStr}" data-pres="${presKey}" data-idx="${idx}" style="background:#f85149;border:none;color:#fff;font-size:12px;font-weight:700;padding:2px 8px;border-radius:3px;cursor:pointer">✕ Yes</button>`+
     `<button class="pres-cal-cancel-clear" style="background:#d1dae8;border:none;color:#6b7280;font-size:12px;font-weight:700;padding:2px 8px;border-radius:3px;cursor:pointer">Keep</button>`+
     `</div>`;
   td.insertBefore(confirm, badge);
 });
 
-// Presenter calendar dropdown (delegated)
+// Presenter calendar dropdown (delegated) — assigns the first entry or adds another
 document.addEventListener('change',function presCalHandler(e){
   const sel=e.target.closest('.pres-cal-sel');
   if(!sel)return;
   const dateStr=sel.dataset.date;
   const presKey=sel.dataset.pres;
   const val=sel.value;
-  if(!presCalData[dateStr])presCalData[dateStr]={};
-  if(!val){
-    delete presCalData[dateStr][presKey];
-  } else if(val==='na'){
-    presCalData[dateStr][presKey]={notAvailable:true};
+  if(!val)return;
+  let entry;
+  if(val==='na'){
+    entry={notAvailable:true};
   } else if(val==='studio'){
-    presCalData[dateStr][presKey]={studio:true};
+    entry={studio:true};
   } else if(val==='custom'){
     const note=prompt('Enter a note for this day:');
     if(note===null){sel.value='';return;} // cancelled
-    presCalData[dateStr][presKey]={custom:true,customNote:note.trim()||'Note'};
+    entry={custom:true,customNote:note.trim()||'Note'};
   } else {
     const comm=comms.find(c=>c.commNum===val);
-    presCalData[dateStr][presKey]={commNum:val,storyName:comm?.storyName||'',producer:comm?.producer||''};
+    entry={commNum:val,storyName:comm?.storyName||'',producer:comm?.producer||''};
   }
+  if(!presCalData[dateStr])presCalData[dateStr]={};
+  // Not Available replaces everything; otherwise append to the day's entries
+  const entries=entry.notAvailable?[entry]:[...presCalEntries(presCalData[dateStr][presKey]),entry];
+  presCalData[dateStr][presKey]={entries};
   savePresCalDay(dateStr,presCalData[dateStr]);
   // Update just this cell in-place — don't re-render entire page
-  updatePresCalCell(dateStr,presKey,presCalData[dateStr][presKey]||{});
+  updatePresCalCell(dateStr,presKey);
 });
 
-// Update a single presenter calendar cell without full re-render
-function updatePresCalCell(dateStr,presKey,cell){
-  const sel=document.querySelector(`.pres-cal-sel[data-date="${dateStr}"][data-pres="${presKey}"]`);
-  if(!sel)return;
-  const td=sel.parentElement;
-  if(!td)return;
-  // Remove existing badges and old clear buttons
-  td.querySelectorAll('[data-pres-badge],.pres-cal-clear').forEach(el=>el.remove());
-  const hasContent=cell.notAvailable||cell.studio||cell.custom||cell.commNum;
-  if(hasContent){
-    const badge=document.createElement('div');
-    badge.setAttribute('data-pres-badge','1');
-    badge.title='Click to edit or remove';
-    badge.style.cursor='pointer';
-    if(cell.notAvailable){
-      badge.style.cssText='background:#fff1f2;border-radius:4px;padding:5px 8px;font-size:13px;font-weight:700;color:#f85149;text-align:center;margin-bottom:2px;cursor:pointer';
-      badge.textContent='NOT AVAILABLE';
-    } else if(cell.studio){
-      badge.style.cssText='background:#eff6ff;border-radius:4px;padding:5px 8px;font-size:13px;font-weight:700;color:#7a3fbf;text-align:center;margin-bottom:2px;cursor:pointer';
-      badge.textContent='STUDIO';
-    } else if(cell.custom){
-      badge.style.cssText='background:#fef9c3;border-radius:4px;padding:5px 8px;font-size:13px;font-weight:700;color:#e3b341;word-break:break-word;margin-bottom:2px;cursor:pointer';
-      badge.textContent=cell.customNote||'Note';
-    } else if(cell.commNum){
-      badge.style.cssText='background:#eff6ff;border-radius:4px;padding:5px 8px;margin-bottom:2px;cursor:pointer';
-      badge.innerHTML=`<div style="font-size:13px;font-weight:900;color:#0066CC;font-family:monospace">${cell.commNum}</div>`+
-        (cell.storyName?`<div style="font-size:12px;color:#4b5563;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px">${cell.storyName}</div>`:'')+
-        (cell.producer?`<div style="font-size:12px;color:#6b7280;margin-top:2px">${cell.producer}</div>`:'');
-    }
-    td.insertBefore(badge,sel);
-    sel.style.display='none';
-  } else {
-    sel.style.display='block';
-    sel.value='';
-  }
+// Redraw a single presenter calendar cell without full re-render
+function updatePresCalCell(dateStr,presKey){
+  const td=document.querySelector(`td[data-pres-td="${dateStr}|${presKey}"]`);
+  if(td)td.innerHTML=presCalCellInner(dateStr,presKey,presCalCanEdit());
 }
 
 // ── LINE-UP fully delegated global handlers (set up once, survive all renders) ──
