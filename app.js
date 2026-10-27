@@ -221,7 +221,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.367';
+const BUILD_VERSION='3.10.368';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -5762,7 +5762,9 @@ function presCalStudioRows(fromEp,toEp){
     const tx=resolveDate(n);
     const day=tx?(presCalData[tx]||{}):{};
     const names=PRESENTERS.filter(p=>presCalEntries(day[p.key]).some(e=>e.studio)).map(p=>p.full||p.label);
-    return{ep:n,tx,names};
+    // Recording date for pre-records — same RX date the call sheets use (Holiday Pre-Records tab)
+    const rx=isPreRecordEp(n)?((preRecData[String(n)]||{}).rxDate||''):'';
+    return{ep:n,tx,rx,names};
   });
 }
 // Shift Summary order requested by the user; anyone else only appears if they actually have shifts
@@ -5820,7 +5822,7 @@ function exportPresCalStudioPDF(fromEp,toEp){
     const extra=r.names.length>2?`<div style="font-size:10px;color:#888;margin-top:2px">+ ${r.names.slice(2).map(esc).join(', ')}</div>`:'';
     return`<tr style="background:${i%2?'#f7f9fc':'#fff'}">
       <td style="${tdS};font-weight:800">EP ${String(r.ep).padStart(2,'0')}${tags}</td>
-      <td style="${tdS};white-space:nowrap">${longDate(r.tx)}</td>
+      <td style="${tdS};white-space:nowrap">${longDate(r.tx)}${isPreRecordEp(r.ep)?`<div style="font-size:10px;color:#b45309;font-weight:700;margin-top:2px">Recorded: ${r.rx?longDate(r.rx):'RX date not set'}</div>`:''}</td>
       <td style="${tdS};font-weight:700">${pres(0)}</td>
       <td style="${tdS};font-weight:700">${pres(1)}${extra}</td></tr>`;
   }).join('');
@@ -5865,16 +5867,17 @@ async function exportPresCalStudioXLSX(fromEp,toEp){
     await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
   }
   const rows=presCalStudioRows(fromEp,toEp);
-  const aoa=[['Episode','TX Date','Presenter 1','Presenter 2','Notes'],...rows.map(r=>[
+  const aoa=[['Episode','TX Date','Recording Date','Presenter 1','Presenter 2','Notes'],...rows.map(r=>[
     `S${currentSeason} EP${r.ep}`,
     r.tx?fmtDate(r.tx):'',
+    r.rx?fmtDate(r.rx):(isPreRecordEp(r.ep)?'Not set':''),
     r.names[0]||'',
     r.names[1]||'',
     [isPreRecordEp(r.ep)?'Pre-Record':'',isRepeatContent(r.ep)?'Repeat':'',r.names.length>2?'Also: '+r.names.slice(2).join(', '):''].filter(Boolean).join(' · ')
   ])];
   const wb=XLSX.utils.book_new();
   const ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols']=[{wch:12},{wch:20},{wch:24},{wch:24},{wch:30}];
+  ws['!cols']=[{wch:12},{wch:20},{wch:20},{wch:24},{wch:24},{wch:30}];
   XLSX.utils.book_append_sheet(wb,ws,'Studio Presenters');
   const ws2=XLSX.utils.aoa_to_sheet([['Presenter','Shifts'],...presCalShiftCounts(rows).map(x=>[x.name,x.shifts])]);
   ws2['!cols']=[{wch:26},{wch:10}];
