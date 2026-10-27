@@ -221,7 +221,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.366';
+const BUILD_VERSION='3.10.367';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -5765,6 +5765,15 @@ function presCalStudioRows(fromEp,toEp){
     return{ep:n,tx,names};
   });
 }
+// Shift Summary order requested by the user; anyone else only appears if they actually have shifts
+const PRESCAL_SHIFT_ORDER=['claire','masa','govan','erin','macfarlane','lourensa'];
+function presCalShiftCounts(rows){
+  // Every STUDIO Sunday is a shift — pre-record and repeat-content episodes included
+  const count=p=>rows.filter(r=>r.names.includes(p.full||p.label)).length;
+  const main=PRESCAL_SHIFT_ORDER.map(k=>PRESENTERS.find(p=>p.key===k)).filter(Boolean);
+  const others=PRESENTERS.filter(p=>!PRESCAL_SHIFT_ORDER.includes(p.key)&&count(p)>0);
+  return[...main,...others].map(p=>({name:p.full||p.label,shifts:count(p)}));
+}
 function presCalStudioTitle(fromEp,toEp){
   const e=n=>'EP'+n;
   return`S${currentSeason} ${fromEp===toEp?e(fromEp):e(fromEp)+'-'+e(toEp)}`;
@@ -5815,6 +5824,8 @@ function exportPresCalStudioPDF(fromEp,toEp){
       <td style="${tdS};font-weight:700">${pres(0)}</td>
       <td style="${tdS};font-weight:700">${pres(1)}${extra}</td></tr>`;
   }).join('');
+  const shifts=presCalShiftCounts(rows);
+  const shiftRows=shifts.map((x,i)=>`<tr style="background:${i%2?'#f7f9fc':'#fff'}"><td style="${tdS};font-weight:700">${esc(x.name)}</td><td style="${tdS};text-align:center;font-weight:800;${x.shifts?'':'color:#bbb'}">${x.shifts}</td></tr>`).join('');
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carte Blanche ${title} - Studio Presenters</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:10pt;padding:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm;size:A4 portrait}table{width:100%;border-collapse:collapse}tr{page-break-inside:avoid}thead{display:table-header-group}</style>
   </head><body>
@@ -5833,6 +5844,14 @@ function exportPresCalStudioPDF(fromEp,toEp){
     <thead><tr><th style="${thS}">Episode</th><th style="${thS}">TX Date</th><th style="${thS}">Presenter 1</th><th style="${thS}">Presenter 2</th></tr></thead>
     <tbody>${body}</tbody>
   </table>
+  <div style="page-break-inside:avoid;margin-top:18px;width:60%">
+    <div style="background:#1a3a6a;color:#fff;padding:7px 12px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Shift Summary · ${fromEp===toEp?'Episode '+fromEp:'Episodes '+fromEp+'–'+toEp}</div>
+    <table style="table-layout:fixed;border:1px solid #d0d8e8;border-top:none">
+      <colgroup><col style="width:70%"><col style="width:30%"></colgroup>
+      <thead><tr><th style="${thS};background:#2d5288">Presenter</th><th style="${thS};background:#2d5288;text-align:center">Shifts</th></tr></thead>
+      <tbody>${shiftRows}</tbody>
+    </table>
+  </div>
   <div style="margin-top:14px;text-align:center;font-size:9px;color:#aaa;border-top:1px solid #ddd;padding-top:6px">CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason} · Generated: ${printDate}</div>
   </body></html>`;
   const win=window.open('','_blank');
@@ -5857,6 +5876,9 @@ async function exportPresCalStudioXLSX(fromEp,toEp){
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols']=[{wch:12},{wch:20},{wch:24},{wch:24},{wch:30}];
   XLSX.utils.book_append_sheet(wb,ws,'Studio Presenters');
+  const ws2=XLSX.utils.aoa_to_sheet([['Presenter','Shifts'],...presCalShiftCounts(rows).map(x=>[x.name,x.shifts])]);
+  ws2['!cols']=[{wch:26},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws2,'Shift Summary');
   XLSX.writeFile(wb,`Carte Blanche ${presCalStudioTitle(fromEp,toEp)} - Studio Presenters.xlsx`);
   showToast('Studio presenters export downloaded ✓');
 }
