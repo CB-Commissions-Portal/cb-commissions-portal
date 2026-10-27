@@ -221,7 +221,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.364';
+const BUILD_VERSION='3.10.365';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -5734,6 +5734,7 @@ function renderPresenterCalendar(){
           <span style="font-size:18px;font-weight:800;color:#111827;min-width:160px;text-align:center">${Object.keys(months)[presCalViewMonth]}</span>
           <button id="prescal-next" class="btn" style="font-size:15px;padding:8px 16px" ${presCalViewMonth>=Object.keys(months).length-1?'disabled':''}>Next ▶</button>
           ${canEd?`<button id="prescal-extend" class="btn" style="font-size:15px;padding:8px 16px;margin-left:8px;border-color:#388bfd;color:#388bfd">+ 3 months</button>`:''}
+          ${presCalCanExport()?`<button id="prescal-export" class="btn" style="font-size:15px;padding:8px 16px;margin-left:8px">⬇ Export Studio</button>`:''}
         </div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
@@ -5751,6 +5752,125 @@ function renderPresenterCalendar(){
   </div>`;
 }
 
+
+// ── Presenter Calendar: Studio export (Super Admin only) ─────────────────────
+// One row per episode in the chosen range: TX date + the presenters marked STUDIO on that
+// Sunday (same rule as getStudioAnchors / preRecPresenters — the calendar is marked by TX date).
+function presCalCanExport(){return currentRole==='admin'&&!previewRole;}
+function presCalStudioRows(fromEp,toEp){
+  return getEpNums().filter(n=>n>=fromEp&&n<=toEp).map(n=>{
+    const tx=resolveDate(n);
+    const day=tx?(presCalData[tx]||{}):{};
+    const names=PRESENTERS.filter(p=>presCalEntries(day[p.key]).some(e=>e.studio)).map(p=>p.full||p.label);
+    return{ep:n,tx,names};
+  });
+}
+function presCalStudioTitle(fromEp,toEp){
+  const e=n=>'EP'+n;
+  return`S${currentSeason} ${fromEp===toEp?e(fromEp):e(fromEp)+'-'+e(toEp)}`;
+}
+function openPresCalExportModal(){
+  if(!presCalCanExport())return;
+  document.getElementById('prescal-exp-overlay')?.remove();
+  const eps=getEpNums();
+  if(!eps.length){showToast('No episodes found',true);return;}
+  const today=new Date().toISOString().split('T')[0];
+  const next=eps.find(n=>(resolveDate(n)||'')>=today)??eps[0];
+  const opts=sel=>eps.map(n=>`<option value="${n}" ${n===sel?'selected':''}>EP ${n} · ${fmtDate(resolveDate(n))}</option>`).join('');
+  const ov=document.createElement('div');
+  ov.className='modal-overlay';ov.id='prescal-exp-overlay';
+  ov.innerHTML=`<div class="modal" style="max-width:460px">
+    <h3>Export Studio Presenters</h3>
+    <p>Lists the presenters marked <b>STUDIO</b> on each episode's TX Sunday.</p>
+    <label>From episode</label><select id="prescal-exp-from">${opts(next)}</select>
+    <label>To episode</label><select id="prescal-exp-to">${opts(eps[eps.length-1])}</select>
+    <div class="modal-actions">
+      <button class="btn" id="prescal-exp-cancel">Cancel</button>
+      <button class="btn" id="prescal-exp-xlsx">⬇ Excel</button>
+      <button class="btn primary" id="prescal-exp-pdf">⬇ PDF</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+}
+function presCalExportRange(){
+  let a=Number(document.getElementById('prescal-exp-from')?.value),b=Number(document.getElementById('prescal-exp-to')?.value);
+  if(a>b)[a,b]=[b,a];
+  return[a,b];
+}
+function exportPresCalStudioPDF(fromEp,toEp){
+  const rows=presCalStudioRows(fromEp,toEp);
+  const title=presCalStudioTitle(fromEp,toEp);
+  const longDate=iso=>iso?new Date(iso+'T00:00:00').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'—';
+  const printDate=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
+  const thS='padding:8px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#fff;background:#1a3a6a;text-align:left';
+  const tdS='padding:8px 10px;font-size:12px;vertical-align:middle;border-bottom:1px solid #e6ecf5';
+  const body=rows.map((r,i)=>{
+    const tags=[isPreRecordEp(r.ep)?'PRE-RECORD':'',isRepeatContent(r.ep)?'REPEAT':''].filter(Boolean).join(' · ');
+    const pres=i=>r.names[i]?esc(r.names[i]):'<span style="color:#bbb">—</span>';
+    const extra=r.names.length>2?`<div style="font-size:10px;color:#888;margin-top:2px">+ ${r.names.slice(2).map(esc).join(', ')}</div>`:'';
+    return`<tr style="background:${i%2?'#f7f9fc':'#fff'}">
+      <td style="${tdS};font-weight:800;white-space:nowrap">EP ${String(r.ep).padStart(2,'0')}${tags?`<div style="font-size:9px;color:#b45309;font-weight:800;margin-top:2px">${tags}</div>`:''}</td>
+      <td style="${tdS};white-space:nowrap">${longDate(r.tx)}</td>
+      <td style="${tdS};font-weight:700">${pres(0)}</td>
+      <td style="${tdS};font-weight:700">${pres(1)}${extra}</td></tr>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carte Blanche ${title} - Studio Presenters</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:10pt;padding:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm;size:A4 portrait}table{width:100%;border-collapse:collapse}tr{page-break-inside:avoid}thead{display:table-header-group}</style>
+  </head><body>
+  <table style="margin-bottom:12px;border-bottom:3px solid #1a3a6a">
+    <tr valign="middle">
+      <td style="width:80px;padding-bottom:10px"><img src="${BAKED_CB_LOGO}" style="height:44px;width:auto"></td>
+      <td style="text-align:center;padding:0 16px 10px">
+        <div style="font-size:17px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px">STUDIO PRESENTERS</div>
+        <div style="font-size:11px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase">Season ${currentSeason} · ${fromEp===toEp?'Episode '+fromEp:'Episodes '+fromEp+'–'+toEp}</div>
+      </td>
+      <td style="width:80px;padding-bottom:10px"><img src="${BAKED_CAP_LOGO}" style="height:36px;width:auto;max-width:76px;display:block"></td>
+    </tr>
+  </table>
+  <table style="table-layout:fixed;border:1px solid #d0d8e8">
+    <colgroup><col style="width:14%"><col style="width:30%"><col style="width:28%"><col style="width:28%"></colgroup>
+    <thead><tr><th style="${thS}">Episode</th><th style="${thS}">TX Date</th><th style="${thS}">Presenter 1</th><th style="${thS}">Presenter 2</th></tr></thead>
+    <tbody>${body}</tbody>
+  </table>
+  <div style="margin-top:14px;text-align:center;font-size:9px;color:#aaa;border-top:1px solid #ddd;padding-top:6px">CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason} · Generated: ${printDate}</div>
+  </body></html>`;
+  const win=window.open('','_blank');
+  if(!win){alert('Popup blocked — please allow popups for this site.');return;}
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),600);
+}
+async function exportPresCalStudioXLSX(fromEp,toEp){
+  if(!window.XLSX){
+    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+  }
+  const rows=presCalStudioRows(fromEp,toEp);
+  const aoa=[['Episode','TX Date','Presenter 1','Presenter 2','Notes'],...rows.map(r=>[
+    `S${currentSeason} EP${r.ep}`,
+    r.tx?fmtDate(r.tx):'',
+    r.names[0]||'',
+    r.names[1]||'',
+    [isPreRecordEp(r.ep)?'Pre-Record':'',isRepeatContent(r.ep)?'Repeat':'',r.names.length>2?'Also: '+r.names.slice(2).join(', '):''].filter(Boolean).join(' · ')
+  ])];
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:12},{wch:20},{wch:24},{wch:24},{wch:30}];
+  XLSX.utils.book_append_sheet(wb,ws,'Studio Presenters');
+  XLSX.writeFile(wb,`Carte Blanche ${presCalStudioTitle(fromEp,toEp)} - Studio Presenters.xlsx`);
+  showToast('Studio presenters export downloaded ✓');
+}
+document.addEventListener('click',function presCalExportHandler(e){
+  const id=e.target.id;
+  if(id==='prescal-export'){openPresCalExportModal();return;}
+  if(id==='prescal-exp-cancel'||id==='prescal-exp-overlay'){document.getElementById('prescal-exp-overlay')?.remove();return;}
+  if(id==='prescal-exp-pdf'||id==='prescal-exp-xlsx'){
+    if(!presCalCanExport())return;
+    const[a,b]=presCalExportRange();
+    document.getElementById('prescal-exp-overlay')?.remove();
+    if(id==='prescal-exp-pdf')exportPresCalStudioPDF(a,b);
+    else exportPresCalStudioXLSX(a,b).catch(err=>showToast('Export failed: '+err.message,true));
+  }
+});
 
 function getStudioAnchors(ep){
   // Get presenters marked STUDIO on the TX date. Use the full name (first + surname)
