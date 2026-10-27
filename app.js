@@ -221,7 +221,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.365';
+const BUILD_VERSION='3.10.366';
 const BUILD_DATE='20 Sep 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -5805,11 +5805,12 @@ function exportPresCalStudioPDF(fromEp,toEp){
   const thS='padding:8px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#fff;background:#1a3a6a;text-align:left';
   const tdS='padding:8px 10px;font-size:12px;vertical-align:middle;border-bottom:1px solid #e6ecf5';
   const body=rows.map((r,i)=>{
-    const tags=[isPreRecordEp(r.ep)?'PRE-RECORD':'',isRepeatContent(r.ep)?'REPEAT':''].filter(Boolean).join(' · ');
+    // One tag per line — a joined "PRE-RECORD · REPEAT" overflowed into the TX Date column
+    const tags=[isPreRecordEp(r.ep)?'PRE-RECORD':'',isRepeatContent(r.ep)?'REPEAT':''].filter(Boolean).map(t=>`<div style="font-size:9px;color:#b45309;font-weight:800;margin-top:2px;white-space:normal">${t}</div>`).join('');
     const pres=i=>r.names[i]?esc(r.names[i]):'<span style="color:#bbb">—</span>';
     const extra=r.names.length>2?`<div style="font-size:10px;color:#888;margin-top:2px">+ ${r.names.slice(2).map(esc).join(', ')}</div>`:'';
     return`<tr style="background:${i%2?'#f7f9fc':'#fff'}">
-      <td style="${tdS};font-weight:800;white-space:nowrap">EP ${String(r.ep).padStart(2,'0')}${tags?`<div style="font-size:9px;color:#b45309;font-weight:800;margin-top:2px">${tags}</div>`:''}</td>
+      <td style="${tdS};font-weight:800">EP ${String(r.ep).padStart(2,'0')}${tags}</td>
       <td style="${tdS};white-space:nowrap">${longDate(r.tx)}</td>
       <td style="${tdS};font-weight:700">${pres(0)}</td>
       <td style="${tdS};font-weight:700">${pres(1)}${extra}</td></tr>`;
@@ -5828,7 +5829,7 @@ function exportPresCalStudioPDF(fromEp,toEp){
     </tr>
   </table>
   <table style="table-layout:fixed;border:1px solid #d0d8e8">
-    <colgroup><col style="width:14%"><col style="width:30%"><col style="width:28%"><col style="width:28%"></colgroup>
+    <colgroup><col style="width:17%"><col style="width:29%"><col style="width:27%"><col style="width:27%"></colgroup>
     <thead><tr><th style="${thS}">Episode</th><th style="${thS}">TX Date</th><th style="${thS}">Presenter 1</th><th style="${thS}">Presenter 2</th></tr></thead>
     <tbody>${body}</tbody>
   </table>
