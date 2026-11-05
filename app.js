@@ -221,7 +221,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.371';
+const BUILD_VERSION='3.10.372';
 const BUILD_DATE='5 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -6167,28 +6167,14 @@ const ROS_ITEM_TYPES=[
   // Live / Links (blue)
   {key:'live_opening',   label:'OPENING LINK (WITH SHOW OPENER)', type:'live', defaultDur:'', group:'Live'},
   {key:'live_cs_dial',   label:'COLD START 2',         type:'live',   defaultDur:'', group:'Live'},
-  {key:'live_link_ins1', label:'LINK TO INSERT 1',            type:'live',   defaultDur:'', group:'Live'},
-  {key:'live_link_ins2', label:'LINK TO INSERT 2',            type:'live',   defaultDur:'', group:'Live'},
-  {key:'live_link_ins3', label:'LINK TO INSERT 3',            type:'live',   defaultDur:'', group:'Live'},
-  {key:'live_link_ins4', label:'LINK TO INSERT 4',            type:'live',   defaultDur:'', group:'Live'},
-  {key:'live_link_ins5', label:'LINK TO INSERT 5',            type:'live',   defaultDur:'', group:'Live'},
-  {key:'live_link_ins6', label:'LINK TO INSERT 6',            type:'live',   defaultDur:'', group:'Live'},
-  {key:'live_link_ins7', label:'LINK TO INSERT 7',            type:'live',   defaultDur:'', group:'Live'},
-  {key:'live_link_ins8', label:'LINK TO INSERT 8',            type:'live',   defaultDur:'', group:'Live'},
+  {key:'live_link_ins',  label:'LINK TO INSERT',              type:'live',   defaultDur:'', group:'Live'},
   {key:'live_link_brk',  label:'LINK TO BREAK',               type:'live',   defaultDur:'', group:'Live'},
   {key:'live_link_int',  label:'LINK TO INTERVIEW',           type:'live',   defaultDur:'', group:'Live'},
   {key:'live_studio_int',label:'STUDIO INTERVIEW',            type:'live',   defaultDur:'', group:'Live'},
   {key:'live_update',    label:'LIVE UPDATE',                 type:'live',   defaultDur:'', group:'Live'},
   {key:'live_closing',   label:'CLOSING LINK',                type:'live',   defaultDur:'', group:'Live'},
   // Inserts (orange)
-  {key:'insert1', label:'INSERT 1', type:'insert', defaultDur:'', group:'Insert'},
-  {key:'insert2', label:'INSERT 2', type:'insert', defaultDur:'', group:'Insert'},
-  {key:'insert3', label:'INSERT 3', type:'insert', defaultDur:'', group:'Insert'},
-  {key:'insert4', label:'INSERT 4', type:'insert', defaultDur:'', group:'Insert'},
-  {key:'insert5', label:'INSERT 5', type:'insert', defaultDur:'', group:'Insert'},
-  {key:'insert6', label:'INSERT 6', type:'insert', defaultDur:'', group:'Insert'},
-  {key:'insert7', label:'INSERT 7', type:'insert', defaultDur:'', group:'Insert'},
-  {key:'insert8', label:'INSERT 8', type:'insert', defaultDur:'', group:'Insert'},
+  {key:'insert', label:'INSERT', type:'insert', defaultDur:'', group:'Insert'},
   // Cold Start Clips (purple)
   {key:'cold1',  label:'COLD START CLIP 1', type:'coldstart', defaultDur:'', group:'Cold Start'},
   {key:'cold2',  label:'COLD START CLIP 2', type:'coldstart', defaultDur:'', group:'Cold Start'},
@@ -6238,8 +6224,8 @@ function rosRenumberInsertLabels(items){
   let next=items.filter(it=>it?.type==='insert').length+1;
   for(let i=items.length-1;i>=0;i--){
     const it=items[i];if(!it)continue;
-    if(it.type==='insert'){next--;if(/^INSERT\s*\d+$/i.test(it.label||''))it.label='INSERT '+next;}
-    else if(/^LINK TO INSERT\s*\d+$/i.test(it.label||''))it.label='LINK TO INSERT '+next;
+    if(it.type==='insert'){next--;if(/^INSERT(\s*\d+)?$/i.test(it.label||''))it.label='INSERT '+next;}
+    else if(/^LINK TO INSERT(\s*\d+)?$/i.test(it.label||''))it.label='LINK TO INSERT '+next;
   }
   return items;
 }
@@ -6886,7 +6872,7 @@ function getHelpPages(){
       <p><strong>Item types &amp; colours:</strong></p>
       <ul>
         <li><span style="color:#0066CC;font-weight:700">■ Live/Link</span> — Opening Link, Links to Inserts, Studio Interview, Closing Link. Has script, slugs &amp; sound.</li>
-        <li><span style="color:#e3b341;font-weight:700">■ Insert</span> — Insert 1–8. Has slugs, sound &amp; <strong>Out Words</strong>.</li>
+        <li><span style="color:#e3b341;font-weight:700">■ Insert</span> — Numbered automatically. Has slugs, sound &amp; <strong>Out Words</strong>.</li>
         <li><span style="color:#c084fc;font-weight:700">■ Cold Start</span> — Cold Start Clips 1–8. Has script, slugs, sound &amp; audio options (Upsound/VO).</li>
         <li><span style="color:#56d364;font-weight:700">■ UP NEXT</span> — Visual (no presenter mic) or Upsound (presenter live). Has script, slugs, sound &amp; audio options.</li>
         <li><span style="color:#9ca3af;font-weight:700">■ Fixed</span> — Opening Logo, Bumpers, Closing Credits. Pre-assigned slug, source &amp; sound. Duration locked.</li>
