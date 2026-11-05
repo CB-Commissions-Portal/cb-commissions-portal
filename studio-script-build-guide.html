@@ -179,7 +179,6 @@
         <tr><td>👁 Preview Script</td><td>Opens a browser window showing exactly how the Word studio script will look, without downloading anything. Useful for a final check before exporting.</td></tr>
         <tr><td>⬇ Studio Script (Word)</td><td>Downloads a <code>.doc</code> Word file of the full studio script, ready to print or distribute.</td></tr>
         <tr><td>⬇ VT List</td><td>Prints a slug sheet listing every item that has a slug assigned, with its source channel.</td></tr>
-        <tr><td># Numbers</td><td>Assigns sequential item numbers (1, 2, 3…) to all items. Commercial Breaks are always skipped. Re-run after adding, deleting, or reordering.</td></tr>
         <tr><td>💾 Save</td><td>Commits all pending changes to the database and updates the "Last saved by" timestamp.</td></tr>
         <tr><td>? Guide</td><td>Opens this user guide in a new browser tab.</td></tr>
       </tbody>
@@ -194,7 +193,7 @@
       <thead><tr><th>Column</th><th>Description</th></tr></thead>
       <tbody>
         <tr><td>▲ ▼ ✕</td><td>Move item up, move item down, delete item. Shown only to Admin/Editorial roles.</td></tr>
-        <tr><td>Item</td><td>Item number (if generated), type badge (LIVE / INSERT / COLD START / UP NEXT), and item label.</td></tr>
+        <tr><td>Item</td><td>Item number, type badge (LIVE / INSERT / COLD START / UP NEXT), and item label.</td></tr>
         <tr><td>Slug</td><td>All slugs assigned to this item, shown in gold text.</td></tr>
         <tr><td>Content</td><td>Editable free-text field. Click directly in the table to type. Also shows UPSOUND (UPS) and VOICE OVER (VO) badges for Cold Start and Up Next items where applicable.</td></tr>
         <tr><td>Item Duration</td><td>Editable time field — click and type directly. Format: <code>M:SS</code> or <code>H:MM:SS</code>. Updates the cumulative column instantly.</td></tr>
@@ -244,7 +243,7 @@
           <td><span class="chip chip-dark">BREAK</span></td>
           <td>Break</td>
           <td>Commercial Break 1–6</td>
-          <td>No editable fields. Never receive item numbers.</td>
+          <td>No editable fields. Counted in the item numbering like every other row.</td>
         </tr>
       </tbody>
     </table>
@@ -479,12 +478,10 @@ Lourensa Eckard</code></pre>
 
     <h3>Reordering</h3>
     <p>Use the <strong>▲</strong> and <strong>▼</strong> buttons on the left side of each row to move items up or down one position. The top button is disabled when the item is already at the top; the bottom button is disabled when it is already at the bottom.</p>
-    <div class="callout warn">
-      <p><strong>After reordering, regenerate item numbers</strong> using the <strong># Numbers</strong> button — numbers do not update automatically when you move items.</p>
-    </div>
+    <p>Item numbers update automatically when you move items.</p>
 
     <h3>Deleting</h3>
-    <p>Click the <strong>✕</strong> button on any row to remove the item immediately from the running order. Item numbers are not automatically adjusted on deletion — regenerate them using <strong># Numbers</strong> after deleting.</p>
+    <p>Click the <strong>✕</strong> button on any row to remove the item immediately from the running order. The remaining items renumber automatically.</p>
 
     <div class="callout warn">
       <p><strong>Deletions are not reversible</strong> once you click <strong>💾 Save</strong>. If you accidentally delete an item, do not save — refresh the page instead to reload the last saved version.</p>
@@ -492,14 +489,8 @@ Lourensa Eckard</code></pre>
 
     <!-- NUMBERS -->
     <h2 id="numbers">Item Numbers</h2>
-    <p>Click <strong># Numbers</strong> in the header bar to assign sequential numbers (1, 2, 3…) to all items in the current running order. Commercial Breaks are always excluded from numbering.</p>
-    <p>Always regenerate item numbers after:</p>
-    <ul class="body-list">
-      <li>Adding new items</li>
-      <li>Deleting items</li>
-      <li>Reordering items</li>
-    </ul>
-    <p>Item numbers appear in the running order table, the ITEM column of the Word export, and the VT List.</p>
+    <p>Item numbers are automatic. Every row is numbered by its position in the running order (1, 2, 3…), including Commercial Breaks, and the numbers update by themselves whenever items are added, deleted or moved. There is nothing to generate.</p>
+    <p>Item numbers appear in the running order, the WYSIWYG view, the ITEM column of the Word export, the ROS PDF, the Autocue text and the VT List.</p>
 
     <!-- EXPORTS -->
     <h2 id="exports">Export Options</h2>
@@ -561,7 +552,7 @@ Lourensa Eckard</code></pre>
     <table>
       <thead><tr><th>Column</th><th>Contents</th></tr></thead>
       <tbody>
-        <tr><td>Item #</td><td>Item number (from the # Numbers generator)</td></tr>
+        <tr><td>Item #</td><td>Item number</td></tr>
         <tr><td>Slug</td><td>Slug name in orange/gold text</td></tr>
         <tr><td>Source</td><td>Source channel (A / B / C / D / BLUE) in green, or — if no source is set</td></tr>
       </tbody>
@@ -591,7 +582,6 @@ Lourensa Eckard</code></pre>
         <tr><td>Edit content (inline)</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
         <tr><td>Edit duration (inline)</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
         <tr><td>Reorder items</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
-        <tr><td>Generate item numbers</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td></tr>
         <tr><td>💾 Save</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td><td class="partial">Modal only</td><td class="cross">—</td></tr>
         <tr><td>Open EDIT ITEM modal</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td></tr>
         <tr><td>Edit script</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="cross">—</td></tr>
@@ -612,7 +602,6 @@ Lourensa Eckard</code></pre>
       <li style="margin-bottom:10px"><strong>Cue lines</strong> — any script line ending with <code>:</code> — appear as bold underlined speaker headings in the Word export and are excluded from the word count. This includes both regular cues (<code>GOVAN:</code>) and camera cues (<code>GOVAN: CAM 3 JIB</code>).</li>
       <li style="margin-bottom:10px">The <strong>÷ 3</strong> figure is a rough timing guide: total words ÷ 3 ≈ approximate read time in seconds at broadcast pace.</li>
       <li style="margin-bottom:10px"><strong>▶ EXECUTE</strong> in the Edit modal only refreshes the preview pane — it does not save. Always click <strong>Save Changes</strong> to commit edits.</li>
-      <li style="margin-bottom:10px">Always regenerate <strong># Numbers</strong> after any structural change (add, delete, reorder). Numbers do not update automatically.</li>
       <li style="margin-bottom:10px">The <strong>Camera Block</strong> refreshes automatically as you edit the script. Shot descriptions are preserved when you tweak a cue line — they are only cleared if you remove the cue entirely.</li>
       <li style="margin-bottom:10px">Camera blocking in the Word export appears in the PRODUCTION column (column 2) in script order. Read across the page: column 4 shows the cue, column 2 shows what the camera should be doing at that moment.</li>
       <li style="margin-bottom:10px">The <strong>VT List</strong> only includes items that have at least one slug. If an item is missing, check that it has a slug and source set in EDIT ITEM.</li>

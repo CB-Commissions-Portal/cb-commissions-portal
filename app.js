@@ -221,7 +221,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.369';
+const BUILD_VERSION='3.10.370';
 const BUILD_DATE='5 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -6215,7 +6215,7 @@ const ROS_ITEM_TYPES=[
   {key:'upups6', label:'UP NEXT UPSOUND 6',  type:'upnext', defaultDur:'', group:'UP NEXT'},
   {key:'upups7', label:'UP NEXT UPSOUND 7',  type:'upnext', defaultDur:'', group:'UP NEXT'},
   {key:'upups8', label:'UP NEXT UPSOUND 8',  type:'upnext', defaultDur:'', group:'UP NEXT'},
-  // Commercial Breaks (dark, no item number)
+  // Commercial Breaks (dark)
   {key:'break1', label:'COMMERCIAL BREAK 1', type:'break', defaultDur:'0:00:00', locked:true, group:'Break'},
   {key:'break2', label:'COMMERCIAL BREAK 2', type:'break', defaultDur:'0:00:00', locked:true, group:'Break'},
   {key:'break3', label:'COMMERCIAL BREAK 3', type:'break', defaultDur:'0:00:00', locked:true, group:'Break'},
@@ -6338,7 +6338,7 @@ function renderRunOfShow(){
         </div>`:''}
       </td>
       <td style="padding:22px 24px;vertical-align:middle;white-space:normal;overflow-wrap:break-word">
-        ${item.itemNum?`<div style="font-size:16px;color:#9ca3af;font-family:monospace;margin-bottom:6px;font-weight:700">${item.itemNum}.</div>`:''}
+        <div style="font-size:16px;color:#9ca3af;font-family:monospace;margin-bottom:6px;font-weight:700">${i+1}.</div>
         ${ts.badge?`<div style="font-size:13px;font-weight:800;background:${ts.badgeBg};color:${ts.label};padding:4px 12px;border-radius:4px;margin-bottom:10px;display:inline-block;letter-spacing:.8px">${ts.badge}</div>`:''}
         ${getEffectiveRole()==='admin'&&item.scriptPendingChange?`<div style="margin-bottom:10px"><span style="font-size:11px;font-weight:800;background:#fef3c7;color:#b45309;padding:2px 7px;border-radius:3px;border:1px solid #fde68a;letter-spacing:.5px" title="${esc(item.scriptChangeNote||'')}">SCRIPT CHANGED</span></div>`:''}
         ${item.finalised?`<div style="margin-bottom:10px"><span style="font-size:11px;font-weight:800;background:#dcfce7;color:#15803d;padding:2px 7px;border-radius:3px;border:1px solid #bbf7d0;letter-spacing:.5px" title="${esc(item.finalisedAt||'')}">✓ FINALISED BY ${esc((item.finalisedBy||'').toUpperCase())}</span></div>`:item.changedSinceFinalised?`<div style="margin-bottom:10px"><span style="font-size:11px;font-weight:800;background:#ffedd5;color:#c2410c;padding:2px 7px;border-radius:3px;border:1px solid #fed7aa;letter-spacing:.5px" title="${esc(item.changedAt||'')}">CHANGED BY ${esc((item.changedBy||'').toUpperCase())}</span></div>`:''}
@@ -6383,7 +6383,6 @@ function renderRunOfShow(){
         ${isLockedScript?(()=>{const _lb=rosData[String(epNum)]?.rosLockedBy;const _la=rosData[String(epNum)]?.rosLockedAt;return`<div style="font-size:13px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:6px;padding:5px 12px;font-weight:800;letter-spacing:.3px">🔒 LOCKED FOR EDITING${_lb?` · ${esc(_lb)}`:''}${_la?` · ${esc(_la)}`:''}</div>`;})():''}
         <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <span style="font-size:20px;font-weight:900;color:#7c3aed;font-family:monospace" id="ros-total">SCRIPT DURATION: ${rosSecsToStr(totalSecs)}</span>
-          ${canEdit?`<button class="btn" id="ros-number-btn" style="font-size:15px;padding:8px 20px;font-weight:700;border-color:#b45309;color:#b45309">GENERATE ITEM NUMBERS</button>`:''}
           <button class="btn" id="ros-edit-wysiwyg-btn" style="font-size:15px;padding:8px 20px;font-weight:800;border-color:#f472b6;color:#f472b6">✎ EDIT IN WYSIWYG</button>
           ${canEdit?`<button class="btn primary" id="ros-save-btn" style="font-size:16px;padding:8px 24px;font-weight:800">💾 Save</button>`:''}
           ${isSuperAdmin?`<button class="btn" id="ros-lock-btn" style="font-size:15px;padding:8px 20px;font-weight:800;border-color:${isLockedScript?'#16a34a':'#dc2626'};color:${isLockedScript?'#16a34a':'#dc2626'}">${isLockedScript?'🔓 UNLOCK SCRIPT':'🔒 EXPORTED & LOCKED'}</button>`:''}
@@ -6576,7 +6575,7 @@ function rosWysBuildRow(item,i,epNum){
   const _durMmSs=d=>{if(!d)return'';const p=String(d).split(':');if(p.length===3){const mm=Number(p[0])*60+Number(p[1]);return`${String(mm).padStart(2,'0')}:${p[2]}`;}return d;};
   const _p=(txt,style='')=>`<p style="margin:0;font-family:Arial,sans-serif;font-size:11pt;${style}">${txt}</p>`;
   const _pSm=(html)=>_p(html,'font-size:9pt');
-  const num=item.itemNum||String(i+1);
+  const num=String(i+1); // item number = position in the running order, never stored
   const _rowBg=['fixed','insert','coldstart','upnext','break'].includes(item.type)?'background:#D9D9D9;':'';
   const _br=_p('&nbsp;');
   const _isEditing=(field,camIdx)=>rosWysEdit&&String(rosWysEdit.epNum)===String(epNum)&&rosWysEdit.itemIdx===i&&rosWysEdit.field===field&&(camIdx===undefined||rosWysEdit.camIdx===camIdx);
@@ -6893,7 +6892,7 @@ function getHelpPages(){
         <li><strong>Ep Duration ↑</strong> — Cumulative time from this item to the end of the episode. The top row = full programme duration.</li>
         <li><strong>✎ EDIT ITEM</strong> — Opens the full edit modal for all detail fields.</li>
       </ul>
-      <p><strong>Header bar actions:</strong> <strong># Numbers</strong> assigns sequential numbers to all items (skips Commercial Breaks — always regenerate after adding, deleting, or reordering). <strong>💾 Save</strong> commits everything to the database. The <strong>Last saved by</strong> panel always shows who saved last and when.</p>`
+      <p><strong>Header bar actions:</strong> Item numbers are automatic — they always follow the running order and update by themselves when items are added, deleted or moved. <strong>💾 Save</strong> commits everything to the database. The <strong>Last saved by</strong> panel always shows who saved last and when.</p>`
     });
     pages.push({
       title:'Studio Script Build — Writing Scripts',
@@ -12317,7 +12316,7 @@ function rosBuildAutocueText(epNum,items){
   let out=`CARTE BLANCHE — AUTOCUE\n${epLabel}${epDateFmt?' · '+epDateFmt:''}\n${'='.repeat(50)}\n\n`;
   const canScript=t=>['live','coldstart','upnext'].includes(t);
   items.forEach((item,i)=>{
-    const num=item.itemNum||String(i+1);
+    const num=String(i+1);
     out+=`${'-'.repeat(50)}\nITEM ${num} — ${(item.label||'').toUpperCase()}\n`;
     if(item.content)out+=`${item.content}\n`;
     if(canScript(item.type)&&item.script){
@@ -12369,13 +12368,13 @@ function rosExportVTList(){
 
   // Build rows — one row per slug per item; skip items with no slugs
   let rows='';
-  items.forEach(item=>{
+  items.forEach((item,itemIdx)=>{
     const slugs=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean);
     if(!slugs.length)return;
     const sources=item.slugSources||[];
     slugs.forEach((slug,si)=>{
       const src=sources[si]||'';
-      const num=item.itemNum||'';
+      const num=String(itemIdx+1);
       rows+=`<tr>
         <td style="padding:5px 6px;font-size:9.5pt;font-weight:700;text-align:center;border-right:1px solid #ccc">${esc(num)}</td>
         <td style="padding:5px 6px;font-size:9.5pt;font-weight:700;color:#7a4a00;border-right:1px solid #ccc">${esc(slug)}</td>
@@ -12476,7 +12475,7 @@ function rosBuildWordRow(item,i,highlightIdx=-1){
   const escHtml=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const _durMmSs=d=>{if(!d)return'';const p=String(d).split(':');if(p.length===3){const mm=Number(p[0])*60+Number(p[1]);return`${String(mm).padStart(2,'0')}:${p[2]}`;}return d;};
   const _p=(txt,style='')=>`<p style="margin:0;font-family:Arial,sans-serif;font-size:11pt;${style}">${txt}</p>`;
-  const num=item.itemNum||String(i+1);
+  const num=String(i+1); // item number = position in the running order, never stored
   const _prodBlocksList=rosResolveProdBlocks(item,{includeAutoCam:false});
   const _copiedSlugIdxs=new Set(_prodBlocksList.filter(b=>b.fromSlugIdx!==undefined).map(b=>b.fromSlugIdx));
   const slugs=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean);
@@ -12737,7 +12736,7 @@ async function rosExportDocx(ep,items){
 
     // Body rows
     const bodyRows=items.map((item,idx)=>{
-      const num=item.itemNum||String(idx+1);
+      const num=String(idx+1);
       const slugs=(item.slugs||(item.slug?[item.slug]:[])).filter(Boolean);
       const sources=item.slugSources||[];
       const isGrey=['fixed','insert','coldstart','upnext','break'].includes(item.type);
@@ -12917,7 +12916,7 @@ function rosExportPDF(){
     const epDurSecs=epDurs[i];
     return`<tr style="background:${tc.bg};border-bottom:1px solid #cccccc">
       <td style="padding:6px 8px;font-size:10pt;font-weight:${tc.weight};color:${tc.text};white-space:nowrap;border-right:1px solid #cccccc">
-        ${item.itemNum?`<span style="color:#999;font-weight:400;margin-right:6px">${item.itemNum}.</span>`:''}${item.label}
+        <span style="color:#999;font-weight:400;margin-right:6px">${i+1}.</span>${item.label}
       </td>
       <td style="padding:6px 8px;font-size:10pt;color:#333;border-right:1px solid #cccccc">${item.content||''}</td>
       <td style="padding:6px 8px;font-size:10pt;font-family:monospace;text-align:center;border-right:1px solid #cccccc;white-space:nowrap">${item.duration||'—'}</td>
@@ -13392,23 +13391,6 @@ document.addEventListener('click',function rosHandler(e){
   if(e.target.id==='ros-edit-wysiwyg-btn'){rosWysActive=true;render();return;}
   if(e.target.id==='ros-exit-wysiwyg-btn'){rosWysActive=false;render();return;}
   // Save
-  // Generate item numbers
-  if(e.target.id==='ros-number-btn'){
-    if(!rosCurrentEp)return;
-    const items=rosGetCurrentItems();
-    // Flush DOM values first
-    document.querySelectorAll('.ros-content').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i]!==undefined)items[i].content=inp.value;});
-    document.querySelectorAll('.ros-dur').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i]!==undefined)items[i].duration=inp.value;});
-    let num=1;
-    items.forEach(item=>{
-      item.itemNum=num++;
-    });
-    if(!rosData[String(rosCurrentEp)])rosData[String(rosCurrentEp)]={};
-    rosData[String(rosCurrentEp)].items=items;
-    render();
-    showToast('Item numbers generated ✓');
-    return;
-  }
   if(e.target.id==='ros-save-btn'){
     if(!rosCurrentEp)return;
     if(rosData[String(rosCurrentEp)]?.rosLocked&&getEffectiveRole()!=='admin'){showToast('Script is locked for editing. Ask a Super Admin to unlock.',true);return;}
@@ -13493,8 +13475,6 @@ document.addEventListener('click',function rosHandler(e){
     document.querySelectorAll('.ros-content').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i]!==undefined)items[i].content=inp.value;});
     document.querySelectorAll('.ros-dur').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i]!==undefined)items[i].duration=inp.value;});
     items.splice(idx,1);
-    // Clear all item numbers so user re-generates after deletion
-    items.forEach(it=>{delete it.itemNum;});
     if(!rosData[String(rosCurrentEp)])rosData[String(rosCurrentEp)]={};
     rosData[String(rosCurrentEp)].items=items;
     render();
