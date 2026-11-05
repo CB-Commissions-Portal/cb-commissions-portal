@@ -221,8 +221,8 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.368';
-const BUILD_DATE='20 Sep 2026';
+const BUILD_VERSION='3.10.369';
+const BUILD_DATE='5 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',commEpFilter='all',currentSeason='39',previewRole=null;
@@ -6178,6 +6178,7 @@ const ROS_ITEM_TYPES=[
   {key:'live_link_brk',  label:'LINK TO BREAK',               type:'live',   defaultDur:'', group:'Live'},
   {key:'live_link_int',  label:'LINK TO INTERVIEW',           type:'live',   defaultDur:'', group:'Live'},
   {key:'live_studio_int',label:'STUDIO INTERVIEW',            type:'live',   defaultDur:'', group:'Live'},
+  {key:'live_update',    label:'LIVE UPDATE',                 type:'live',   defaultDur:'', group:'Live'},
   {key:'live_closing',   label:'CLOSING LINK',                type:'live',   defaultDur:'', group:'Live'},
   // Inserts (orange)
   {key:'insert1', label:'INSERT 1', type:'insert', defaultDur:'', group:'Insert'},
