@@ -221,7 +221,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.370';
+const BUILD_VERSION='3.10.371';
 const BUILD_DATE='5 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -973,7 +973,7 @@ function subscribeROS(){
       snap.docs.forEach(d=>{
         const epId=d.id;
         const editingThisEp=(rosEditModal&&String(rosEditModal.epNum)===epId)||(rosScriptModal&&String(rosScriptModal.epNum)===epId)||(rosWysEdit&&String(rosWysEdit.epNum)===epId);
-        if(!editingThisEp)rosData[epId]={...d.data()};
+        if(!editingThisEp){rosData[epId]={...d.data()};rosRenumberInsertLabels(rosData[epId].items);}
       });
       if(!resolved){resolved=true;resolve();}
       else if(tab==='ros'&&!rosEditModal&&!rosScriptModal&&!rosWysEditorActive()){
@@ -6229,6 +6229,20 @@ function rosGenUid(){return Date.now().toString(36)+Math.random().toString(36).s
 // isn't unique (e.g. two "LINK TO BREAK" items in one episode share the same key), so a
 // per-instance uid is required to stop content jumping to the wrong studio link on rebuild.
 function rosItemTransKey(item){return item.uid||item.key;}
+// INSERT n / LINK TO INSERT n names always follow the running order: inserts count down the rundown,
+// and a link takes the number of the next insert below it (one past the last if none is below yet).
+// Only the visible label changes, never item.key, because transcript blocks can be stored by key.
+// Commercial Breaks and UP NEXTs are deliberately excluded: they don't follow the insert count.
+function rosRenumberInsertLabels(items){
+  if(!Array.isArray(items))return items;
+  let next=items.filter(it=>it?.type==='insert').length+1;
+  for(let i=items.length-1;i>=0;i--){
+    const it=items[i];if(!it)continue;
+    if(it.type==='insert'){next--;if(/^INSERT\s*\d+$/i.test(it.label||''))it.label='INSERT '+next;}
+    else if(/^LINK TO INSERT\s*\d+$/i.test(it.label||''))it.label='LINK TO INSERT '+next;
+  }
+  return items;
+}
 function rosNewItem(key){
   const def=ROS_ITEM_TYPES.find(t=>t.key===key)||{label:key,type:'live',defaultDur:''};
   const item={key,uid:rosGenUid(),type:def.type,label:def.label,content:'',duration:def.defaultDur||'',locked:!!def.locked};
@@ -13435,6 +13449,7 @@ document.addEventListener('click',function rosHandler(e){
     document.querySelectorAll('.ros-content').forEach(inp=>{const idx=Number(inp.dataset.idx);if(items[idx]!==undefined)items[idx].content=inp.value;});
     document.querySelectorAll('.ros-dur').forEach(inp=>{const idx=Number(inp.dataset.idx);if(items[idx]!==undefined)items[idx].duration=inp.value;});
     items.push(item);
+    rosRenumberInsertLabels(items);
     if(!rosData[String(rosCurrentEp)])rosData[String(rosCurrentEp)]={};
     rosData[String(rosCurrentEp)].items=items;
     if(document.getElementById('ros-type-sel'))document.getElementById('ros-type-sel').value='';
@@ -13450,6 +13465,7 @@ document.addEventListener('click',function rosHandler(e){
     document.querySelectorAll('.ros-content').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i]!==undefined)items[i].content=inp.value;});
     document.querySelectorAll('.ros-dur').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i]!==undefined)items[i].duration=inp.value;});
     [items[idx-1],items[idx]]=[items[idx],items[idx-1]];
+    rosRenumberInsertLabels(items);
     if(!rosData[String(rosCurrentEp)])rosData[String(rosCurrentEp)]={};
     rosData[String(rosCurrentEp)].items=items;
     render();return;
@@ -13463,6 +13479,7 @@ document.addEventListener('click',function rosHandler(e){
     document.querySelectorAll('.ros-content').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i]!==undefined)items[i].content=inp.value;});
     document.querySelectorAll('.ros-dur').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i]!==undefined)items[i].duration=inp.value;});
     [items[idx],items[idx+1]]=[items[idx+1],items[idx]];
+    rosRenumberInsertLabels(items);
     if(!rosData[String(rosCurrentEp)])rosData[String(rosCurrentEp)]={};
     rosData[String(rosCurrentEp)].items=items;
     render();return;
@@ -13475,6 +13492,7 @@ document.addEventListener('click',function rosHandler(e){
     document.querySelectorAll('.ros-content').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i]!==undefined)items[i].content=inp.value;});
     document.querySelectorAll('.ros-dur').forEach(inp=>{const i=Number(inp.dataset.idx);if(items[i]!==undefined)items[i].duration=inp.value;});
     items.splice(idx,1);
+    rosRenumberInsertLabels(items);
     if(!rosData[String(rosCurrentEp)])rosData[String(rosCurrentEp)]={};
     rosData[String(rosCurrentEp)].items=items;
     render();
