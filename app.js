@@ -57,6 +57,8 @@ const OPS_ED=['dop','ca','editor','afm'];
 const POST_KEYS=['visuals','finalMix'];
 const POST_LABELS=['Visuals','Final Mix'];
 const PROD_ED=[...DEL_KEYS,...POST_KEYS];
+// Editorial (v3.10.375): list columns Delivery Date / Comm Dur / Del Dur / Presenter-VO + only Visuals & Final Mix in Edit Commission
+const EDITORIAL_ED=['deliveryDate','commDuration','deliveredDuration','presenterVO',...POST_KEYS];
 
 function getEffectiveRole(){return previewRole||currentRole;}
 // Same "may this person open the item editor at all" gate used by the classic
@@ -69,7 +71,7 @@ function rosCanEditAny(){
   const canEditDirectorNotes=['admin','director'].includes(getEffectiveRole())&&(!isLockedScript||isSuperAdmin);
   return canEdit||canEditScriptOnly||canEditDirectorNotes;
 }
-function canEdit(role,f){if(role==='admin'||role==='deputyadmin')return true;if(role==='editorial')return f==='deliveryDate'||PROD_ED.includes(f);if(f==='decommissionMotivation')return true;
+function canEdit(role,f){if(role==='admin'||role==='deputyadmin')return true;if(role==='editorial')return EDITORIAL_ED.includes(f);if(f==='decommissionMotivation')return true;
 if(role==='operations')return OPS_ED.includes(f);if(role==='production')return PROD_ED.includes(f);return false;}
 function suggestCode(n){if(!n)return'';const stop=/^(the|and|for|from|with|into|a|an|of|in|at|to|or|by|down|up)$/i;const w=n.trim().split(/\s+/).filter(x=>x.length>1&&!stop.test(x));if(!w.length)return n.substring(0,5).toUpperCase();if(w.length===1)return w[0].substring(0,6).toUpperCase();if(w.length===2)return(w[0].substring(0,3)+w[1].substring(0,3)).toUpperCase();return w.slice(0,3).map(x=>x.substring(0,2)).join('').toUpperCase();}
 function fmtHMS(v){
@@ -225,7 +227,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.374';
+const BUILD_VERSION='3.10.375';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
