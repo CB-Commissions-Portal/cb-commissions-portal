@@ -52,7 +52,11 @@ const PERM_MAP=[
 const DEL_KEYS=['callSheets','insertScripts','releaseForms','footageAgreement','musicCueSheet','footageDeclaration','carpUpload'];
 const DEL_LABELS=['Call Sheets','Insert Scripts','Release Forms','Footage Agr.','Music Cue','Footage Decl.','CARP Upload'];
 const OPS_ED=['dop','ca','editor','afm'];
-const PROD_ED=[...DEL_KEYS];
+// Post-production sign-offs shown in the Edit Commission Deliverables grid (v3.10.374).
+// Deliberately NOT in DEL_KEYS, so they don't change "ready for payment" / all-deliverables-complete logic.
+const POST_KEYS=['visuals','finalMix'];
+const POST_LABELS=['Visuals','Final Mix'];
+const PROD_ED=[...DEL_KEYS,...POST_KEYS];
 
 function getEffectiveRole(){return previewRole||currentRole;}
 // Same "may this person open the item editor at all" gate used by the classic
@@ -65,7 +69,7 @@ function rosCanEditAny(){
   const canEditDirectorNotes=['admin','director'].includes(getEffectiveRole())&&(!isLockedScript||isSuperAdmin);
   return canEdit||canEditScriptOnly||canEditDirectorNotes;
 }
-function canEdit(role,f){if(role==='admin'||role==='deputyadmin')return true;if(role==='editorial')return f==='deliveryDate';if(f==='decommissionMotivation')return true;
+function canEdit(role,f){if(role==='admin'||role==='deputyadmin')return true;if(role==='editorial')return f==='deliveryDate'||PROD_ED.includes(f);if(f==='decommissionMotivation')return true;
 if(role==='operations')return OPS_ED.includes(f);if(role==='production')return PROD_ED.includes(f);return false;}
 function suggestCode(n){if(!n)return'';const stop=/^(the|and|for|from|with|into|a|an|of|in|at|to|or|by|down|up)$/i;const w=n.trim().split(/\s+/).filter(x=>x.length>1&&!stop.test(x));if(!w.length)return n.substring(0,5).toUpperCase();if(w.length===1)return w[0].substring(0,6).toUpperCase();if(w.length===2)return(w[0].substring(0,3)+w[1].substring(0,3)).toUpperCase();return w.slice(0,3).map(x=>x.substring(0,2)).join('').toUpperCase();}
 function fmtHMS(v){
@@ -221,8 +225,8 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.373';
-const BUILD_DATE='5 Nov 2026';
+const BUILD_VERSION='3.10.374';
+const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',commEpFilter='all',currentSeason='39',previewRole=null;
@@ -8977,13 +8981,13 @@ function renderModals(epNums,nextEp){
         return`<input id="${id}" value="${val}" placeholder="${ph}" ${disabled?'disabled':''} style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:${color||'#111827'};font-size:17px;padding:10px 12px;outline:none;font-family:inherit;box-sizing:border-box${disabled?';opacity:.55':''}">`;
       }
       // Deliverables
-      const _delHtml=DEL_KEYS.map((k,ki)=>{
+      const _delHtml=[...DEL_KEYS,...POST_KEYS].map((k,ki)=>{
         const isIHGrey=((_c.isInHouse||_c.isLicensed)&&k==='callSheets');
         const disabled=!canEdit(_role,k)||isIHGrey;
         const checked=!!_c[k];
         return`<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${checked?'#eff6ff':'#f9fafb'};border:1px solid ${checked?'#93c5fd':'#d1dae8'};border-radius:8px;cursor:${disabled?'default':'pointer'};opacity:${isIHGrey?'.4':'1'}">
           <input type="checkbox" id="cem-del-${k}" ${checked?'checked':''} ${disabled?'disabled':''} style="width:18px;height:18px;cursor:${disabled?'default':'pointer'};accent-color:#0066CC;flex-shrink:0">
-          <span style="font-size:16px;color:${checked?'#1d4ed8':'#374151'};font-weight:${checked?'700':'500'}">${DEL_LABELS[ki]}</span>
+          <span style="font-size:16px;color:${checked?'#1d4ed8':'#374151'};font-weight:${checked?'700':'500'}">${[...DEL_LABELS,...POST_LABELS][ki]}</span>
         </label>`;
       }).join('');
       // Payment section
@@ -9753,7 +9757,7 @@ function bindApp(){
     });
     // Deliverables
     let anyDelChanged=false;
-    DEL_KEYS.forEach(k=>{
+    [...DEL_KEYS,...POST_KEYS].forEach(k=>{
       if(canEdit(role,k)){
         const el=document.getElementById('cem-del-'+k);
         if(el){const newVal=el.checked;if(newVal!==!!c[k]){updateComm(id,k,newVal);anyDelChanged=true;}}
