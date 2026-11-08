@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.380';
+const BUILD_VERSION='3.10.381';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -7374,11 +7374,12 @@ function csCallTimeRows(ep){
   // Names on these rows are locked (v3.10.380): crew from Studio Crew & Schedule, anchors from the
   // Presenter Calendar. Only the times are typed here. Facilities Crew / Set Crew / Lighting stay typed.
   const prs=csPreRecEps(ep);
-  const crew=(key,label,f)=>({key,label,auto:f==='makeup'?scMakeup(ep):scVal(ep,f),src:'crew'});
+  const crew=(key,label,f)=>({key,label,auto:scVal(ep,f),src:'crew'});
+  const mk=[crew('ctMakeup','Make-Up Artist','makeupArtist'),crew('ctStylist','Studio Stylist','studioStylist')]; // ctMakeup keeps its saved time
   const std=[crew('ctProd','Production','production'),crew('ctDirector','Studio Director','studioDirector'),crew('ctAsstDir','Assistant Director','assistantDirector'),crew('ctFloorMgr','Floor Manager','floorManager'),crew('ctAutocue','Autocue','autocueOperator'),{key:'ctFacilities',label:'Facilities Crew'}];
   const l=getStudioAnchors(ep);
-  if(!prs.length)return[crew('ctMakeup','Make-Up & Styling','makeup'),{key:'ctAnchor1',label:'Anchor 1',auto:l.anchor1,src:'cal'},{key:'ctAnchor2',label:'Anchor 2',auto:l.anchor2,src:'cal'},...std];
-  const rows=[crew('ctMakeup','Make-Up & Styling','makeup')];
+  if(!prs.length)return[...mk,{key:'ctAnchor1',label:'Anchor 1',auto:l.anchor1,src:'cal'},{key:'ctAnchor2',label:'Anchor 2',auto:l.anchor2,src:'cal'},...std];
+  const rows=[...mk];
   prs.forEach(n=>{const a=getStudioAnchors(n);
     rows.push({key:`ctPR${n}A1`,label:`Pre-Record - EP ${n} - Anchor 1`,auto:a.anchor1,src:'cal'});
     rows.push({key:`ctPR${n}A2`,label:`Pre-Record - EP ${n} - Anchor 2`,auto:a.anchor2,src:'cal'});});
@@ -7395,8 +7396,8 @@ const CS_CREW_CONTACTS=[['producer','production'],['editorialMgr','editorialMgr'
 function csWithCrew(ep,cs){
   const o={...(cs||{})};
   CS_CREW_CONTACTS.forEach(([cf,sf])=>{o[cf]=scVal(ep,sf);o[cf+'Cell']=scVal(ep,sf+'Cell');});
-  o.makeup=scMakeup(ep);
-  o.makeupCell=[scVal(ep,'makeupArtistCell'),scVal(ep,'studioStylistCell')].filter(Boolean).join(' / ');
+  o.makeup=scVal(ep,'makeupArtist');o.makeupCell=scVal(ep,'makeupArtistCell');
+  o.stylist=scVal(ep,'studioStylist');o.stylistCell=scVal(ep,'studioStylistCell');
   const a=getStudioAnchors(ep);o.anchor1Name=a.anchor1||'';o.anchor2Name=a.anchor2||'';
   csCallTimeRows(ep).forEach(r=>{if('auto' in r)o[r.key+'_name']=r.auto||'';});
   return o;
@@ -7427,7 +7428,7 @@ function csGetSched(cs){
 
 function csGetAllNames(cs){
   const names=new Set();
-  ['producer','editorialMgr','director','asstDir','floorMgr','autocue','makeup','eng1','eng2','facMgr','anchor1Name','anchor2Name'].forEach(f=>{if(cs[f])names.add(cs[f].trim());});
+  ['producer','editorialMgr','director','asstDir','floorMgr','autocue','makeup','stylist','eng1','eng2','facMgr','anchor1Name','anchor2Name'].forEach(f=>{if(cs[f])names.add(cs[f].trim());});
   ['ctMakeup','ctAnchor1','ctAnchor2','ctProd','ctDirector','ctAsstDir','ctFloorMgr','ctAutocue','ctFacilities'].forEach(k=>{if(cs[k+'_name'])names.add(cs[k+'_name'].trim());});
   (cs.extraCallTimes||[]).forEach(ec=>{if(ec.name&&ec.name.trim())names.add(ec.name.trim());});
   return Array.from(names).filter(Boolean).sort();
@@ -7552,7 +7553,7 @@ function renderCallSheet(epNums){
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;align-items:start">
         <div style="background:#f9fafb;border:1px solid #d1dae8;border-radius:10px;padding:18px 20px">
           <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #d1dae8">Production Contacts</div>
-          ${contactRow('producer','producerCell','Production Coordinator')}${contactRow('editorialMgr','editorialMgrCell','Editorial Manager')}${contactRow('director','directorCell','Studio Director')}${contactRow('asstDir','asstDirCell','Assistant Director')}${contactRow('floorMgr','floorMgrCell','Floor Manager')}${contactRow('autocue','autocueCell','Autocue')}${contactRow('makeup','makeupCell','Make-Up & Styling')}
+          ${contactRow('producer','producerCell','Production Coordinator')}${contactRow('editorialMgr','editorialMgrCell','Editorial Manager')}${contactRow('director','directorCell','Studio Director')}${contactRow('asstDir','asstDirCell','Assistant Director')}${contactRow('floorMgr','floorMgrCell','Floor Manager')}${contactRow('autocue','autocueCell','Autocue')}${contactRow('makeup','makeupCell','Make-Up Artist')}${contactRow('stylist','stylistCell','Studio Stylist')}
           ${crewNote}
         </div>
         <div style="background:#f9fafb;border:1px solid #d1dae8;border-radius:10px;padding:18px 20px">
@@ -12211,7 +12212,8 @@ function csExportPDF(){
         <tr><td class="il">Assistant Director</td><td class="iv">${cs.asstDir||'—'}</td><td class="ic">${cs.asstDirCell||''}</td></tr>
         <tr><td class="il">Floor Manager</td><td class="iv">${cs.floorMgr||'—'}</td><td class="ic">${cs.floorMgrCell||''}</td></tr>
         <tr><td class="il">Autocue</td><td class="iv">${cs.autocue||'—'}</td><td class="ic">${cs.autocueCell||''}</td></tr>
-        <tr><td class="il">Make-Up &amp; Styling</td><td class="iv">${cs.makeup||'—'}</td><td class="ic">${cs.makeupCell||''}</td></tr>
+        <tr><td class="il">Make-Up Artist</td><td class="iv">${cs.makeup||'—'}</td><td class="ic">${cs.makeupCell||''}</td></tr>
+        <tr><td class="il">Studio Stylist</td><td class="iv">${cs.stylist||'—'}</td><td class="ic">${cs.stylistCell||''}</td></tr>
       </table>
     </div>
     <!-- Facilities Contact -->
