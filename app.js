@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.378';
+const BUILD_VERSION='3.10.379';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -5948,7 +5948,25 @@ function scClean(v){return v==null?'':String(v).trim();}
 function scReg(f){return scClean((studioCrew[SC_REG]||{})[f]);}
 // The episode's own value only counts as a change when it differs from the Regular Crew.
 function scOwn(n,f){const v=scClean((studioCrew[String(scCrewEpFor(n))]||{})[f]);return v&&v!==scReg(f)?v:'';}
-function scVal(n,f){return scOwn(n,f)||scReg(f);}
+function scVal(n,f){
+  // A stand-in never shows the regular person's number: their own, or the last one saved for them.
+  if(f.endsWith('Cell')){const nm=scOwn(n,f.slice(0,-4));if(nm)return scOwn(n,f)||scCellFor(nm);}
+  return scOwn(n,f)||scReg(f);
+}
+// Phone book: the most recently saved cell number for a person, from any card (Regular Crew or episode).
+function scCellFor(name){
+  name=scClean(name).toLowerCase();if(!name)return'';
+  let best='',bestAt=null;
+  Object.values(studioCrew).forEach(d=>{
+    if(!d||typeof d!=='object')return;
+    SC_JOBS.forEach(([j])=>{
+      if(!scHasCell(j))return;
+      const c=scClean(d[j+'Cell']);
+      if(c&&scClean(d[j]).toLowerCase()===name){const at=d.savedAt||'';if(bestAt===null||at>bestAt){best=c;bestAt=at;}}
+    });
+  });
+  return best;
+}
 function scEffective(n){const o={};SC_ALL_KEYS.forEach(f=>{o[f]=scVal(n,f);});return o;}
 function scChangeCount(n){return SC_ALL_KEYS.filter(f=>scOwn(n,f)).length;}
 function scMakeup(n){return[scVal(n,'makeupArtist'),scVal(n,'studioStylist')].filter(Boolean).join(' / ');}
@@ -5994,9 +6012,24 @@ function scRefreshSaveUI(ep){
   if(sa){sa.style.display=total?'':'none';sa.textContent=`💾 Save all (${total} unsaved)`;}
   return n;
 }
+function scCellPh(ep,f,name){
+  name=scClean(name);
+  if(String(ep)===SC_REG||!name)return(String(ep)===SC_REG?'':scReg(f+'Cell'))||'Cell number';
+  return scCellFor(name)||'Cell number';
+}
 function scStage(inp){
   const ep=inp.dataset.ep,f=inp.dataset.field;
   (scPending[ep]=scPending[ep]||{})[f]=inp.value;
+  // New name in a job with a cell number → bring in that person's known number (unless typed by hand)
+  if(scHasCell(f)&&SC_JOBS.some(j=>j[0]===f)&&scClean(inp.value)!==scClean(inp.dataset.prev)){
+    const cellInp=document.querySelector(`.studio-ci[data-ep="${ep}"][data-field="${f}Cell"]`);
+    if(cellInp){
+      const cur=scClean(cellInp.value),prevKnown=scCellFor(inp.dataset.prev);
+      if(!cur||cur===prevKnown){cellInp.value=scCellFor(inp.value);scStage(cellInp);}
+      cellInp.placeholder=scCellPh(ep,f,inp.value);
+    }
+    inp.dataset.prev=inp.value;
+  }
   inp.style.background=scClean(inp.value)!==scSaved(ep,f)?'#fef9c3':'';
   scRefreshSaveUI(ep);
 }
@@ -6108,7 +6141,7 @@ function renderStudioCrew(epNums){
     const isReg=String(ep)===SC_REG;
     const v=scShown(ep,f);
     const dirty=scClean(v)!==scSaved(ep,f);
-    return`<input class="ci studio-ci" data-ep="${ep}" data-field="${f}" value="${esc(v)}" placeholder="${esc(ph)}" style="${inpSt}${extra}${dirty?';background:#fef9c3':''}"${f.endsWith('Cell')||f.startsWith('booking')?' data-noac="1"':''}>`;
+    return`<input class="ci studio-ci" data-ep="${ep}" data-field="${f}" data-prev="${esc(v)}" value="${esc(v)}" placeholder="${esc(ph)}" style="${inpSt}${extra}${dirty?';background:#fef9c3':''}"${f.endsWith('Cell')||f.startsWith('booking')?' data-noac="1"':''}>`;
   };
   const groupHdr=g=>`<div style="grid-column:1/-1;font-size:11px;font-weight:800;color:#0066CC;text-transform:uppercase;letter-spacing:.8px;padding:12px 0 4px;border-bottom:2px solid #dbeafe">${g}</div>`;
   const jobRows=(ep)=>{
@@ -6125,7 +6158,7 @@ function renderStudioCrew(epNums){
         return hdr+`<div style="${rowSt}">${lbl}<div style="font-size:15px;color:${name?'#111827':'#9ca3af'}">${esc(name||'—')}</div><div style="font-size:14px;color:#4b5563;font-family:monospace">${esc(cell)}</div><div></div></div>`;
       }
       const reset=changed?`<button class="sc-reset" data-ep="${ep}" data-field="${f}" title="Back to the Regular Crew" style="background:none;border:1px solid #d1dae8;border-radius:4px;cursor:pointer;color:#6b7280;font-size:14px;padding:3px 6px">↺</button>`:'';
-      return hdr+`<div style="${rowSt}">${lbl}<div style="position:relative">${box(ep,f,isReg?'Name':(scReg(f)||'Name'))}</div><div>${hasCell?box(ep,f+'Cell',isReg?'Cell number':(scReg(f+'Cell')||'Cell number'),';font-family:monospace'):''}</div><div>${reset}</div></div>`;
+      return hdr+`<div style="${rowSt}">${lbl}<div style="position:relative">${box(ep,f,isReg?'Name':(scReg(f)||'Name'))}</div><div>${hasCell?box(ep,f+'Cell',scCellPh(ep,f,scShown(ep,f)),';font-family:monospace'):''}</div><div>${reset}</div></div>`;
     }).join('');
   };
   const bookingRow=(ep)=>{
