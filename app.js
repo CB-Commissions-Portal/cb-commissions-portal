@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.387';
+const BUILD_VERSION='3.10.388';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -5996,7 +5996,7 @@ function exportPresCalShiftPDF(kind,from,to){
   const printDate=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
   const thS='padding:8px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#fff;background:#1a3a6a;text-align:left';
   const tdS='padding:8px 10px;font-size:12px;vertical-align:top;border-bottom:1px solid #e6ecf5;white-space:normal';
-  const body=shifts.map((x,i)=>`<tr style="background:${i%2?'#f7f9fc':'#fff'}"><td style="${tdS};font-weight:700">${esc(x.name)}</td><td style="${tdS};text-align:center;font-weight:800;${x.shifts?'':'color:#bbb'}">${x.shifts}</td><td style="${tdS};font-size:11px;color:#444">${x.eps.map(n=>`EP ${n} <span style="color:#888">(${fmtDate(resolveDate(n))})</span>`).join(', ')||'<span style="color:#bbb">—</span>'}</td></tr>`).join('');
+  const body=shifts.map((x,i)=>`<tr style="background:${i%2?'#f7f9fc':'#fff'}"><td style="${tdS};font-weight:700">${esc(x.name)}</td><td style="${tdS};text-align:center;font-weight:800;${x.shifts?'':'color:#bbb'}">${x.shifts}</td><td style="${tdS};font-size:11px;color:#444;padding-top:6px;padding-bottom:6px">${x.eps.length?`<table style="width:auto;border-collapse:collapse">${x.eps.map(n=>`<tr><td style="padding:1px 14px 1px 0;font-weight:700;color:#111;white-space:nowrap;border:none">EP ${String(n).padStart(2,'0')}</td><td style="padding:1px 0;color:#555;white-space:nowrap;border:none">${fmtDate(resolveDate(n))}</td></tr>`).join('')}</table>`:'<span style="color:#bbb">—</span>'}</td></tr>`).join('');
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(file)}</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:10pt;padding:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm;size:A4 portrait}table{width:100%;border-collapse:collapse}tr{page-break-inside:avoid}</style>
   </head><body>
@@ -6011,7 +6011,7 @@ function exportPresCalShiftPDF(kind,from,to){
     </tr>
   </table>
   <table style="table-layout:fixed;border:1px solid #d0d8e8">
-    <colgroup><col style="width:30%"><col style="width:12%"><col style="width:58%"></colgroup>
+    <colgroup><col style="width:38%"><col style="width:14%"><col style="width:48%"></colgroup>
     <thead><tr><th style="${thS}">Presenter</th><th style="${thS};text-align:center">Shifts</th><th style="${thS}">Episodes</th></tr></thead>
     <tbody>${body}</tbody>
   </table>
@@ -6029,9 +6029,14 @@ async function exportPresCalShiftXLSX(kind,from,to){
   }
   const{shifts,title,sub,file}=presCalShiftJob(kind,from,to);
   const wb=XLSX.utils.book_new();
-  const ws=XLSX.utils.aoa_to_sheet([[`${title} · Season ${currentSeason} · ${sub}`],[],['Presenter','Shifts','Episodes'],
-    ...shifts.map(x=>[x.name,x.shifts,x.eps.map(n=>`EP ${n} (${fmtDate(resolveDate(n))})`).join(', ')])]);
-  ws['!cols']=[{wch:26},{wch:10},{wch:70}];
+  // One row per episode underneath each presenter (name + count on the first row only)
+  const body=[];
+  shifts.forEach(x=>{
+    if(!x.eps.length){body.push([x.name,x.shifts,'—','']);return;}
+    x.eps.forEach((n,i)=>body.push([i?'':x.name,i?'':x.shifts,`EP ${String(n).padStart(2,'0')}`,fmtDate(resolveDate(n))]));
+  });
+  const ws=XLSX.utils.aoa_to_sheet([[`${title} · Season ${currentSeason} · ${sub}`],[],['Presenter','Shifts','Episode','TX Date'],...body]);
+  ws['!cols']=[{wch:26},{wch:8},{wch:10},{wch:22}];
   XLSX.utils.book_append_sheet(wb,ws,'Shift Summary');
   XLSX.writeFile(wb,`${file}.xlsx`);
   showToast('Shift summary downloaded ✓');
