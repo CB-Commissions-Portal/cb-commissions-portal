@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.389';
+const BUILD_VERSION='3.10.390';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -5928,7 +5928,7 @@ async function exportPresCalStudioXLSX(fromEp,toEp){
 // Studio Shift Summary: From/To episode — a shift = an episode whose TX Sunday the presenter is marked
 //   STUDIO (pre-record + repeat episodes included).
 // Commission Shift Summary: From/To calendar date — the commissions (inserts) each presenter is booked on
-//   in the Presenter Calendar in that range; each commission counts once, however many days.
+//   in the Presenter Calendar, counted once in the period of the presenter's first booked day on it.
 function presCalShiftRange(){
   let a=document.getElementById('prescal-sh-from')?.value||'',b=document.getElementById('prescal-sh-to')?.value||'';
   if(a&&b&&a>b)[a,b]=[b,a];
@@ -5936,16 +5936,19 @@ function presCalShiftRange(){
 }
 function presCalShiftLabel(from,to){return`${fmtDate(from)} – ${fmtDate(to)}`;}
 function presCalCommItems(presKey,from,to){
-  const seen=new Map();
-  Object.keys(presCalData).filter(dt=>dt>=from&&dt<=to).sort().forEach(dt=>{
+  // A commission belongs to the period of the presenter's FIRST booked day on it (v3.10.390), so a shoot
+  // running over a month-end is only counted once — in the month it started.
+  const first=new Map();
+  Object.keys(presCalData).sort().forEach(dt=>{
     presCalEntries((presCalData[dt]||{})[presKey]).forEach(e=>{
       const cn=String(e.commNum||'').trim();
-      if(!cn||seen.has(cn))return;
+      if(!cn||first.has(cn))return;
       const c=comms.find(x=>String(x.commNum)===cn);
-      seen.set(cn,(c&&c.storyName)||e.storyName||'');
+      first.set(cn,{dt,story:(c&&c.storyName)||e.storyName||''});
     });
   });
-  return[...seen.entries()].sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true}));
+  return[...first.entries()].filter(([,v])=>v.dt>=from&&v.dt<=to).map(([cn,v])=>[cn,v.story])
+    .sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true}));
 }
 // Returns everything both exports need: titles + one entry per presenter with a count and a list of [A,B] lines
 function presCalShiftJob(kind,a,b){
@@ -5995,7 +5998,7 @@ function openPresCalShiftModal(){
   ov.className='modal-overlay';ov.id='prescal-sh-overlay';
   ov.innerHTML=`<div class="modal" style="max-width:460px">
     <h3>Commission Shift Summary</h3>
-    <p>Lists the commissions (inserts) each presenter is booked on in the Presenter Calendar between these dates. Each commission counts once, however many days.</p>
+    <p>Lists the commissions (inserts) each presenter <b>started</b> between these dates in the Presenter Calendar. Each commission counts once — in the period of the presenter's first day on it.</p>
     <label>From date</label><input type="date" id="prescal-sh-from" value="${ym}-01">
     <label>To date</label><input type="date" id="prescal-sh-to" value="${last}">
     <div class="modal-actions">
