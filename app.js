@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.386';
+const BUILD_VERSION='3.10.387';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -5785,7 +5785,7 @@ function renderPresenterCalendar(){
           <span style="font-size:18px;font-weight:800;color:#111827;min-width:160px;text-align:center">${Object.keys(months)[presCalViewMonth]}</span>
           <button id="prescal-next" class="btn" style="font-size:15px;padding:8px 16px" ${presCalViewMonth>=Object.keys(months).length-1?'disabled':''}>Next ▶</button>
           ${canEd?`<button id="prescal-extend" class="btn" style="font-size:15px;padding:8px 16px;margin-left:8px;border-color:#388bfd;color:#388bfd">+ 3 months</button>`:''}
-          ${presCalCanExport()?`<button id="prescal-export" class="btn" style="font-size:15px;padding:8px 16px;margin-left:8px">⬇ Export Studio</button><button id="prescal-shift" class="btn" style="font-size:15px;padding:8px 16px">⬇ Shift Summary</button>`:''}
+          ${presCalCanExport()?`<button id="prescal-export" class="btn" style="font-size:15px;padding:8px 16px;margin-left:8px">⬇ Export Studio</button><button id="prescal-shift-studio" class="btn" style="font-size:15px;padding:8px 16px">⬇ Studio Shift Summary</button><button id="prescal-shift" class="btn" style="font-size:15px;padding:8px 16px">⬇ Presenter Shift Summary</button>`:''}
         </div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
@@ -5938,6 +5938,39 @@ function presCalShiftData(from,to){
   return{rows,shifts:presCalShiftCounts(rows)};
 }
 function presCalShiftLabel(from,to){return`${fmtDate(from)} – ${fmtDate(to)}`;}
+// kind 'studio' = From/To episode (TX dates shown); kind 'presenter' = From/To calendar date
+function presCalShiftJob(kind,a,b){
+  if(kind==='studio'){
+    const rows=presCalStudioRows(a,b);
+    const range=a===b?`Episode ${a} (${fmtDate(resolveDate(a))})`:`Episodes ${a}–${b} (${fmtDate(resolveDate(a))} – ${fmtDate(resolveDate(b))})`;
+    return{rows,shifts:presCalShiftCounts(rows),title:'STUDIO SHIFT SUMMARY',sub:range,file:`Carte Blanche ${presCalStudioTitle(a,b)} - Studio Shift Summary`};
+  }
+  const{rows,shifts}=presCalShiftData(a,b);
+  return{rows,shifts,title:'PRESENTER SHIFT SUMMARY',sub:`${presCalShiftLabel(a,b)} · ${rows.length} episode${rows.length===1?'':'s'}`,file:`Carte Blanche S${currentSeason} - Presenter Shift Summary - ${a} to ${b}`};
+}
+function openPresCalStudioShiftModal(){
+  if(!presCalCanExport())return;
+  document.getElementById('prescal-ssh-overlay')?.remove();
+  const eps=getEpNums();
+  if(!eps.length){showToast('No episodes found',true);return;}
+  const today=new Date().toISOString().split('T')[0];
+  const next=eps.find(n=>(resolveDate(n)||'')>=today)??eps[0];
+  const opts=sel=>eps.map(n=>`<option value="${n}" ${n===sel?'selected':''}>EP ${n} · ${fmtDate(resolveDate(n))}</option>`).join('');
+  const ov=document.createElement('div');
+  ov.className='modal-overlay';ov.id='prescal-ssh-overlay';
+  ov.innerHTML=`<div class="modal" style="max-width:460px">
+    <h3>Studio Shift Summary</h3>
+    <p>Counts one shift per episode for each presenter marked <b>STUDIO</b> on its TX Sunday (pre-records and repeats included).</p>
+    <label>From episode</label><select id="prescal-ssh-from">${opts(eps[0])}</select>
+    <label>To episode</label><select id="prescal-ssh-to">${opts(next)}</select>
+    <div class="modal-actions">
+      <button class="btn" id="prescal-ssh-cancel">Cancel</button>
+      <button class="btn" id="prescal-ssh-xlsx">⬇ Excel</button>
+      <button class="btn primary" id="prescal-ssh-pdf">⬇ PDF</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+}
 function openPresCalShiftModal(){
   if(!presCalCanExport())return;
   document.getElementById('prescal-sh-overlay')?.remove();
@@ -5958,21 +5991,21 @@ function openPresCalShiftModal(){
   </div>`;
   document.body.appendChild(ov);
 }
-function exportPresCalShiftPDF(from,to){
-  const{rows,shifts}=presCalShiftData(from,to);
+function exportPresCalShiftPDF(kind,from,to){
+  const{rows,shifts,title,sub,file}=presCalShiftJob(kind,from,to);
   const printDate=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
   const thS='padding:8px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#fff;background:#1a3a6a;text-align:left';
   const tdS='padding:8px 10px;font-size:12px;vertical-align:top;border-bottom:1px solid #e6ecf5;white-space:normal';
   const body=shifts.map((x,i)=>`<tr style="background:${i%2?'#f7f9fc':'#fff'}"><td style="${tdS};font-weight:700">${esc(x.name)}</td><td style="${tdS};text-align:center;font-weight:800;${x.shifts?'':'color:#bbb'}">${x.shifts}</td><td style="${tdS};font-size:11px;color:#444">${x.eps.map(n=>`EP ${n} <span style="color:#888">(${fmtDate(resolveDate(n))})</span>`).join(', ')||'<span style="color:#bbb">—</span>'}</td></tr>`).join('');
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carte Blanche S${currentSeason} - Presenter Shift Summary - ${from} to ${to}</title>
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(file)}</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:10pt;padding:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm;size:A4 portrait}table{width:100%;border-collapse:collapse}tr{page-break-inside:avoid}</style>
   </head><body>
   <table style="margin-bottom:12px;border-bottom:3px solid #1a3a6a">
     <tr valign="middle">
       <td style="width:80px;padding-bottom:10px"><img src="${BAKED_CB_LOGO}" style="height:44px;width:auto"></td>
       <td style="text-align:center;padding:0 16px 10px">
-        <div style="font-size:17px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px">PRESENTER SHIFT SUMMARY</div>
-        <div style="font-size:11px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase">Season ${currentSeason} · ${presCalShiftLabel(from,to)} · ${rows.length} episode${rows.length===1?'':'s'}</div>
+        <div style="font-size:17px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px">${title}</div>
+        <div style="font-size:11px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase">Season ${currentSeason} · ${esc(sub)}</div>
       </td>
       <td style="width:80px;padding-bottom:10px"><img src="${BAKED_CAP_LOGO}" style="height:36px;width:auto;max-width:76px;display:block"></td>
     </tr>
@@ -5990,30 +6023,41 @@ function exportPresCalShiftPDF(from,to){
   win.document.close();
   setTimeout(()=>win.print(),600);
 }
-async function exportPresCalShiftXLSX(from,to){
+async function exportPresCalShiftXLSX(kind,from,to){
   if(!window.XLSX){
     await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
   }
-  const{shifts}=presCalShiftData(from,to);
+  const{shifts,title,sub,file}=presCalShiftJob(kind,from,to);
   const wb=XLSX.utils.book_new();
-  const ws=XLSX.utils.aoa_to_sheet([[`Presenter Shift Summary · Season ${currentSeason} · ${presCalShiftLabel(from,to)}`],[],['Presenter','Shifts','Episodes'],
+  const ws=XLSX.utils.aoa_to_sheet([[`${title} · Season ${currentSeason} · ${sub}`],[],['Presenter','Shifts','Episodes'],
     ...shifts.map(x=>[x.name,x.shifts,x.eps.map(n=>`EP ${n} (${fmtDate(resolveDate(n))})`).join(', ')])]);
   ws['!cols']=[{wch:26},{wch:10},{wch:70}];
   XLSX.utils.book_append_sheet(wb,ws,'Shift Summary');
-  XLSX.writeFile(wb,`Carte Blanche S${currentSeason} - Presenter Shift Summary - ${from} to ${to}.xlsx`);
+  XLSX.writeFile(wb,`${file}.xlsx`);
   showToast('Shift summary downloaded ✓');
 }
 document.addEventListener('click',function presCalShiftHandler(e){
   const id=e.target.id;
   if(id==='prescal-shift'){openPresCalShiftModal();return;}
+  if(id==='prescal-shift-studio'){openPresCalStudioShiftModal();return;}
+  if(id==='prescal-ssh-cancel'||id==='prescal-ssh-overlay'){document.getElementById('prescal-ssh-overlay')?.remove();return;}
+  if(id==='prescal-ssh-pdf'||id==='prescal-ssh-xlsx'){
+    if(!presCalCanExport())return;
+    let a=Number(document.getElementById('prescal-ssh-from')?.value),b=Number(document.getElementById('prescal-ssh-to')?.value);
+    if(a>b)[a,b]=[b,a];
+    document.getElementById('prescal-ssh-overlay')?.remove();
+    if(id==='prescal-ssh-pdf')exportPresCalShiftPDF('studio',a,b);
+    else exportPresCalShiftXLSX('studio',a,b).catch(err=>showToast('Export failed: '+err.message,true));
+    return;
+  }
   if(id==='prescal-sh-cancel'||id==='prescal-sh-overlay'){document.getElementById('prescal-sh-overlay')?.remove();return;}
   if(id==='prescal-sh-pdf'||id==='prescal-sh-xlsx'){
     if(!presCalCanExport())return;
     const[a,b]=presCalShiftRange();
     if(!a||!b){showToast('Please choose both dates',true);return;}
     document.getElementById('prescal-sh-overlay')?.remove();
-    if(id==='prescal-sh-pdf')exportPresCalShiftPDF(a,b);
-    else exportPresCalShiftXLSX(a,b).catch(err=>showToast('Export failed: '+err.message,true));
+    if(id==='prescal-sh-pdf')exportPresCalShiftPDF('presenter',a,b);
+    else exportPresCalShiftXLSX('presenter',a,b).catch(err=>showToast('Export failed: '+err.message,true));
   }
 });
 document.addEventListener('click',function presCalExportHandler(e){
