@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.381';
+const BUILD_VERSION='3.10.382';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -1566,7 +1566,7 @@ function exportCreditsPDF(epNum){
 function collectECBlocks(ep){
   const blocks=JSON.parse(JSON.stringify(
     ep==='default'?ecDefaultCredits
-    :(Array.isArray((endCredits[String(ep)]||{}).credits)?(endCredits[String(ep)].credits):[])
+    :ecWithCrew(ep,(endCredits[String(ep)]||{}).credits).blocks
   ));
   document.querySelectorAll(`input.ec-inp[data-ec-ep="${ep}"]`).forEach(inp=>{
     const bi=parseInt(inp.dataset.ecBi,10);
@@ -1582,7 +1582,7 @@ function collectECBlocks(ep){
 
 function ecExportPDF(ep){
   const saved=endCredits[String(ep)]||{};
-  const credits=Array.isArray(saved.credits)?saved.credits:[];
+  const credits=ecWithCrew(ep,saved.credits).blocks;
   const date=fmtDate(resolveDate(Number(ep)));
   const epStr=String(ep).padStart(2,'0');
   let rows='';
@@ -1620,7 +1620,7 @@ function ecExportPDF(ep){
 
 function ecExportTXT(ep){
   const saved=endCredits[String(ep)]||{};
-  const credits=Array.isArray(saved.credits)?saved.credits:[];
+  const credits=ecWithCrew(ep,saved.credits).blocks;
   if(!credits.length){showToast('No credits to export',true);return;}
   const epStr=String(ep).padStart(2,'0');
   let txt=`CARTE BLANCHE S${currentSeason} EP${epStr} END CREDITS\n`;
@@ -2961,7 +2961,39 @@ function saveECValue(epNum, sectionId, key, val){
 }
 
 
-function renderECBlock(b,bi,total,ep,canEd){
+// ── End Credits ← Studio Crew & Schedule (v3.10.382) ──
+// Entries whose job title matches below take their names from Studio Crew (upper-cased), slot by slot;
+// extra lines after the slots (e.g. EASIQ.CO.ZA, CLUTCH MEDIA) are kept. A slot is only locked when
+// Studio Crew has a name for it — otherwise the typed name stays editable. Only EP 33 onwards: earlier
+// episodes' credits were already delivered and stay exactly as saved.
+const EC_LINK_FROM_EP=33;
+const EC_CREW_MAP={
+  'ENGINEERS':['engineer1','engineer2'],'SOUND ASSISTANT':['soundAssistant'],'AUTOCUE':['autocueOperator'],
+  'GRAPHICS':['graphicsOperator'],'CAMERAS':['cameraOp1','cameraOp2'],'JIMMY JIB':['jibOperator'],
+  'VISION CONTROL':['visionController'],'LIGHTING':['lightingDirector'],'VT OPERATOR':['vtOperator'],
+  'SOUND ENGINEER':['soundEngineer'],'VISION MIXER':['visionMixer'],'PRODUCTION COORDINATOR':['production'],
+  'MAKE-UP & STYLING':['makeupArtist','studioStylist'],'FLOOR MANAGER':['floorManager'],
+  'ASSISTANT STUDIO DIRECTOR':['assistantDirector'],'STUDIO DIRECTOR':['studioDirector'],'EDITORIAL MANAGER':['editorialMgr']};
+function ecIsLinkedEp(ep){return /^\d+$/.test(String(ep))&&Number(ep)>=EC_LINK_FROM_EP;}
+function ecWithCrew(ep,credits){
+  const blocks=JSON.parse(JSON.stringify(Array.isArray(credits)?credits:[]));
+  const locked=new Set(); // "bi:ni" + "bi:d" (discipline)
+  if(!ecIsLinkedEp(ep))return{blocks,locked};
+  blocks.forEach((b,bi)=>{
+    if(b.type!=='entry')return;
+    const slots=EC_CREW_MAP[String(b.discipline||'').trim().toUpperCase().replace(/\s+/g,' ')];
+    if(!slots)return;
+    let vals=slots.map(f=>scVal(ep,f).toUpperCase());
+    if(slots[0]==='makeupArtist')vals=[...new Set(vals.filter(Boolean))]; // same person doing both → once
+    b.names=Array.isArray(b.names)?b.names:[];
+    let any=false;
+    vals.forEach((v,i)=>{if(!v)return;b.names[i]=v;locked.add(bi+':'+i);any=true;});
+    for(let i=0;i<b.names.length;i++)if(b.names[i]===undefined)b.names[i]='';
+    if(any)locked.add(bi+':d');
+  });
+  return{blocks,locked};
+}
+function renderECBlock(b,bi,total,ep,canEd,locked=new Set()){
   const isH=b.type==='heading';
   const isEmpty=b.type==='empty';
   const BS='background:#f0f4f8;border:1px solid #d1dae8;border-radius:3px;font-size:11px;padding:2px 5px;cursor:pointer;color:#4b5563;line-height:1;font-family:inherit';
@@ -2987,14 +3019,16 @@ function renderECBlock(b,bi,total,ep,canEd){
   return`<div style="display:flex;align-items:flex-start;border:1px solid #f5c2c7;border-left:4px solid #c92a2a;border-radius:4px;padding:8px 12px;margin-bottom:6px;background:#fff">
     <div style="width:36%;padding-right:12px;flex-shrink:0">
       <input class="ec-inp" ${epAttr} ${biAttr} data-ec-field="discipline" value="${esc(b.discipline||'')}" placeholder="DISCIPLINE"
-        style="width:100%;background:transparent;border:none;font-weight:700;font-size:13px;color:#c92a2a;text-transform:uppercase;outline:none;font-family:inherit"${canEd?'':' readonly'}>
+        style="width:100%;background:transparent;border:none;font-weight:700;font-size:13px;color:#c92a2a;text-transform:uppercase;outline:none;font-family:inherit"${canEd&&!locked.has(bi+':d')?'':' readonly'}>
+      ${locked.has(bi+':d')?'<div style="font-size:11px;color:#9ca3af;margin-top:2px">🔒 From Studio Crew &amp; Schedule</div>':''}
     </div>
     <div style="flex:1;min-width:0">
-      ${(b.names||[]).map((nm,ni)=>`<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
-        <input class="ec-inp" ${epAttr} ${biAttr} data-ec-field="name" data-ec-ni="${ni}" value="${esc(nm)}" placeholder="Name"
-          style="flex:1;background:transparent;border:none;border-bottom:1px solid #e5e7eb;font-size:14px;color:#111827;outline:none;font-family:inherit;padding:1px 0;min-width:0"${canEd?'':' readonly'}>
-        ${canEd?`<button ${epAttr} data-ec-action="del-name" ${biAttr} data-ec-ni="${ni}" style="background:none;border:none;color:#d1d5db;cursor:pointer;font-size:11px;padding:0;line-height:1;flex-shrink:0" title="Remove">✕</button>`:''}
-      </div>`).join('')}
+      ${(b.names||[]).map((nm,ni)=>{const lk=locked.has(bi+':'+ni);return`<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+        ${lk?'<span title="From Studio Crew & Schedule — change it there" style="font-size:11px">🔒</span>':''}
+        <input class="ec-inp" ${epAttr} ${biAttr} data-ec-field="name" data-ec-ni="${ni}" value="${esc(nm)}" placeholder="Name"${lk?' title="From Studio Crew & Schedule — change it there"':''}
+          style="flex:1;background:${lk?'#f1f5f9':'transparent'};border:none;border-bottom:1px solid #e5e7eb;font-size:14px;color:#111827;outline:none;font-family:inherit;padding:1px 0;min-width:0"${canEd&&!lk?'':' readonly'}>
+        ${canEd&&!lk?`<button ${epAttr} data-ec-action="del-name" ${biAttr} data-ec-ni="${ni}" style="background:none;border:none;color:#d1d5db;cursor:pointer;font-size:11px;padding:0;line-height:1;flex-shrink:0" title="Remove">✕</button>`:''}
+      </div>`;}).join('')}
       ${canEd?`<button ${epAttr} data-ec-action="add-name" ${biAttr} style="background:none;border:none;color:#c92a2a;font-size:12px;cursor:pointer;padding:2px 0;font-family:inherit;font-weight:600">+ Name</button>`:''}
     </div>
     ${actBtns}
@@ -3031,7 +3065,7 @@ function renderEndCredits(epNums){
   const cards=epNums.map(n=>{
     const isExp=creditsExpandedEp===String(n);
     const saved=endCredits[String(n)]||{};
-    const credits=Array.isArray(saved.credits)?saved.credits:[];
+    const {blocks:credits,locked:ecLocked}=ecWithCrew(n,saved.credits);
     const dirty=ecDirty[String(n)];
     const epDate=resolveDate(n);
     const isPast=epDate&&epDate<new Date().toISOString().split('T')[0];
@@ -3066,7 +3100,8 @@ function renderEndCredits(epNums){
           <span style="margin-left:auto">${statusHtml}</span>
         </div>
         <div style="padding:12px 16px">
-          ${credits.length?credits.map((b,bi)=>renderECBlock(b,bi,credits.length,n,canEd)).join('')
+          ${ecIsLinkedEp(n)?`<div style="font-size:12px;color:#6b7280;margin-bottom:8px">🔒 Studio crew lines come from Studio Crew &amp; Schedule — change them there.</div>`:''}
+          ${credits.length?credits.map((b,bi)=>renderECBlock(b,bi,credits.length,n,canEd,ecLocked)).join('')
             :`<div style="color:#9ca3af;text-align:center;padding:40px;font-style:italic">No credits yet.${canEd?' Click +H or +E above to add blocks.':''}</div>`}
         </div>
       </div>`:''}
