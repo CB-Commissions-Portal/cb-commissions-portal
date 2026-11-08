@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.384';
+const BUILD_VERSION='3.10.385';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -2975,7 +2975,8 @@ const EC_CREW_MAP={
   // NOT linked: PRODUCTION COORDINATOR / PRODUCTION MANAGER are show-wide roles (Mihle / Nombuso) — the
   // Studio Crew 'Production' job is only who does Production on the studio day (they alternate).
   'MAKE-UP & STYLING':['makeupArtist','studioStylist'],'FLOOR MANAGER':['floorManager'],
-  'ASSISTANT STUDIO DIRECTOR':['assistantDirector'],'STUDIO DIRECTOR':['studioDirector'],'EDITORIAL MANAGER':['editorialMgr']};
+  'ASSISTANT STUDIO DIRECTOR':['assistantDirector'],'STUDIO DIRECTOR':['studioDirector']};
+  // EDITORIAL MANAGER is show-wide too (not linked) — Studio Crew's Editorial Manager is for the Call Sheet only.
 function ecIsLinkedEp(ep){return /^\d+$/.test(String(ep))&&Number(ep)>=EC_LINK_FROM_EP;}
 function ecWithCrew(ep,credits){
   const blocks=JSON.parse(JSON.stringify(Array.isArray(credits)?credits:[]));
