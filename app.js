@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.388';
+const BUILD_VERSION='3.10.389';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -5785,7 +5785,7 @@ function renderPresenterCalendar(){
           <span style="font-size:18px;font-weight:800;color:#111827;min-width:160px;text-align:center">${Object.keys(months)[presCalViewMonth]}</span>
           <button id="prescal-next" class="btn" style="font-size:15px;padding:8px 16px" ${presCalViewMonth>=Object.keys(months).length-1?'disabled':''}>Next ▶</button>
           ${canEd?`<button id="prescal-extend" class="btn" style="font-size:15px;padding:8px 16px;margin-left:8px;border-color:#388bfd;color:#388bfd">+ 3 months</button>`:''}
-          ${presCalCanExport()?`<button id="prescal-export" class="btn" style="font-size:15px;padding:8px 16px;margin-left:8px">⬇ Export Studio</button><button id="prescal-shift-studio" class="btn" style="font-size:15px;padding:8px 16px">⬇ Studio Shift Summary</button><button id="prescal-shift" class="btn" style="font-size:15px;padding:8px 16px">⬇ Presenter Shift Summary</button>`:''}
+          ${presCalCanExport()?`<button id="prescal-export" class="btn" style="font-size:15px;padding:8px 16px;margin-left:8px">⬇ Export Studio</button><button id="prescal-shift-studio" class="btn" style="font-size:15px;padding:8px 16px">⬇ Studio Shift Summary</button><button id="prescal-shift" class="btn" style="font-size:15px;padding:8px 16px">⬇ Commission Shift Summary</button>`:''}
         </div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
@@ -5924,29 +5924,44 @@ async function exportPresCalStudioXLSX(fromEp,toEp){
   XLSX.writeFile(wb,`Carte Blanche ${presCalStudioTitle(fromEp,toEp)} - Studio Presenters.xlsx`);
   showToast('Studio presenters export downloaded ✓');
 }
-// ── Presenter Calendar: Shift Summary (own export since v3.10.386, by date range) ──
-// A shift = an episode whose TX Sunday falls in the range, for each presenter marked STUDIO that day
-// (pre-record + repeat episodes included — same rule the Studio export used).
+// ── Presenter Calendar: Studio + Commission Shift Summaries (v3.10.386–389) ──
+// Studio Shift Summary: From/To episode — a shift = an episode whose TX Sunday the presenter is marked
+//   STUDIO (pre-record + repeat episodes included).
+// Commission Shift Summary: From/To calendar date — the commissions (inserts) each presenter is booked on
+//   in the Presenter Calendar in that range; each commission counts once, however many days.
 function presCalShiftRange(){
   let a=document.getElementById('prescal-sh-from')?.value||'',b=document.getElementById('prescal-sh-to')?.value||'';
   if(a&&b&&a>b)[a,b]=[b,a];
   return[a,b];
 }
-function presCalShiftData(from,to){
-  const eps=getEpNums().filter(n=>{const tx=resolveDate(n);return tx&&tx>=from&&tx<=to;});
-  const rows=presCalRowsFor(eps);
-  return{rows,shifts:presCalShiftCounts(rows)};
-}
 function presCalShiftLabel(from,to){return`${fmtDate(from)} – ${fmtDate(to)}`;}
-// kind 'studio' = From/To episode (TX dates shown); kind 'presenter' = From/To calendar date
+function presCalCommItems(presKey,from,to){
+  const seen=new Map();
+  Object.keys(presCalData).filter(dt=>dt>=from&&dt<=to).sort().forEach(dt=>{
+    presCalEntries((presCalData[dt]||{})[presKey]).forEach(e=>{
+      const cn=String(e.commNum||'').trim();
+      if(!cn||seen.has(cn))return;
+      const c=comms.find(x=>String(x.commNum)===cn);
+      seen.set(cn,(c&&c.storyName)||e.storyName||'');
+    });
+  });
+  return[...seen.entries()].sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true}));
+}
+// Returns everything both exports need: titles + one entry per presenter with a count and a list of [A,B] lines
 function presCalShiftJob(kind,a,b){
   if(kind==='studio'){
     const rows=presCalStudioRows(a,b);
     const range=a===b?`Episode ${a} (${fmtDate(resolveDate(a))})`:`Episodes ${a}–${b} (${fmtDate(resolveDate(a))} – ${fmtDate(resolveDate(b))})`;
-    return{rows,shifts:presCalShiftCounts(rows),title:'STUDIO SHIFT SUMMARY',sub:range,file:`Carte Blanche ${presCalStudioTitle(a,b)} - Studio Shift Summary`};
+    return{title:'STUDIO SHIFT SUMMARY',sub:range,file:`Carte Blanche ${presCalStudioTitle(a,b)} - Studio Shift Summary`,
+      countHdr:'Shifts',listHdr:'Episodes',colA:'Episode',colB:'TX Date',
+      people:presCalShiftCounts(rows).map(x=>({name:x.name,count:x.shifts,items:x.eps.map(n=>[`EP ${String(n).padStart(2,'0')}`,fmtDate(resolveDate(n))])}))};
   }
-  const{rows,shifts}=presCalShiftData(a,b);
-  return{rows,shifts,title:'PRESENTER SHIFT SUMMARY',sub:`${presCalShiftLabel(a,b)} · ${rows.length} episode${rows.length===1?'':'s'}`,file:`Carte Blanche S${currentSeason} - Presenter Shift Summary - ${a} to ${b}`};
+  const main=PRESCAL_SHIFT_ORDER.map(k=>PRESENTERS.find(p=>p.key===k)).filter(Boolean);
+  const people=[...main,...PRESENTERS.filter(p=>!PRESCAL_SHIFT_ORDER.includes(p.key))]
+    .map(p=>({name:p.full||p.label,main:main.includes(p),items:presCalCommItems(p.key,a,b)}))
+    .filter(x=>x.main||x.items.length).map(x=>({name:x.name,count:x.items.length,items:x.items}));
+  return{title:'COMMISSION SHIFT SUMMARY',sub:presCalShiftLabel(a,b),file:`Carte Blanche S${currentSeason} - Commission Shift Summary - ${a} to ${b}`,
+    countHdr:'Inserts',listHdr:'Commissions',colA:'Comm No.',colB:'Story',people};
 }
 function openPresCalStudioShiftModal(){
   if(!presCalCanExport())return;
@@ -5979,8 +5994,8 @@ function openPresCalShiftModal(){
   const ov=document.createElement('div');
   ov.className='modal-overlay';ov.id='prescal-sh-overlay';
   ov.innerHTML=`<div class="modal" style="max-width:460px">
-    <h3>Presenter Shift Summary</h3>
-    <p>Counts one shift per episode whose <b>TX Sunday</b> falls between these dates, for each presenter marked <b>STUDIO</b> (pre-records and repeats included).</p>
+    <h3>Commission Shift Summary</h3>
+    <p>Lists the commissions (inserts) each presenter is booked on in the Presenter Calendar between these dates. Each commission counts once, however many days.</p>
     <label>From date</label><input type="date" id="prescal-sh-from" value="${ym}-01">
     <label>To date</label><input type="date" id="prescal-sh-to" value="${last}">
     <div class="modal-actions">
@@ -5992,27 +6007,29 @@ function openPresCalShiftModal(){
   document.body.appendChild(ov);
 }
 function exportPresCalShiftPDF(kind,from,to){
-  const{rows,shifts,title,sub,file}=presCalShiftJob(kind,from,to);
+  const j=presCalShiftJob(kind,from,to);
   const printDate=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
   const thS='padding:8px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#fff;background:#1a3a6a;text-align:left';
   const tdS='padding:8px 10px;font-size:12px;vertical-align:top;border-bottom:1px solid #e6ecf5;white-space:normal';
-  const body=shifts.map((x,i)=>`<tr style="background:${i%2?'#f7f9fc':'#fff'}"><td style="${tdS};font-weight:700">${esc(x.name)}</td><td style="${tdS};text-align:center;font-weight:800;${x.shifts?'':'color:#bbb'}">${x.shifts}</td><td style="${tdS};font-size:11px;color:#444;padding-top:6px;padding-bottom:6px">${x.eps.length?`<table style="width:auto;border-collapse:collapse">${x.eps.map(n=>`<tr><td style="padding:1px 14px 1px 0;font-weight:700;color:#111;white-space:nowrap;border:none">EP ${String(n).padStart(2,'0')}</td><td style="padding:1px 0;color:#555;white-space:nowrap;border:none">${fmtDate(resolveDate(n))}</td></tr>`).join('')}</table>`:'<span style="color:#bbb">—</span>'}</td></tr>`).join('');
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(file)}</title>
+  const list=items=>items.length?`<table style="width:100%;border-collapse:collapse">${items.map(([a,b])=>`<tr><td style="padding:1px 14px 1px 0;font-weight:700;color:#111;white-space:nowrap;border:none;width:1%;vertical-align:top">${esc(a)}</td><td style="padding:1px 0;color:#555;border:none;white-space:normal;vertical-align:top">${esc(b)}</td></tr>`).join('')}</table>`:'<span style="color:#bbb">—</span>';
+  const body=j.people.map((x,i)=>`<tr style="background:${i%2?'#f7f9fc':'#fff'}"><td style="${tdS};font-weight:700">${esc(x.name)}</td><td style="${tdS};text-align:center;font-weight:800;${x.count?'':'color:#bbb'}">${x.count}</td><td style="${tdS};font-size:11px;padding-top:6px;padding-bottom:6px">${list(x.items)}</td></tr>`).join('');
+  const wide=kind!=='studio'; // story names need more room
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(j.file)}</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:10pt;padding:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm;size:A4 portrait}table{width:100%;border-collapse:collapse}tr{page-break-inside:avoid}</style>
   </head><body>
   <table style="margin-bottom:12px;border-bottom:3px solid #1a3a6a">
     <tr valign="middle">
       <td style="width:80px;padding-bottom:10px"><img src="${BAKED_CB_LOGO}" style="height:44px;width:auto"></td>
       <td style="text-align:center;padding:0 16px 10px">
-        <div style="font-size:17px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px">${title}</div>
-        <div style="font-size:11px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase">Season ${currentSeason} · ${esc(sub)}</div>
+        <div style="font-size:17px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px">${j.title}</div>
+        <div style="font-size:11px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase">Season ${currentSeason} · ${esc(j.sub)}</div>
       </td>
       <td style="width:80px;padding-bottom:10px"><img src="${BAKED_CAP_LOGO}" style="height:36px;width:auto;max-width:76px;display:block"></td>
     </tr>
   </table>
   <table style="table-layout:fixed;border:1px solid #d0d8e8">
-    <colgroup><col style="width:38%"><col style="width:14%"><col style="width:48%"></colgroup>
-    <thead><tr><th style="${thS}">Presenter</th><th style="${thS};text-align:center">Shifts</th><th style="${thS}">Episodes</th></tr></thead>
+    <colgroup>${wide?'<col style="width:24%"><col style="width:10%"><col style="width:66%">':'<col style="width:38%"><col style="width:14%"><col style="width:48%">'}</colgroup>
+    <thead><tr><th style="${thS}">Presenter</th><th style="${thS};text-align:center">${j.countHdr}</th><th style="${thS}">${j.listHdr}</th></tr></thead>
     <tbody>${body}</tbody>
   </table>
   <div style="margin-top:14px;text-align:center;font-size:9px;color:#aaa;border-top:1px solid #ddd;padding-top:6px">CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason} · Generated: ${printDate}</div>
@@ -6027,18 +6044,18 @@ async function exportPresCalShiftXLSX(kind,from,to){
   if(!window.XLSX){
     await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
   }
-  const{shifts,title,sub,file}=presCalShiftJob(kind,from,to);
+  const j=presCalShiftJob(kind,from,to);
   const wb=XLSX.utils.book_new();
-  // One row per episode underneath each presenter (name + count on the first row only)
+  // One row per line underneath each presenter (name + count on the first row only)
   const body=[];
-  shifts.forEach(x=>{
-    if(!x.eps.length){body.push([x.name,x.shifts,'—','']);return;}
-    x.eps.forEach((n,i)=>body.push([i?'':x.name,i?'':x.shifts,`EP ${String(n).padStart(2,'0')}`,fmtDate(resolveDate(n))]));
+  j.people.forEach(x=>{
+    if(!x.items.length){body.push([x.name,x.count,'—','']);return;}
+    x.items.forEach(([a,b],i)=>body.push([i?'':x.name,i?'':x.count,a,b]));
   });
-  const ws=XLSX.utils.aoa_to_sheet([[`${title} · Season ${currentSeason} · ${sub}`],[],['Presenter','Shifts','Episode','TX Date'],...body]);
-  ws['!cols']=[{wch:26},{wch:8},{wch:10},{wch:22}];
-  XLSX.utils.book_append_sheet(wb,ws,'Shift Summary');
-  XLSX.writeFile(wb,`${file}.xlsx`);
+  const ws=XLSX.utils.aoa_to_sheet([[`${j.title} · Season ${currentSeason} · ${j.sub}`],[],['Presenter',j.countHdr,j.colA,j.colB],...body]);
+  ws['!cols']=[{wch:26},{wch:8},{wch:12},{wch:kind==='studio'?22:50}];
+  XLSX.utils.book_append_sheet(wb,ws,kind==='studio'?'Studio Shifts':'Commission Shifts');
+  XLSX.writeFile(wb,`${j.file}.xlsx`);
   showToast('Shift summary downloaded ✓');
 }
 document.addEventListener('click',function presCalShiftHandler(e){
@@ -6061,8 +6078,8 @@ document.addEventListener('click',function presCalShiftHandler(e){
     const[a,b]=presCalShiftRange();
     if(!a||!b){showToast('Please choose both dates',true);return;}
     document.getElementById('prescal-sh-overlay')?.remove();
-    if(id==='prescal-sh-pdf')exportPresCalShiftPDF('presenter',a,b);
-    else exportPresCalShiftXLSX('presenter',a,b).catch(err=>showToast('Export failed: '+err.message,true));
+    if(id==='prescal-sh-pdf')exportPresCalShiftPDF('commission',a,b);
+    else exportPresCalShiftXLSX('commission',a,b).catch(err=>showToast('Export failed: '+err.message,true));
   }
 });
 document.addEventListener('click',function presCalExportHandler(e){
