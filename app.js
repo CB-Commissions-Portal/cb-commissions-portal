@@ -227,7 +227,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.375';
+const BUILD_VERSION='3.10.376';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -12551,7 +12551,7 @@ function rosBuildWordRow(item,i,highlightIdx=-1){
   const _rowBg=['fixed','insert','coldstart','upnext','break'].includes(item.type)?'background:#D9D9D9;':'';
   const _isHL=i===highlightIdx;
   const _br=_p('&nbsp;');
-  const _pageBreak=item.pageBreakBefore?'page-break-before:always;mso-pagination:widow-orphan;':'';
+  const _pageBreak=(item.pageBreakBefore&&i>0)?'page-break-before:always;mso-pagination:widow-orphan;':'';
   return`<tr data-ros-idx="${i}"${_isHL?' id="preview-current-item" style="'+_pageBreak+_rowBg+'outline:3px solid #003366;outline-offset:-3px;"':' style="'+_pageBreak+_rowBg+'"'}>
     <td align="center" style="font-family:Arial,sans-serif;font-size:11pt;font-weight:bold;padding:3px 4px;border:1px solid #000;vertical-align:top;width:6%;white-space:normal;${_rowBg}">${_br}${_p(escHtml(num),'font-weight:bold;text-align:center')}</td>
     <td style="font-family:Arial,sans-serif;font-size:11pt;padding:3px 4px;border:1px solid #000;vertical-align:top;width:27%;white-space:normal;${_rowBg}">${_br}${_prod}
@@ -12753,7 +12753,7 @@ async function rosExportDocx(ep,items){
       // page; setting it on a paragraph inside a table cell is the standard way to do this
       // since Word tables don't take a page-break property directly on TableRow.
       const itemCell=new TableCell({width:{size:COL_W[0],type:WidthType.DXA},shading:shd,borders:BORDERS,verticalAlign:VerticalAlign.TOP,margins:CELL_M,children:[
-        new Paragraph({spacing:SP0,pageBreakBefore:!!item.pageBreakBefore,children:[new TextRun({text:'',size:SZ,font:FONT})]}),
+        new Paragraph({spacing:SP0,pageBreakBefore:!!item.pageBreakBefore&&idx>0,children:[new TextRun({text:'',size:SZ,font:FONT})]}),
         new Paragraph({alignment:AlignmentType.CENTER,spacing:SP0,children:[new TextRun({text:String(num),bold:true,font:FONT,size:SZ})]})
       ]});
 
