@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.383';
+const BUILD_VERSION='3.10.384';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -525,7 +525,7 @@ function getPromoTXDates(epDateStr,txType){
 const SC_REG='_regular';
 const SC_FAC_GROUP='Facilities Crew — End Credits only';
 const SC_JOBS=[
-  ['production','Production Coordinator','Production'],['editorialMgr','Editorial Manager','Production'],
+  ['production','Production (on the day)','Production'],['editorialMgr','Editorial Manager','Production'],
   ['studioDirector','Studio Director','Studio Floor'],['assistantDirector','Assistant Director','Studio Floor'],['floorManager','Floor Manager','Studio Floor'],['autocueOperator','Autocue Operator','Studio Floor'],
   ['makeupArtist','Make-Up Artist','Make-Up & Styling'],['studioStylist','Studio Stylist','Make-Up & Styling'],
   ['engineer1','Engineer 1','Engineers & Facilities Manager'],['engineer2','Engineer 2','Engineers & Facilities Manager'],['facilitiesMgr','Facilities Manager','Engineers & Facilities Manager'],
@@ -2971,7 +2971,9 @@ const EC_CREW_MAP={
   'ENGINEERS':['engineer1','engineer2'],'SOUND ASSISTANT':['soundAssistant'],'AUTOCUE':['autocueOperator'],
   'GRAPHICS':['graphicsOperator'],'CAMERAS':['cameraOp1','cameraOp2'],'JIMMY JIB':['jibOperator'],
   'VISION CONTROL':['visionController'],'LIGHTING':['lightingDirector'],'VT OPERATOR':['vtOperator'],
-  'SOUND ENGINEER':['soundEngineer'],'VISION MIXER':['visionMixer'],'PRODUCTION COORDINATOR':['production'],
+  'SOUND ENGINEER':['soundEngineer'],'VISION MIXER':['visionMixer'],
+  // NOT linked: PRODUCTION COORDINATOR / PRODUCTION MANAGER are show-wide roles (Mihle / Nombuso) — the
+  // Studio Crew 'Production' job is only who does Production on the studio day (they alternate).
   'MAKE-UP & STYLING':['makeupArtist','studioStylist'],'FLOOR MANAGER':['floorManager'],
   'ASSISTANT STUDIO DIRECTOR':['assistantDirector'],'STUDIO DIRECTOR':['studioDirector'],'EDITORIAL MANAGER':['editorialMgr']};
 function ecIsLinkedEp(ep){return /^\d+$/.test(String(ep))&&Number(ep)>=EC_LINK_FROM_EP;}
@@ -7587,7 +7589,7 @@ function renderCallSheet(epNums){
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;align-items:start">
         <div style="background:#f9fafb;border:1px solid #d1dae8;border-radius:10px;padding:18px 20px">
           <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #d1dae8">Production Contacts</div>
-          ${contactRow('producer','producerCell','Production Coordinator')}${contactRow('editorialMgr','editorialMgrCell','Editorial Manager')}${contactRow('director','directorCell','Studio Director')}${contactRow('asstDir','asstDirCell','Assistant Director')}${contactRow('floorMgr','floorMgrCell','Floor Manager')}${contactRow('autocue','autocueCell','Autocue')}${contactRow('makeup','makeupCell','Make-Up Artist')}${contactRow('stylist','stylistCell','Studio Stylist')}
+          ${contactRow('producer','producerCell','Production')}${contactRow('editorialMgr','editorialMgrCell','Editorial Manager')}${contactRow('director','directorCell','Studio Director')}${contactRow('asstDir','asstDirCell','Assistant Director')}${contactRow('floorMgr','floorMgrCell','Floor Manager')}${contactRow('autocue','autocueCell','Autocue')}${contactRow('makeup','makeupCell','Make-Up Artist')}${contactRow('stylist','stylistCell','Studio Stylist')}
           ${crewNote}
         </div>
         <div style="background:#f9fafb;border:1px solid #d1dae8;border-radius:10px;padding:18px 20px">
@@ -12240,7 +12242,7 @@ function csExportPDF(){
     <div class="box">
       <div class="sec-title">Production Contacts</div>
       <table class="info">
-        <tr><td class="il">Production Coordinator</td><td class="iv">${cs.producer||'—'}</td><td class="ic">${cs.producerCell||''}</td></tr>
+        <tr><td class="il">Production</td><td class="iv">${cs.producer||'—'}</td><td class="ic">${cs.producerCell||''}</td></tr>
         <tr><td class="il">Editorial Manager</td><td class="iv">${cs.editorialMgr||'—'}</td><td class="ic">${cs.editorialMgrCell||''}</td></tr>
         <tr><td class="il">Studio Director</td><td class="iv">${cs.director||'—'}</td><td class="ic">${cs.directorCell||''}</td></tr>
         <tr><td class="il">Assistant Director</td><td class="iv">${cs.asstDir||'—'}</td><td class="ic">${cs.asstDirCell||''}</td></tr>
