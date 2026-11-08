@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.377';
+const BUILD_VERSION='3.10.378';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -523,15 +523,18 @@ function getPromoTXDates(epDateStr,txType){
 
 // Studio Crew jobs [key, label, group]. Keys of the original 16 jobs are unchanged (saved data).
 const SC_REG='_regular';
+const SC_FAC_GROUP='Facilities Crew — End Credits only';
 const SC_JOBS=[
   ['production','Production Coordinator','Production'],['editorialMgr','Editorial Manager','Production'],
   ['studioDirector','Studio Director','Studio Floor'],['assistantDirector','Assistant Director','Studio Floor'],['floorManager','Floor Manager','Studio Floor'],['autocueOperator','Autocue Operator','Studio Floor'],
   ['makeupArtist','Make-Up Artist','Make-Up & Styling'],['studioStylist','Studio Stylist','Make-Up & Styling'],
-  ['engineer1','Engineer 1','Technical'],['engineer2','Engineer 2','Technical'],['facilitiesMgr','Facilities Manager','Technical'],
-  ['visionController','Vision Controller','Technical'],['visionMixer','Vision Mixer','Technical'],['vtOperator','VT Operator','Technical'],['graphicsOperator','Graphics Operator','Technical'],
-  ['lightingDirector','Lighting Director','Technical'],['jibOperator','Jib Operator','Technical'],['cameraOp1','Camera Operator 1','Technical'],['cameraOp2','Camera Operator 2','Technical'],
-  ['soundEngineer','Sound Engineer','Technical'],['soundAssistant','Sound Assistant','Technical']];
-const SC_ALL_KEYS=[...SC_JOBS.flatMap(([k])=>[k,k+'Cell']),'bookingFrom','bookingTo'];
+  ['engineer1','Engineer 1','Engineers & Facilities Manager'],['engineer2','Engineer 2','Engineers & Facilities Manager'],['facilitiesMgr','Facilities Manager','Engineers & Facilities Manager'],
+  // Facilities' own crew: End Credits only — no cell numbers, not on the Call Sheet or Studio Schedule export
+  ['visionController','Vision Controller',SC_FAC_GROUP],['visionMixer','Vision Mixer',SC_FAC_GROUP],['vtOperator','VT Operator',SC_FAC_GROUP],['graphicsOperator','Graphics Operator',SC_FAC_GROUP],
+  ['lightingDirector','Lighting Director',SC_FAC_GROUP],['jibOperator','Jib Operator',SC_FAC_GROUP],['cameraOp1','Camera Operator 1',SC_FAC_GROUP],['cameraOp2','Camera Operator 2',SC_FAC_GROUP],
+  ['soundEngineer','Sound Engineer',SC_FAC_GROUP],['soundAssistant','Sound Assistant',SC_FAC_GROUP]];
+const scHasCell=f=>(SC_JOBS.find(j=>j[0]===f)||[])[2]!==SC_FAC_GROUP;
+const SC_ALL_KEYS=[...SC_JOBS.flatMap(([k])=>scHasCell(k)?[k,k+'Cell']:[k]),'bookingFrom','bookingTo'];
 const STUDIO_FIELDS=SC_JOBS.map(([k,l])=>[k,l]);
 
 async function savePromoData(ep,data){
@@ -1692,7 +1695,8 @@ async function saveStudioCrew(ep,data){
     await setDoc(doc(db,'studio_crew',String(ep)),{...data,ep:Number(ep),updatedAt:serverTimestamp()});
     studioCrew[ep]={...data};
     setSyncDot('live');
-  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}
+    return true;
+  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);return false;}
   finally{scLocalWrite=false;}
 }
 
@@ -5949,23 +5953,60 @@ function scEffective(n){const o={};SC_ALL_KEYS.forEach(f=>{o[f]=scVal(n,f);});re
 function scChangeCount(n){return SC_ALL_KEYS.filter(f=>scOwn(n,f)).length;}
 function scMakeup(n){return[scVal(n,'makeupArtist'),scVal(n,'studioStylist')].filter(Boolean).join(' / ');}
 
-// Save one field. ep = episode number or SC_REG.
-async function scCommit(ep,f,value){
+// Nothing saves while typing (v3.10.378): edits wait in scPending until the card's Save button
+// (or Save all). Each save stamps who/when so the card shows "Last saved".
+let scPending={}; // {ep|SC_REG:{field:value}}
+function scSaved(ep,f){return String(ep)===SC_REG?scReg(f):scOwn(ep,f);}
+function scShown(ep,f){const p=scPending[String(ep)];return p&&f in p?p[f]:scSaved(ep,f);}
+function scDirtyFields(ep){const p=scPending[String(ep)]||{};return Object.keys(p).filter(f=>scClean(p[f])!==scSaved(ep,f));}
+function scDirtyEps(){return Object.keys(scPending).filter(ep=>scDirtyFields(ep).length);}
+function scStamp(){return{savedAt:new Date().toISOString(),savedBy:currentUser?.displayName||currentUser?.email||'Unknown'};}
+async function scSaveEp(ep){
   ep=String(ep);
-  const v=scClean(value);
-  if(ep===SC_REG)return scCommitRegular({[f]:v});
-  const cur=studioCrew[ep]||{};
-  const store=v===scReg(f)?'':v; // same as Regular Crew → just follow the Regular Crew
-  if(scClean(cur[f])===store)return;
-  studioCrew[ep]={...cur,[f]:store};
-  await saveStudioCrew(ep,studioCrew[ep]);
+  const fields=scDirtyFields(ep);
+  if(!fields.length){delete scPending[ep];return true;}
+  const p=scPending[ep];
+  let ok;
+  if(ep===SC_REG)ok=await scCommitRegular(Object.fromEntries(fields.map(f=>[f,p[f]])),scStamp());
+  else{
+    const d={...(studioCrew[ep]||{})};
+    fields.forEach(f=>{const v=scClean(p[f]);d[f]=v===scReg(f)?'':v;}); // same as Regular Crew → follow it
+    ok=await saveStudioCrew(ep,{...d,...scStamp()});
+  }
+  if(ok)delete scPending[ep];
+  return ok;
 }
+function scSaveBtnHtml(ep){
+  const n=scDirtyFields(ep).length;
+  return`<button class="btn sc-save" data-sc-save="${ep}" ${n?'':'disabled'} style="font-size:13px;padding:5px 12px;font-weight:800;${n?'background:#f59e0b;color:#fff;border-color:#d97706':'opacity:.7'}">${n?`💾 Save changes (${n})`:'Saved ✓'}</button>`;
+}
+function scLastSavedHtml(ep){
+  const d=studioCrew[String(ep)]||{};
+  if(!d.savedAt)return'';
+  const t=new Date(d.savedAt);
+  return`<span style="font-size:12px;color:#6b7280;white-space:nowrap">Last saved ${t.toLocaleDateString('en-ZA',{day:'2-digit',month:'short'})} ${t.toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'})} · ${esc(d.savedBy||'')}</span>`;
+}
+function scRefreshSaveUI(ep){
+  const n=scDirtyFields(ep).length;
+  document.querySelectorAll(`[data-sc-save="${ep}"]`).forEach(b=>{b.outerHTML=scSaveBtnHtml(ep);});
+  const total=scDirtyEps().length;
+  const sa=document.getElementById('sc-saveall');
+  if(sa){sa.style.display=total?'':'none';sa.textContent=`💾 Save all (${total} unsaved)`;}
+  return n;
+}
+function scStage(inp){
+  const ep=inp.dataset.ep,f=inp.dataset.field;
+  (scPending[ep]=scPending[ep]||{})[f]=inp.value;
+  inp.style.background=scClean(inp.value)!==scSaved(ep,f)?'#fef9c3':'';
+  scRefreshSaveUI(ep);
+}
+window.addEventListener('beforeunload',e=>{if(scDirtyEps().length){e.preventDefault();e.returnValue='';}});
 // Changing the Regular Crew: upcoming episodes that were following it (or held a copy of the old/new
 // name) follow the new one; past episodes that were following it keep the person who actually worked.
-async function scCommitRegular(changes){
+async function scCommitRegular(changes,stamp={}){
   const reg={...(studioCrew[SC_REG]||{})};
   const real=Object.entries(changes).filter(([f,v])=>scClean(reg[f])!==scClean(v));
-  if(!real.length)return;
+  if(!real.length){if(Object.keys(stamp).length){studioCrew[SC_REG]={...reg,...stamp};await setDoc(doc(db,'studio_crew',SC_REG),{...reg,...stamp,updatedAt:serverTimestamp()}).catch(()=>{});}return true;}
   const touched={};
   getEpNums().forEach(n=>{
     if(scCrewEpFor(n)!==n)return; // pre-records borrow the live episode's crew
@@ -5979,6 +6020,7 @@ async function scCommitRegular(changes){
     });
   });
   real.forEach(([f,v])=>{reg[f]=scClean(v);});
+  Object.assign(reg,stamp);
   setSyncDot('saving');scLocalWrite=true;
   try{
     const b=writeBatch(db);
@@ -5987,14 +6029,15 @@ async function scCommitRegular(changes){
     await b.commit();
     studioCrew[SC_REG]=reg;Object.assign(studioCrew,touched);
     setSyncDot('live');
-  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);}
+    return true;
+  }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);return false;}
   finally{scLocalWrite=false;}
 }
 // Most common name per job across saved episodes — fills the empty Regular Crew boxes in one go.
 async function scSuggestRegular(){
   const changes={};
   SC_ALL_KEYS.forEach(f=>{
-    if(scReg(f))return;
+    if(scShown(SC_REG,f))return;
     const counts={};
     getEpNums().forEach(n=>{const v=scClean((studioCrew[String(n)]||{})[f]);if(v)counts[v]=(counts[v]||0)+1;});
     Object.values(studioSchedule).forEach(ss=>{const m=SC_OLD_SCHED_MAP.find(x=>x[1]===f);const v=m?scClean(ss[m[0]]):'';if(v)counts[v]=(counts[v]||0)+1;});
@@ -6002,8 +6045,8 @@ async function scSuggestRegular(){
     if(best)changes[f]=best[0];
   });
   if(!Object.keys(changes).length){showToast('Nothing to suggest — no saved names found');return;}
-  await scCommitRegular(changes);
-  showToast(`Regular Crew filled in (${Object.keys(changes).length} boxes) — please check them`);
+  scPending[SC_REG]={...(scPending[SC_REG]||{}),...changes};
+  showToast(`${Object.keys(changes).length} boxes filled in — check them, then click Save changes`);
   render();
 }
 
@@ -6063,8 +6106,9 @@ function renderStudioCrew(epNums){
   // One input; empty = follows the Regular Crew (shown as the grey placeholder).
   const box=(ep,f,ph,extra='')=>{
     const isReg=String(ep)===SC_REG;
-    const v=isReg?scReg(f):scOwn(ep,f);
-    return`<input class="ci studio-ci" data-ep="${ep}" data-field="${f}" data-orig="${esc(v)}" value="${esc(v)}" placeholder="${esc(ph)}" style="${inpSt}${extra}"${f.endsWith('Cell')||f.startsWith('booking')?' data-noac="1"':''}>`;
+    const v=scShown(ep,f);
+    const dirty=scClean(v)!==scSaved(ep,f);
+    return`<input class="ci studio-ci" data-ep="${ep}" data-field="${f}" value="${esc(v)}" placeholder="${esc(ph)}" style="${inpSt}${extra}${dirty?';background:#fef9c3':''}"${f.endsWith('Cell')||f.startsWith('booking')?' data-noac="1"':''}>`;
   };
   const groupHdr=g=>`<div style="grid-column:1/-1;font-size:11px;font-weight:800;color:#0066CC;text-transform:uppercase;letter-spacing:.8px;padding:12px 0 4px;border-bottom:2px solid #dbeafe">${g}</div>`;
   const jobRows=(ep)=>{
@@ -6072,20 +6116,21 @@ function renderStudioCrew(epNums){
     let lastG='';
     return SC_JOBS.map(([f,label,g])=>{
       const hdr=g!==lastG?groupHdr(g):'';lastG=g;
-      const changed=!isReg&&(scOwn(ep,f)||scOwn(ep,f+'Cell'));
+      const hasCell=scHasCell(f);
+      const changed=!isReg&&(scClean(scShown(ep,f))||(hasCell&&scClean(scShown(ep,f+'Cell'))));
       const rowSt=`display:grid;grid-template-columns:190px 1fr 150px 34px;gap:8px;align-items:center;padding:5px 0 5px ${changed?'8px':'0'};border-bottom:1px solid #eef2f7;${changed?'border-left:4px solid #f59e0b;background:#fffbeb':''}`;
       const lbl=`<div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px">${label}${changed?'<div style="font-size:10px;color:#b45309;letter-spacing:.3px">CHANGED</div>':''}</div>`;
       if(!canEd){
-        const name=isReg?scReg(f):scVal(ep,f),cell=isReg?scReg(f+'Cell'):scVal(ep,f+'Cell');
+        const name=isReg?scReg(f):scVal(ep,f),cell=!hasCell?'':isReg?scReg(f+'Cell'):scVal(ep,f+'Cell');
         return hdr+`<div style="${rowSt}">${lbl}<div style="font-size:15px;color:${name?'#111827':'#9ca3af'}">${esc(name||'—')}</div><div style="font-size:14px;color:#4b5563;font-family:monospace">${esc(cell)}</div><div></div></div>`;
       }
       const reset=changed?`<button class="sc-reset" data-ep="${ep}" data-field="${f}" title="Back to the Regular Crew" style="background:none;border:1px solid #d1dae8;border-radius:4px;cursor:pointer;color:#6b7280;font-size:14px;padding:3px 6px">↺</button>`:'';
-      return hdr+`<div style="${rowSt}">${lbl}<div style="position:relative">${box(ep,f,isReg?'Name':(scReg(f)||'Name'))}</div><div>${box(ep,f+'Cell',isReg?'Cell number':(scReg(f+'Cell')||'Cell number'),';font-family:monospace')}</div><div>${reset}</div></div>`;
+      return hdr+`<div style="${rowSt}">${lbl}<div style="position:relative">${box(ep,f,isReg?'Name':(scReg(f)||'Name'))}</div><div>${hasCell?box(ep,f+'Cell',isReg?'Cell number':(scReg(f+'Cell')||'Cell number'),';font-family:monospace'):''}</div><div>${reset}</div></div>`;
     }).join('');
   };
   const bookingRow=(ep)=>{
     const isReg=String(ep)===SC_REG;
-    const changed=!isReg&&(scOwn(ep,'bookingFrom')||scOwn(ep,'bookingTo'));
+    const changed=!isReg&&(scClean(scShown(ep,'bookingFrom'))||scClean(scShown(ep,'bookingTo')));
     const lbl=`<div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px">Studio Booking${changed?'<div style="font-size:10px;color:#b45309">CHANGED</div>':''}</div>`;
     const val=canEd
       ?`<div style="display:flex;align-items:center;gap:6px">${box(ep,'bookingFrom',isReg?'08:00':(scReg('bookingFrom')||'08:00'),';width:90px;font-family:monospace;text-align:center')}<span style="color:#9ca3af">–</span>${box(ep,'bookingTo',isReg?'18:00':(scReg('bookingTo')||'18:00'),';width:90px;font-family:monospace;text-align:center')}${changed?`<button class="sc-reset" data-ep="${ep}" data-field="booking" title="Back to the usual booking" style="background:none;border:1px solid #d1dae8;border-radius:4px;cursor:pointer;color:#6b7280;font-size:14px;padding:3px 6px">↺</button>`:''}</div>`
@@ -6101,10 +6146,14 @@ function renderStudioCrew(epNums){
         <span style="font-size:17px;font-weight:800;color:#002868">Regular Crew — Season ${currentSeason}</span>
         ${regSet?'':'<span style="font-size:11px;background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:3px;font-weight:800">NOT SET UP YET</span>'}
       </div>
-      ${canEd&&scRegOpen?`<button class="btn" id="sc-suggest-btn" style="font-size:13px;padding:4px 10px" title="Fill the empty boxes with the name used most often on existing episodes">Fill empty boxes from past episodes</button>`:''}
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        ${scLastSavedHtml(SC_REG)}
+        ${canEd&&scRegOpen?`<button class="btn" id="sc-suggest-btn" style="font-size:13px;padding:4px 10px" title="Fill the empty boxes with the name used most often on existing episodes">Fill empty boxes from past episodes</button>`:''}
+        ${canEd?scSaveBtnHtml(SC_REG):''}
+      </div>
     </div>
     ${scRegOpen?`<div style="padding:4px 16px 14px">
-      <div style="font-size:13px;color:#4b5563;padding:8px 0;line-height:1.5">Every episode uses these people and booking times unless it's changed on that episode. Changing someone here updates all <b>upcoming</b> episodes that weren't changed by hand — <b>past</b> episodes keep who actually worked.</div>
+      <div style="font-size:13px;color:#4b5563;padding:8px 0;line-height:1.5">Every episode uses these people and booking times unless it's changed on that episode. Nothing is saved until you click <b>Save changes</b>. Changing someone here updates all <b>upcoming</b> episodes that weren't changed by hand — <b>past</b> episodes keep who actually worked.</div>
       ${bookingRow(SC_REG)}${jobRows(SC_REG)}
     </div>`:''}
   </div>`;
@@ -6154,11 +6203,13 @@ function renderStudioCrew(epNums){
           ${epFlagBadges(n,11)}
           <span style="font-size:14px;color:#0066CC;font-weight:600">${anchors?'Anchors: '+esc(anchors):'<span style="color:#9ca3af;font-weight:400">No anchors on Presenter Calendar</span>'}</span>
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          ${borrowed?'':scLastSavedHtml(n)}
           ${scBooking(n)?`<span style="font-family:monospace;font-size:13px;color:#c07000;font-weight:700">${esc(scBooking(n))}</span>`:''}
           ${borrowed?`<span style="font-size:11px;background:#ede9fe;color:#7c3aed;padding:2px 7px;border-radius:3px;font-weight:800">SAME CREW AS EP ${src}</span>`
             :nCh?`<span style="font-size:11px;background:#fef3c7;color:#b45309;padding:2px 7px;border-radius:3px;border:1px solid #fcd34d;font-weight:800">${nCh} CHANGE${nCh===1?'':'S'}</span>`
             :`<span style="font-size:11px;background:#dcfce7;color:#16a34a;padding:2px 7px;border-radius:3px;border:1px solid #86efac;font-weight:800">REGULAR CREW</span>`}
+          ${canEd&&!borrowed?scSaveBtnHtml(n):''}
         </div>
       </div>
       <div class="studio-crew-body" style="${collapsed?'display:none':''}">${body}</div>
@@ -6171,7 +6222,10 @@ function renderStudioCrew(epNums){
         <span style="font-size:19px;font-weight:800;color:#111827">Studio Crew &amp; Schedule</span>
         ${monthSel}
       </div>
-      <button class="btn" id="ss-pdf-btn" style="font-size:14px;border-color:#388bfd;color:#0066CC">⬇ Export Studio Schedule</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${canEd?`<button class="btn" id="sc-saveall" style="font-size:14px;font-weight:800;background:#f59e0b;color:#fff;border-color:#d97706;${scDirtyEps().length?'':'display:none'}">💾 Save all (${scDirtyEps().length} unsaved)</button>`:''}
+        <button class="btn" id="ss-pdf-btn" style="font-size:14px;border-color:#388bfd;color:#0066CC">⬇ Export Studio Schedule</button>
+      </div>
     </div>
     <div style="flex-shrink:0">${regCard}</div>
     <div style="flex-shrink:0">${reviewCard}</div>
@@ -10979,7 +11033,8 @@ function bindApp(){
   // Studio Crew inputs
   document.querySelectorAll('input.studio-ci').forEach(inp=>{
     const field=inp.dataset.field;
-    inp.addEventListener('blur',()=>scCommitInput(inp));
+    inp.addEventListener('input',()=>scStage(inp));
+    inp.addEventListener('blur',()=>scStage(inp));
     if(inp.dataset.noac)inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();scCommitInput(inp);}});
     else attachStudioAutocomplete(inp,field); // names only — not cells / booking times
   });
@@ -12152,25 +12207,35 @@ document.addEventListener('change',function ssChangeHandler(e){
   if(e.target.id==='ss-month-sel'){studioSchedMonth=e.target.value;render();return;}
 });
 
-// Studio Crew & Schedule: commit one box (blur / Enter / Tab / autocomplete pick)
-function scCommitInput(inp){
-  const v=inp.value.trim();
-  if(v===(inp.dataset.orig||''))return;
-  inp.dataset.orig=v;
-  scCommit(inp.dataset.ep,inp.dataset.field,v).then(()=>{
-    setTimeout(()=>{if(tab==='studio'&&!document.activeElement?.classList.contains('studio-ci'))render();},60);
-  });
-}
+// Studio Crew & Schedule: a box changed (typing / Enter / Tab / autocomplete pick) — staged, not saved
+function scCommitInput(inp){scStage(inp);}
 document.addEventListener('click',async function scClickHandler(e){
   if(e.target.closest('#sc-suggest-btn')){e.stopPropagation();if(confirm('Fill the empty Regular Crew boxes with the name used most often on past episodes?'))scSuggestRegular();return;}
-  if(e.target.closest('#sc-reg-toggle')){scRegOpen=!scRegOpen;render();return;}
+  if(e.target.closest('#sc-reg-toggle')&&!e.target.closest('button')){scRegOpen=!scRegOpen;render();return;}
   if(e.target.closest('#sc-review-toggle')){scReviewOpen=!scReviewOpen;render();return;}
   const rs=e.target.closest('.sc-reset');
   if(rs){
     const ep=rs.dataset.ep,f=rs.dataset.field;
-    const d={...(studioCrew[ep]||{})};
-    (f==='booking'?['bookingFrom','bookingTo']:[f,f+'Cell']).forEach(k=>{d[k]='';});
-    studioCrew[ep]=d;await saveStudioCrew(ep,d);render();return;
+    const p=scPending[ep]=scPending[ep]||{};
+    (f==='booking'?['bookingFrom','bookingTo']:[f,f+'Cell']).forEach(k=>{p[k]='';});
+    render();return;
+  }
+  const sv=e.target.closest('.sc-save');
+  if(sv){
+    e.stopPropagation();
+    const ep=sv.dataset.scSave;
+    sv.disabled=true;sv.textContent='Saving…';
+    const ok=await scSaveEp(ep);
+    if(ok)showToast(`Saved ✓ — ${ep===SC_REG?'Regular Crew':'EP '+ep}`);
+    render();return;
+  }
+  if(e.target.closest('#sc-saveall')){
+    const btn=document.getElementById('sc-saveall');btn.disabled=true;btn.textContent='Saving…';
+    const eps=scDirtyEps().sort((a,b)=>a===SC_REG?-1:b===SC_REG?1:Number(a)-Number(b)); // Regular Crew first
+    let saved=0,failed=0;
+    for(const ep of eps){(await scSaveEp(ep))?saved++:failed++;}
+    showToast(failed?`${failed} not saved — please try again`:`Saved ✓ — ${saved} card${saved===1?'':'s'}`,!!failed);
+    render();return;
   }
   const df=e.target.closest('.sc-diff');
   if(df){df.disabled=true;scResolveDiff(Number(df.dataset.ep),df.dataset.field,df.dataset.use==='old');return;}
