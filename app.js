@@ -33,7 +33,7 @@ const PERM_MAP=[
     {label:'Studio Script Build',admin:'Full Edit', deputyadmin:'Full Edit',  editorial:'Full Edit',       operations:'View',      production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'Edit scripts',finance:'View',director:'Edit (modal only)'},
     {label:'Script Cover Page', admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'—',               operations:'—',         production:'Full Edit', prodmgmt:'Full Edit',afm:'—',        capstaff:'—',         content:'—',        finance:'View',  director:'—'},
     {label:'Transcripts',       admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'—',               operations:'—',         production:'Full Edit', prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'—',     director:'—',    transcripts:'Full Edit'},
-    {label:'Studio Call Sheet', admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'—',               operations:'View'     , production:'Full Edit', prodmgmt:'Full Edit',afm:'—',        capstaff:'—',         content:'—',        finance:'View',  director:'—'},
+    {label:'Studio Call Sheet', admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'—',               operations:'View'     , production:'View + Export', prodmgmt:'Full Edit',afm:'—',        capstaff:'—',         content:'—',        finance:'View',  director:'—'},
     {label:'End Credits',       admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'—',               operations:'Full Edit', production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'View',  director:'—'},
     {label:'Studio Crew & Schedule',admin:'Full Edit',deputyadmin:'Full Edit',  editorial:'View',            operations:'Full Edit', production:'View',      prodmgmt:'View + Export',afm:'—',      capstaff:'—',         content:'View',     finance:'View',  director:'—'},
   ]},
@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.391';
+const BUILD_VERSION='3.10.392';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -7574,8 +7574,8 @@ function csCallTimeRows(ep){
   rows.push({key:'ctSetCrew',label:'Set Crew'},{key:'ctLighting',label:'Lighting Operator'});
   return[...rows,...std];
 }
-const CS_EDIT_ROLES=['admin','deputyadmin','prodmgmt','production'];
-const CS_VIEW_ROLES=[...CS_EDIT_ROLES,'operations','finance'];
+const CS_EDIT_ROLES=['admin','deputyadmin','prodmgmt'];
+const CS_VIEW_ROLES=[...CS_EDIT_ROLES,'production','operations','finance']; // Production: view + Print/PDF only (v3.10.392)
 // Contacts + anchors are never typed on the Call Sheet: they're laid over the saved sheet every time
 // it's shown, exported or saved, from Studio Crew & Schedule and the Presenter Calendar.
 const CS_CREW_CONTACTS=[['producer','production'],['editorialMgr','editorialMgr'],['director','studioDirector'],['asstDir','assistantDirector'],['floorMgr','floorManager'],['autocue','autocueOperator'],['eng1','engineer1'],['eng2','engineer2'],['facMgr','facilitiesMgr']];
