@@ -16,7 +16,7 @@ const ROLE_META={admin:{label:'Super Admin',color:'#58a6ff',bg:'rgba(88,166,255,
 const PERM_MAP=[
   {group:'CONTENT',rows:[
     {label:'Commission List',   admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'Partial Edit',   operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'—'},
-    {label:'Line-Ups',          admin:'Full Edit',  deputyadmin:'View',       editorial:'Full Edit',       operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'View',    transcripts:'View'},
+    {label:'Line-Ups',          admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'Full Edit',       operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'View',    transcripts:'View'},
     {label:'Broadcast List',    admin:'View',       deputyadmin:'View',       editorial:'View',            operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'View'},
     {label:'Episode Register',  admin:'View',       deputyadmin:'View',       editorial:'View',            operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'View'},
   ]},
@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.393';
+const BUILD_VERSION='3.10.394';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -8947,8 +8947,8 @@ function renderBroadcastList(){
   </div>`;
 }
 
-// Line-Ups editing: Super Admin + Editorial only (v3.10.393); everyone else who can open it views.
-function luCanEdit(){return['admin','editorial'].includes(getEffectiveRole());}
+// Line-Ups editing: Super Admin, Admin (deputy) + Editorial only (v3.10.393–394); everyone else who can open it views.
+function luCanEdit(){return['admin','deputyadmin','editorial'].includes(getEffectiveRole());}
 function renderLineups(epNums){
   const role=getEffectiveRole();
   const canEdit=luCanEdit();
