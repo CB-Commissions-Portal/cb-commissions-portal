@@ -33,7 +33,7 @@ const PERM_MAP=[
     {label:'Studio Script Build',admin:'Full Edit', deputyadmin:'Full Edit',  editorial:'Full Edit',       operations:'View',      production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'Edit scripts',finance:'View',director:'Edit (modal only)'},
     {label:'Script Cover Page', admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'—',               operations:'—',         production:'Full Edit', prodmgmt:'Full Edit',afm:'—',        capstaff:'—',         content:'—',        finance:'View',  director:'—'},
     {label:'Transcripts',       admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'—',               operations:'—',         production:'Full Edit', prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'—',     director:'—',    transcripts:'Full Edit'},
-    {label:'Studio Call Sheet', admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'—',               operations:'Full Edit', production:'Full Edit', prodmgmt:'Full Edit',afm:'—',        capstaff:'—',         content:'—',        finance:'View',  director:'—'},
+    {label:'Studio Call Sheet', admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'—',               operations:'View'     , production:'Full Edit', prodmgmt:'Full Edit',afm:'—',        capstaff:'—',         content:'—',        finance:'View',  director:'—'},
     {label:'End Credits',       admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'—',               operations:'Full Edit', production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'View',  director:'—'},
     {label:'Studio Crew & Schedule',admin:'Full Edit',deputyadmin:'Full Edit',  editorial:'View',            operations:'Full Edit', production:'View',      prodmgmt:'View + Export',afm:'—',      capstaff:'—',         content:'View',     finance:'View',  director:'—'},
   ]},
@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.379';
+const BUILD_VERSION='3.10.380';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -2161,7 +2161,7 @@ function renderHome(){
       mk('ros','Studio Script Build',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,'#c084fc','rgba(192,132,252,.1)',['admin','deputyadmin','editorial','content','operations','finance','director'].includes(role),'Build the episode studio script with duration calculator'),
       mk('fcc','Script Cover Page',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>`,'#f7768e','rgba(247,118,142,.1)',['admin','deputyadmin','production','prodmgmt','finance'].includes(role),'Studio Script with timecode and segment durations'),
       mk('transcripts','Transcripts',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`,'#06b6d4','rgba(6,182,212,.1)',['admin','deputyadmin','production','transcripts'].includes(role),'Commission and live show transcripts'),
-      mk('callsheet','Studio Call Sheet',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,'#e3b341','rgba(227,179,65,.1)',['admin','deputyadmin','operations','production','prodmgmt','finance'].includes(role),'Studio call sheet and running order per episode'),
+      mk('callsheet','Studio Call Sheet',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,'#e3b341','rgba(227,179,65,.1)',CS_VIEW_ROLES.includes(role),'Studio call sheet and running order per episode'),
       mk('credits','End Credits','Per Episode',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,'#d2a8ff','rgba(210,168,255,.1)',['admin','deputyadmin','operations','finance'].includes(role),'Edit and export end credits for each episode'),
       mk('studio','Studio Crew & Schedule','Per Episode',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/><circle cx="18" cy="8" r="3"/><path d="M22 21a5 5 0 00-8-4"/></svg>`,'#3fb950','rgba(63,185,80,.1)',SC_VIEW_ROLES.includes(role),'Regular crew, episode changes and the monthly Studio Schedule export'),
     ].filter(Boolean)},
@@ -2322,7 +2322,7 @@ function renderSidebar(){
     item('ros','Studio Script Build',['admin','deputyadmin','editorial','content','operations','finance','director'].includes(role)),
     item('fcc','Script Cover Page',['admin','deputyadmin','production','prodmgmt','finance'].includes(role)),
     item('transcripts','Transcripts',['admin','deputyadmin','production','transcripts'].includes(role)),
-    item('callsheet','Studio Call Sheet',['admin','deputyadmin','operations','production','prodmgmt','finance'].includes(role)),
+    item('callsheet','Studio Call Sheet',CS_VIEW_ROLES.includes(role)),
     item('credits','End Credits',['admin','deputyadmin','operations','finance'].includes(role)),
     item('studio','Studio Crew & Schedule',SC_VIEW_ROLES.includes(role)),
   ].filter(Boolean);
@@ -2445,7 +2445,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='episodes'&&role!=='afm'&&role!=='transcripts')return renderEpisodes(epNums,paid,remaining);
   if(tab==='studiosched')tab='studio'; // old Studio Schedule tab now lives inside Studio Crew & Schedule
   if(tab==='studio'&&SC_VIEW_ROLES.includes(role))return renderStudioCrew(epNums);
-  if(tab==='callsheet'&&['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role))return renderCallSheet(epNums);
+  if(tab==='callsheet'&&CS_VIEW_ROLES.includes(role))return renderCallSheet(epNums);
   if(tab==='credits'&&['admin','deputyadmin','operations','production'].includes(role))return renderEndCredits(epNums);
   if(tab==='promos'&&['admin','deputyadmin','operations','prodmgmt','editorial','finance'].includes(role))return renderPromoScheduling(epNums);
   if(tab==='musiccues'&&['admin','deputyadmin','operations','afm','production','finance'].includes(role))return renderMusicCues(epNums);
@@ -7371,18 +7371,35 @@ function csPreRecSched(ep,prs){
 // Call-time rows for the episode. On a pre-record day the single Anchor 1/2 rows become one pair
 // per pre-record + the live pair (names from the Presenter Calendar), plus Set Crew & Lighting.
 function csCallTimeRows(ep){
+  // Names on these rows are locked (v3.10.380): crew from Studio Crew & Schedule, anchors from the
+  // Presenter Calendar. Only the times are typed here. Facilities Crew / Set Crew / Lighting stay typed.
   const prs=csPreRecEps(ep);
-  const std=[{key:'ctProd',label:'Production'},{key:'ctDirector',label:'Studio Director'},{key:'ctAsstDir',label:'Assistant Director'},{key:'ctFloorMgr',label:'Floor Manager'},{key:'ctAutocue',label:'Autocue'},{key:'ctFacilities',label:'Facilities Crew'}];
-  if(!prs.length)return[{key:'ctMakeup',label:'Make-Up & Styling'},{key:'ctAnchor1',label:'Anchor 1'},{key:'ctAnchor2',label:'Anchor 2'},...std];
-  const rows=[{key:'ctMakeup',label:'Make-Up & Styling'}];
-  prs.forEach(n=>{const a=getStudioAnchors(n);
-    rows.push({key:`ctPR${n}A1`,label:`Pre-Record - EP ${n} - Anchor 1`,auto:a.anchor1});
-    rows.push({key:`ctPR${n}A2`,label:`Pre-Record - EP ${n} - Anchor 2`,auto:a.anchor2});});
+  const crew=(key,label,f)=>({key,label,auto:f==='makeup'?scMakeup(ep):scVal(ep,f),src:'crew'});
+  const std=[crew('ctProd','Production','production'),crew('ctDirector','Studio Director','studioDirector'),crew('ctAsstDir','Assistant Director','assistantDirector'),crew('ctFloorMgr','Floor Manager','floorManager'),crew('ctAutocue','Autocue','autocueOperator'),{key:'ctFacilities',label:'Facilities Crew'}];
   const l=getStudioAnchors(ep);
-  rows.push({key:'ctAnchor1',label:`Live Broadcast - EP ${ep} - Anchor 1`,auto:l.anchor1});
-  rows.push({key:'ctAnchor2',label:`Live Broadcast - EP ${ep} - Anchor 2`,auto:l.anchor2});
+  if(!prs.length)return[crew('ctMakeup','Make-Up & Styling','makeup'),{key:'ctAnchor1',label:'Anchor 1',auto:l.anchor1,src:'cal'},{key:'ctAnchor2',label:'Anchor 2',auto:l.anchor2,src:'cal'},...std];
+  const rows=[crew('ctMakeup','Make-Up & Styling','makeup')];
+  prs.forEach(n=>{const a=getStudioAnchors(n);
+    rows.push({key:`ctPR${n}A1`,label:`Pre-Record - EP ${n} - Anchor 1`,auto:a.anchor1,src:'cal'});
+    rows.push({key:`ctPR${n}A2`,label:`Pre-Record - EP ${n} - Anchor 2`,auto:a.anchor2,src:'cal'});});
+  rows.push({key:'ctAnchor1',label:`Live Broadcast - EP ${ep} - Anchor 1`,auto:l.anchor1,src:'cal'});
+  rows.push({key:'ctAnchor2',label:`Live Broadcast - EP ${ep} - Anchor 2`,auto:l.anchor2,src:'cal'});
   rows.push({key:'ctSetCrew',label:'Set Crew'},{key:'ctLighting',label:'Lighting Operator'});
   return[...rows,...std];
+}
+const CS_EDIT_ROLES=['admin','deputyadmin','prodmgmt','production'];
+const CS_VIEW_ROLES=[...CS_EDIT_ROLES,'operations','finance'];
+// Contacts + anchors are never typed on the Call Sheet: they're laid over the saved sheet every time
+// it's shown, exported or saved, from Studio Crew & Schedule and the Presenter Calendar.
+const CS_CREW_CONTACTS=[['producer','production'],['editorialMgr','editorialMgr'],['director','studioDirector'],['asstDir','assistantDirector'],['floorMgr','floorManager'],['autocue','autocueOperator'],['eng1','engineer1'],['eng2','engineer2'],['facMgr','facilitiesMgr']];
+function csWithCrew(ep,cs){
+  const o={...(cs||{})};
+  CS_CREW_CONTACTS.forEach(([cf,sf])=>{o[cf]=scVal(ep,sf);o[cf+'Cell']=scVal(ep,sf+'Cell');});
+  o.makeup=scMakeup(ep);
+  o.makeupCell=[scVal(ep,'makeupArtistCell'),scVal(ep,'studioStylistCell')].filter(Boolean).join(' / ');
+  const a=getStudioAnchors(ep);o.anchor1Name=a.anchor1||'';o.anchor2Name=a.anchor2||'';
+  csCallTimeRows(ep).forEach(r=>{if('auto' in r)o[r.key+'_name']=r.auto||'';});
+  return o;
 }
 // Anchor groups for the Anchors section: pre-records first, then the live broadcast.
 function csAnchorGroups(ep){
@@ -7417,7 +7434,7 @@ function csGetAllNames(cs){
 }
 function renderCallSheet(epNums){
   const role=getEffectiveRole();
-  const canEdit=['admin','deputyadmin','operations','production','prodmgmt','finance'].includes(role);
+  const canEdit=CS_EDIT_ROLES.includes(role);
   if(!csCurrentEp){
     const today=new Date().toISOString().split('T')[0];
     const epList=epNums.sort((a,b)=>a-b).map(ep=>{
@@ -7433,17 +7450,17 @@ function renderCallSheet(epNums){
   const ep=csCurrentEp;const epDate=resolveDate(ep);
   const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'';
   const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
-  const cs=callSheetData[String(ep)]||{};
+  const cs=csWithCrew(ep,callSheetData[String(ep)]);
   const otherEps=epNums.filter(n=>n!==ep&&callSheetData[String(n)]);
   const allNames=csGetAllNames(cs);
   const lbl=(t)=>`<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:5px">${t}</div>`;
   const finp=(f,ph)=>canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${f}" value="${esc(cs[f]||'')}" placeholder="${ph}" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:17px;padding:8px 10px;outline:none;font-family:inherit">`:`<div style="font-size:17px;color:${cs[f]?'#eaf0ff':'#484f58'};padding:6px 0">${esc(cs[f]||'—')}</div>`;
   const nameCell=(f,ph)=>canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${f}" value="${esc(cs[f]||'')}" placeholder="${ph}" style="flex:1;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:17px;padding:8px 10px;outline:none;font-family:inherit">`:`<div style="flex:1;font-size:17px;color:${cs[f]?'#eaf0ff':'#484f58'};padding:6px 0">${esc(cs[f]||'—')}</div>`;
-  const cellInp=(f)=>canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${f}" value="${esc(cs[f]||'')}" placeholder="Cell number" style="width:140px;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#6b7280;font-size:16px;padding:8px 10px;outline:none;font-family:inherit">`:`<div style="width:140px;font-size:16px;color:${cs[f]?'#8b949e':'#484f58'};padding:6px 0">${esc(cs[f]||'—')}</div>`;
-  const contactRow=(nf,cf,label)=>`<div style="margin-bottom:10px">${lbl(label)}<div style="display:flex;gap:8px">${nameCell(nf,'Name')}${cellInp(cf)}</div></div>`;
-  const anchorBlock=(nf,pf,tf,label)=>`<div style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #d1dae8">${lbl(label)}
-    ${canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${nf}" value="${esc(cs[nf]||'')}" placeholder="Anchor name" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:17px;padding:8px 10px;outline:none;font-family:inherit;display:block">`:`<div style="font-size:17px;color:${cs[nf]?'#eaf0ff':'#484f58'}">${esc(cs[nf]||'—')}</div>`}
-  </div>`;
+  const lockSt='background:#f1f5f9;border:1px solid #e2e8f0;border-radius:5px;padding:8px 10px;font-size:17px';
+  const contactRow=(nf,cf,label)=>`<div style="margin-bottom:10px">${lbl(label)}<div style="display:flex;gap:8px">
+    <div style="flex:1;${lockSt};color:${cs[nf]?'#111827':'#9ca3af'}" title="From Studio Crew & Schedule">${esc(cs[nf]||'Not set in Studio Crew')}</div>
+    <div style="width:140px;${lockSt};font-size:16px;color:#4b5563;font-family:monospace" title="From Studio Crew & Schedule">${esc(cs[cf]||'—')}</div></div></div>`;
+  const crewNote=`<div style="font-size:12px;color:#9ca3af;margin-top:4px">🔒 From Studio Crew &amp; Schedule — change them there</div>`;
   const nameCell2=(v,cls,ep,idx)=>canEdit?`<input class="${cls}" data-ep="${ep}" data-idx="${idx}" value="${esc(v)}" placeholder="Name" style="flex:1;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:17px;padding:8px 10px;outline:none;font-family:inherit">`:`<div style="flex:1;font-size:17px;color:${v?'#eaf0ff':'#484f58'};padding:6px 0">${esc(v||'—')}</div>`;
   const timeCell2=(v,cls,ep,idx)=>canEdit?`<input class="${cls}" data-ep="${ep}" data-idx="${idx}" value="${esc(v)}" placeholder="00:00" style="width:100px;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#e3b341;font-size:17px;padding:8px 10px;outline:none;font-family:monospace;text-align:center">`:`<div style="width:100px;font-size:17px;color:#e3b341;font-family:monospace;text-align:center">${esc(v||'—')}</div>`;
   const ctRow=(key,label)=>`<div style="margin-bottom:10px">${lbl(label)}<div style="display:flex;gap:8px">
@@ -7469,12 +7486,14 @@ function renderCallSheet(epNums){
         ${lbl('Anchor 1')}<div style="font-size:17px;font-weight:600;color:${g.anchor1?'#111827':'#9ca3af'};margin-bottom:8px">${esc(g.anchor1||'Not marked on Presenter Calendar')}</div>
         ${lbl('Anchor 2')}<div style="font-size:17px;font-weight:600;color:${g.anchor2?'#111827':'#9ca3af'}">${esc(g.anchor2||'Not marked on Presenter Calendar')}</div>
       </div>`).join('')+`<div style="font-size:12px;color:#9ca3af">From the Presenter Calendar (each episode's TX date)</div>`
-    :anchorBlock('anchor1Name','anchor1Pres','anchor1Topics','Anchor 1')+anchorBlock('anchor2Name','anchor2Pres','anchor2Topics','Anchor 2');
-  const ctAutoRow=(key,label,name)=>`<div style="margin-bottom:10px">${lbl(label)}<div style="display:flex;gap:8px;align-items:center">
-    <div style="flex:1;font-size:17px;font-weight:600;color:${name?'#111827':'#9ca3af'};padding:6px 0">${esc(name||'Not on Presenter Calendar')}</div>
+    :`${lbl('Anchor 1')}<div style="font-size:17px;font-weight:600;color:${cs.anchor1Name?'#111827':'#9ca3af'};margin-bottom:12px">${esc(cs.anchor1Name||'Not marked on Presenter Calendar')}</div>
+       ${lbl('Anchor 2')}<div style="font-size:17px;font-weight:600;color:${cs.anchor2Name?'#111827':'#9ca3af'};margin-bottom:12px">${esc(cs.anchor2Name||'Not marked on Presenter Calendar')}</div>
+       <div style="font-size:12px;color:#9ca3af">🔒 From the Presenter Calendar (STUDIO on the TX date) — change them there</div>`;
+  const ctAutoRow=(key,label,name,src)=>`<div style="margin-bottom:10px">${lbl(label)}<div style="display:flex;gap:8px;align-items:center">
+    <div style="flex:1;font-size:17px;font-weight:600;color:${name?'#111827':'#9ca3af'};padding:6px 0" title="${src==='crew'?'From Studio Crew & Schedule':'From the Presenter Calendar'}">🔒 ${esc(name||(src==='crew'?'Not set in Studio Crew':'Not on Presenter Calendar'))}</div>
     ${canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${key+'_time'}" value="${esc(cs[key+'_time']||'')}" placeholder="00:00" style="width:100px;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#e3b341;font-size:17px;padding:8px 10px;outline:none;font-family:monospace;text-align:center">`:`<div style="width:100px;font-size:17px;color:#e3b341;font-family:monospace;text-align:center">${esc(cs[key+'_time']||'—')}</div>`}
   </div></div>`;
-  const callTimesHtml=csCallTimeRows(ep).map(r=>'auto' in r?ctAutoRow(r.key,r.label,r.auto):ctRow(r.key,r.label)).join('');
+  const callTimesHtml=csCallTimeRows(ep).map(r=>'auto' in r?ctAutoRow(r.key,r.label,r.auto,r.src):ctRow(r.key,r.label)).join('');
   const schedList=csGetSched(cs);
   const schedRows=schedList.map((si,ri)=>`<tr style="border-bottom:2px solid #e8edf5">
     <td style="padding:8px 10px;min-width:220px">${canEdit?`<input class="cs-sched-label" data-ep="${ep}" data-key="${si.key}" value="${esc(si.label||'')}" placeholder="Activity" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:16px;font-weight:700;padding:8px 10px;outline:none;font-family:inherit">`:`<span style="font-size:17px;font-weight:700;color:#111827">${esc(si.label||'—')}</span>`}</td>
@@ -7534,10 +7553,12 @@ function renderCallSheet(epNums){
         <div style="background:#f9fafb;border:1px solid #d1dae8;border-radius:10px;padding:18px 20px">
           <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #d1dae8">Production Contacts</div>
           ${contactRow('producer','producerCell','Production Coordinator')}${contactRow('editorialMgr','editorialMgrCell','Editorial Manager')}${contactRow('director','directorCell','Studio Director')}${contactRow('asstDir','asstDirCell','Assistant Director')}${contactRow('floorMgr','floorMgrCell','Floor Manager')}${contactRow('autocue','autocueCell','Autocue')}${contactRow('makeup','makeupCell','Make-Up & Styling')}
+          ${crewNote}
         </div>
         <div style="background:#f9fafb;border:1px solid #d1dae8;border-radius:10px;padding:18px 20px">
           <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #d1dae8">Facilities Contacts</div>
           ${contactRow('eng1','eng1Cell','Engineer 1')}${contactRow('eng2','eng2Cell','Engineer 2')}${contactRow('facMgr','facMgrCell','Facilities Manager')}
+          ${crewNote}
           <div style="margin-bottom:10px">${lbl('Studio Location')}${finp('location','Facilities name & address')}</div>
           <div style="margin-top:14px;padding-top:12px;border-top:1px solid #d1dae8">
             <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:10px">Notes</div>
@@ -12078,8 +12099,7 @@ function csFlushAndGet(){
     extras[i].designation=el.value.trim();
   });
   cs.extraCallTimes=extras.filter(Boolean);
-  csCallTimeRows(ep).forEach(r=>{if('auto' in r)cs[r.key+'_name']=r.auto||'';});
-  return cs;
+  return csWithCrew(ep,cs);
 }
 function csExportPDF(){
   const ep=csCurrentEp;
