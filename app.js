@@ -16,7 +16,7 @@ const ROLE_META={admin:{label:'Super Admin',color:'#58a6ff',bg:'rgba(88,166,255,
 const PERM_MAP=[
   {group:'CONTENT',rows:[
     {label:'Commission List',   admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'Partial Edit',   operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'—'},
-    {label:'Line-Ups',          admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'Full Edit',       operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'View',    transcripts:'View'},
+    {label:'Line-Ups',          admin:'Full Edit',  deputyadmin:'View',       editorial:'Full Edit',       operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'View',    transcripts:'View'},
     {label:'Broadcast List',    admin:'View',       deputyadmin:'View',       editorial:'View',            operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'View'},
     {label:'Episode Register',  admin:'View',       deputyadmin:'View',       editorial:'View',            operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'View'},
   ]},
@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.392';
+const BUILD_VERSION='3.10.393';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -8947,9 +8947,11 @@ function renderBroadcastList(){
   </div>`;
 }
 
+// Line-Ups editing: Super Admin + Editorial only (v3.10.393); everyone else who can open it views.
+function luCanEdit(){return['admin','editorial'].includes(getEffectiveRole());}
 function renderLineups(epNums){
   const role=getEffectiveRole();
-  const canEdit=['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(role);
+  const canEdit=luCanEdit();
   const today=new Date().toISOString().split('T')[0];
   const activeComms=comms.filter(c=>!c.decommissioned);
   const insertsInProd=activeComms.filter(c=>{
@@ -12081,6 +12083,7 @@ document.addEventListener('input',function luInputHandler(e){
   }
   // Live studio duration
   if(e.target.classList.contains('lu-live-note')){
+    if(!luCanEdit())return;
     const ep=e.target.dataset.ep;
     const idx=Number(e.target.dataset.idx);
     if(!ep||!lineups[ep]||!lineups[ep].items[idx])return;
@@ -12090,6 +12093,7 @@ document.addEventListener('input',function luInputHandler(e){
     return;
   }
   if(e.target.classList.contains('lu-live-dur')){
+    if(!luCanEdit())return;
     const ep=e.target.dataset.ep;
     const idx=Number(e.target.dataset.idx);
     if(!ep||!lineups[ep]||!lineups[ep].items[idx])return;
@@ -12113,6 +12117,7 @@ function luFlushFields(){
 }
 document.addEventListener('change',function luChangeHandler(e){
   if(e.target.classList.contains('lu-add-comm')){
+    if(!luCanEdit())return;
     const ep=e.target.dataset.ep;
     const cn=e.target.value;
     if(!cn||!ep)return;
@@ -12187,6 +12192,7 @@ document.addEventListener('click',function luHeaderToggle(e){
 document.addEventListener('click',function luClickHandler(e){
   const upBtn=e.target.closest('.lu-move-up'),dnBtn=e.target.closest('.lu-move-dn');
   if(upBtn||dnBtn){
+    if(!luCanEdit())return;
     const btn=upBtn||dnBtn;
     const ep=btn.dataset.ep;const idx=Number(btn.dataset.idx);
     if(!ep)return;
@@ -12201,6 +12207,7 @@ document.addEventListener('click',function luClickHandler(e){
     saveLineup(ep,lineups[ep]);luFlushFields();render();return;
   }
   if(e.target.classList.contains('lu-add-live')||e.target.closest('.lu-add-live')){
+    if(!luCanEdit())return;
     const btn=e.target.classList.contains('lu-add-live')?e.target:e.target.closest('.lu-add-live');
     const ep=btn.dataset.ep;if(!ep)return;
     if(!lineups[ep])lineups[ep]={director:'',presenter1:'',presenter2:'',items:[]};
@@ -12209,6 +12216,7 @@ document.addEventListener('click',function luClickHandler(e){
     saveLineup(ep,lineups[ep]);luFlushFields();render();return;
   }
   if(e.target.classList.contains('lu-remove-item')||e.target.closest('.lu-remove-item')){
+    if(!luCanEdit())return;
     const btn=e.target.classList.contains('lu-remove-item')?e.target:e.target.closest('.lu-remove-item');
     const ep=btn.dataset.ep;const idx=Number(btn.dataset.idx);
     const commNum=btn.dataset.commnum||'';
