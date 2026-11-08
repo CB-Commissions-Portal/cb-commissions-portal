@@ -15,7 +15,7 @@ const ROLE_META={admin:{label:'Super Admin',color:'#58a6ff',bg:'rgba(88,166,255,
 // Values: 'Full Edit' | 'Edit' | 'View' | string (partial) | '—'
 const PERM_MAP=[
   {group:'CONTENT',rows:[
-    {label:'Commission List',   admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'View',           operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'—'},
+    {label:'Commission List',   admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'Partial Edit',   operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'—'},
     {label:'Line-Ups',          admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'Full Edit',       operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'View',    transcripts:'View'},
     {label:'Broadcast List',    admin:'View',       deputyadmin:'View',       editorial:'View',            operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'View'},
     {label:'Episode Register',  admin:'View',       deputyadmin:'View',       editorial:'View',            operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'View'},
@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.390';
+const BUILD_VERSION='3.10.391';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -9378,7 +9378,8 @@ function renderModals(epNums,nextEp){
       const _epNums2=getEpNums();
       const _nextEp2=((_epNums2.length?Math.max(..._epNums2):0)+1);
       const _epOpts=_epNums2.map(n=>`<option value="${n}"${_c.broadcastEpisode==n?' selected':''}>Ep ${n}</option>`).join('');
-      const _nextOpt=!_epNums2.includes(_nextEp2)?`<option value="${_nextEp2}">+ Ep ${_nextEp2}</option>`:'';
+      // Editorial (v3.10.391) may move a story between existing episodes, but not create a new episode
+      const _nextOpt=_canAdmin&&!_epNums2.includes(_nextEp2)?`<option value="${_nextEp2}">+ Ep ${_nextEp2}</option>`:'';
       // Crew inputs (admin/deputyadmin/operations)
       const _canCrew=_canAdmin||_role==='operations';
       function _ci(id,field,ph,color){
@@ -9400,7 +9401,7 @@ function renderModals(epNums,nextEp){
       const _paidDisabled=!canEdit(_role,'approvedForPayment')||_c.isInHouse;
       const _paidChecked=!!_c.approvedForPayment;
       const _insertDisabled=!_canAdmin;
-      const _epDisabled=!_canAdmin;
+      const _epDisabled=!(_canAdmin||_role==='editorial');
       // Repeat airings — Repeat Content episodes this story also airs in (plus any already linked)
       const _rptLinked=commRepeatEps(_c);
       const _rptEps=[...new Set([..._epNums2.filter(n=>isRepeatContent(n)).map(String),..._rptLinked])]
@@ -10173,6 +10174,10 @@ function bindApp(){
     if(canEdit(role,'approvedForPayment')&&!c.isInHouse){const el=document.getElementById('cem-paid');if(el)updateComm(id,'approvedForPayment',el.checked);}
     if(role==='admin'||role==='deputyadmin'){const el=document.getElementById('cem-insert-cost');if(el)updateComm(id,'totalInsertCost',el.value.trim());}
     if(role==='admin'||role==='deputyadmin'){const el=document.getElementById('cem-episode');if(el)assignEpisode(id,el.value);}
+    else if(role==='editorial'){ // existing episodes only (or none)
+      const el=document.getElementById('cem-episode');
+      if(el&&el.value!==String(c.broadcastEpisode||'')&&(el.value===''||getEpNums().includes(Number(el.value))))assignEpisode(id,el.value);
+    }
     if(role==='admin'){const el=document.getElementById('cem-prev-season');if(el&&el.checked!==!!c.prevSeason)updateComm(id,'prevSeason',el.checked);}
     // Repeat airings
     if(role==='admin'||role==='deputyadmin'){
