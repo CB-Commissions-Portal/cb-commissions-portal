@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.385';
+const BUILD_VERSION='3.10.386';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -5785,7 +5785,7 @@ function renderPresenterCalendar(){
           <span style="font-size:18px;font-weight:800;color:#111827;min-width:160px;text-align:center">${Object.keys(months)[presCalViewMonth]}</span>
           <button id="prescal-next" class="btn" style="font-size:15px;padding:8px 16px" ${presCalViewMonth>=Object.keys(months).length-1?'disabled':''}>Next ▶</button>
           ${canEd?`<button id="prescal-extend" class="btn" style="font-size:15px;padding:8px 16px;margin-left:8px;border-color:#388bfd;color:#388bfd">+ 3 months</button>`:''}
-          ${presCalCanExport()?`<button id="prescal-export" class="btn" style="font-size:15px;padding:8px 16px;margin-left:8px">⬇ Export Studio</button>`:''}
+          ${presCalCanExport()?`<button id="prescal-export" class="btn" style="font-size:15px;padding:8px 16px;margin-left:8px">⬇ Export Studio</button><button id="prescal-shift" class="btn" style="font-size:15px;padding:8px 16px">⬇ Shift Summary</button>`:''}
         </div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
@@ -5808,8 +5808,9 @@ function renderPresenterCalendar(){
 // One row per episode in the chosen range: TX date + the presenters marked STUDIO on that
 // Sunday (same rule as getStudioAnchors / preRecPresenters — the calendar is marked by TX date).
 function presCalCanExport(){return currentRole==='admin'&&!previewRole;}
-function presCalStudioRows(fromEp,toEp){
-  return getEpNums().filter(n=>n>=fromEp&&n<=toEp).map(n=>{
+function presCalStudioRows(fromEp,toEp){return presCalRowsFor(getEpNums().filter(n=>n>=fromEp&&n<=toEp));}
+function presCalRowsFor(epList){
+  return epList.map(n=>{
     const tx=resolveDate(n);
     const day=tx?(presCalData[tx]||{}):{};
     const names=PRESENTERS.filter(p=>presCalEntries(day[p.key]).some(e=>e.studio)).map(p=>p.full||p.label);
@@ -5825,7 +5826,7 @@ function presCalShiftCounts(rows){
   const count=p=>rows.filter(r=>r.names.includes(p.full||p.label)).length;
   const main=PRESCAL_SHIFT_ORDER.map(k=>PRESENTERS.find(p=>p.key===k)).filter(Boolean);
   const others=PRESENTERS.filter(p=>!PRESCAL_SHIFT_ORDER.includes(p.key)&&count(p)>0);
-  return[...main,...others].map(p=>({name:p.full||p.label,shifts:count(p)}));
+  return[...main,...others].map(p=>({name:p.full||p.label,shifts:count(p),eps:rows.filter(r=>r.names.includes(p.full||p.label)).map(r=>r.ep)}));
 }
 function presCalStudioTitle(fromEp,toEp){
   const e=n=>'EP'+n;
@@ -5877,8 +5878,6 @@ function exportPresCalStudioPDF(fromEp,toEp){
       <td style="${tdS};font-weight:700">${pres(0)}</td>
       <td style="${tdS};font-weight:700">${pres(1)}${extra}</td></tr>`;
   }).join('');
-  const shifts=presCalShiftCounts(rows);
-  const shiftRows=shifts.map((x,i)=>`<tr style="background:${i%2?'#f7f9fc':'#fff'}"><td style="${tdS};font-weight:700">${esc(x.name)}</td><td style="${tdS};text-align:center;font-weight:800;${x.shifts?'':'color:#bbb'}">${x.shifts}</td></tr>`).join('');
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carte Blanche ${title} - Studio Presenters</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:10pt;padding:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm;size:A4 portrait}table{width:100%;border-collapse:collapse}tr{page-break-inside:avoid}thead{display:table-header-group}</style>
   </head><body>
@@ -5897,14 +5896,6 @@ function exportPresCalStudioPDF(fromEp,toEp){
     <thead><tr><th style="${thS}">Episode</th><th style="${thS}">TX Date</th><th style="${thS}">Presenter 1</th><th style="${thS}">Presenter 2</th></tr></thead>
     <tbody>${body}</tbody>
   </table>
-  <div style="page-break-inside:avoid;margin-top:18px;width:60%">
-    <div style="background:#1a3a6a;color:#fff;padding:7px 12px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Shift Summary · ${fromEp===toEp?'Episode '+fromEp:'Episodes '+fromEp+'–'+toEp}</div>
-    <table style="table-layout:fixed;border:1px solid #d0d8e8;border-top:none">
-      <colgroup><col style="width:70%"><col style="width:30%"></colgroup>
-      <thead><tr><th style="${thS};background:#2d5288">Presenter</th><th style="${thS};background:#2d5288;text-align:center">Shifts</th></tr></thead>
-      <tbody>${shiftRows}</tbody>
-    </table>
-  </div>
   <div style="margin-top:14px;text-align:center;font-size:9px;color:#aaa;border-top:1px solid #ddd;padding-top:6px">CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason} · Generated: ${printDate}</div>
   </body></html>`;
   const win=window.open('','_blank');
@@ -5930,12 +5921,101 @@ async function exportPresCalStudioXLSX(fromEp,toEp){
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols']=[{wch:12},{wch:20},{wch:20},{wch:24},{wch:24},{wch:30}];
   XLSX.utils.book_append_sheet(wb,ws,'Studio Presenters');
-  const ws2=XLSX.utils.aoa_to_sheet([['Presenter','Shifts'],...presCalShiftCounts(rows).map(x=>[x.name,x.shifts])]);
-  ws2['!cols']=[{wch:26},{wch:10}];
-  XLSX.utils.book_append_sheet(wb,ws2,'Shift Summary');
   XLSX.writeFile(wb,`Carte Blanche ${presCalStudioTitle(fromEp,toEp)} - Studio Presenters.xlsx`);
   showToast('Studio presenters export downloaded ✓');
 }
+// ── Presenter Calendar: Shift Summary (own export since v3.10.386, by date range) ──
+// A shift = an episode whose TX Sunday falls in the range, for each presenter marked STUDIO that day
+// (pre-record + repeat episodes included — same rule the Studio export used).
+function presCalShiftRange(){
+  let a=document.getElementById('prescal-sh-from')?.value||'',b=document.getElementById('prescal-sh-to')?.value||'';
+  if(a&&b&&a>b)[a,b]=[b,a];
+  return[a,b];
+}
+function presCalShiftData(from,to){
+  const eps=getEpNums().filter(n=>{const tx=resolveDate(n);return tx&&tx>=from&&tx<=to;});
+  const rows=presCalRowsFor(eps);
+  return{rows,shifts:presCalShiftCounts(rows)};
+}
+function presCalShiftLabel(from,to){return`${fmtDate(from)} – ${fmtDate(to)}`;}
+function openPresCalShiftModal(){
+  if(!presCalCanExport())return;
+  document.getElementById('prescal-sh-overlay')?.remove();
+  const t=new Date();const ym=t.toISOString().slice(0,7);
+  const last=new Date(Date.UTC(t.getUTCFullYear(),t.getUTCMonth()+1,0)).toISOString().slice(0,10);
+  const ov=document.createElement('div');
+  ov.className='modal-overlay';ov.id='prescal-sh-overlay';
+  ov.innerHTML=`<div class="modal" style="max-width:460px">
+    <h3>Presenter Shift Summary</h3>
+    <p>Counts one shift per episode whose <b>TX Sunday</b> falls between these dates, for each presenter marked <b>STUDIO</b> (pre-records and repeats included).</p>
+    <label>From date</label><input type="date" id="prescal-sh-from" value="${ym}-01">
+    <label>To date</label><input type="date" id="prescal-sh-to" value="${last}">
+    <div class="modal-actions">
+      <button class="btn" id="prescal-sh-cancel">Cancel</button>
+      <button class="btn" id="prescal-sh-xlsx">⬇ Excel</button>
+      <button class="btn primary" id="prescal-sh-pdf">⬇ PDF</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+}
+function exportPresCalShiftPDF(from,to){
+  const{rows,shifts}=presCalShiftData(from,to);
+  const printDate=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
+  const thS='padding:8px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#fff;background:#1a3a6a;text-align:left';
+  const tdS='padding:8px 10px;font-size:12px;vertical-align:top;border-bottom:1px solid #e6ecf5;white-space:normal';
+  const body=shifts.map((x,i)=>`<tr style="background:${i%2?'#f7f9fc':'#fff'}"><td style="${tdS};font-weight:700">${esc(x.name)}</td><td style="${tdS};text-align:center;font-weight:800;${x.shifts?'':'color:#bbb'}">${x.shifts}</td><td style="${tdS};font-size:11px;color:#444">${x.eps.map(n=>`EP ${n} <span style="color:#888">(${fmtDate(resolveDate(n))})</span>`).join(', ')||'<span style="color:#bbb">—</span>'}</td></tr>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carte Blanche S${currentSeason} - Presenter Shift Summary - ${from} to ${to}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:10pt;padding:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm;size:A4 portrait}table{width:100%;border-collapse:collapse}tr{page-break-inside:avoid}</style>
+  </head><body>
+  <table style="margin-bottom:12px;border-bottom:3px solid #1a3a6a">
+    <tr valign="middle">
+      <td style="width:80px;padding-bottom:10px"><img src="${BAKED_CB_LOGO}" style="height:44px;width:auto"></td>
+      <td style="text-align:center;padding:0 16px 10px">
+        <div style="font-size:17px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px">PRESENTER SHIFT SUMMARY</div>
+        <div style="font-size:11px;color:#888;margin-top:4px;font-weight:600;text-transform:uppercase">Season ${currentSeason} · ${presCalShiftLabel(from,to)} · ${rows.length} episode${rows.length===1?'':'s'}</div>
+      </td>
+      <td style="width:80px;padding-bottom:10px"><img src="${BAKED_CAP_LOGO}" style="height:36px;width:auto;max-width:76px;display:block"></td>
+    </tr>
+  </table>
+  <table style="table-layout:fixed;border:1px solid #d0d8e8">
+    <colgroup><col style="width:30%"><col style="width:12%"><col style="width:58%"></colgroup>
+    <thead><tr><th style="${thS}">Presenter</th><th style="${thS};text-align:center">Shifts</th><th style="${thS}">Episodes</th></tr></thead>
+    <tbody>${body}</tbody>
+  </table>
+  <div style="margin-top:14px;text-align:center;font-size:9px;color:#aaa;border-top:1px solid #ddd;padding-top:6px">CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason} · Generated: ${printDate}</div>
+  </body></html>`;
+  const win=window.open('','_blank');
+  if(!win){alert('Popup blocked — please allow popups for this site.');return;}
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),600);
+}
+async function exportPresCalShiftXLSX(from,to){
+  if(!window.XLSX){
+    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+  }
+  const{shifts}=presCalShiftData(from,to);
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet([[`Presenter Shift Summary · Season ${currentSeason} · ${presCalShiftLabel(from,to)}`],[],['Presenter','Shifts','Episodes'],
+    ...shifts.map(x=>[x.name,x.shifts,x.eps.map(n=>`EP ${n} (${fmtDate(resolveDate(n))})`).join(', ')])]);
+  ws['!cols']=[{wch:26},{wch:10},{wch:70}];
+  XLSX.utils.book_append_sheet(wb,ws,'Shift Summary');
+  XLSX.writeFile(wb,`Carte Blanche S${currentSeason} - Presenter Shift Summary - ${from} to ${to}.xlsx`);
+  showToast('Shift summary downloaded ✓');
+}
+document.addEventListener('click',function presCalShiftHandler(e){
+  const id=e.target.id;
+  if(id==='prescal-shift'){openPresCalShiftModal();return;}
+  if(id==='prescal-sh-cancel'||id==='prescal-sh-overlay'){document.getElementById('prescal-sh-overlay')?.remove();return;}
+  if(id==='prescal-sh-pdf'||id==='prescal-sh-xlsx'){
+    if(!presCalCanExport())return;
+    const[a,b]=presCalShiftRange();
+    if(!a||!b){showToast('Please choose both dates',true);return;}
+    document.getElementById('prescal-sh-overlay')?.remove();
+    if(id==='prescal-sh-pdf')exportPresCalShiftPDF(a,b);
+    else exportPresCalShiftXLSX(a,b).catch(err=>showToast('Export failed: '+err.message,true));
+  }
+});
 document.addEventListener('click',function presCalExportHandler(e){
   const id=e.target.id;
   if(id==='prescal-export'){openPresCalExportModal();return;}
