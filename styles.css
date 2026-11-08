@@ -371,3 +371,6 @@ test123
 /* Date inputs — make the calendar icon clearly visible and clickable (Chrome/Edge render it very faint) */
 input[type="date"]::-webkit-calendar-picker-indicator{opacity:1;cursor:pointer;width:18px;height:18px}
 input[type="date"]{cursor:pointer}
+
+/* End Credits: crew line not filled in Studio Crew yet (v3.10.383) */
+.ec-missing::placeholder{color:#b45309;opacity:1}
