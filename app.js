@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.396';
+const BUILD_VERSION='3.10.397';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -5819,6 +5819,11 @@ function presCalRowsFor(epList){
     return{ep:n,tx,rx,names};
   });
 }
+// Badges for the Presenter Calendar exports (v3.10.397): Normal/Extended + Pre-Record Day (a live show
+// on whose TX date one or more pre-records are recorded — same link as the Call Sheet, csPreRecEps).
+const PC_TAG_ST={NORMAL:'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0','★ EXTENDED':'background:#fef3c7;color:#b45309;border:1px solid #fde68a','PRE-RECORD DAY':'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd'};
+function presCalBadgeHtml(t,size=9){return`<span style="display:inline-block;font-size:${size}px;font-weight:800;padding:1px 6px;border-radius:3px;letter-spacing:.4px;white-space:nowrap;margin:2px 4px 0 0;${PC_TAG_ST[t]||''}">${esc(t)}</span>`;}
+function presCalPreRecDay(n){return isPreRecordEp(n)?[]:csPreRecEps(n);}
 // Shift Summary order requested by the user; anyone else only appears if they actually have shifts
 const PRESCAL_SHIFT_ORDER=['claire','masa','govan','erin','macfarlane','lourensa'];
 function presCalShiftCounts(rows){
@@ -5869,12 +5874,14 @@ function exportPresCalStudioPDF(fromEp,toEp){
   const tdS='padding:8px 10px;font-size:12px;vertical-align:middle;border-bottom:1px solid #e6ecf5';
   const body=rows.map((r,i)=>{
     // One tag per line — a joined "PRE-RECORD · REPEAT" overflowed into the TX Date column
-    const tags=[isPreRecordEp(r.ep)?'PRE-RECORD':'',isRepeatContent(r.ep)?'REPEAT':''].filter(Boolean).map(t=>`<div style="font-size:9px;color:#b45309;font-weight:800;margin-top:2px;white-space:normal">${t}</div>`).join('');
+    const prs=presCalPreRecDay(r.ep);
+    const tags=`<div style="white-space:normal">${presCalBadgeHtml(epTypeOf(r.ep)==='extended'?'★ EXTENDED':'NORMAL')}${prs.length?presCalBadgeHtml('PRE-RECORD DAY'):''}</div>`
+      +[isPreRecordEp(r.ep)?'PRE-RECORD':'',isRepeatContent(r.ep)?'REPEAT':''].filter(Boolean).map(t=>`<div style="font-size:9px;color:#b45309;font-weight:800;margin-top:2px;white-space:normal">${t}</div>`).join('');
     const pres=i=>r.names[i]?esc(r.names[i]):'<span style="color:#bbb">—</span>';
     const extra=r.names.length>2?`<div style="font-size:10px;color:#888;margin-top:2px">+ ${r.names.slice(2).map(esc).join(', ')}</div>`:'';
     return`<tr style="background:${i%2?'#f7f9fc':'#fff'}">
       <td style="${tdS};font-weight:800">EP ${String(r.ep).padStart(2,'0')}${tags}</td>
-      <td style="${tdS};white-space:nowrap">${longDate(r.tx)}${isPreRecordEp(r.ep)?`<div style="font-size:10px;color:#b45309;font-weight:700;margin-top:2px">Recorded: ${r.rx?longDate(r.rx):'RX date not set'}</div>`:''}</td>
+      <td style="${tdS};white-space:nowrap">${longDate(r.tx)}${isPreRecordEp(r.ep)?`<div style="font-size:10px;color:#b45309;font-weight:700;margin-top:2px">Recorded: ${r.rx?longDate(r.rx):'RX date not set'}</div>`:''}${prs.length?`<div style="font-size:10px;color:#5b21b6;font-weight:700;margin-top:2px;white-space:normal">Also recording ${prs.map(p=>'EP '+p).join(' &amp; ')}</div>`:''}</td>
       <td style="${tdS};font-weight:700">${pres(0)}</td>
       <td style="${tdS};font-weight:700">${pres(1)}${extra}</td></tr>`;
   }).join('');
@@ -5909,17 +5916,18 @@ async function exportPresCalStudioXLSX(fromEp,toEp){
     await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
   }
   const rows=presCalStudioRows(fromEp,toEp);
-  const aoa=[['Episode','TX Date','Recording Date','Presenter 1','Presenter 2','Notes'],...rows.map(r=>[
+  const aoa=[['Episode','Format','TX Date','Recording Date','Presenter 1','Presenter 2','Notes'],...rows.map(r=>[
     `S${currentSeason} EP${r.ep}`,
+    epTypeOf(r.ep)==='extended'?'Extended':'Normal',
     r.tx?fmtDate(r.tx):'',
     r.rx?fmtDate(r.rx):(isPreRecordEp(r.ep)?'Not set':''),
     r.names[0]||'',
     r.names[1]||'',
-    [isPreRecordEp(r.ep)?'Pre-Record':'',isRepeatContent(r.ep)?'Repeat':'',r.names.length>2?'Also: '+r.names.slice(2).join(', '):''].filter(Boolean).join(' · ')
+    [presCalPreRecDay(r.ep).length?'Pre-Record Day (also recording '+presCalPreRecDay(r.ep).map(p=>'EP '+p).join(' & ')+')':'',isPreRecordEp(r.ep)?'Pre-Record':'',isRepeatContent(r.ep)?'Repeat':'',r.names.length>2?'Also: '+r.names.slice(2).join(', '):''].filter(Boolean).join(' · ')
   ])];
   const wb=XLSX.utils.book_new();
   const ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols']=[{wch:12},{wch:20},{wch:20},{wch:24},{wch:24},{wch:30}];
+  ws['!cols']=[{wch:12},{wch:10},{wch:20},{wch:20},{wch:24},{wch:24},{wch:44}];
   XLSX.utils.book_append_sheet(wb,ws,'Studio Presenters');
   XLSX.writeFile(wb,`Carte Blanche ${presCalStudioTitle(fromEp,toEp)} - Studio Presenters.xlsx`);
   showToast('Studio presenters export downloaded ✓');
@@ -5957,7 +5965,7 @@ function presCalShiftJob(kind,a,b){
     const range=a===b?`Episode ${a} (${fmtDate(resolveDate(a))})`:`Episodes ${a}–${b} (${fmtDate(resolveDate(a))} – ${fmtDate(resolveDate(b))})`;
     return{title:'STUDIO SHIFT SUMMARY',sub:range,file:`Carte Blanche ${presCalStudioTitle(a,b)} - Studio Shift Summary`,
       countHdr:'Shifts',listHdr:'Episodes',colA:'Episode',colB:'TX Date',
-      people:presCalShiftCounts(rows).map(x=>({name:x.name,count:x.shifts,items:x.eps.map(n=>[`EP ${String(n).padStart(2,'0')}`,fmtDate(resolveDate(n))])}))};
+      people:presCalShiftCounts(rows).map(x=>({name:x.name,count:x.shifts,items:x.eps.map(n=>[`EP ${String(n).padStart(2,'0')}`,fmtDate(resolveDate(n)),[epTypeOf(n)==='extended'?'★ EXTENDED':'NORMAL',presCalPreRecDay(n).length?'PRE-RECORD DAY':''].filter(Boolean)])}))};
   }
   const main=PRESCAL_SHIFT_ORDER.map(k=>PRESENTERS.find(p=>p.key===k)).filter(Boolean);
   const people=[...main,...PRESENTERS.filter(p=>!PRESCAL_SHIFT_ORDER.includes(p.key))]
@@ -6014,7 +6022,7 @@ function exportPresCalShiftPDF(kind,from,to){
   const printDate=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
   const thS='padding:8px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#fff;background:#1a3a6a;text-align:left';
   const tdS='padding:8px 10px;font-size:12px;vertical-align:top;border-bottom:1px solid #e6ecf5;white-space:normal';
-  const list=items=>items.length?`<table style="width:100%;border-collapse:collapse">${items.map(([a,b])=>`<tr><td style="padding:1px 14px 1px 0;font-weight:700;color:#111;white-space:nowrap;border:none;width:1%;vertical-align:top">${esc(a)}</td><td style="padding:1px 0;color:#555;border:none;white-space:normal;vertical-align:top">${esc(b)}</td></tr>`).join('')}</table>`:'<span style="color:#bbb">—</span>';
+  const list=items=>items.length?`<table style="width:100%;border-collapse:collapse">${items.map(([a,b,t])=>`<tr><td style="padding:1px 14px 1px 0;font-weight:700;color:#111;white-space:nowrap;border:none;width:1%;vertical-align:top">${esc(a)}</td><td style="padding:1px 0;color:#555;border:none;white-space:normal;vertical-align:top">${esc(b)}${(t||[]).map(x=>' '+presCalBadgeHtml(x)).join('')}</td></tr>`).join('')}</table>`:'<span style="color:#bbb">—</span>';
   const body=j.people.map((x,i)=>`<tr style="background:${i%2?'#f7f9fc':'#fff'}"><td style="${tdS};font-weight:700">${esc(x.name)}</td><td style="${tdS};text-align:center;font-weight:800;${x.count?'':'color:#bbb'}">${x.count}</td><td style="${tdS};font-size:11px;padding-top:6px;padding-bottom:6px">${list(x.items)}</td></tr>`).join('');
   const wide=kind!=='studio'; // story names need more room
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(j.file)}</title>
@@ -6053,10 +6061,10 @@ async function exportPresCalShiftXLSX(kind,from,to){
   const body=[];
   j.people.forEach(x=>{
     if(!x.items.length){body.push([x.name,x.count,'—','']);return;}
-    x.items.forEach(([a,b],i)=>body.push([i?'':x.name,i?'':x.count,a,b]));
+    x.items.forEach(([a,b,t],i)=>body.push([i?'':x.name,i?'':x.count,a,b,...(kind==='studio'?[(t||[]).map(v=>v.replace('★ ','')).join(' · ')]:[])]));
   });
-  const ws=XLSX.utils.aoa_to_sheet([[`${j.title} · Season ${currentSeason} · ${j.sub}`],[],['Presenter',j.countHdr,j.colA,j.colB],...body]);
-  ws['!cols']=[{wch:26},{wch:8},{wch:12},{wch:kind==='studio'?22:50}];
+  const ws=XLSX.utils.aoa_to_sheet([[`${j.title} · Season ${currentSeason} · ${j.sub}`],[],['Presenter',j.countHdr,j.colA,j.colB,...(kind==='studio'?['Show']:[])],...body]);
+  ws['!cols']=[{wch:26},{wch:8},{wch:12},{wch:kind==='studio'?22:50},{wch:28}];
   XLSX.utils.book_append_sheet(wb,ws,kind==='studio'?'Studio Shifts':'Commission Shifts');
   XLSX.writeFile(wb,`${j.file}.xlsx`);
   showToast('Shift summary downloaded ✓');
