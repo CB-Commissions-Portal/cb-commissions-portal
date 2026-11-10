@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.400';
+const BUILD_VERSION='3.10.401';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -6484,8 +6484,13 @@ async function exportStudioSchedPDF(){
     const fld=(label,val)=>`<div class="field"><div class="field-label">${label}</div><div class="field-val">${esc(val||'—')}</div></div>`;
     // Pre-record day: one or more Pre-Record eps have their RX date on this live show's TX date.
     const prs=src===n?csPreRecEps(n):[];
+    // One row per pre-record, laid out on the card's 4-column grid: label + dates across 2 columns,
+    // then the pre-record's anchors in their own columns (so names don't wrap).
     const prBar=prs.map(p=>{const nm=preRecPresenters(p).names;
-      return`<div class="pr-bar">● ALSO IN STUDIO ${esc(fmtDate(txDate))}: PRE-RECORD EP ${String(p).padStart(2,'0')} <span style="font-weight:600;opacity:.8">(airs ${esc(fmtDate(resolveDate(p)))})</span> &nbsp;—&nbsp; <span style="color:#111">${nm.length?nm.map(esc).join(' &amp; '):'<span style="color:#b45309">No presenters marked yet</span>'}</span></div>`;}).join('');
+      const an=k=>nm[k]?esc(nm[k]):(k===0&&!nm.length?'<span style="color:#b45309">Not marked yet</span>':'—');
+      return`<div class="pr-row"><div class="pr-lbl">● ALSO IN STUDIO: PRE-RECORD EP ${String(p).padStart(2,'0')}<div class="pr-sub">Recorded ${esc(fmtDate(txDate))} · airs ${esc(fmtDate(resolveDate(p)))}</div></div>
+        <div class="pr-an"><div class="field-label">Anchor 1</div><div class="field-val">${an(0)}</div></div>
+        <div class="pr-an"><div class="field-label">Anchor 2</div><div class="field-val">${an(1)}${nm.length>2?`<div style="font-size:8pt;color:#666;white-space:normal">+ ${nm.slice(2).map(esc).join(', ')}</div>`:''}</div></div></div>`;}).join('');
     return`<div class="ep-card${prs.length?' pr-day':''}">
       <div class="ep-head">
         <span class="ep-num">EP ${String(n).padStart(2,'0')}</span>
@@ -6499,7 +6504,7 @@ async function exportStudioSchedPDF(){
         ${fld('Anchor 2',anchor2)}
         ${fld('Director',scVal(n,'studioDirector'))}
         ${fld('Asst Director',scVal(n,'assistantDirector'))}
-        ${fld('Makeup &amp; Styling',scMakeup(n))}
+        ${fld('Makeup &amp; Styling',[...new Set([scVal(n,'makeupArtist'),scVal(n,'studioStylist')].filter(Boolean))].join(' / '))}
         ${fld('Autocue Operator',scVal(n,'autocueOperator'))}
         ${fld('Floor Manager',scVal(n,'floorManager'))}
         ${fld('Production',scVal(n,'production'))}
@@ -6530,7 +6535,11 @@ async function exportStudioSchedPDF(){
     .pr-day{border:2px solid #7c3aed}
     .pr-day .ep-head{background:#5b21b6}
     .pr-tag{background:#fff !important;color:#5b21b6}
-    .pr-bar{background:#ede9fe;color:#5b21b6;font-size:10pt;font-weight:800;padding:7px 16px;border-bottom:1px solid #c4b5fd}
+    .pr-row{display:grid;grid-template-columns:2fr 1fr 1fr;background:#f5f3ff;border-bottom:1px solid #c4b5fd}
+    .pr-lbl{padding:8px 14px;color:#5b21b6;font-size:10pt;font-weight:800;border-left:4px solid #7c3aed}
+    .pr-sub{font-size:8pt;font-weight:600;color:#6b7280;margin-top:2px}
+    .pr-an{padding:8px 14px;border-left:1px solid #e0ecf8}
+    .pr-an .field-val{white-space:nowrap}
     .ep-body{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0}
     .field{padding:10px 14px;border-right:1px solid #e0ecf8;border-top:1px solid #e0ecf8}
     .field:nth-child(4n){border-right:none}
