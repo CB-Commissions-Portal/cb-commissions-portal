@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.398';
+const BUILD_VERSION='3.10.399';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -6480,7 +6480,8 @@ async function exportStudioSchedPDF(){
     const fld=(label,val)=>`<div class="field"><div class="field-label">${label}</div><div class="field-val">${esc(val||'—')}</div></div>`;
     // Pre-record day: one or more Pre-Record eps have their RX date on this live show's TX date.
     const prs=src===n?csPreRecEps(n):[];
-    const prBar=prs.length?`<div class="pr-bar">● PRE-RECORD DAY &nbsp;—&nbsp; also recording ${prs.map(p=>`EP ${p} (airs ${fmtDate(resolveDate(p))})`).join(' &amp; ')}</div>`:'';
+    const prBar=prs.map(p=>{const nm=preRecPresenters(p).names;
+      return`<div class="pr-bar">● ALSO IN STUDIO ${esc(fmtDate(txDate))}: PRE-RECORD EP ${String(p).padStart(2,'0')} <span style="font-weight:600;opacity:.8">(airs ${esc(fmtDate(resolveDate(p)))})</span> &nbsp;—&nbsp; <span style="color:#111">${nm.length?nm.map(esc).join(' &amp; '):'<span style="color:#b45309">No presenters marked yet</span>'}</span></div>`;}).join('');
     return`<div class="ep-card${prs.length?' pr-day':''}">
       <div class="ep-head">
         <span class="ep-num">EP ${String(n).padStart(2,'0')}</span>
