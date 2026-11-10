@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.397';
+const BUILD_VERSION='3.10.398';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -5881,9 +5881,14 @@ function exportPresCalStudioPDF(fromEp,toEp){
     const extra=r.names.length>2?`<div style="font-size:10px;color:#888;margin-top:2px">+ ${r.names.slice(2).map(esc).join(', ')}</div>`:'';
     return`<tr style="background:${i%2?'#f7f9fc':'#fff'}">
       <td style="${tdS};font-weight:800">EP ${String(r.ep).padStart(2,'0')}${tags}</td>
-      <td style="${tdS};white-space:nowrap">${longDate(r.tx)}${isPreRecordEp(r.ep)?`<div style="font-size:10px;color:#b45309;font-weight:700;margin-top:2px">Recorded: ${r.rx?longDate(r.rx):'RX date not set'}</div>`:''}${prs.length?`<div style="font-size:10px;color:#5b21b6;font-weight:700;margin-top:2px;white-space:normal">Also recording ${prs.map(p=>'EP '+p).join(' &amp; ')}</div>`:''}</td>
+      <td style="${tdS};white-space:nowrap">${longDate(r.tx)}${isPreRecordEp(r.ep)?`<div style="font-size:10px;color:#b45309;font-weight:700;margin-top:2px">Recorded: ${r.rx?longDate(r.rx):'RX date not set'}</div>`:''}</td>
       <td style="${tdS};font-weight:700">${pres(0)}</td>
-      <td style="${tdS};font-weight:700">${pres(1)}${extra}</td></tr>`;
+      <td style="${tdS};font-weight:700">${pres(1)}${extra}</td></tr>${prs.map(p=>{
+        // Same studio day: the pre-record(s) recorded after this live show, with who's needed for them
+        const nm=preRecPresenters(p).names;
+        return`<tr style="background:#f5f3ff"><td colspan="4" style="padding:6px 10px 8px;border-bottom:1px solid #e6ecf5;border-left:4px solid #7c3aed;white-space:normal;font-size:12px;color:#5b21b6">
+          <b>● ALSO IN STUDIO ${esc(fmtDate(r.tx))}: PRE-RECORD EP ${String(p).padStart(2,'0')}</b> <span style="color:#6b7280;font-size:11px">(airs ${esc(fmtDate(resolveDate(p)))})</span>
+          &nbsp;—&nbsp; <b style="color:#111">${nm.length?nm.map(esc).join(' &amp; '):'<span style="color:#b45309">No presenters marked yet</span>'}</b></td></tr>`;}).join('')}`;
   }).join('');
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carte Blanche ${title} - Studio Presenters</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:10pt;padding:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm;size:A4 portrait}table{width:100%;border-collapse:collapse}tr{page-break-inside:avoid}thead{display:table-header-group}</style>
@@ -5923,11 +5928,11 @@ async function exportPresCalStudioXLSX(fromEp,toEp){
     r.rx?fmtDate(r.rx):(isPreRecordEp(r.ep)?'Not set':''),
     r.names[0]||'',
     r.names[1]||'',
-    [presCalPreRecDay(r.ep).length?'Pre-Record Day (also recording '+presCalPreRecDay(r.ep).map(p=>'EP '+p).join(' & ')+')':'',isPreRecordEp(r.ep)?'Pre-Record':'',isRepeatContent(r.ep)?'Repeat':'',r.names.length>2?'Also: '+r.names.slice(2).join(', '):''].filter(Boolean).join(' · ')
+    [presCalPreRecDay(r.ep).map(p=>{const nm=preRecPresenters(p).names;return`Pre-Record Day: also recording EP ${p} (airs ${fmtDate(resolveDate(p))}) with ${nm.length?nm.join(' & '):'no presenters marked yet'}`;}).join(' · '),isPreRecordEp(r.ep)?'Pre-Record':'',isRepeatContent(r.ep)?'Repeat':'',r.names.length>2?'Also: '+r.names.slice(2).join(', '):''].filter(Boolean).join(' · ')
   ])];
   const wb=XLSX.utils.book_new();
   const ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols']=[{wch:12},{wch:10},{wch:20},{wch:20},{wch:24},{wch:24},{wch:44}];
+  ws['!cols']=[{wch:12},{wch:10},{wch:20},{wch:20},{wch:24},{wch:24},{wch:70}];
   XLSX.utils.book_append_sheet(wb,ws,'Studio Presenters');
   XLSX.writeFile(wb,`Carte Blanche ${presCalStudioTitle(fromEp,toEp)} - Studio Presenters.xlsx`);
   showToast('Studio presenters export downloaded ✓');
