@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.403';
+const BUILD_VERSION='3.10.404';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -5823,7 +5823,7 @@ function presCalRowsFor(epList){
 // Badges for the Presenter Calendar exports (v3.10.397): Normal/Extended + Pre-Record Day (a live show
 // on whose TX date one or more pre-records are recorded — same link as the Call Sheet, csPreRecEps).
 const PC_TAG_ST={NORMAL:'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0','★ EXTENDED':'background:#fef3c7;color:#b45309;border:1px solid #fde68a','PRE-RECORD DAY':'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd',
-  'IN-HOUSE':'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd','LICENSED':'background:#f1f5f9;color:#475569;border:1px solid #cbd5e1','ON HOLD':'background:#ffedd5;color:#c2410c;border:1px solid #fed7aa'};
+  'IN-HOUSE':'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd','LICENSED':'background:#f1f5f9;color:#475569;border:1px solid #cbd5e1','ON HOLD':'background:#ffedd5;color:#c2410c;border:1px solid #fed7aa','NOT DELIVERED':'background:#fef9c3;color:#a16207;border:1px solid #fde68a'};
 function presCalBadgeHtml(t,size=9){return`<span style="display:inline-block;font-size:${size}px;font-weight:800;padding:1px 6px;border-radius:3px;letter-spacing:.4px;white-space:nowrap;margin:2px 4px 0 0;${PC_TAG_ST[t]||''}">${esc(t)}</span>`;}
 function presCalPreRecDay(n){return isPreRecordEp(n)?[]:csPreRecEps(n);}
 // Shift Summary order requested by the user; anyone else only appears if they actually have shifts
@@ -6112,7 +6112,8 @@ document.addEventListener('click',function presCalShiftHandler(e){
 // delivery date; blank = the whole season. Decommissioned and last-season (prevSeason) stories are
 // left out. A producer field with several names ("A / B", "A & B", "A, B") counts for each of them.
 function producerAuditJob(from,to){
-  const inRange=c=>(!from&&!to)||(!!c.deliveryDate&&(!from||c.deliveryDate>=from)&&(!to||c.deliveryDate<=to));
+  // No delivery date yet (e.g. on-hold or still in production) → always listed, tagged NOT DELIVERED (v3.10.404)
+  const inRange=c=>(!from&&!to)||!c.deliveryDate||((!from||c.deliveryDate>=from)&&(!to||c.deliveryDate<=to));
   const map=new Map();
   comms.filter(c=>!c.decommissioned&&!c.prevSeason&&(c.commNum||c.storyName)&&inRange(c)).forEach(c=>{
     let names=String(c.producer||'').split(/\s*(?:\/|&|,|\band\b)\s*/i).map(x=>x.trim().replace(/\s+/g,' ')).filter(Boolean);
@@ -6120,7 +6121,7 @@ function producerAuditJob(from,to){
     [...new Set(names.map(n=>n.toLowerCase()))].forEach(key=>{
       const nm=names.find(n=>n.toLowerCase()===key);
       if(!map.has(key))map.set(key,{name:nm,items:[]});
-      map.get(key).items.push([String(c.commNum||'—'),c.storyName||c.shortName||'',[c.isInHouse?'IN-HOUSE':'',c.isLicensed?'LICENSED':'',c.onHold?'ON HOLD':''].filter(Boolean)]);
+      map.get(key).items.push([String(c.commNum||'—'),c.storyName||c.shortName||'',[c.isInHouse?'IN-HOUSE':'',c.isLicensed?'LICENSED':'',c.onHold?'ON HOLD':'',c.deliveryDate?'':'NOT DELIVERED'].filter(Boolean)]);
     });
   });
   const people=[...map.values()].sort((x,y)=>x.name==='(No producer)'?1:y.name==='(No producer)'?-1:x.name.localeCompare(y.name))
@@ -6136,7 +6137,7 @@ function openProducerAuditModal(){
   ov.className='modal-overlay';ov.id='prod-audit-overlay';
   ov.innerHTML=`<div class="modal" style="max-width:460px">
     <h3>Producer Commission Audit</h3>
-    <p>Lists every producer with the commissions (comm no. + story) they produced. Leave the dates empty for the whole season, or fill them in to only include commissions <b>delivered</b> between them. Decommissioned stories are left out.</p>
+    <p>Lists every producer with the commissions (comm no. + story) they produced. Leave the dates empty for the whole season, or fill them in to only include commissions <b>delivered</b> between them — commissions with no delivery date yet are always listed (tagged Not Delivered). Decommissioned stories are left out.</p>
     <label>From delivery date (optional)</label><input type="date" id="prod-audit-from">
     <label>To delivery date (optional)</label><input type="date" id="prod-audit-to">
     <div class="modal-actions">
