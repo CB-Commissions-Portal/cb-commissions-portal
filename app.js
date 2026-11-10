@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.401';
+const BUILD_VERSION='3.10.402';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -2495,6 +2495,7 @@ function renderCommList(epNums,nextEp){
     <div style="display:flex;align-items:center;gap:6px">
       <button class="btn" id="presenter-xlsx-btn" style="border-color:#3fb950;color:#3fb950">⬇ Presenter Excel</button>
       <button class="btn" id="presenter-pdf-btn" style="border-color:#3fb950;color:#3fb950">⬇ Presenter PDF</button>
+      ${currentRole==='admin'&&!previewRole?`<button class="btn" id="producer-audit-btn" style="border-color:#3fb950;color:#3fb950">⬇ Producer Commission Audit</button>`:''}
     </div>
   `:''}
   ${getEffectiveRole()==='prodmgmt'?`
@@ -5785,7 +5786,7 @@ function renderPresenterCalendar(){
           <span style="font-size:18px;font-weight:800;color:#111827;min-width:160px;text-align:center">${Object.keys(months)[presCalViewMonth]}</span>
           <button id="prescal-next" class="btn" style="font-size:15px;padding:8px 16px" ${presCalViewMonth>=Object.keys(months).length-1?'disabled':''}>Next ▶</button>
           ${canEd?`<button id="prescal-extend" class="btn" style="font-size:15px;padding:8px 16px;margin-left:8px;border-color:#388bfd;color:#388bfd">+ 3 months</button>`:''}
-          ${presCalCanExport()?`<button id="prescal-export" class="btn" style="font-size:15px;padding:8px 16px;margin-left:8px">⬇ Export Studio</button><button id="prescal-shift-studio" class="btn" style="font-size:15px;padding:8px 16px">⬇ Studio Shift Summary</button><button id="prescal-shift" class="btn" style="font-size:15px;padding:8px 16px">⬇ Commission Shift Summary</button>`:''}
+          ${presCalCanExport()?`<button id="prescal-export" class="btn" style="font-size:15px;padding:8px 16px;margin-left:8px">⬇ Export Studio</button><button id="prescal-shift-studio" class="btn" style="font-size:15px;padding:8px 16px">⬇ Studio Shift Summary</button><button id="prescal-shift" class="btn" style="font-size:15px;padding:8px 16px">⬇ Presenter Commission Audit</button>`:''}
         </div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px">
@@ -5821,7 +5822,8 @@ function presCalRowsFor(epList){
 }
 // Badges for the Presenter Calendar exports (v3.10.397): Normal/Extended + Pre-Record Day (a live show
 // on whose TX date one or more pre-records are recorded — same link as the Call Sheet, csPreRecEps).
-const PC_TAG_ST={NORMAL:'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0','★ EXTENDED':'background:#fef3c7;color:#b45309;border:1px solid #fde68a','PRE-RECORD DAY':'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd'};
+const PC_TAG_ST={NORMAL:'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0','★ EXTENDED':'background:#fef3c7;color:#b45309;border:1px solid #fde68a','PRE-RECORD DAY':'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd',
+  'IN-HOUSE':'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd','LICENSED':'background:#f1f5f9;color:#475569;border:1px solid #cbd5e1','ON HOLD':'background:#ffedd5;color:#c2410c;border:1px solid #fed7aa'};
 function presCalBadgeHtml(t,size=9){return`<span style="display:inline-block;font-size:${size}px;font-weight:800;padding:1px 6px;border-radius:3px;letter-spacing:.4px;white-space:nowrap;margin:2px 4px 0 0;${PC_TAG_ST[t]||''}">${esc(t)}</span>`;}
 function presCalPreRecDay(n){return isPreRecordEp(n)?[]:csPreRecEps(n);}
 // Shift Summary order requested by the user; anyone else only appears if they actually have shifts
@@ -5944,7 +5946,7 @@ async function exportPresCalStudioXLSX(fromEp,toEp){
 // ── Presenter Calendar: Studio + Commission Shift Summaries (v3.10.386–389) ──
 // Studio Shift Summary: From/To episode — a shift = an episode whose TX Sunday the presenter is marked
 //   STUDIO (pre-record + repeat episodes included).
-// Commission Shift Summary: From/To calendar date — the commissions (inserts) each presenter is booked on
+// Presenter Commission Audit (was Commission Shift Summary): From/To calendar date — the commissions (inserts) each presenter is booked on
 //   in the Presenter Calendar, counted once in the period of the presenter's first booked day on it.
 function presCalShiftRange(){
   let a=document.getElementById('prescal-sh-from')?.value||'',b=document.getElementById('prescal-sh-to')?.value||'';
@@ -5969,6 +5971,7 @@ function presCalCommItems(presKey,from,to){
 }
 // Returns everything both exports need: titles + one entry per presenter with a count and a list of [A,B] lines
 function presCalShiftJob(kind,a,b){
+  if(kind==='producer')return producerAuditJob(a,b);
   if(kind==='studio'){
     const rows=presCalStudioRows(a,b);
     const range=a===b?`Episode ${a} (${fmtDate(resolveDate(a))})`:`Episodes ${a}–${b} (${fmtDate(resolveDate(a))} – ${fmtDate(resolveDate(b))})`;
@@ -5980,7 +5983,7 @@ function presCalShiftJob(kind,a,b){
   const people=[...main,...PRESENTERS.filter(p=>!PRESCAL_SHIFT_ORDER.includes(p.key))]
     .map(p=>({name:p.full||p.label,main:main.includes(p),items:presCalCommItems(p.key,a,b)}))
     .filter(x=>x.main||x.items.length).map(x=>({name:x.name,count:x.items.length,items:x.items}));
-  return{title:'COMMISSION SHIFT SUMMARY',sub:presCalShiftLabel(a,b),file:`Carte Blanche S${currentSeason} - Commission Shift Summary - ${a} to ${b}`,
+  return{title:'PRESENTER COMMISSION AUDIT',sub:presCalShiftLabel(a,b),file:`Carte Blanche S${currentSeason} - Presenter Commission Audit - ${a} to ${b}`,
     countHdr:'Inserts',listHdr:'Commissions',colA:'Comm No.',colB:'Story',people};
 }
 function openPresCalStudioShiftModal(){
@@ -6014,7 +6017,7 @@ function openPresCalShiftModal(){
   const ov=document.createElement('div');
   ov.className='modal-overlay';ov.id='prescal-sh-overlay';
   ov.innerHTML=`<div class="modal" style="max-width:460px">
-    <h3>Commission Shift Summary</h3>
+    <h3>Presenter Commission Audit</h3>
     <p>Lists the commissions (inserts) each presenter <b>started</b> between these dates in the Presenter Calendar. Each commission counts once — in the period of the presenter's first day on it.</p>
     <label>From date</label><input type="date" id="prescal-sh-from" value="${ym}-01">
     <label>To date</label><input type="date" id="prescal-sh-to" value="${last}">
@@ -6049,7 +6052,7 @@ function exportPresCalShiftPDF(kind,from,to){
   </table>
   <table style="table-layout:fixed;border:1px solid #d0d8e8">
     <colgroup>${wide?'<col style="width:24%"><col style="width:10%"><col style="width:66%">':'<col style="width:38%"><col style="width:14%"><col style="width:48%">'}</colgroup>
-    <thead><tr><th style="${thS}">Presenter</th><th style="${thS};text-align:center">${j.countHdr}</th><th style="${thS}">${j.listHdr}</th></tr></thead>
+    <thead><tr><th style="${thS}">${j.whoHdr||'Presenter'}</th><th style="${thS};text-align:center">${j.countHdr}</th><th style="${thS}">${j.listHdr}</th></tr></thead>
     <tbody>${body}</tbody>
   </table>
   <div style="margin-top:14px;text-align:center;font-size:9px;color:#aaa;border-top:1px solid #ddd;padding-top:6px">CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason} · Generated: ${printDate}</div>
@@ -6070,13 +6073,13 @@ async function exportPresCalShiftXLSX(kind,from,to){
   const body=[];
   j.people.forEach(x=>{
     if(!x.items.length){body.push([x.name,x.count,'—','']);return;}
-    x.items.forEach(([a,b,t],i)=>body.push([i?'':x.name,i?'':x.count,a,b,...(kind==='studio'?[(t||[]).map(v=>v.replace('★ ','')).join(' · ')]:[])]));
+    x.items.forEach(([a,b,t],i)=>body.push([i?'':x.name,i?'':x.count,a,b,...(kind!=='commission'?[(t||[]).map(v=>v.replace('★ ','')).join(' · ')]:[])]));
   });
-  const ws=XLSX.utils.aoa_to_sheet([[`${j.title} · Season ${currentSeason} · ${j.sub}`],[],['Presenter',j.countHdr,j.colA,j.colB,...(kind==='studio'?['Show']:[])],...body]);
-  ws['!cols']=[{wch:26},{wch:8},{wch:12},{wch:kind==='studio'?22:50},{wch:28}];
-  XLSX.utils.book_append_sheet(wb,ws,kind==='studio'?'Studio Shifts':'Commission Shifts');
+  const ws=XLSX.utils.aoa_to_sheet([[`${j.title} · Season ${currentSeason} · ${j.sub}`],[],[j.whoHdr||'Presenter',j.countHdr,j.colA,j.colB,...(kind==='studio'?['Show']:kind==='producer'?['Notes']:[])],...body]);
+  ws['!cols']=[{wch:26},{wch:12},{wch:12},{wch:kind==='studio'?22:50},{wch:28}];
+  XLSX.utils.book_append_sheet(wb,ws,kind==='studio'?'Studio Shifts':kind==='producer'?'Producer Audit':'Presenter Audit');
   XLSX.writeFile(wb,`${j.file}.xlsx`);
-  showToast('Shift summary downloaded ✓');
+  showToast(j.title.charAt(0)+j.title.slice(1).toLowerCase()+' downloaded ✓');
 }
 document.addEventListener('click',function presCalShiftHandler(e){
   const id=e.target.id;
@@ -6100,6 +6103,59 @@ document.addEventListener('click',function presCalShiftHandler(e){
     document.getElementById('prescal-sh-overlay')?.remove();
     if(id==='prescal-sh-pdf')exportPresCalShiftPDF('commission',a,b);
     else exportPresCalShiftXLSX('commission',a,b).catch(err=>showToast('Export failed: '+err.message,true));
+  }
+});
+// ── Producer Commission Audit (Commission List, Super Admin only, v3.10.402) ──
+// Every producer with the commissions (comm no. + story) they produced. Optional From/To on the
+// delivery date; blank = the whole season. Decommissioned and last-season (prevSeason) stories are
+// left out. A producer field with several names ("A / B", "A & B", "A, B") counts for each of them.
+function producerAuditJob(from,to){
+  const inRange=c=>(!from&&!to)||(!!c.deliveryDate&&(!from||c.deliveryDate>=from)&&(!to||c.deliveryDate<=to));
+  const map=new Map();
+  comms.filter(c=>!c.decommissioned&&!c.prevSeason&&(c.commNum||c.storyName)&&inRange(c)).forEach(c=>{
+    let names=String(c.producer||'').split(/\s*(?:\/|&|,|\band\b)\s*/i).map(x=>x.trim().replace(/\s+/g,' ')).filter(Boolean);
+    if(!names.length)names=['(No producer)'];
+    [...new Set(names.map(n=>n.toLowerCase()))].forEach(key=>{
+      const nm=names.find(n=>n.toLowerCase()===key);
+      if(!map.has(key))map.set(key,{name:nm,items:[]});
+      map.get(key).items.push([String(c.commNum||'—'),c.storyName||c.shortName||'',[c.isInHouse?'IN-HOUSE':'',c.isLicensed?'LICENSED':'',c.onHold?'ON HOLD':''].filter(Boolean)]);
+    });
+  });
+  const people=[...map.values()].sort((x,y)=>x.name==='(No producer)'?1:y.name==='(No producer)'?-1:x.name.localeCompare(y.name))
+    .map(x=>({name:x.name,count:x.items.length,items:x.items.sort((p,q)=>p[0].localeCompare(q[0],undefined,{numeric:true}))}));
+  const sub=from||to?`Delivery ${from?fmtDate(from):'start'} – ${to?fmtDate(to):'end'}`:'Whole season';
+  return{title:'PRODUCER COMMISSION AUDIT',sub,file:`Carte Blanche S${currentSeason} - Producer Commission Audit${from||to?` - ${from||'start'} to ${to||'end'}`:''}`,
+    whoHdr:'Producer',countHdr:'Commissions',listHdr:'Commissions',colA:'Comm No.',colB:'Story',people};
+}
+function openProducerAuditModal(){
+  if(currentRole!=='admin'||previewRole)return;
+  document.getElementById('prod-audit-overlay')?.remove();
+  const ov=document.createElement('div');
+  ov.className='modal-overlay';ov.id='prod-audit-overlay';
+  ov.innerHTML=`<div class="modal" style="max-width:460px">
+    <h3>Producer Commission Audit</h3>
+    <p>Lists every producer with the commissions (comm no. + story) they produced. Leave the dates empty for the whole season, or fill them in to only include commissions <b>delivered</b> between them. Decommissioned stories are left out.</p>
+    <label>From delivery date (optional)</label><input type="date" id="prod-audit-from">
+    <label>To delivery date (optional)</label><input type="date" id="prod-audit-to">
+    <div class="modal-actions">
+      <button class="btn" id="prod-audit-cancel">Cancel</button>
+      <button class="btn" id="prod-audit-xlsx">⬇ Excel</button>
+      <button class="btn primary" id="prod-audit-pdf">⬇ PDF</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+}
+document.addEventListener('click',function producerAuditHandler(e){
+  const id=e.target.id;
+  if(id==='producer-audit-btn'){openProducerAuditModal();return;}
+  if(id==='prod-audit-cancel'||id==='prod-audit-overlay'){document.getElementById('prod-audit-overlay')?.remove();return;}
+  if(id==='prod-audit-pdf'||id==='prod-audit-xlsx'){
+    if(currentRole!=='admin'||previewRole)return;
+    let a=document.getElementById('prod-audit-from')?.value||'',b=document.getElementById('prod-audit-to')?.value||'';
+    if(a&&b&&a>b)[a,b]=[b,a];
+    document.getElementById('prod-audit-overlay')?.remove();
+    if(id==='prod-audit-pdf')exportPresCalShiftPDF('producer',a,b);
+    else exportPresCalShiftXLSX('producer',a,b).catch(err=>showToast('Export failed: '+err.message,true));
   }
 });
 document.addEventListener('click',function presCalExportHandler(e){
