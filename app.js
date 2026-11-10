@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.394';
+const BUILD_VERSION='3.10.395';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -6419,6 +6419,9 @@ function renderStudioCrew(epNums){
           <span class="sc-chevron" style="font-size:14px;color:#6b7280">${collapsed?'▶':'▼'}</span>
           <span class="ep-num">EP ${n}</span>
           <span style="font-size:15px;font-weight:600;color:#4b5563">${fmtDate(resolveDate(n))}</span>
+          ${epTypeOf(n)==='extended'
+            ?'<span title="Extended show" style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:3px;letter-spacing:.5px;white-space:nowrap;background:#fef3c7;color:#b45309;border:1px solid #fde68a">★ EXTENDED</span>'
+            :'<span title="Normal show" style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:3px;letter-spacing:.5px;white-space:nowrap;background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0">NORMAL</span>'}
           ${epFlagBadges(n,11)}
           <span style="font-size:14px;color:#0066CC;font-weight:600">${anchors?'Anchors: '+esc(anchors):'<span style="color:#9ca3af;font-weight:400">No anchors on Presenter Calendar</span>'}</span>
         </div>
