@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.399';
+const BUILD_VERSION='3.10.400';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -5884,11 +5884,15 @@ function exportPresCalStudioPDF(fromEp,toEp){
       <td style="${tdS};white-space:nowrap">${longDate(r.tx)}${isPreRecordEp(r.ep)?`<div style="font-size:10px;color:#b45309;font-weight:700;margin-top:2px">Recorded: ${r.rx?longDate(r.rx):'RX date not set'}</div>`:''}</td>
       <td style="${tdS};font-weight:700">${pres(0)}</td>
       <td style="${tdS};font-weight:700">${pres(1)}${extra}</td></tr>${prs.map(p=>{
-        // Same studio day: the pre-record(s) recorded after this live show, with who's needed for them
+        // Same studio day: the pre-record(s) recorded after this live show — presenters sit in the
+        // Presenter 1 / Presenter 2 columns so names line up with the table and don't wrap.
         const nm=preRecPresenters(p).names;
-        return`<tr style="background:#f5f3ff"><td colspan="4" style="padding:6px 10px 8px;border-bottom:1px solid #e6ecf5;border-left:4px solid #7c3aed;white-space:normal;font-size:12px;color:#5b21b6">
-          <b>● ALSO IN STUDIO ${esc(fmtDate(r.tx))}: PRE-RECORD EP ${String(p).padStart(2,'0')}</b> <span style="color:#6b7280;font-size:11px">(airs ${esc(fmtDate(resolveDate(p)))})</span>
-          &nbsp;—&nbsp; <b style="color:#111">${nm.length?nm.map(esc).join(' &amp; '):'<span style="color:#b45309">No presenters marked yet</span>'}</b></td></tr>`;}).join('')}`;
+        const pc=k=>nm[k]?esc(nm[k]):(k===0&&!nm.length?'<span style="color:#b45309;font-weight:600">Not marked yet</span>':'<span style="color:#bbb">—</span>');
+        const prTd='padding:6px 10px 8px;border-bottom:1px solid #e6ecf5;vertical-align:middle;font-size:12px';
+        return`<tr style="background:#f5f3ff">
+          <td colspan="2" style="${prTd};border-left:4px solid #7c3aed;white-space:normal;color:#5b21b6"><b>● ALSO IN STUDIO: PRE-RECORD EP ${String(p).padStart(2,'0')}</b><div style="font-size:10px;color:#6b7280;margin-top:2px">Recorded ${esc(fmtDate(r.tx))} · airs ${esc(fmtDate(resolveDate(p)))}</div></td>
+          <td style="${prTd};font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${pc(0)}</td>
+          <td style="${prTd};font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${pc(1)}${nm.length>2?`<div style="font-size:10px;color:#888;margin-top:2px;white-space:normal">+ ${nm.slice(2).map(esc).join(', ')}</div>`:''}</td></tr>`;}).join('')}`;
   }).join('');
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carte Blanche ${title} - Studio Presenters</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:10pt;padding:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm;size:A4 portrait}table{width:100%;border-collapse:collapse}tr{page-break-inside:avoid}thead{display:table-header-group}</style>
