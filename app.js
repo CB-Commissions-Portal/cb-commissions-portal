@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.395';
+const BUILD_VERSION='3.10.396';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -6465,12 +6465,17 @@ async function exportStudioSchedPDF(){
     const src=scCrewEpFor(n);
     const epType=epTypeLabel(n).toUpperCase()+(src!==n?` · RECORDED ${fmtDate(resolveDate(src)).toUpperCase()}`:'');
     const fld=(label,val)=>`<div class="field"><div class="field-label">${label}</div><div class="field-val">${esc(val||'—')}</div></div>`;
-    return`<div class="ep-card">
+    // Pre-record day: one or more Pre-Record eps have their RX date on this live show's TX date.
+    const prs=src===n?csPreRecEps(n):[];
+    const prBar=prs.length?`<div class="pr-bar">● PRE-RECORD DAY &nbsp;—&nbsp; also recording ${prs.map(p=>`EP ${p} (airs ${fmtDate(resolveDate(p))})`).join(' &amp; ')}</div>`:'';
+    return`<div class="ep-card${prs.length?' pr-day':''}">
       <div class="ep-head">
         <span class="ep-num">EP ${String(n).padStart(2,'0')}</span>
         <span class="ep-date">${txFmt}</span>
         <span class="ep-type">${esc(epType)}</span>
+        ${prs.length?'<span class="ep-type pr-tag">PRE-RECORD DAY</span>':''}
       </div>
+      ${prBar}
       <div class="ep-body">
         ${fld('Anchor 1',anchor1)}
         ${fld('Anchor 2',anchor2)}
@@ -6504,6 +6509,10 @@ async function exportStudioSchedPDF(){
     .ep-num{font-size:13pt;font-weight:900;font-family:monospace;letter-spacing:1px}
     .ep-date{font-size:10pt;font-weight:600;opacity:.9}
     .ep-type{font-size:8.5pt;font-weight:800;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:3px}
+    .pr-day{border:2px solid #7c3aed}
+    .pr-day .ep-head{background:#5b21b6}
+    .pr-tag{background:#fff !important;color:#5b21b6}
+    .pr-bar{background:#ede9fe;color:#5b21b6;font-size:10pt;font-weight:800;padding:7px 16px;border-bottom:1px solid #c4b5fd}
     .ep-body{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0}
     .field{padding:10px 14px;border-right:1px solid #e0ecf8;border-top:1px solid #e0ecf8}
     .field:nth-child(4n){border-right:none}
