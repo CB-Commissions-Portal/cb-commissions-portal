@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.402';
+const BUILD_VERSION='3.10.403';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -6035,9 +6035,11 @@ function exportPresCalShiftPDF(kind,from,to){
   const thS='padding:8px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#fff;background:#1a3a6a;text-align:left';
   const tdS='padding:8px 10px;font-size:12px;vertical-align:top;border-bottom:1px solid #e6ecf5;white-space:normal';
   const list=items=>items.length?`<table style="width:100%;border-collapse:collapse">${items.map(([a,b,t])=>`<tr><td style="padding:1px 14px 1px 0;font-weight:700;color:#111;white-space:nowrap;border:none;width:1%;vertical-align:top">${esc(a)}</td><td style="padding:1px 0;color:#555;border:none;white-space:normal;vertical-align:top">${esc(b)}${(t||[]).map(x=>' '+presCalBadgeHtml(x)).join('')}</td></tr>`).join('')}</table>`:'<span style="color:#bbb">—</span>';
-  const body=j.people.map((x,i)=>`<tr style="background:${i%2?'#f7f9fc':'#fff'}"><td style="${tdS};font-weight:700">${esc(x.name)}</td><td style="${tdS};text-align:center;font-weight:800;${x.count?'':'color:#bbb'}">${x.count}</td><td style="${tdS};font-size:11px;padding-top:6px;padding-bottom:6px">${list(x.items)}</td></tr>`).join('');
+  // "M2 Productions (Mart-Marie Faure)" → company on top, the person on a smaller line underneath
+  const who=n=>{const m=String(n).match(/^(.+?)\s*\(([^()]+)\)\s*$/);return m?`${esc(m[1])}<div style="font-size:10px;font-weight:600;color:#6b7280;margin-top:2px">${esc(m[2])}</div>`:esc(n);};
+  const body=j.people.map((x,i)=>`<tr style="background:${i%2?'#f7f9fc':'#fff'}"><td style="${tdS};font-weight:700">${who(x.name)}</td><td style="${tdS};text-align:center;font-weight:800;${x.count?'':'color:#bbb'}">${x.count}</td><td style="${tdS};font-size:11px;padding-top:6px;padding-bottom:6px">${list(x.items)}</td></tr>`).join('');
   const wide=kind!=='studio'; // story names need more room
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(j.file)}</title>
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="format-detection" content="telephone=no"><title>${esc(j.file)}</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:10pt;padding:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm;size:A4 portrait}table{width:100%;border-collapse:collapse}tr{page-break-inside:avoid}</style>
   </head><body>
   <table style="margin-bottom:12px;border-bottom:3px solid #1a3a6a">
