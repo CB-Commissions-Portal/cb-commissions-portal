@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.404';
+const BUILD_VERSION='3.10.405';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -6209,7 +6209,14 @@ function scCrewEpFor(n){
 function scClean(v){return v==null?'':String(v).trim();}
 function scReg(f){return scClean((studioCrew[SC_REG]||{})[f]);}
 // The episode's own value only counts as a change when it differs from the Regular Crew.
-function scOwn(n,f){const v=scClean((studioCrew[String(scCrewEpFor(n))]||{})[f]);return v&&v!==scReg(f)?v:'';}
+// A stand-in's cell always counts as their own, even when it's the same number as the Regular Crew's
+// (e.g. Carla Hamilton / EasiQ share one number) — otherwise it was dropped on save (v3.10.405).
+function scOwn(n,f){
+  const v=scClean((studioCrew[String(scCrewEpFor(n))]||{})[f]);
+  if(!v)return'';
+  if(f.endsWith('Cell')&&scOwn(n,f.slice(0,-4)))return v;
+  return v!==scReg(f)?v:'';
+}
 function scVal(n,f){
   // A stand-in never shows the regular person's number: their own, or the last one saved for them.
   if(f.endsWith('Cell')){const nm=scOwn(n,f.slice(0,-4));if(nm)return scOwn(n,f)||scCellFor(nm);}
@@ -6250,7 +6257,9 @@ async function scSaveEp(ep){
   if(ep===SC_REG)ok=await scCommitRegular(Object.fromEntries(fields.map(f=>[f,p[f]])),scStamp());
   else{
     const d={...(studioCrew[ep]||{})};
-    fields.forEach(f=>{const v=scClean(p[f]);d[f]=v===scReg(f)?'':v;}); // same as Regular Crew → follow it
+    // Name this save leaves on the card (pending or already saved) — a stand-in keeps their cell as typed
+    const nameAfter=j=>{const v=j in p?scClean(p[j]):scClean(d[j]);return v&&v!==scReg(j)?v:'';};
+    fields.forEach(f=>{const v=scClean(p[f]);d[f]=v===scReg(f)&&!(f.endsWith('Cell')&&nameAfter(f.slice(0,-4)))?'':v;}); // same as Regular Crew → follow it
     ok=await saveStudioCrew(ep,{...d,...scStamp()});
   }
   if(ok)delete scPending[ep];
