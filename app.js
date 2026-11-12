@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.405';
+const BUILD_VERSION='3.10.406';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -6486,6 +6486,11 @@ function renderStudioCrew(epNums){
       </table></div>`:''}
   </div>`:'';
 
+  // Collapse ALL episode cards on first open (like Line-Ups, v3.10.406); clicks then stay for the session
+  if(!window._scAutoCollapsedOnce){
+    window._scAutoCollapsedOnce=true;
+    getEpNums().forEach(n=>{studioCollapsed.add(String(n));});
+  }
   const visEps=(months[studioSchedMonth]||[]).slice().sort((a,b)=>a-b);
   const cards=visEps.map(n=>{
     const k=String(n);
