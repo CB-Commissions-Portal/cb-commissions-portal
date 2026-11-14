@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.406';
+const BUILD_VERSION='3.10.407';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -2079,7 +2079,11 @@ function render(){
   if(rosEditModal) setTimeout(updateRosEditPreview,0);
   if(tab==='ros'&&rosWysActive&&rosWysEdit) setTimeout(()=>{
     const el=document.querySelector('[data-wys-editor] .wys-inline-ta, [data-wys-editor] .wys-cam-desig-inp');
-    if(el){el.focus();if(el.value)el.setSelectionRange(el.value.length,el.value.length);}
+    // preventScroll: Safari mis-scrolls focus() inside the zoomed page (jumped to the top after
+    // "Copy slug to Screen Info") — the editor opens where the user right-clicked, already in view.
+    const sc=document.getElementById('roswys-scroll'),top=sc?sc.scrollTop:0;
+    if(el){el.focus({preventScroll:true});if(el.value)el.setSelectionRange(el.value.length,el.value.length);}
+    if(sc&&sc.scrollTop!==top)sc.scrollTop=top;
   },0);
   // WYSIWYG TESTING — the menu's height depends on how many options it has (varies a lot: a
   // plain Screen block vs. a linked camera shot with Move Up/Down + Link options), so it can't be
@@ -7174,7 +7178,7 @@ function rosWysBuildRow(item,i,epNum){
   const _canScript=['live','coldstart','upnext'].includes(item.type);
   if(_canScript&&item.position&&!_isEditing('position')){
     _descBody+=_p('&nbsp;')+_p('<u><b>POSITION:</b></u>');
-    item.position.split('\n').forEach(line=>{_descBody+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#'+ROS_BLUE);});
+    item.position.split('\n').forEach(line=>{_descBody+=_p(escHtml(line)||'&nbsp;','font-weight:bold;color:#'+ROS_BLUE);});
   }
   let desc;
   if(_canScript&&_isEditing('script')){
@@ -7266,7 +7270,9 @@ function renderRunOfShowWysiwyg(){
         <span style="font-size:20px;font-weight:900;color:#f472b6;font-family:monospace">${epLabel}</span>
         <span style="font-size:16px;color:#6b7280;margin-left:14px">${epDateFmt}</span>
       </div>
+      ${(()=>{const _ub=rosData[String(epNum)]?.updatedByName;const _ua=rosData[String(epNum)]?.updatedAtStr;return `<div style="font-size:13px;color:#6b7280;background:#fff;border:1px solid #d1dae8;border-radius:6px;padding:5px 12px;line-height:1.5"><span style="color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:11px">Last saved by</span><br><span style="color:${_ub?'#111827':'#9ca3af'};font-weight:700;font-style:${_ub?'normal':'italic'}">${esc(_ub||'Not yet saved')}</span>${_ua?`<span style="color:#9ca3af"> · ${esc(_ua)}</span>`:''}</div>`;})()}
       ${isLockedScript?`<div style="font-size:13px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:6px;padding:5px 12px;font-weight:800;letter-spacing:.3px">🔒 LOCKED FOR EDITING</div>`:''}
+      <span style="font-size:18px;font-weight:900;color:#f472b6;font-family:monospace">SCRIPT DURATION: ${rosSecsToStr(items.reduce((s,it)=>s+rosDurToSecs(it.duration),0))}</span>
       <div style="display:flex;align-items:center;gap:2px;background:#fff;border:1px solid #d1dae8;border-radius:6px;padding:2px">
         <button class="btn" id="roswys-zoom-out" title="Smaller" style="font-size:15px;padding:6px 12px;border:none">A−</button>
         <button class="btn" id="roswys-zoom-reset" title="Reset size" style="font-size:13px;padding:6px 10px;border:none;color:#6b7280;min-width:44px">${_zoom}%</button>
@@ -7691,8 +7697,10 @@ const CS_VIEW_ROLES=[...CS_EDIT_ROLES,'production','operations','finance']; // P
 // Contacts + anchors are never typed on the Call Sheet: they're laid over the saved sheet every time
 // it's shown, exported or saved, from Studio Crew & Schedule and the Presenter Calendar.
 const CS_CREW_CONTACTS=[['producer','production'],['editorialMgr','editorialMgr'],['director','studioDirector'],['asstDir','assistantDirector'],['floorMgr','floorManager'],['autocue','autocueOperator'],['eng1','engineer1'],['eng2','engineer2'],['facMgr','facilitiesMgr']];
+const CS_STUDIO_LOCATION='Stark Studios, 66 Aimee Street, Fontainebleau, Randburg';
 function csWithCrew(ep,cs){
   const o={...(cs||{})};
+  o.location=CS_STUDIO_LOCATION; // standard for every episode — locked, never typed per week
   CS_CREW_CONTACTS.forEach(([cf,sf])=>{o[cf]=scVal(ep,sf);o[cf+'Cell']=scVal(ep,sf+'Cell');});
   o.makeup=scVal(ep,'makeupArtist');o.makeupCell=scVal(ep,'makeupArtistCell');
   o.stylist=scVal(ep,'studioStylist');o.stylistCell=scVal(ep,'studioStylistCell');
@@ -7858,7 +7866,7 @@ function renderCallSheet(epNums){
           <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #d1dae8">Facilities Contacts</div>
           ${contactRow('eng1','eng1Cell','Engineer 1')}${contactRow('eng2','eng2Cell','Engineer 2')}${contactRow('facMgr','facMgrCell','Facilities Manager')}
           ${crewNote}
-          <div style="margin-bottom:10px">${lbl('Studio Location')}${finp('location','Facilities name & address')}</div>
+          <div style="margin-bottom:10px">${lbl('Studio Location')}<div style="${lockSt};color:#111827" title="Standard studio address">${esc(cs.location)}</div><div style="font-size:12px;color:#9ca3af;margin-top:4px">🔒 Standard address — same every week</div></div>
           <div style="margin-top:14px;padding-top:12px;border-top:1px solid #d1dae8">
             <div style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#e3b341;margin-bottom:10px">Notes</div>
             ${canEdit?`<textarea class="cs-field" data-ep="${ep}" data-field="notes" placeholder="Additional notes…" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:16px;padding:8px 10px;outline:none;font-family:inherit;resize:vertical;min-height:80px;box-sizing:border-box">${esc(cs.notes||'')}</textarea>`:`<div style="font-size:16px;color:${cs.notes?'#eaf0ff':'#484f58'};white-space:pre-wrap">${esc(cs.notes||'—')}</div>`}
@@ -13069,7 +13077,7 @@ function rosBuildWordRow(item,i,highlightIdx=-1){
   if(item.type==='insert'&&item.outWords)desc+=_p('&nbsp;')+_p('<u><b>OUT WORDS:</b></u>')+_p(escHtml(item.outWords),'font-weight:normal;color:#000')+_p('&nbsp;');
   if(['live','coldstart','upnext'].includes(item.type)&&item.position){
     desc+=_p('&nbsp;')+_p('<u><b>POSITION:</b></u>');
-    item.position.split('\n').forEach(line=>{desc+=_p(escHtml(line)||'&nbsp;','font-weight:normal;color:#'+ROS_BLUE);});
+    item.position.split('\n').forEach(line=>{desc+=_p(escHtml(line)||'&nbsp;','font-weight:bold;color:#'+ROS_BLUE);});
   }
   if(['live','coldstart','upnext'].includes(item.type)&&item.script){
     desc+=_p('&nbsp;');
@@ -13365,7 +13373,7 @@ async function rosExportDocx(ep,items){
         descParas.push(emptyPara());
         descParas.push(new Paragraph({spacing:SP0,children:[new TextRun({text:'POSITION:',bold:true,underline:{type:UnderlineType.SINGLE},font:FONT,size:SZ})]}));
         item.position.split('\n').forEach(line=>{
-          descParas.push(line?new Paragraph({spacing:SP0,children:[new TextRun({text:line,font:FONT,size:SZ,color:ROS_BLUE})]}):emptyPara());
+          descParas.push(line?new Paragraph({spacing:SP0,children:[new TextRun({text:line,bold:true,font:FONT,size:SZ,color:ROS_BLUE})]}):emptyPara());
         });
       }
       const _hasScript=['live','coldstart','upnext'].includes(item.type)&&item.script;
