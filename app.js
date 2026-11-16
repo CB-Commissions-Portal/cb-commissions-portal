@@ -226,7 +226,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.407';
+const BUILD_VERSION='3.10.408';
 const BUILD_DATE='6 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
@@ -4555,11 +4555,30 @@ function renderPreRecords(){
   return`<div class="ep-wrap">
 <div class="toolbar">
   <span class="count-lbl" style="margin-left:0">${eps.length} pre-record ${eps.length===1?'episode':'episodes'} · flag episodes on the Episode Register · TX date, promos and presenters update automatically</span>
+  ${eps.length>1?`<button class="btn prerec-pdf-all-btn" data-eps="${eps.join(',')}" style="margin-left:auto;border-color:#388bfd;color:#0066CC;font-weight:700">⬇ Export All (PDF)</button>`:''}
 </div>
 <div style="padding:16px 20px">${cards}</div>
 </div>`;
 }
-function exportPreRecordPDF(n){
+function exportPreRecordPDF(nums){
+  // One episode (number) or several (array) — several go into ONE document, each episode on its own page
+  const list=(Array.isArray(nums)?nums:[nums]).map(Number);
+  if(!list.length)return;
+  const sn=String(currentSeason).padStart(2,'0');
+  const title=list.length===1
+    ?`CARTE BLANCHE - S${sn} E${String(list[0]).padStart(2,'0')} - PRE-RECORD SCHEDULING INFORMATION`
+    :`CARTE BLANCHE - S${sn} E${list.map(n=>String(n).padStart(2,'0')).join(', E')} - PRE-RECORD SCHEDULING INFORMATION`;
+  const pages=list.map((n,i)=>`<div style="${i?'page-break-before:always;break-before:page;':''}">${preRecPdfPage(n)}</div>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:10pt;padding:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm;size:A4 portrait}table{width:100%;border-collapse:collapse}tr{page-break-inside:avoid}</style>
+  </head><body>${pages}</body></html>`;
+  const win=window.open('','_blank');
+  if(!win){alert('Popup blocked — please allow popups for this site.');return;}
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),600);
+}
+function preRecPdfPage(n){
   const k=String(n),d={...(preRecData[k]||{})};
   PREREC_CONTACT_FIELDS.forEach(f=>{d[f]=preRecContactVal(f);});
   // Pick up anything typed but not yet blurred/saved
@@ -4590,9 +4609,7 @@ function exportPreRecordPDF(n){
     <div style="font-size:12px;font-weight:700">${esc(d[c.key+'Name']||'—')}</div>
     <div style="font-size:12px;margin-top:3px">${esc(d[c.key+'Phone']||'')}</div>
     <div style="font-size:12px;margin-top:3px;word-break:break-all">${esc(d[c.key+'Email']||'')}</div></td>`).join('');
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>CARTE BLANCHE - S${String(currentSeason).padStart(2,'0')} E${epStr} - PRE-RECORD SCHEDULING INFORMATION</title>
-  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:10pt;padding:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm;size:A4 portrait}table{width:100%;border-collapse:collapse}tr{page-break-inside:avoid}</style>
-  </head><body>
+  return`
   <table style="margin-bottom:6px;border-bottom:3px solid #1a3a6a">
     <tr valign="middle">
       <td style="width:80px;padding-bottom:10px"><img src="${BAKED_CB_LOGO}" style="height:44px;width:auto"></td>
@@ -4616,13 +4633,7 @@ function exportPreRecordPDF(n){
   <table style="table-layout:fixed"><tr>${contactCells}</tr></table>
   ${sec('4. Important Notice')}
   <div style="border:1px solid #d0d8e8;border-top:none;padding:10px 12px;font-size:13px;font-weight:700;line-height:1.5">${PREREC_NOTICE}</div>
-  <div style="margin-top:14px;text-align:center;font-size:9px;color:#aaa;border-top:1px solid #ddd;padding-top:6px">CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason} · Episode ${epStr} · Generated: ${printDate}</div>
-  </body></html>`;
-  const win=window.open('','_blank');
-  if(!win){alert('Popup blocked — please allow popups for this site.');return;}
-  win.document.write(html);
-  win.document.close();
-  setTimeout(()=>win.print(),600);
+  <div style="margin-top:14px;text-align:center;font-size:9px;color:#aaa;border-top:1px solid #ddd;padding-top:6px">CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason} · Episode ${epStr} · Generated: ${printDate}</div>`;
 }
 document.addEventListener('click',async function preRecSaveClick(e){
   const b=e.target.closest?.('.prerec-save-btn');
@@ -4639,6 +4650,8 @@ document.addEventListener('click',async function preRecSaveClick(e){
 document.addEventListener('click',function preRecPdfClick(e){
   const b=e.target.closest?.('.prerec-pdf-btn');
   if(b)exportPreRecordPDF(Number(b.dataset.ep));
+  const all=e.target.closest?.('.prerec-pdf-all-btn');
+  if(all)exportPreRecordPDF(all.dataset.eps.split(',').map(Number));
 });
 document.addEventListener('change',function preRecChange(e){
   const el=e.target;
