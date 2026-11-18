@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.410';
+const BUILD_VERSION='3.10.411';
 const BUILD_DATE='18 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -4968,31 +4968,48 @@ async function travelFileToText(file){
   throw new Error('Only Word (.docx) and PDF files can be read');
 }
 function travelIsDuplicate(d){
-  const same=(a,b)=>(a||[]).map(s=>s.toLowerCase()).sort().join('|')===(b||[]).map(s=>s.toLowerCase()).sort().join('|');
-  return travelData.some(t=>t.type===d.type&&(d.type==='flight'
-    ?t.date===d.date&&(t.flightNo||'').replace(/\s/g,'')===(d.flightNo||'').replace(/\s/g,'')&&same(t.passengers,d.passengers)
-    :t.checkIn===d.checkIn&&(t.establishment||'').toLowerCase()===(d.establishment||'').toLowerCase()&&same(t.guests,d.guests)));
+  // Duplicate when every person on the draft is already booked on that same flight / stay
+  // (possibly spread over several saved entries).
+  const norm=v=>(v||'').replace(/\s/g,'').toLowerCase();
+  const same=travelData.filter(t=>t.type===d.type&&(d.type==='flight'
+    ?t.date===d.date&&norm(t.flightNo)===norm(d.flightNo)
+    :t.checkIn===d.checkIn&&norm(t.establishment)===norm(d.establishment)));
+  if(!same.length)return false;
+  const have=new Set(same.flatMap(t=>travelPeople(t)).map(n=>n.toLowerCase()));
+  return travelPeople(d).every(n=>have.has(n.toLowerCase()));
 }
 async function travelHandleFiles(files,btn){
   const drafts=[],failed=[];
   if(btn){btn.disabled=true;btn.textContent='⏳ Reading…';}
   for(const f of files){
     try{
-      const res=parseTravelDoc(await travelFileToText(f));
-      if(res.kind==='flight')res.flights.forEach(fl=>drafts.push({type:'flight',sourceFile:f.name,commNum:'',...fl}));
-      else if(res.kind==='accom'){
-        const a=res.accom;
-        const known=a.commNum&&comms.some(c=>String(c.commNum)===String(a.commNum));
-        drafts.push({type:'accom',sourceFile:f.name,...a,commNum:known?a.commNum:'',orderHint:a.commNum});
-      }
-      else failed.push(f.name);
+      // One file can hold flights, hotels or both (Izani "Travel Itinerary"). A commission number
+      // found in the document / file name is pre-selected only if that commission exists.
+      const res=parseTravelDoc({...(await travelFileToText(f)),fileName:f.name});
+      const known=cn=>cn&&comms.some(c=>String(c.commNum)===String(cn))?String(cn):'';
+      res.flights.forEach(fl=>drafts.push({type:'flight',sourceFile:f.name,...fl,commNum:known(res.commHint)}));
+      res.accoms.forEach(a=>drafts.push({type:'accom',sourceFile:f.name,...a,commNum:known(a.commNum),orderHint:a.commNum}));
+      if(!res.flights.length&&!res.accoms.length)failed.push(f.name);
     }catch(e){console.error('Travel read',f.name,e);failed.push(f.name);}
   }
   if(btn){btn.disabled=false;btn.textContent='⬆ Upload travel documents';}
   if(failed.length)showToast(`Couldn't read ${failed.join(', ')} — add ${failed.length>1?'them':'it'} by hand with + Flight / + Accommodation`,true);
   if(!drafts.length)return;
-  drafts.forEach(d=>{d.duplicate=travelIsDuplicate(d);d.include=!d.duplicate;});
-  openTravelEditor(drafts,'Check travel details');
+  // Same flight (or same hotel + dates) for the same commission across the uploaded files → one
+  // entry listing everyone, so the calendar shows FA249 once with all its passengers.
+  const merged=[];
+  drafts.forEach(d=>{
+    const key=d.type==='flight'?`f|${d.date}|${d.flightNo}|${d.commNum}`:`a|${d.checkIn}|${d.checkOut}|${(d.establishment||'').toLowerCase()}|${d.commNum}`;
+    const f=['passengers','guests'].find(k=>Array.isArray(d[k]));
+    const m=merged.find(x=>x._key===key);
+    if(m){
+      if(f)m[f]=[...new Set([...(m[f]||[]),...d[f]])];
+      if(!m.sourceFile.split(', ').includes(d.sourceFile))m.sourceFile+=', '+d.sourceFile;
+    }else merged.push({...d,_key:key});
+  });
+  merged.forEach(d=>{delete d._key;d.duplicate=travelIsDuplicate(d);d.include=!d.duplicate;});
+  merged.sort((a,b)=>(a.date||a.checkIn||'').localeCompare(b.date||b.checkIn||'')||(a.type==='flight'?-1:1));
+  openTravelEditor(merged,'Check travel details');
 }
 
 // ── Pop-ups (live outside #root so a re-render never wipes what's being typed) ──
@@ -5034,13 +5051,14 @@ function travelDraftCard(d,i,multi){
       ${travelField('Check-out time','checkOutTime',d.checkOutTime,'time')}
     </div>
     <label>Guests (separate with commas)</label><input data-f="guests" value="${esc((d.guests||[]).join(', '))}">`;
-  const hint=d.type==='accom'&&d.orderHint&&!d.commNum?`<div style="font-size:12px;color:#b45309;margin-top:4px">Voucher says Order ${esc(d.orderHint)}, but there's no commission ${esc(d.orderHint)} in the Commission List — please choose one.</div>`:'';
+  const hint=d.type==='accom'&&d.orderHint&&!d.commNum?`<div style="font-size:12px;color:#b45309;margin-top:4px">Document says commission ${esc(d.orderHint)}, but there's no commission ${esc(d.orderHint)} in the Commission List — please choose one.</div>`:'';
   return`<div class="travel-draft" data-idx="${i}" style="border:1px solid #d1dae8;border-left:4px solid ${d.type==='flight'?'#2563eb':'#d97706'};border-radius:8px;padding:12px 14px;margin-top:12px;background:${d.include===false?'#f3f4f6':'#fff'}">
     <div style="display:flex;align-items:center;gap:10px">
       ${multi?`<input type="checkbox" data-f="include" ${d.include!==false?'checked':''} style="width:18px;height:18px;flex-shrink:0" title="Include this entry">`:''}
       <div style="font-weight:800;font-size:15px;color:#111827;flex:1">${head}</div>
       ${d.sourceFile?`<div style="font-size:11px;color:#9ca3af;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(d.sourceFile)}">from ${esc(d.sourceFile)}</div>`:''}
     </div>
+    ${!(d.type==='flight'?d.passengers:d.guests)?.length?`<div style="font-size:12px;color:#b45309;font-weight:700;margin-top:4px">No names found in the document — please type them in below.</div>`:''}
     ${d.duplicate?`<div style="font-size:12px;color:#b91c1c;font-weight:700;margin-top:4px">Already in the Travel Schedule — left unticked so it isn't added twice.</div>`:''}
     <label>Commission</label><select data-f="commNum">${travelCommOptions(d.commNum)}</select>${hint}
     ${body}

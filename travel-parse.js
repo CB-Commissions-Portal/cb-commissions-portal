@@ -35,9 +35,18 @@ function isoFromParts(d,mon,y){
 function titleCase(s){
   return String(s).toLowerCase().replace(/(^|[\s'\-])([a-zà-ÿ])/g,(m,a,b)=>a+b.toUpperCase());
 }
-// "KEKANA/MASACLAIR MS" → "Masaclair Kekana"
+// "KEKANA/MASACLAIR MS" → "Masaclair Kekana". Izani sometimes glues the title on
+// ("EDMUNDS/MARYMARIONCLAIREMS", "WHITTLES/GOVANALBERTMR") or leaves it off ("BATES/ERINMARISA").
 function ticketName(sur,first){
-  return titleCase(`${first.trim()} ${sur.trim()}`).replace(/\s+/g,' ');
+  let f=first.trim().replace(/\s+(MRS|MR|MS|MISS|MSTR|DR|PROF)$/,'');
+  const glued=f.match(/^(.{3,}?)(MRS|MISS|MSTR|MR|MS)$/);
+  if(glued&&!/\s/.test(f))f=glued[1];
+  return titleCase(`${f} ${sur.trim()}`).replace(/\s+/g,' ');
+}
+// Ticket names sit on their own line: "*   KEKANA/MASACLAIR MS", "PRETORIUS/WILLEM FRANCOIS(Adult - ADT)"
+function ticketPassengers(lines){
+  const re=/^\*?\s*([A-Z][A-Z'\-]*(?: [A-Z][A-Z'\-]*)*)\/([A-Z][A-Z'\- ]*?)\s*(?:\(.*\))?$/;
+  return uniq(lines.map(l=>l.replace(/\u00a0/g,' ').trim().match(re)).filter(Boolean).map(m=>ticketName(m[1],m[2])));
 }
 // "Peens A" → "A Peens"
 function voucherName(s){
@@ -47,10 +56,8 @@ function voucherName(s){
 const uniq=a=>[...new Set(a.filter(Boolean))];
 
 // ── Flights (Electronic Ticket Receipt and Itinerary) ─────────────────
-function parseFlights(text){
+function parseFlights(text,passengers){
   const flights=[];
-  const passengers=uniq([...text.matchAll(/\b([A-Z][A-Z'\-]+(?: [A-Z][A-Z'\-]+)*)\/([A-Z][A-Z'\- ]*?)\s+(?:MRS|MR|MS|MISS|MSTR|DR|PROF)\b/g)]
-    .map(m=>ticketName(m[1],m[2])));
   const airline=(text.match(/Issuing Airline\s+([A-Za-z][A-Za-z .&'\-]{1,40}?)\s+(?:Date of Issue|Passenger|Electronic|Frequent|Travel Agency)/)||[])[1]||'';
   const city='([A-Za-z][A-Za-z .\'\\-()/]{1,40}?)';
   // "Flight Details" table: Tue 24 Nov 26 FA301 HLA Johannesburg CPT Cape Town 07:00 09:15
@@ -122,11 +129,54 @@ function parseAccom(text,lines,items){
     rooms:rooms.length?`${rooms[0]} room${rooms[0]==='1'?'':'s'} × ${rooms[1]} night${rooms[1]==='1'?'':'s'}`:''};
 }
 
-export function parseTravelDoc({lines=[],items=null}={}){
+// ── Full "Travel Itinerary" (flights + hotels + car hire in one document) ──
+// Sections start "Flight Details Wednesday, 18 November 2026", "Hotel - Wednesday, …", "Car - …", "Other - …".
+// Car hire is ignored (not needed on the schedule).
+function parseItinerary(text,passengers){
+  const flights=[],accoms=[];
+  const segs=text.split(/(?=\b(?:Flight Details|Hotel -|Car -|Other -) (?:Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day,)/);
+  const hhmm=s=>s?(s.length===3?'0'+s:s).replace(/^(\d\d)(\d\d)$/,'$1:$2'):'';
+  segs.forEach(seg=>{
+    let m=seg.match(/^Flight Details \w+, (\d{1,2}) ([A-Za-z]+) (\d{4}) ([A-Z0-9]{2}) ?(\d{1,4}[A-Z]?) - (.+?) : /);
+    if(m){
+      const dep=seg.match(/\bDeparts (\d{1,2}:\d{2}) : [^:]+ : ([A-Z]{3})\b/);
+      const arr=seg.match(/\bArrives (\d{1,2}:\d{2})[^:]* : [^:]+ : ([A-Z]{3})\b/);
+      flights.push({date:isoFromParts(m[1],m[2],m[3]),flightNo:`${m[4]}${m[5]}`,airline:m[6].trim(),
+        from:dep?dep[2]:'',to:arr?arr[2]:'',depart:dep?dep[1]:'',arrive:arr?arr[1]:'',passengers});
+      return;
+    }
+    m=seg.match(/^Hotel - \w+, \d{1,2} [A-Za-z]+ \d{4} (.+?) : /);
+    if(m){
+      const ci=seg.match(/\bCheck In \w+, (\d{1,2}) ([A-Za-z]+) (\d{4})(?:, Check In From (\d{3,4}))?/);
+      const co=seg.match(/\bCheck Out \w+, (\d{1,2}) ([A-Za-z]+) (\d{4})(?:, Check Out Before (\d{3,4}))?/);
+      const name=m[1].includes(', ')?m[1].slice(m[1].lastIndexOf(', ')+2):m[1]; // drop booking-system prefix "Ui Pegasus Ui, "
+      const phone=(seg.match(/\bPhone \/ Fax (\d[\d ]{6,}\d)/)||[])[1]||'';
+      accoms.push({establishment:name.trim(),
+        address:((seg.match(/\bLocation (.+?)\s*\(View Map\)/)||[])[1]||'').trim(),
+        phone:phone&&!phone.startsWith('0')?'+'+phone:phone,contact:'',email:'',
+        checkIn:ci?isoFromParts(ci[1],ci[2],ci[3]):'',checkInTime:ci?hhmm(ci[4]):'',
+        checkOut:co?isoFromParts(co[1],co[2],co[3]):'',checkOutTime:co?hhmm(co[4]):'',
+        guests:passengers,commNum:'',rooms:''});
+    }
+  });
+  return{flights,accoms};
+}
+
+export function parseTravelDoc({lines=[],items=null,fileName=''}={}){
   const clean=lines.map(l=>String(l).replace(/\u00a0/g,' ').trim()).filter(Boolean);
   const text=clean.join(' ').replace(/\s+/g,' ');
-  const isAccom=/Accommodation Voucher|Check[ -]?In\s*:/i.test(text);
-  const flights=isAccom?[]:parseFlights(text);
-  const accom=isAccom?parseAccom(text,clean,items):null;
-  return{kind:accom?'accom':flights.length?'flight':'unknown',flights,accom};
+  const passengers=ticketPassengers(clean);
+  // Commission number, if the document or file name carries one ("Comm7037", "COMM 7037 …", voucher "Order: 7032")
+  const commHint=(text.match(/\bComm\.?\s*(?:No\.?\s*)?(\d{4,5})\b/i)||String(fileName).match(/\bCOMM\.?\s*(\d{4,5})\b/i)||[])[1]||'';
+  let flights=[],accoms=[];
+  if(/Travel Itinerary/i.test(text)&&/Flight Details \w+day,|Hotel - \w+day,/.test(text)){
+    ({flights,accoms}=parseItinerary(text,passengers));
+  }else if(/Accommodation Voucher|Check[ -]?In\s*:/i.test(text)){
+    accoms=[parseAccom(text,clean,items)];
+  }else{
+    flights=parseFlights(text,passengers);
+  }
+  accoms.forEach(a=>{if(!a.commNum)a.commNum=commHint;});
+  const kind=flights.length&&accoms.length?'itinerary':accoms.length?'accom':flights.length?'flight':'unknown';
+  return{kind,flights,accoms,accom:accoms[0]||null,commHint};
 }
