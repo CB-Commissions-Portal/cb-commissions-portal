@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.414';
+const BUILD_VERSION='3.10.415';
 const BUILD_DATE='18 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -5086,30 +5086,41 @@ function travelCommFromText(v){
 // Known people come from presenters, commission crew (producer, DOP, CA, editor, AFM, presenter/VO),
 // portal users and the studio crew, so "Marymarionclaire Edmunds" → "Is this Marion Edmunds?".
 function travelKnownPeople(){
+  // Every name-looking value the portal holds: presenters, ALL commission fields (producer, crew,
+  // researchers…), users, studio crew / schedule, call sheets, end credits, presenter calendar,
+  // and names already saved on the Travel Schedule (so a name corrected once is suggested next time).
+  // Story titles etc. get collected too, but a suggestion still needs the surname to match.
   const out=new Map();
+  const tc=n=>n===n.toUpperCase()?n.toLowerCase().replace(/(^|[\s'\-])([a-zà-ÿ])/g,(m,x,y)=>x+y.toUpperCase()):n;
   const add=v=>{
-    if(typeof v!=='string')return;
-    v.split(/[,\/&+;\n]| and /).forEach(p=>{
-      const n=p.replace(/\(.*?\)/g,'').replace(/\s+/g,' ').trim();
-      if(/^[A-Za-zÀ-ÿ'\-]{2,}(?: [A-Za-zÀ-ÿ'\-]+){1,3}$/.test(n)&&/[a-z]/.test(n))out.set(n.toLowerCase(),n);
+    if(typeof v!=='string'||v.length>200)return;
+    v.split(/[,\/&+;:\n|]| and | - /).forEach(p=>{
+      const n=p.replace(/\(.*?\)/g,'').replace(/[*"“”]/g,'').replace(/\s+/g,' ').trim();
+      if(/^[A-Za-zÀ-ÿ'\-]{2,}(?: [A-Za-zÀ-ÿ'\-]+){1,3}$/.test(n)){const k=tc(n);if(!out.has(k.toLowerCase()))out.set(k.toLowerCase(),k);}
     });
   };
+  const walk=(o,depth=0)=>{if(!o||typeof o!=='object'||depth>5)return;Object.values(o).forEach(v=>typeof v==='string'?add(v):walk(v,depth+1));};
   PRESENTERS.forEach(p=>add(p.full));
-  comms.forEach(c=>['producer','dop','ca','editor','afm','presenterVO'].forEach(k=>add(c[k])));
+  comms.forEach(c=>walk(c));
   users.forEach(u=>add(u.displayName));
-  const walk=o=>{if(!o||typeof o!=='object')return;Object.values(o).forEach(v=>typeof v==='string'?add(v):walk(v));};
-  walk(studioCrew);walk(studioSchedule);
-  return[...out.values()];
+  walk(studioCrew);walk(studioSchedule);walk(callSheetData);walk(endCredits);
+  try{walk(presCalData);}catch{}
+  const main=[...out.values()];
+  out.clear();
+  travelData.forEach(t=>travelPeople(t).forEach(n=>{if(n.split(' ')[0].length>2)add(n);}));
+  const mainSet=new Set(main.map(n=>n.toLowerCase()));
+  return{main,learned:[...out.values()].filter(n=>!mainSet.has(n.toLowerCase()))};
 }
-function travelNameSuggestions(name,known){
+function travelNameMatch(name,known){
   const flat=s=>s.toLowerCase().replace(/[^a-zà-ÿ]/g,'');
   const parts=String(name).trim().split(/\s+/);
   if(!parts.length||!parts[0])return[];
-  if(known.some(k=>k.toLowerCase()===String(name).trim().toLowerCase()))return[]; // already a known name
   const whole=flat(name);
   const first=flat(parts.slice(0,-1).join(''));
   const sur=flat(parts[parts.length-1]);
+  const self=String(name).trim().toLowerCase();
   return known.filter(k=>{
+    if(k.toLowerCase()===self)return false;
     const kp=k.split(' ');
     const kFirst=flat(kp[0]),kSur=flat(kp.slice(1).join(''));
     if(!kFirst||!kSur)return false;
@@ -5119,6 +5130,12 @@ function travelNameSuggestions(name,known){
     if(!surOk)return false;
     return first.length<=2?kFirst.startsWith(first):first.includes(kFirst)||kFirst.includes(first);
   }).slice(0,3);
+}
+// Names from the rest of the portal first; names only seen on earlier travel entries as a fallback.
+function travelNameSuggestions(name,known){
+  if(known.main.some(k=>k.toLowerCase()===String(name).trim().toLowerCase()))return[]; // already a proper portal name
+  const m=travelNameMatch(name,known.main);
+  return m.length?m:travelNameMatch(name,known.learned).sort((a,b)=>a.split(' ')[0].length-b.split(' ')[0].length);
 }
 function travelSuggestHtml(d,i){
   const f=d.type==='flight'?'passengers':'guests';
