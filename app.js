@@ -4,6 +4,7 @@ import{getFirestore,doc,collection,onSnapshot,setDoc,updateDoc,getDoc,getDocs,de
 import{getStorage,ref,uploadBytes,getDownloadURL}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
 import{_ctBuildHtml,_ctRenderHtmlInPane,BAKED_CB_LOGO,BAKED_CAP_LOGO,_CT_SIG1,_CT_SIG2}from'./contract-templates.js';
 import{createSignaturePad}from'./signature-widget.js';
+import{parseTravelDoc,airportName}from'./travel-parse.js';
 
 const STORAGE_KEY='cb_portal_cfg_v2';
 const ADMIN_EMAIL='rudi@combinedartists.co.za';
@@ -23,6 +24,7 @@ const PERM_MAP=[
   {group:'PRODUCTION',rows:[
     {label:'Post Production',   admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'View',            operations:'Full Edit', production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'—'},
     {label:'Shooting Schedule', admin:'View',       deputyadmin:'View',       editorial:'View',            operations:'View',      production:'View',      prodmgmt:'View',    afm:'—',         capstaff:'View',      content:'View',     finance:'View',  director:'View',    transcripts:'View'},
+    {label:'Travel Schedule',   admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'View',            operations:'Full Edit', production:'Full Edit', prodmgmt:'Full Edit',afm:'—',        capstaff:'View',      content:'View',     finance:'View',  director:'View',    transcripts:'View'},
     {label:'Crew List',         admin:'View',       deputyadmin:'—',          editorial:'—',               operations:'View',      production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'—',     director:'—',       transcripts:'—'},
     {label:'Presenter Calendar',admin:'Full Edit',  deputyadmin:'Full Edit',  editorial:'Full Edit',       operations:'Full Edit', production:'Full Edit', prodmgmt:'Full Edit',afm:'—',        capstaff:'—',         content:'View',     finance:'View',  director:'View'},
     {label:'Deliverables',      admin:'Full Edit',  deputyadmin:'—',          editorial:'—',               operations:'—',         production:'—',         prodmgmt:'—',       afm:'—',         capstaff:'—',         content:'—',        finance:'—',     director:'—'},
@@ -226,10 +228,10 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.408';
-const BUILD_DATE='6 Nov 2026';
+const BUILD_VERSION='3.10.409';
+const BUILD_DATE='18 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
-let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null;
+let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',commEpFilter='all',currentSeason='39',previewRole=null;
 let studioCrew={}; // {epNum: {studioDirector:'', ad:'', ...}}
 let studioSchedule={}; // {epNum:{director,asstDir,makeup,autocue(Autocue Operator),floorMgr,production,bookingFrom,bookingTo}}
@@ -2154,6 +2156,7 @@ function renderHome(){
     {label:'Production',items:[
       mk('postprod','Post Production','Schedule',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>`,'#f7768e','rgba(247,118,142,.1)',['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role),'Weekly post production schedule'),
       mk('shootsched','Shooting Schedule','Calendar',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`,'#1a6b35','rgba(26,107,53,.1)',role!=='afm','Monthly bird\'s-eye view of who is shooting what, where'),
+      mk('travel','Travel Schedule','Calendar',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>`,'#0e7490','rgba(14,116,144,.1)',TRAVEL_VIEW(role),'Flights and accommodation by day — read straight from Izani travel documents'),
       mk('crewlist','Crew List',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>`,'#0066CC','rgba(0,102,204,.1)',['admin','operations'].includes(role),'Story crew and studio crew per episode, in broadcast order, with PDF export'),
       mk('prescal','Presenter Calendar','Scheduling',`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,'#f472b6','rgba(244,114,182,.1)',['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance','director'].includes(role),'Daily presenter scheduling'),
       mk('deliverables','Deliverables',`Season ${season}`,`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>`,'#3fb950','rgba(63,185,80,.1)',currentRole==='admin'&&!previewRole,'Commission deliverable tracking and overview'),
@@ -2315,6 +2318,7 @@ function renderSidebar(){
   const production=[
     item('postprod','Post Production',['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role)),
     item('shootsched','Shooting Schedule',role!=='afm'),
+    item('travel','Travel Schedule',TRAVEL_VIEW(role)),
     item('crewlist','Crew List',['admin','operations'].includes(role)),
     item('prescal','Presenter Calendar',['admin','deputyadmin','operations','production','prodmgmt','editorial','content','finance','director'].includes(role)),
     item('deliverables','Deliverables',currentRole==='admin'&&!previewRole),
@@ -2458,6 +2462,7 @@ function renderContent(epNums,nextEp,paid,remaining){
   if(tab==='leave'&&userHasLeaveAccess())return renderLeave();
   if(tab==='postprod'&&['admin','deputyadmin','operations','production','prodmgmt','editorial','capstaff','content','finance'].includes(role))return renderPostProd();
   if(tab==='shootsched'&&role!=='afm')return renderShootingSchedule();
+  if(tab==='travel'&&TRAVEL_VIEW(role))return renderTravelSchedule();
   if(tab==='crewlist'&&['admin','operations'].includes(role))return renderCrewList(epNums,nextEp);
   if(tab==='prerecords'&&PREREC_VIEW_ROLES.includes(role))return renderPreRecords();
   if(tab==='deliverables'&&['admin','deputyadmin'].includes(currentRole)&&!previewRole)return renderDeliverables(epNums);
@@ -4817,6 +4822,363 @@ function renderShootingSchedule(){
     </div>
   </div>`;
 }
+
+// ── Travel Schedule tab (v3.10.409) ─────────────────────────────────
+// Month calendar of flights + accommodation. One Firestore doc per flight leg / stay in the
+// `travel` collection. Entries are read from Izani / XL Embassy documents (Word ticket receipts,
+// PDF accommodation vouchers) by travel-parse.js, then checked + allocated to a commission by the
+// person uploading before anything is saved. Cost, ticket numbers and booking refs are not kept.
+// View: everyone except AFM. Edit: Super Admin, Deputy Admin, Operations, Production, Prod Mgmt.
+const TRAVEL_VIEW=role=>role!=='afm';
+const TRAVEL_EDIT_ROLES=['admin','deputyadmin','operations','production','prodmgmt'];
+let travelData=[];          // [{id,type:'flight'|'accom',commNum,...}]
+let travelCalMonth=null;    // 'YYYY-MM'
+let travelPersonFilter='';
+let travelDrafts=[];        // entries being checked in the upload / edit pop-up
+function subscribeTravel(){
+  if(unsubTravel)unsubTravel();
+  return new Promise(resolve=>{
+    let resolved=false;
+    unsubTravel=onSnapshot(collection(db,'travel'),snap=>{
+      travelData=snap.docs.map(d=>({id:d.id,...d.data()}));
+      if(!resolved){resolved=true;resolve();return;}
+      if(tab==='travel'&&document.activeElement?.id!=='travel-person')render();
+    },e=>{console.error('Travel snapshot:',e);if(!resolved){resolved=true;resolve();}});
+  });
+}
+function travelCanEdit(){return TRAVEL_EDIT_ROLES.includes(getEffectiveRole());}
+function travelPeople(t){return(t.type==='flight'?t.passengers:t.guests)||[];}
+function travelCommLabel(cn){
+  if(!cn)return'No commission';
+  const c=comms.find(x=>String(x.commNum)===String(cn));
+  return c?`${cn} · ${c.shortName||c.storyName||''}`:String(cn);
+}
+function travelAirport(code){const n=airportName(code);return n?`${code} ${n}`:(code||'');}
+function travelShortDate(iso){return iso?new Date(iso+'T00:00:00').toLocaleDateString('en-ZA',{weekday:'short',day:'numeric',month:'short'}):'';}
+function travelAddDays(iso,n){const d=new Date(iso+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);}
+
+function renderTravelSchedule(){
+  const today=new Date().toISOString().split('T')[0];
+  if(!travelCalMonth)travelCalMonth=today.slice(0,7);
+  const [yr,mo]=travelCalMonth.split('-').map(Number);
+  const monthStart=new Date(Date.UTC(yr,mo-1,1));
+  const canEd=travelCanEdit();
+  const q=travelPersonFilter.trim().toLowerCase();
+  const list=q?travelData.filter(t=>travelPeople(t).some(p=>p.toLowerCase().includes(q))):travelData;
+
+  // date → [{t, kind:'flight'|'in'|'stay'|'out', sort}]
+  const dateMap={};
+  const put=(ds,e)=>{(dateMap[ds]=dateMap[ds]||[]).push(e);};
+  list.forEach(t=>{
+    if(t.type==='flight'&&t.date)put(t.date,{t,kind:'flight',sort:'1'+(t.depart||'99:99')});
+    if(t.type==='accom'&&t.checkIn){
+      const out=t.checkOut&&t.checkOut>=t.checkIn?t.checkOut:t.checkIn;
+      for(let d=t.checkIn,i=0;d<=out&&i<60;d=travelAddDays(d,1),i++){
+        const kind=d===t.checkIn?'in':d===out&&out!==t.checkIn?'out':'stay';
+        put(d,{t,kind,sort:(kind==='out'?'0':'2')+(t.establishment||'')});
+      }
+    }
+  });
+  Object.values(dateMap).forEach(l=>l.sort((a,b)=>a.sort.localeCompare(b.sort)));
+
+  const names=arr=>{const a=arr||[];return a.length>3?esc(a.slice(0,3).join(', '))+` +${a.length-3}`:esc(a.join(', '));};
+  const chip=e=>{
+    const t=e.t;
+    if(e.kind==='flight')return`<div class="travel-chip" data-travel-id="${esc(t.id)}" style="background:#dbeafe;color:#1e3a8a;border-left:4px solid #2563eb;font-size:12px;border-radius:3px;padding:4px 7px;margin-bottom:3px;cursor:pointer">
+        <div style="font-weight:900">✈ ${esc(t.flightNo||'Flight')} <span style="font-weight:700">${esc(t.depart||'')}${t.arrive?'–'+esc(t.arrive):''}</span></div>
+        <div style="font-weight:700">${esc(t.from||'?')} → ${esc(t.to||'?')}</div>
+        <div style="line-height:1.3">${names(t.passengers)}</div>
+        <div style="font-size:11px;color:#3b5998;font-family:monospace">${esc(t.commNum||'')}</div>
+      </div>`;
+    const lbl=e.kind==='in'?'CHECK IN':e.kind==='out'?'CHECK OUT':'STAYING';
+    const time=e.kind==='in'?t.checkInTime:e.kind==='out'?t.checkOutTime:'';
+    const faded=e.kind==='stay';
+    return`<div class="travel-chip" data-travel-id="${esc(t.id)}" style="background:${faded?'#fffbeb':'#fef3c7'};color:#78350f;border-left:4px solid #d97706;font-size:12px;border-radius:3px;padding:4px 7px;margin-bottom:3px;cursor:pointer">
+        <div style="font-weight:900;font-size:11px;letter-spacing:.4px">🏨 ${lbl}${time?' '+esc(time):''}</div>
+        <div style="font-weight:700;line-height:1.3">${esc(t.establishment||'Accommodation')}</div>
+        ${faded?'':`<div style="line-height:1.3">${names(t.guests)}</div><div style="font-size:11px;color:#92400e;font-family:monospace">${esc(t.commNum||'')}</div>`}
+      </div>`;
+  };
+
+  const firstDow=monthStart.getUTCDay();
+  const startOffset=firstDow===0?-6:1-firstDow;
+  const dayHdrs=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map((d,i)=>`<div style="text-align:center;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:${i>=5?'#484f58':'#7a8ba0'};padding:8px 0;border-bottom:2px solid #e8edf5;border-right:1px solid #e8edf5;background:#f8fafc">${d}</div>`).join('');
+  const cells=[];
+  for(let i=0;i<42;i++){
+    const d=new Date(Date.UTC(yr,mo-1,1+startOffset+i));
+    const ds=d.toISOString().slice(0,10);
+    const inMonth=d.getUTCMonth()===mo-1&&d.getUTCFullYear()===yr;
+    if(i>=35&&!inMonth&&d.getUTCDay()===1)break; // drop an empty 6th week
+    const isTod=ds===today;
+    const isWknd=d.getUTCDay()===0||d.getUTCDay()===6;
+    const entries=dateMap[ds]||[];
+    const bgCol=isTod?'#dbeafe':isWknd&&inMonth?'#f0f4f8':inMonth?'#ffffff':'#f8fafc';
+    cells.push(`<div style="border-right:1px solid #e8edf5;border-bottom:1px solid #d1dae8;min-height:150px;padding:8px;background:${bgCol};opacity:${inMonth?1:0.45};min-width:0">
+      <div style="${isTod?'background:#0057b8;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;':'color:'+(isWknd?'#484f58':'#6e7681')+';'}font-size:15px;font-weight:${isTod?900:700};margin-bottom:6px">${d.getUTCDate()}</div>
+      ${entries.map(chip).join('')}
+    </div>`);
+  }
+  const monthName=monthStart.toLocaleDateString('en-ZA',{month:'long',year:'numeric',timeZone:'UTC'});
+  return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
+    <div style="padding:8px 14px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
+      <button id="travel-cal-prev" class="btn" style="font-size:15px;padding:3px 12px">◀</button>
+      <span style="font-size:18px;font-weight:800;color:#111827;min-width:180px;text-align:center">${monthName}</span>
+      <button id="travel-cal-next" class="btn" style="font-size:15px;padding:3px 12px">▶</button>
+      <button id="travel-cal-today" class="btn" style="font-size:13px;padding:4px 10px">Today</button>
+      <input id="travel-person" type="search" placeholder="Find a person…" value="${esc(travelPersonFilter)}" style="margin-left:10px;font-size:14px;padding:5px 10px;border:1px solid #d1dae8;border-radius:6px;width:190px">
+      <span style="font-size:12px;color:#1e3a8a;background:#dbeafe;border-left:4px solid #2563eb;padding:2px 8px;border-radius:3px;font-weight:700">✈ Flight</span>
+      <span style="font-size:12px;color:#78350f;background:#fef3c7;border-left:4px solid #d97706;padding:2px 8px;border-radius:3px;font-weight:700">🏨 Accommodation</span>
+      ${canEd?`<span style="margin-left:auto;display:flex;gap:8px">
+        <button id="travel-add-flight" class="btn" style="font-size:13px;padding:5px 12px">+ Flight</button>
+        <button id="travel-add-accom" class="btn" style="font-size:13px;padding:5px 12px">+ Accommodation</button>
+        <button id="travel-upload" class="btn primary" style="font-size:13px;padding:5px 12px">⬆ Upload travel documents</button>
+        <input id="travel-file-input" type="file" accept=".docx,.pdf" multiple style="display:none">
+      </span>`:''}
+    </div>
+    <div style="flex:1;overflow-y:auto">
+      <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-left:1px solid #21262d;border-top:1px solid #21262d">
+        ${dayHdrs}
+        ${cells.join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Reading uploaded documents ──
+function travelLoadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
+async function travelFileToText(file){
+  const buf=await file.arrayBuffer();
+  if(/\.docx$/i.test(file.name)){
+    if(!window.mammoth)await travelLoadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js');
+    const r=await mammoth.extractRawText({arrayBuffer:buf});
+    return{lines:r.value.split(/\r?\n/)};
+  }
+  if(/\.pdf$/i.test(file.name)){
+    if(!window.pdfjsLib)await travelLoadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf=await pdfjsLib.getDocument({data:new Uint8Array(buf)}).promise;
+    const items=[];
+    for(let p=1;p<=pdf.numPages;p++){
+      const tc=await(await pdf.getPage(p)).getTextContent();
+      tc.items.forEach(i=>{if(i.str&&i.str.trim())items.push({str:i.str,x:i.transform[4],y:i.transform[5]-p*10000,h:i.height});});
+    }
+    items.sort((a,b)=>(b.y-a.y)||(a.x-b.x));
+    return{lines:items.map(i=>i.str),items};
+  }
+  throw new Error('Only Word (.docx) and PDF files can be read');
+}
+function travelIsDuplicate(d){
+  const same=(a,b)=>(a||[]).map(s=>s.toLowerCase()).sort().join('|')===(b||[]).map(s=>s.toLowerCase()).sort().join('|');
+  return travelData.some(t=>t.type===d.type&&(d.type==='flight'
+    ?t.date===d.date&&(t.flightNo||'').replace(/\s/g,'')===(d.flightNo||'').replace(/\s/g,'')&&same(t.passengers,d.passengers)
+    :t.checkIn===d.checkIn&&(t.establishment||'').toLowerCase()===(d.establishment||'').toLowerCase()&&same(t.guests,d.guests)));
+}
+async function travelHandleFiles(files,btn){
+  const drafts=[],failed=[];
+  if(btn){btn.disabled=true;btn.textContent='⏳ Reading…';}
+  for(const f of files){
+    try{
+      const res=parseTravelDoc(await travelFileToText(f));
+      if(res.kind==='flight')res.flights.forEach(fl=>drafts.push({type:'flight',sourceFile:f.name,commNum:'',...fl}));
+      else if(res.kind==='accom'){
+        const a=res.accom;
+        const known=a.commNum&&comms.some(c=>String(c.commNum)===String(a.commNum));
+        drafts.push({type:'accom',sourceFile:f.name,...a,commNum:known?a.commNum:'',orderHint:a.commNum});
+      }
+      else failed.push(f.name);
+    }catch(e){console.error('Travel read',f.name,e);failed.push(f.name);}
+  }
+  if(btn){btn.disabled=false;btn.textContent='⬆ Upload travel documents';}
+  if(failed.length)showToast(`Couldn't read ${failed.join(', ')} — add ${failed.length>1?'them':'it'} by hand with + Flight / + Accommodation`,true);
+  if(!drafts.length)return;
+  drafts.forEach(d=>{d.duplicate=travelIsDuplicate(d);d.include=!d.duplicate;});
+  openTravelEditor(drafts,'Check travel details');
+}
+
+// ── Pop-ups (live outside #root so a re-render never wipes what's being typed) ──
+function travelCommOptions(sel){
+  const list=comms.filter(c=>c.commNum&&!c.decommissioned).sort((a,b)=>Number(b.commNum)-Number(a.commNum));
+  return`<option value="">— Choose commission —</option>`+list.map(c=>`<option value="${esc(c.commNum)}"${String(c.commNum)===String(sel)?' selected':''}>${esc(c.commNum)} · ${esc(c.shortName||c.storyName||'')}${c.producer?' ('+esc(c.producer)+')':''}</option>`).join('');
+}
+function travelOverlay(inner,width){
+  document.getElementById('travel-overlay')?.remove();
+  const ov=document.createElement('div');
+  ov.className='modal-overlay';ov.id='travel-overlay';
+  ov.innerHTML=`<div class="modal" style="width:${width||760}px;max-width:95vw;max-height:90vh;overflow-y:auto">${inner}</div>`;
+  document.body.appendChild(ov);
+  return ov;
+}
+function travelField(label,f,val,type,extra){
+  return`<div style="${extra||''}"><label>${label}</label><input data-f="${f}" type="${type||'text'}" value="${esc(val||'')}"></div>`;
+}
+function travelDraftCard(d,i,multi){
+  const grid='display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 12px';
+  const head=d.type==='flight'?`✈ Flight${d.flightNo?' '+esc(d.flightNo):''}${d.date?' · '+travelShortDate(d.date):''}`:`🏨 ${esc(d.establishment||'Accommodation')}`;
+  const body=d.type==='flight'?`<div style="${grid}">
+      ${travelField('Date','date',d.date,'date')}
+      ${travelField('Flight number','flightNo',d.flightNo)}
+      ${travelField('Departs','depart',d.depart,'time')}
+      ${travelField('Arrives','arrive',d.arrive,'time')}
+      ${travelField('From (airport code)','from',d.from,'text')}
+      ${travelField('To (airport code)','to',d.to,'text')}
+      ${travelField('Airline','airline',d.airline,'text','grid-column:span 2')}
+    </div>
+    <label>Passengers (separate with commas)</label><input data-f="passengers" value="${esc((d.passengers||[]).join(', '))}">`
+  :`<label>Establishment</label><input data-f="establishment" value="${esc(d.establishment||'')}">
+    <div style="${grid}">
+      ${travelField('Address','address',d.address,'text','grid-column:span 2')}
+      ${travelField('Phone','phone',d.phone,'text','grid-column:span 2')}
+      ${travelField('Check in','checkIn',d.checkIn,'date')}
+      ${travelField('Check-in time','checkInTime',d.checkInTime,'time')}
+      ${travelField('Check out','checkOut',d.checkOut,'date')}
+      ${travelField('Check-out time','checkOutTime',d.checkOutTime,'time')}
+    </div>
+    <label>Guests (separate with commas)</label><input data-f="guests" value="${esc((d.guests||[]).join(', '))}">`;
+  const hint=d.type==='accom'&&d.orderHint&&!d.commNum?`<div style="font-size:12px;color:#b45309;margin-top:4px">Voucher says Order ${esc(d.orderHint)}, but there's no commission ${esc(d.orderHint)} in the Commission List — please choose one.</div>`:'';
+  return`<div class="travel-draft" data-idx="${i}" style="border:1px solid #d1dae8;border-left:4px solid ${d.type==='flight'?'#2563eb':'#d97706'};border-radius:8px;padding:12px 14px;margin-top:12px;background:${d.include===false?'#f3f4f6':'#fff'}">
+    <div style="display:flex;align-items:center;gap:10px">
+      ${multi?`<input type="checkbox" data-f="include" ${d.include!==false?'checked':''} style="width:18px;height:18px;flex-shrink:0" title="Include this entry">`:''}
+      <div style="font-weight:800;font-size:15px;color:#111827;flex:1">${head}</div>
+      ${d.sourceFile?`<div style="font-size:11px;color:#9ca3af;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(d.sourceFile)}">from ${esc(d.sourceFile)}</div>`:''}
+    </div>
+    ${d.duplicate?`<div style="font-size:12px;color:#b91c1c;font-weight:700;margin-top:4px">Already in the Travel Schedule — left unticked so it isn't added twice.</div>`:''}
+    <label>Commission</label><select data-f="commNum">${travelCommOptions(d.commNum)}</select>${hint}
+    ${body}
+    <label>Notes</label><input data-f="notes" value="${esc(d.notes||'')}">
+  </div>`;
+}
+function openTravelEditor(drafts,title){
+  travelDrafts=drafts.map(d=>({...d}));
+  const multi=travelDrafts.length>1||travelDrafts.some(d=>d.sourceFile&&!d.id);
+  const editing=travelDrafts.length===1&&travelDrafts[0].id;
+  travelOverlay(`<h3>${esc(title)}</h3>
+    <p>${multi?'Check each entry, choose its commission, then save. Untick anything you don\'t want added.':'Check the details and choose the commission.'}</p>
+    ${multi&&travelDrafts.length>1?`<div style="display:flex;align-items:center;gap:8px;background:#f0f4f8;border-radius:8px;padding:8px 12px"><span style="font-size:13px;font-weight:700;color:#374151;white-space:nowrap">Same commission for all:</span><select id="travel-comm-all" style="flex:1">${travelCommOptions('')}</select></div>`:''}
+    <div id="travel-drafts">${travelDrafts.map((d,i)=>travelDraftCard(d,i,multi)).join('')}</div>
+    <div class="modal-actions">
+      ${editing?`<button class="btn danger" id="travel-delete" data-id="${esc(travelDrafts[0].id)}" style="margin-right:auto">Delete</button>`:''}
+      <button class="btn" id="travel-cancel">Cancel</button>
+      <button class="btn primary" id="travel-save">Save</button>
+    </div>`);
+}
+function openTravelDetail(id){
+  const t=travelData.find(x=>x.id===id);
+  if(!t)return;
+  const row=(k,v)=>v?`<tr><td style="padding:5px 12px 5px 0;color:#6b7280;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;vertical-align:top">${k}</td><td style="padding:5px 0;font-size:15px;color:#111827;white-space:normal">${v}</td></tr>`:'';
+  const rows=t.type==='flight'
+    ?row('Date',esc(fmtDate(t.date)))+row('Flight',esc([t.flightNo,t.airline].filter(Boolean).join(' · ')))
+      +row('From',esc(travelAirport(t.from)))+row('To',esc(travelAirport(t.to)))
+      +row('Departs',esc(t.depart||''))+row('Arrives',esc(t.arrive||''))+row('Passengers',esc((t.passengers||[]).join(', ')))
+    :row('Establishment',esc(t.establishment||''))+row('Address',esc(t.address||''))+row('Phone',esc(t.phone||''))
+      +row('Check in',esc(fmtDate(t.checkIn)+(t.checkInTime?' · '+t.checkInTime:'')))+row('Check out',esc(fmtDate(t.checkOut)+(t.checkOutTime?' · '+t.checkOutTime:'')))
+      +row('Guests',esc((t.guests||[]).join(', ')));
+  const saved=t.savedAt?`Last saved ${new Date(t.savedAt).toLocaleDateString('en-ZA',{day:'2-digit',month:'short'})}${t.savedBy?' · '+esc(t.savedBy):''}`:'';
+  travelOverlay(`<h3>${t.type==='flight'?'✈ Flight':'🏨 Accommodation'}</h3>
+    <table style="width:100%;border-collapse:collapse;margin-top:6px">
+      ${row('Commission',esc(travelCommLabel(t.commNum)))}${rows}${row('Notes',esc(t.notes||''))}
+    </table>
+    ${saved?`<div style="font-size:12px;color:#9ca3af;margin-top:10px">${saved}</div>`:''}
+    <div class="modal-actions">
+      <button class="btn" id="travel-cancel">Close</button>
+      ${travelCanEdit()?`<button class="btn primary" id="travel-edit" data-id="${esc(t.id)}">Edit</button>`:''}
+    </div>`,520);
+}
+function travelReadDrafts(){
+  document.querySelectorAll('#travel-drafts .travel-draft').forEach(card=>{
+    const d=travelDrafts[Number(card.dataset.idx)];
+    card.querySelectorAll('[data-f]').forEach(el=>{
+      const f=el.dataset.f;
+      if(f==='include')d.include=el.checked;
+      else if(f==='passengers'||f==='guests')d[f]=el.value.split(',').map(s=>s.trim()).filter(Boolean);
+      else if(f==='from'||f==='to'||f==='flightNo')d[f]=el.value.trim().toUpperCase();
+      else d[f]=el.value.trim();
+    });
+  });
+}
+async function saveTravelDrafts(btn){
+  travelReadDrafts();
+  const todo=travelDrafts.filter(d=>d.include!==false);
+  if(!todo.length){showToast('Nothing ticked to save',true);return;}
+  for(const d of todo){
+    const what=d.type==='flight'?`flight ${d.flightNo||''}`:(d.establishment||'accommodation');
+    if(!d.commNum){showToast(`Choose a commission for ${what}`,true);return;}
+    if(d.type==='flight'&&!d.date){showToast(`Flight ${d.flightNo||''} needs a date`,true);return;}
+    if(d.type==='accom'&&!d.checkIn){showToast(`${what} needs a check-in date`,true);return;}
+    if(d.type==='accom'&&d.checkOut&&d.checkOut<d.checkIn){showToast(`${what}: check-out is before check-in`,true);return;}
+  }
+  btn.disabled=true;btn.textContent='Saving…';setSyncDot('saving');
+  try{
+    const batch=writeBatch(db);
+    const stamp={savedAt:new Date().toISOString(),savedBy:currentUser?.displayName||currentUser?.email||'Unknown'};
+    todo.forEach(d=>{
+      const data={};
+      (d.type==='flight'
+        ?['type','commNum','date','flightNo','airline','from','to','depart','arrive','passengers','notes','sourceFile']
+        :['type','commNum','establishment','address','phone','contact','email','checkIn','checkInTime','checkOut','checkOutTime','guests','notes','sourceFile'])
+        .forEach(k=>{data[k]=d[k]??(k==='passengers'||k==='guests'?[]:'');});
+      batch.set(d.id?doc(db,'travel',d.id):doc(collection(db,'travel')),{...data,...stamp});
+    });
+    await batch.commit();
+    setSyncDot('live');
+    const first=todo.map(d=>d.date||d.checkIn).sort()[0];
+    if(first)travelCalMonth=first.slice(0,7);
+    document.getElementById('travel-overlay')?.remove();
+    showToast(todo.length===1?'Travel saved':`${todo.length} travel entries saved`);
+    render();
+  }catch(e){
+    setSyncDot('offline');showToast('Save failed: '+e.message,true);
+    btn.disabled=false;btn.textContent='Save';
+  }
+}
+document.addEventListener('click',async function travelClick(e){
+  const id=e.target.id;
+  if(id==='travel-cal-prev'||id==='travel-cal-next'){
+    const [y,m]=travelCalMonth.split('-').map(Number);
+    travelCalMonth=new Date(Date.UTC(y,id==='travel-cal-prev'?m-2:m,1)).toISOString().slice(0,7);
+    render();return;
+  }
+  if(id==='travel-cal-today'){travelCalMonth=new Date().toISOString().slice(0,7);render();return;}
+  const chipEl=e.target.closest?.('.travel-chip');
+  if(chipEl){openTravelDetail(chipEl.dataset.travelId);return;}
+  if(id==='travel-overlay'||id==='travel-cancel'){document.getElementById('travel-overlay')?.remove();return;}
+  if(!travelCanEdit())return;
+  if(id==='travel-upload'){document.getElementById('travel-file-input')?.click();return;}
+  if(id==='travel-add-flight'){openTravelEditor([{type:'flight',commNum:'',passengers:[]}],'Add flight');return;}
+  if(id==='travel-add-accom'){openTravelEditor([{type:'accom',commNum:'',guests:[]}],'Add accommodation');return;}
+  if(id==='travel-edit'){const t=travelData.find(x=>x.id===e.target.dataset.id);if(t)openTravelEditor([{...t}],t.type==='flight'?'Edit flight':'Edit accommodation');return;}
+  if(id==='travel-save'){saveTravelDrafts(e.target);return;}
+  if(id==='travel-delete'){
+    const t=travelData.find(x=>x.id===e.target.dataset.id);
+    if(!t||!confirm(`Delete ${t.type==='flight'?'flight '+(t.flightNo||''):(t.establishment||'this accommodation')} from the Travel Schedule?`))return;
+    try{await deleteDoc(doc(db,'travel',t.id));document.getElementById('travel-overlay')?.remove();showToast('Deleted');}
+    catch(err){showToast('Delete failed: '+err.message,true);}
+  }
+});
+document.addEventListener('change',function travelChange(e){
+  if(e.target.id==='travel-file-input'){
+    const files=[...e.target.files];e.target.value='';
+    if(files.length)travelHandleFiles(files,document.getElementById('travel-upload'));
+    return;
+  }
+  if(e.target.id==='travel-comm-all'&&e.target.value){
+    document.querySelectorAll('#travel-drafts select[data-f="commNum"]').forEach(s=>{s.value=e.target.value;});
+    return;
+  }
+  if(e.target.dataset?.f==='include'){
+    const card=e.target.closest('.travel-draft');if(card)card.style.background=e.target.checked?'#fff':'#f3f4f6';
+  }
+});
+document.addEventListener('input',function travelSearch(e){
+  if(e.target.id!=='travel-person')return;
+  travelPersonFilter=e.target.value;
+  const pos=e.target.selectionStart;
+  render();
+  const el=document.getElementById('travel-person');
+  if(el){el.focus();try{el.setSelectionRange(pos,pos);}catch{}}
+});
+document.addEventListener('keydown',function travelEsc(e){
+  if(e.key==='Escape'&&document.getElementById('travel-overlay'))document.getElementById('travel-overlay').remove();
+});
 
 function renderDeliverables(epNums){
   if(!epNums.length) return`<div class="ep-wrap"><div style="color:#6b7280;padding:32px;text-align:center">No episodes yet.</div></div>`;
@@ -14910,6 +15272,7 @@ async function boot(){
         subscribeCommTranscripts().catch(e=>console.error('CommTranscripts error:',e)),
         subscribeLiveTranscripts().catch(e=>console.error('LiveTranscripts error:',e)),
         subscribePreRecords().catch(e=>console.error('Pre-records error:',e)),
+        ...(currentRole!=='afm'?[subscribeTravel().catch(e=>console.error('Travel error:',e))]:[]),
         ...(currentRole==='admin'?[
           subscribeInvClients().catch(e=>console.error('Invoice clients error:',e)),
           subscribeInvMyDetails().catch(e=>console.error('Invoice my details error:',e)),
@@ -14946,6 +15309,8 @@ async function boot(){
       if(unsubInvMyDetails){unsubInvMyDetails();unsubInvMyDetails=null;}
       if(unsubInvoices){unsubInvoices();unsubInvoices=null;}
       if(unsubPreRecords){unsubPreRecords();unsubPreRecords=null;}
+      if(unsubTravel){unsubTravel();unsubTravel=null;}
+      travelData=[];document.getElementById('travel-overlay')?.remove();
       render();
     }
   });
