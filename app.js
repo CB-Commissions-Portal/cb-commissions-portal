@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.415';
+const BUILD_VERSION='3.10.416';
 const BUILD_DATE='18 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -5094,6 +5094,8 @@ function travelKnownPeople(){
   const tc=n=>n===n.toUpperCase()?n.toLowerCase().replace(/(^|[\s'\-])([a-zà-ÿ])/g,(m,x,y)=>x+y.toUpperCase()):n;
   const add=v=>{
     if(typeof v!=='string'||v.length>200)return;
+    // Names often sit in brackets after a company: "Mainstreet Media (Anina Peens)" → also read "Anina Peens"
+    (v.match(/\(([^()]+)\)/g)||[]).forEach(b=>add(b.slice(1,-1)));
     v.split(/[,\/&+;:\n|]| and | - /).forEach(p=>{
       const n=p.replace(/\(.*?\)/g,'').replace(/[*"“”]/g,'').replace(/\s+/g,' ').trim();
       if(/^[A-Za-zÀ-ÿ'\-]{2,}(?: [A-Za-zÀ-ÿ'\-]+){1,3}$/.test(n)){const k=tc(n);if(!out.has(k.toLowerCase()))out.set(k.toLowerCase(),k);}
