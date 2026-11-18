@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.417';
+const BUILD_VERSION='3.10.418';
 const BUILD_DATE='18 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -4885,7 +4885,7 @@ function renderTravelSchedule(){
   const commLine=(cn,col)=>{
     if(!cn)return'';
     const c=comms.find(x=>String(x.commNum)===String(cn));
-    const story=c?(c.shortName||c.storyName||''):'';
+    const story=c?(c.storyName||c.shortName||''):'';
     return`<div style="font-size:11px;color:${col};line-height:1.3;white-space:normal"><b style="font-family:monospace">${esc(cn)}</b>${story?' · '+esc(story):''}</div>`;
   };
   const names=arr=>{const a=arr||[];return a.length>3?esc(a.slice(0,3).join(', '))+` +${a.length-3}`:esc(a.join(', '));};
