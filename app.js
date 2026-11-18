@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.412';
+const BUILD_VERSION='3.10.413';
 const BUILD_DATE='18 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -5019,10 +5019,48 @@ function travelCommText(cn){
   const c=comms.find(x=>String(x.commNum)===String(cn));
   return c?`${c.commNum} · ${c.shortName||c.storyName||''}${c.producer?' ('+c.producer+')':''}`:String(cn);
 }
-function travelCommDatalist(){
-  const list=comms.filter(c=>c.commNum&&!c.decommissioned).sort((a,b)=>Number(b.commNum)-Number(a.commNum));
-  return`<datalist id="travel-comm-dl">${list.map(c=>`<option value="${esc(travelCommText(c.commNum))}"></option>`).join('')}</datalist>`;
+// Own dropdown (Safari doesn't reliably show <datalist> suggestions): matches on number, story or producer.
+function travelCommMatches(q){
+  const words=String(q||'').toLowerCase().split(/\s+/).filter(Boolean);
+  return comms.filter(c=>c.commNum&&!c.decommissioned)
+    .sort((a,b)=>Number(b.commNum)-Number(a.commNum))
+    .filter(c=>{const t=travelCommText(c.commNum).toLowerCase();return words.every(w=>t.includes(w));})
+    .slice(0,10);
 }
+function travelCommMenu(inp){
+  document.querySelectorAll('.travel-comm-menu').forEach(m=>m.remove());
+  const list=travelCommMatches(inp.value);
+  const menu=document.createElement('div');
+  menu.className='travel-comm-menu';
+  menu.style.cssText='position:absolute;left:0;right:0;top:100%;margin-top:2px;background:#fff;border:1px solid #b4bfcc;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.15);z-index:20;max-height:260px;overflow-y:auto';
+  menu.innerHTML=list.length?list.map((c,i)=>`<div class="travel-comm-opt" data-cn="${esc(c.commNum)}" style="padding:7px 12px;font-size:14px;cursor:pointer;border-bottom:1px solid #eef2f7;color:#111827;${i===0?'background:#eff6ff':''}"><b style="font-family:monospace">${esc(c.commNum)}</b> · ${esc(c.shortName||c.storyName||'')}${c.producer?` <span style="color:#6b7280">(${esc(c.producer)})</span>`:''}</div>`).join('')
+    :`<div style="padding:8px 12px;font-size:13px;color:#9ca3af">No commission matches “${esc(inp.value)}”</div>`;
+  inp.parentElement.appendChild(menu);
+}
+function travelCommPick(inp,cn){
+  inp.value=travelCommText(cn);
+  document.querySelectorAll('.travel-comm-menu').forEach(m=>m.remove());
+  if(inp.id==='travel-comm-all')document.querySelectorAll('#travel-drafts input[data-f="commNum"]').forEach(s=>{s.value=inp.value;});
+}
+document.addEventListener('input',function travelCommType(e){
+  if(e.target.classList?.contains('travel-comm-inp'))travelCommMenu(e.target);
+});
+document.addEventListener('focusin',function travelCommFocus(e){
+  if(e.target.classList?.contains('travel-comm-inp')){e.target.select?.();travelCommMenu(e.target);}
+});
+document.addEventListener('mousedown',function travelCommClick(e){
+  const opt=e.target.closest?.('.travel-comm-opt');
+  if(opt){e.preventDefault();const inp=opt.closest('div[style*="position:relative"]')?.querySelector('.travel-comm-inp');if(inp)travelCommPick(inp,opt.dataset.cn);return;}
+  if(!e.target.closest?.('.travel-comm-menu')&&!e.target.classList?.contains('travel-comm-inp'))document.querySelectorAll('.travel-comm-menu').forEach(m=>m.remove());
+});
+document.addEventListener('keydown',function travelCommKeys(e){
+  if(!e.target.classList?.contains('travel-comm-inp'))return;
+  if(e.key==='Enter'){
+    const first=e.target.parentElement.querySelector('.travel-comm-opt');
+    if(first){e.preventDefault();travelCommPick(e.target,first.dataset.cn);}
+  }
+  if(e.key==='Escape'&&e.target.parentElement.querySelector('.travel-comm-menu')){e.stopPropagation();document.querySelectorAll('.travel-comm-menu').forEach(m=>m.remove());}
+},true);
 function travelCommFromText(v){
   const m=String(v||'').trim().match(/^(\d{3,6})\b/);
   return m&&comms.some(c=>String(c.commNum)===m[1])?m[1]:'';
@@ -5120,7 +5158,7 @@ function travelDraftCard(d,i,multi){
     ${!(d[people]||[]).length?`<div style="font-size:12px;color:#b45309;font-weight:700;margin-top:4px">No names found in the document — please type them in below.</div>`:''}
     ${d.duplicate?`<div style="font-size:12px;color:#b91c1c;font-weight:700;margin-top:4px">Already in the Travel Schedule — Skip it unless something has changed.</div>`:''}
     <label>Commission (type the number or part of the story name)</label>
-    <input data-f="commNum" list="travel-comm-dl" autocomplete="off" placeholder="e.g. 7037 or story name" value="${esc(travelCommText(d.commNum))}">${hint}
+    <div style="position:relative"><input data-f="commNum" class="travel-comm-inp" autocomplete="off" placeholder="e.g. 7037 or story name" value="${esc(travelCommText(d.commNum))}"></div>${hint}
     ${body}
     <label>${d.type==='flight'?'Passengers':'Guests'} (separate with commas)</label><input data-f="${people}" value="${esc((d[people]||[]).join(', '))}">
     ${travelSuggestHtml(d,i)}
@@ -5144,10 +5182,9 @@ function openTravelEditor(drafts,title){
   const multi=!(travelDrafts.length===1&&(travelDrafts[0].id||!travelDrafts[0].sourceFile));
   const editing=travelDrafts.length===1&&travelDrafts[0].id;
   travelOverlay(`<h3>${esc(title)}</h3>
-    ${travelCommDatalist()}
     <p>${multi?'Check each entry, choose its commission and click <b>Save this entry</b>. Use <b>Skip</b> for anything you don\'t want added.':'Check the details and choose the commission.'}</p>
     ${multi?`<div id="travel-left" style="font-size:13px;font-weight:800;color:#0e7490"></div>`:''}
-    ${multi&&travelDrafts.length>1?`<div style="display:flex;align-items:center;gap:8px;background:#f0f4f8;border-radius:8px;padding:8px 12px;margin-top:8px"><span style="font-size:13px;font-weight:700;color:#374151;white-space:nowrap">Same commission for all:</span><input id="travel-comm-all" list="travel-comm-dl" autocomplete="off" placeholder="Type number or story name" style="flex:1"></div>`:''}
+    ${multi&&travelDrafts.length>1?`<div style="display:flex;align-items:center;gap:8px;background:#f0f4f8;border-radius:8px;padding:8px 12px;margin-top:8px"><span style="font-size:13px;font-weight:700;color:#374151;white-space:nowrap">Same commission for all:</span><div style="position:relative;flex:1"><input id="travel-comm-all" class="travel-comm-inp" autocomplete="off" placeholder="Type number or story name"></div></div>`:''}
     <div id="travel-drafts">${travelDrafts.map((d,i)=>travelDraftCard(d,i,multi)).join('')}</div>
     <div class="modal-actions">
       ${editing?`<button class="btn danger" id="travel-delete" data-id="${esc(travelDrafts[0].id)}" style="margin-right:auto">Delete</button>`:''}
@@ -5301,10 +5338,6 @@ document.addEventListener('change',function travelChange(e){
   if(e.target.id==='travel-file-input'){
     const files=[...e.target.files];e.target.value='';
     if(files.length)travelHandleFiles(files,document.getElementById('travel-upload'));
-    return;
-  }
-  if(e.target.id==='travel-comm-all'&&travelCommFromText(e.target.value)){
-    document.querySelectorAll('#travel-drafts input[data-f="commNum"]').forEach(s=>{s.value=e.target.value;});
     return;
   }
 });
