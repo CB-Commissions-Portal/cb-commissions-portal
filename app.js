@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.411';
+const BUILD_VERSION='3.10.412';
 const BUILD_DATE='18 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -5007,16 +5007,77 @@ async function travelHandleFiles(files,btn){
       if(!m.sourceFile.split(', ').includes(d.sourceFile))m.sourceFile+=', '+d.sourceFile;
     }else merged.push({...d,_key:key});
   });
-  merged.forEach(d=>{delete d._key;d.duplicate=travelIsDuplicate(d);d.include=!d.duplicate;});
+  merged.forEach(d=>{delete d._key;d.duplicate=travelIsDuplicate(d);});
   merged.sort((a,b)=>(a.date||a.checkIn||'').localeCompare(b.date||b.checkIn||'')||(a.type==='flight'?-1:1));
   openTravelEditor(merged,'Check travel details');
 }
 
 // ── Pop-ups (live outside #root so a re-render never wipes what's being typed) ──
-function travelCommOptions(sel){
-  const list=comms.filter(c=>c.commNum&&!c.decommissioned).sort((a,b)=>Number(b.commNum)-Number(a.commNum));
-  return`<option value="">— Choose commission —</option>`+list.map(c=>`<option value="${esc(c.commNum)}"${String(c.commNum)===String(sel)?' selected':''}>${esc(c.commNum)} · ${esc(c.shortName||c.storyName||'')}${c.producer?' ('+esc(c.producer)+')':''}</option>`).join('');
+// Commission picker = type-to-search box (datalist): "7037 · Story name (Producer)".
+function travelCommText(cn){
+  if(!cn)return'';
+  const c=comms.find(x=>String(x.commNum)===String(cn));
+  return c?`${c.commNum} · ${c.shortName||c.storyName||''}${c.producer?' ('+c.producer+')':''}`:String(cn);
 }
+function travelCommDatalist(){
+  const list=comms.filter(c=>c.commNum&&!c.decommissioned).sort((a,b)=>Number(b.commNum)-Number(a.commNum));
+  return`<datalist id="travel-comm-dl">${list.map(c=>`<option value="${esc(travelCommText(c.commNum))}"></option>`).join('')}</datalist>`;
+}
+function travelCommFromText(v){
+  const m=String(v||'').trim().match(/^(\d{3,6})\b/);
+  return m&&comms.some(c=>String(c.commNum)===m[1])?m[1]:'';
+}
+
+// ── Matching ticket names to people already in the portal ──
+// Tickets give "SURNAME/FIRSTNAMESRUNTOGETHER" → "Marymarionclaire Edmunds"; vouchers give "M Kekana".
+// Known people come from presenters, commission crew (producer, DOP, CA, editor, AFM, presenter/VO),
+// portal users and the studio crew, so "Marymarionclaire Edmunds" → "Is this Marion Edmunds?".
+function travelKnownPeople(){
+  const out=new Map();
+  const add=v=>{
+    if(typeof v!=='string')return;
+    v.split(/[,\/&+;\n]| and /).forEach(p=>{
+      const n=p.replace(/\(.*?\)/g,'').replace(/\s+/g,' ').trim();
+      if(/^[A-Za-zÀ-ÿ'\-]{2,}(?: [A-Za-zÀ-ÿ'\-]+){1,3}$/.test(n)&&/[a-z]/.test(n))out.set(n.toLowerCase(),n);
+    });
+  };
+  PRESENTERS.forEach(p=>add(p.full));
+  comms.forEach(c=>['producer','dop','ca','editor','afm','presenterVO'].forEach(k=>add(c[k])));
+  users.forEach(u=>add(u.displayName));
+  const walk=o=>{if(!o||typeof o!=='object')return;Object.values(o).forEach(v=>typeof v==='string'?add(v):walk(v));};
+  walk(studioCrew);walk(studioSchedule);
+  return[...out.values()];
+}
+function travelNameSuggestions(name,known){
+  const flat=s=>s.toLowerCase().replace(/[^a-zà-ÿ]/g,'');
+  const parts=String(name).trim().split(/\s+/);
+  if(!parts.length||!parts[0])return[];
+  if(known.some(k=>k.toLowerCase()===String(name).trim().toLowerCase()))return[]; // already a known name
+  const whole=flat(name);
+  const first=flat(parts.slice(0,-1).join(''));
+  const sur=flat(parts[parts.length-1]);
+  return known.filter(k=>{
+    const kp=k.split(' ');
+    const kFirst=flat(kp[0]),kSur=flat(kp.slice(1).join(''));
+    if(!kFirst||!kSur)return false;
+    if(parts.length===1)return whole.includes(kFirst)&&whole.includes(kSur); // "msmasaclairekekana"
+    // Surname must match (allow "Du Plessis" vs "Duplessis"); first name: initial, or contained in the run-together names
+    const surOk=sur===kSur||(kSur.length>3&&(sur.endsWith(kSur)||kSur.endsWith(sur)));
+    if(!surOk)return false;
+    return first.length<=2?kFirst.startsWith(first):first.includes(kFirst)||kFirst.includes(first);
+  }).slice(0,3);
+}
+function travelSuggestHtml(d,i){
+  const f=d.type==='flight'?'passengers':'guests';
+  const known=travelKnownPeople();
+  const rows=(d[f]||[]).map(n=>({n,s:travelNameSuggestions(n,known)})).filter(r=>r.s.length);
+  if(!rows.length)return'';
+  return`<div class="travel-suggest" style="margin-top:6px;display:flex;flex-direction:column;gap:4px">${rows.map(r=>
+    `<div style="font-size:13px;color:#374151;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="color:#6b7280">“${esc(r.n)}”</span> — is this
+      ${r.s.map(s=>`<button class="btn travel-name-use" data-idx="${i}" data-from="${esc(r.n)}" data-to="${esc(s)}" style="font-size:13px;padding:2px 10px;border-color:#16a34a;color:#15803d">${esc(s)}?</button>`).join(' or ')}
+    </div>`).join('')}</div>`;
+}
+
 function travelOverlay(inner,width){
   document.getElementById('travel-overlay')?.remove();
   const ov=document.createElement('div');
@@ -5030,7 +5091,8 @@ function travelField(label,f,val,type,extra){
 }
 function travelDraftCard(d,i,multi){
   const grid='display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 12px';
-  const head=d.type==='flight'?`✈ Flight${d.flightNo?' '+esc(d.flightNo):''}${d.date?' · '+travelShortDate(d.date):''}`:`🏨 ${esc(d.establishment||'Accommodation')}`;
+  const head=d.type==='flight'?`✈ Flight${d.flightNo?' '+esc(d.flightNo):''}${d.date?' · '+travelShortDate(d.date):''}`:`🏨 ${esc(d.establishment||'Accommodation')}${d.checkIn?' · '+travelShortDate(d.checkIn):''}`;
+  const people=d.type==='flight'?'passengers':'guests';
   const body=d.type==='flight'?`<div style="${grid}">
       ${travelField('Date','date',d.date,'date')}
       ${travelField('Flight number','flightNo',d.flightNo)}
@@ -5039,8 +5101,7 @@ function travelDraftCard(d,i,multi){
       ${travelField('From (airport code)','from',d.from,'text')}
       ${travelField('To (airport code)','to',d.to,'text')}
       ${travelField('Airline','airline',d.airline,'text','grid-column:span 2')}
-    </div>
-    <label>Passengers (separate with commas)</label><input data-f="passengers" value="${esc((d.passengers||[]).join(', '))}">`
+    </div>`
   :`<label>Establishment</label><input data-f="establishment" value="${esc(d.establishment||'')}">
     <div style="${grid}">
       ${travelField('Address','address',d.address,'text','grid-column:span 2')}
@@ -5049,35 +5110,51 @@ function travelDraftCard(d,i,multi){
       ${travelField('Check-in time','checkInTime',d.checkInTime,'time')}
       ${travelField('Check out','checkOut',d.checkOut,'date')}
       ${travelField('Check-out time','checkOutTime',d.checkOutTime,'time')}
-    </div>
-    <label>Guests (separate with commas)</label><input data-f="guests" value="${esc((d.guests||[]).join(', '))}">`;
-  const hint=d.type==='accom'&&d.orderHint&&!d.commNum?`<div style="font-size:12px;color:#b45309;margin-top:4px">Document says commission ${esc(d.orderHint)}, but there's no commission ${esc(d.orderHint)} in the Commission List — please choose one.</div>`:'';
-  return`<div class="travel-draft" data-idx="${i}" style="border:1px solid #d1dae8;border-left:4px solid ${d.type==='flight'?'#2563eb':'#d97706'};border-radius:8px;padding:12px 14px;margin-top:12px;background:${d.include===false?'#f3f4f6':'#fff'}">
+    </div>`;
+  const hint=d.orderHint&&!d.commNum?`<div style="font-size:12px;color:#b45309;margin-top:4px">Document says commission ${esc(d.orderHint)}, but there's no commission ${esc(d.orderHint)} in the Commission List — please choose one.</div>`:'';
+  return`<div class="travel-draft" data-idx="${i}" style="border:1px solid #d1dae8;border-left:4px solid ${d.type==='flight'?'#2563eb':'#d97706'};border-radius:8px;padding:12px 14px;margin-top:12px;background:#fff">
     <div style="display:flex;align-items:center;gap:10px">
-      ${multi?`<input type="checkbox" data-f="include" ${d.include!==false?'checked':''} style="width:18px;height:18px;flex-shrink:0" title="Include this entry">`:''}
       <div style="font-weight:800;font-size:15px;color:#111827;flex:1">${head}</div>
-      ${d.sourceFile?`<div style="font-size:11px;color:#9ca3af;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(d.sourceFile)}">from ${esc(d.sourceFile)}</div>`:''}
+      ${d.sourceFile?`<div style="font-size:11px;color:#9ca3af;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(d.sourceFile)}">from ${esc(d.sourceFile)}</div>`:''}
     </div>
-    ${!(d.type==='flight'?d.passengers:d.guests)?.length?`<div style="font-size:12px;color:#b45309;font-weight:700;margin-top:4px">No names found in the document — please type them in below.</div>`:''}
-    ${d.duplicate?`<div style="font-size:12px;color:#b91c1c;font-weight:700;margin-top:4px">Already in the Travel Schedule — left unticked so it isn't added twice.</div>`:''}
-    <label>Commission</label><select data-f="commNum">${travelCommOptions(d.commNum)}</select>${hint}
+    ${!(d[people]||[]).length?`<div style="font-size:12px;color:#b45309;font-weight:700;margin-top:4px">No names found in the document — please type them in below.</div>`:''}
+    ${d.duplicate?`<div style="font-size:12px;color:#b91c1c;font-weight:700;margin-top:4px">Already in the Travel Schedule — Skip it unless something has changed.</div>`:''}
+    <label>Commission (type the number or part of the story name)</label>
+    <input data-f="commNum" list="travel-comm-dl" autocomplete="off" placeholder="e.g. 7037 or story name" value="${esc(travelCommText(d.commNum))}">${hint}
     ${body}
+    <label>${d.type==='flight'?'Passengers':'Guests'} (separate with commas)</label><input data-f="${people}" value="${esc((d[people]||[]).join(', '))}">
+    ${travelSuggestHtml(d,i)}
     <label>Notes</label><input data-f="notes" value="${esc(d.notes||'')}">
+    ${multi?`<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+      <button class="btn travel-card-skip" data-idx="${i}" style="font-size:14px;padding:5px 14px">Skip</button>
+      <button class="btn primary travel-card-save" data-idx="${i}" style="font-size:14px;padding:5px 14px">Save this entry</button>
+    </div>`:''}
   </div>`;
 }
+function travelRemaining(){return travelDrafts.filter(d=>!d.done);}
+function travelRefreshHeader(){
+  const n=travelRemaining().length;
+  const el=document.getElementById('travel-left');
+  if(el)el.textContent=n===1?'1 entry left to check':`${n} entries left to check`;
+  const all=document.getElementById('travel-save-all');
+  if(all){const ok=travelRemaining().filter(d=>!d.duplicate).length;all.style.display=ok>1?'':'none';all.textContent=`Save all ${ok} remaining`;}
+}
 function openTravelEditor(drafts,title){
-  travelDrafts=drafts.map(d=>({...d}));
-  const multi=travelDrafts.length>1||travelDrafts.some(d=>d.sourceFile&&!d.id);
+  travelDrafts=drafts.map(d=>({...d,done:false}));
+  const multi=!(travelDrafts.length===1&&(travelDrafts[0].id||!travelDrafts[0].sourceFile));
   const editing=travelDrafts.length===1&&travelDrafts[0].id;
   travelOverlay(`<h3>${esc(title)}</h3>
-    <p>${multi?'Check each entry, choose its commission, then save. Untick anything you don\'t want added.':'Check the details and choose the commission.'}</p>
-    ${multi&&travelDrafts.length>1?`<div style="display:flex;align-items:center;gap:8px;background:#f0f4f8;border-radius:8px;padding:8px 12px"><span style="font-size:13px;font-weight:700;color:#374151;white-space:nowrap">Same commission for all:</span><select id="travel-comm-all" style="flex:1">${travelCommOptions('')}</select></div>`:''}
+    ${travelCommDatalist()}
+    <p>${multi?'Check each entry, choose its commission and click <b>Save this entry</b>. Use <b>Skip</b> for anything you don\'t want added.':'Check the details and choose the commission.'}</p>
+    ${multi?`<div id="travel-left" style="font-size:13px;font-weight:800;color:#0e7490"></div>`:''}
+    ${multi&&travelDrafts.length>1?`<div style="display:flex;align-items:center;gap:8px;background:#f0f4f8;border-radius:8px;padding:8px 12px;margin-top:8px"><span style="font-size:13px;font-weight:700;color:#374151;white-space:nowrap">Same commission for all:</span><input id="travel-comm-all" list="travel-comm-dl" autocomplete="off" placeholder="Type number or story name" style="flex:1"></div>`:''}
     <div id="travel-drafts">${travelDrafts.map((d,i)=>travelDraftCard(d,i,multi)).join('')}</div>
     <div class="modal-actions">
       ${editing?`<button class="btn danger" id="travel-delete" data-id="${esc(travelDrafts[0].id)}" style="margin-right:auto">Delete</button>`:''}
-      <button class="btn" id="travel-cancel">Cancel</button>
-      <button class="btn primary" id="travel-save">Save</button>
+      <button class="btn" id="travel-cancel">${multi?'Close':'Cancel'}</button>
+      ${multi?`<button class="btn" id="travel-save-all" title="Saves every entry still showing, except ones already in the schedule"></button>`:`<button class="btn primary" id="travel-save">Save</button>`}
     </div>`);
+  travelRefreshHeader();
 }
 function openTravelDetail(id){
   const t=travelData.find(x=>x.id===id);
@@ -5102,52 +5179,71 @@ function openTravelDetail(id){
       ${travelCanEdit()?`<button class="btn primary" id="travel-edit" data-id="${esc(t.id)}">Edit</button>`:''}
     </div>`,520);
 }
-function travelReadDrafts(){
-  document.querySelectorAll('#travel-drafts .travel-draft').forEach(card=>{
-    const d=travelDrafts[Number(card.dataset.idx)];
-    card.querySelectorAll('[data-f]').forEach(el=>{
-      const f=el.dataset.f;
-      if(f==='include')d.include=el.checked;
-      else if(f==='passengers'||f==='guests')d[f]=el.value.split(',').map(s=>s.trim()).filter(Boolean);
-      else if(f==='from'||f==='to'||f==='flightNo')d[f]=el.value.trim().toUpperCase();
-      else d[f]=el.value.trim();
-    });
+function travelReadCard(i){
+  const card=document.querySelector(`#travel-drafts .travel-draft[data-idx="${i}"]`);
+  const d=travelDrafts[i];
+  if(!card||!d)return d;
+  card.querySelectorAll('[data-f]').forEach(el=>{
+    const f=el.dataset.f;
+    if(f==='passengers'||f==='guests')d[f]=el.value.split(',').map(s=>s.trim()).filter(Boolean);
+    else if(f==='commNum'){d.commNum=travelCommFromText(el.value);d._commTyped=el.value.trim();}
+    else if(f==='from'||f==='to'||f==='flightNo')d[f]=el.value.trim().toUpperCase();
+    else d[f]=el.value.trim();
   });
+  return d;
 }
-async function saveTravelDrafts(btn){
-  travelReadDrafts();
-  const todo=travelDrafts.filter(d=>d.include!==false);
-  if(!todo.length){showToast('Nothing ticked to save',true);return;}
-  for(const d of todo){
-    const what=d.type==='flight'?`flight ${d.flightNo||''}`:(d.establishment||'accommodation');
-    if(!d.commNum){showToast(`Choose a commission for ${what}`,true);return;}
-    if(d.type==='flight'&&!d.date){showToast(`Flight ${d.flightNo||''} needs a date`,true);return;}
-    if(d.type==='accom'&&!d.checkIn){showToast(`${what} needs a check-in date`,true);return;}
-    if(d.type==='accom'&&d.checkOut&&d.checkOut<d.checkIn){showToast(`${what}: check-out is before check-in`,true);return;}
-  }
-  btn.disabled=true;btn.textContent='Saving…';setSyncDot('saving');
+function travelValidate(d){
+  const what=d.type==='flight'?`flight ${d.flightNo||''}`.trim():(d.establishment||'accommodation');
+  if(!d.commNum)return d._commTyped?`"${d._commTyped}" isn't a commission in the Commission List (${what}) — pick one from the list`:`Choose a commission for ${what}`;
+  if(d.type==='flight'&&!d.date)return`${what} needs a date`;
+  if(d.type==='accom'&&!d.checkIn)return`${what} needs a check-in date`;
+  if(d.type==='accom'&&d.checkOut&&d.checkOut<d.checkIn)return`${what}: check-out is before check-in`;
+  return'';
+}
+function travelDocData(d){
+  const keys=d.type==='flight'
+    ?['type','commNum','date','flightNo','airline','from','to','depart','arrive','passengers','notes','sourceFile']
+    :['type','commNum','establishment','address','phone','contact','email','checkIn','checkInTime','checkOut','checkOutTime','guests','notes','sourceFile'];
+  const data={};
+  keys.forEach(k=>{data[k]=d[k]??(k==='passengers'||k==='guests'?[]:'');});
+  return{...data,savedAt:new Date().toISOString(),savedBy:currentUser?.displayName||currentUser?.email||'Unknown'};
+}
+// Save the given draft indexes (one card, "save all remaining", or the single edit form)
+async function saveTravelIdx(idxs,btn){
+  const todo=idxs.map(i=>travelReadCard(i)).filter(Boolean);
+  if(!todo.length){showToast('Nothing left to save',true);return;}
+  for(const d of todo){const err=travelValidate(d);if(err){showToast(err,true);return;}}
+  const label=btn?.textContent;
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  setSyncDot('saving');
   try{
     const batch=writeBatch(db);
-    const stamp={savedAt:new Date().toISOString(),savedBy:currentUser?.displayName||currentUser?.email||'Unknown'};
-    todo.forEach(d=>{
-      const data={};
-      (d.type==='flight'
-        ?['type','commNum','date','flightNo','airline','from','to','depart','arrive','passengers','notes','sourceFile']
-        :['type','commNum','establishment','address','phone','contact','email','checkIn','checkInTime','checkOut','checkOutTime','guests','notes','sourceFile'])
-        .forEach(k=>{data[k]=d[k]??(k==='passengers'||k==='guests'?[]:'');});
-      batch.set(d.id?doc(db,'travel',d.id):doc(collection(db,'travel')),{...data,...stamp});
-    });
+    todo.forEach(d=>batch.set(d.id?doc(db,'travel',d.id):doc(collection(db,'travel')),travelDocData(d)));
     await batch.commit();
     setSyncDot('live');
-    const first=todo.map(d=>d.date||d.checkIn).sort()[0];
-    if(first)travelCalMonth=first.slice(0,7);
-    document.getElementById('travel-overlay')?.remove();
-    showToast(todo.length===1?'Travel saved':`${todo.length} travel entries saved`);
-    render();
   }catch(e){
     setSyncDot('offline');showToast('Save failed: '+e.message,true);
-    btn.disabled=false;btn.textContent='Save';
+    if(btn){btn.disabled=false;btn.textContent=label;}
+    return;
   }
+  const first=todo.map(d=>d.date||d.checkIn).sort()[0];
+  if(first)travelCalMonth=first.slice(0,7);
+  todo.forEach(d=>{d.done=true;});
+  idxs.forEach(i=>travelMarkCardDone(i,'Saved ✓'));
+  showToast(todo.length===1?'Travel saved':`${todo.length} travel entries saved`);
+  if(!travelRemaining().length)document.getElementById('travel-overlay')?.remove();
+  else travelRefreshHeader();
+  if(tab==='travel')render();
+}
+function travelMarkCardDone(i,msg){
+  const card=document.querySelector(`#travel-drafts .travel-draft[data-idx="${i}"]`);
+  if(!card)return;
+  const d=travelDrafts[i];
+  card.innerHTML=`<div style="display:flex;align-items:center;gap:10px;font-size:14px;color:${msg.startsWith('Saved')?'#15803d':'#6b7280'}">
+    <b>${msg}</b><span>${d.type==='flight'?'✈ '+esc(d.flightNo||'')+' · '+travelShortDate(d.date):'🏨 '+esc(d.establishment||'')+' · '+travelShortDate(d.checkIn)}</span>
+    <span style="color:#6b7280">${esc(((d.type==='flight'?d.passengers:d.guests)||[]).join(', '))}</span></div>`;
+  card.style.background=msg.startsWith('Saved')?'#f0fdf4':'#f3f4f6';
+  card.style.padding='8px 14px';
 }
 document.addEventListener('click',async function travelClick(e){
   const id=e.target.id;
@@ -5159,13 +5255,41 @@ document.addEventListener('click',async function travelClick(e){
   if(id==='travel-cal-today'){travelCalMonth=new Date().toISOString().slice(0,7);render();return;}
   const chipEl=e.target.closest?.('.travel-chip');
   if(chipEl){openTravelDetail(chipEl.dataset.travelId);return;}
-  if(id==='travel-overlay'||id==='travel-cancel'){document.getElementById('travel-overlay')?.remove();return;}
+  if(id==='travel-overlay'||id==='travel-cancel'){
+    const left=document.getElementById('travel-drafts')?travelRemaining().filter(d=>d.sourceFile&&!d.id).length:0;
+    if(left&&!confirm(`${left} ${left===1?'entry hasn\'t':'entries haven\'t'} been saved yet. Close anyway?`))return;
+    document.getElementById('travel-overlay')?.remove();return;
+  }
   if(!travelCanEdit())return;
   if(id==='travel-upload'){document.getElementById('travel-file-input')?.click();return;}
   if(id==='travel-add-flight'){openTravelEditor([{type:'flight',commNum:'',passengers:[]}],'Add flight');return;}
   if(id==='travel-add-accom'){openTravelEditor([{type:'accom',commNum:'',guests:[]}],'Add accommodation');return;}
   if(id==='travel-edit'){const t=travelData.find(x=>x.id===e.target.dataset.id);if(t)openTravelEditor([{...t}],t.type==='flight'?'Edit flight':'Edit accommodation');return;}
-  if(id==='travel-save'){saveTravelDrafts(e.target);return;}
+  if(id==='travel-save'){saveTravelIdx([0],e.target);return;}
+  if(id==='travel-save-all'){
+    const idxs=travelDrafts.map((d,i)=>i).filter(i=>!travelDrafts[i].done&&!travelDrafts[i].duplicate);
+    saveTravelIdx(idxs,e.target);return;
+  }
+  const cardSave=e.target.closest?.('.travel-card-save');
+  if(cardSave){saveTravelIdx([Number(cardSave.dataset.idx)],cardSave);return;}
+  const cardSkip=e.target.closest?.('.travel-card-skip');
+  if(cardSkip){
+    const i=Number(cardSkip.dataset.idx);
+    travelReadCard(i);travelDrafts[i].done=true;travelMarkCardDone(i,'Skipped');
+    if(!travelRemaining().length)document.getElementById('travel-overlay')?.remove();else travelRefreshHeader();
+    return;
+  }
+  const use=e.target.closest?.('.travel-name-use');
+  if(use){
+    const card=use.closest('.travel-draft');
+    const inp=card?.querySelector('[data-f="passengers"],[data-f="guests"]');
+    if(inp){
+      const names=inp.value.split(',').map(s=>s.trim()).filter(Boolean).map(n=>n===use.dataset.from?use.dataset.to:n);
+      inp.value=[...new Set(names)].join(', ');
+    }
+    const row=use.parentElement;row?.remove();
+    return;
+  }
   if(id==='travel-delete'){
     const t=travelData.find(x=>x.id===e.target.dataset.id);
     if(!t||!confirm(`Delete ${t.type==='flight'?'flight '+(t.flightNo||''):(t.establishment||'this accommodation')} from the Travel Schedule?`))return;
@@ -5179,12 +5303,9 @@ document.addEventListener('change',function travelChange(e){
     if(files.length)travelHandleFiles(files,document.getElementById('travel-upload'));
     return;
   }
-  if(e.target.id==='travel-comm-all'&&e.target.value){
-    document.querySelectorAll('#travel-drafts select[data-f="commNum"]').forEach(s=>{s.value=e.target.value;});
+  if(e.target.id==='travel-comm-all'&&travelCommFromText(e.target.value)){
+    document.querySelectorAll('#travel-drafts input[data-f="commNum"]').forEach(s=>{s.value=e.target.value;});
     return;
-  }
-  if(e.target.dataset?.f==='include'){
-    const card=e.target.closest('.travel-draft');if(card)card.style.background=e.target.checked?'#fff':'#f3f4f6';
   }
 });
 document.addEventListener('input',function travelSearch(e){
@@ -5196,7 +5317,7 @@ document.addEventListener('input',function travelSearch(e){
   if(el){el.focus();try{el.setSelectionRange(pos,pos);}catch{}}
 });
 document.addEventListener('keydown',function travelEsc(e){
-  if(e.key==='Escape'&&document.getElementById('travel-overlay'))document.getElementById('travel-overlay').remove();
+  if(e.key==='Escape'&&document.getElementById('travel-overlay'))document.getElementById('travel-cancel')?.click();
 });
 
 function renderDeliverables(epNums){
