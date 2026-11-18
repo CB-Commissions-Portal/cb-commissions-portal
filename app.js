@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.413';
+const BUILD_VERSION='3.10.414';
 const BUILD_DATE='18 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -5033,9 +5033,15 @@ function travelCommMenu(inp){
   const menu=document.createElement('div');
   menu.className='travel-comm-menu';
   menu.style.cssText='position:absolute;left:0;right:0;top:100%;margin-top:2px;background:#fff;border:1px solid #b4bfcc;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.15);z-index:20;max-height:260px;overflow-y:auto';
-  menu.innerHTML=list.length?list.map((c,i)=>`<div class="travel-comm-opt" data-cn="${esc(c.commNum)}" style="padding:7px 12px;font-size:14px;cursor:pointer;border-bottom:1px solid #eef2f7;color:#111827;${i===0?'background:#eff6ff':''}"><b style="font-family:monospace">${esc(c.commNum)}</b> · ${esc(c.shortName||c.storyName||'')}${c.producer?` <span style="color:#6b7280">(${esc(c.producer)})</span>`:''}</div>`).join('')
+  menu.innerHTML=list.length?list.map((c,i)=>`<div class="travel-comm-opt" data-cn="${esc(c.commNum)}" style="padding:7px 12px;font-size:14px;cursor:pointer;border-bottom:1px solid #eef2f7;color:#111827"><b style="font-family:monospace">${esc(c.commNum)}</b> · ${esc(c.shortName||c.storyName||'')}${c.producer?` <span style="color:#6b7280">(${esc(c.producer)})</span>`:''}</div>`).join('')
     :`<div style="padding:8px 12px;font-size:13px;color:#9ca3af">No commission matches “${esc(inp.value)}”</div>`;
   inp.parentElement.appendChild(menu);
+  travelCommHighlight([...menu.querySelectorAll('.travel-comm-opt')],0);
+  menu.addEventListener('mousemove',ev=>{const o=ev.target.closest('.travel-comm-opt');if(o){const all=[...menu.querySelectorAll('.travel-comm-opt')];travelCommHighlight(all,all.indexOf(o));}});
+}
+function travelCommHighlight(opts,i){
+  opts.forEach((o,j)=>{o.dataset.active=j===i?'1':'';o.style.background=j===i?'#dbeafe':'';});
+  opts[i]?.scrollIntoView({block:'nearest'});
 }
 function travelCommPick(inp,cn){
   inp.value=travelCommText(cn);
@@ -5055,9 +5061,18 @@ document.addEventListener('mousedown',function travelCommClick(e){
 });
 document.addEventListener('keydown',function travelCommKeys(e){
   if(!e.target.classList?.contains('travel-comm-inp'))return;
+  const opts=[...e.target.parentElement.querySelectorAll('.travel-comm-opt')];
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    e.preventDefault();
+    if(!opts.length){travelCommMenu(e.target);return;}
+    let i=opts.findIndex(o=>o.dataset.active==='1');
+    i=e.key==='ArrowDown'?Math.min(opts.length-1,i+1):Math.max(0,i-1);
+    travelCommHighlight(opts,i);
+    return;
+  }
   if(e.key==='Enter'){
-    const first=e.target.parentElement.querySelector('.travel-comm-opt');
-    if(first){e.preventDefault();travelCommPick(e.target,first.dataset.cn);}
+    const pick=opts.find(o=>o.dataset.active==='1')||opts[0];
+    if(pick){e.preventDefault();travelCommPick(e.target,pick.dataset.cn);}
   }
   if(e.key==='Escape'&&e.target.parentElement.querySelector('.travel-comm-menu')){e.stopPropagation();document.querySelectorAll('.travel-comm-menu').forEach(m=>m.remove());}
 },true);
