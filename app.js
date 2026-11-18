@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.416';
+const BUILD_VERSION='3.10.417';
 const BUILD_DATE='18 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -4881,6 +4881,13 @@ function renderTravelSchedule(){
   });
   Object.values(dateMap).forEach(l=>l.sort((a,b)=>a.sort.localeCompare(b.sort)));
 
+  // "7027 · Story name" under each entry
+  const commLine=(cn,col)=>{
+    if(!cn)return'';
+    const c=comms.find(x=>String(x.commNum)===String(cn));
+    const story=c?(c.shortName||c.storyName||''):'';
+    return`<div style="font-size:11px;color:${col};line-height:1.3;white-space:normal"><b style="font-family:monospace">${esc(cn)}</b>${story?' · '+esc(story):''}</div>`;
+  };
   const names=arr=>{const a=arr||[];return a.length>3?esc(a.slice(0,3).join(', '))+` +${a.length-3}`:esc(a.join(', '));};
   const chip=e=>{
     const t=e.t;
@@ -4888,7 +4895,7 @@ function renderTravelSchedule(){
         <div style="font-weight:900">✈ ${esc(t.flightNo||'Flight')} <span style="font-weight:700">${esc(t.depart||'')}${t.arrive?'–'+esc(t.arrive):''}</span></div>
         <div style="font-weight:700">${esc(t.from||'?')} → ${esc(t.to||'?')}</div>
         <div style="line-height:1.3">${names(t.passengers)}</div>
-        <div style="font-size:11px;color:#3b5998;font-family:monospace">${esc(t.commNum||'')}</div>
+        ${commLine(t.commNum,'#3b5998')}
       </div>`;
     const lbl=e.kind==='in'?'CHECK IN':e.kind==='out'?'CHECK OUT':'STAYING';
     const time=e.kind==='in'?t.checkInTime:e.kind==='out'?t.checkOutTime:'';
@@ -4896,7 +4903,8 @@ function renderTravelSchedule(){
     return`<div class="travel-chip" data-travel-id="${esc(t.id)}" style="background:${faded?'#fffbeb':'#fef3c7'};color:#78350f;border-left:4px solid #d97706;font-size:12px;border-radius:3px;padding:4px 7px;margin-bottom:3px;cursor:pointer">
         <div style="font-weight:900;font-size:11px;letter-spacing:.4px">🏨 ${lbl}${time?' '+esc(time):''}</div>
         <div style="font-weight:700;line-height:1.3">${esc(t.establishment||'Accommodation')}</div>
-        ${faded?'':`<div style="line-height:1.3">${names(t.guests)}</div><div style="font-size:11px;color:#92400e;font-family:monospace">${esc(t.commNum||'')}</div>`}
+        <div style="line-height:1.3">${names(t.guests)}</div>
+        ${commLine(t.commNum,'#92400e')}
       </div>`;
   };
 
