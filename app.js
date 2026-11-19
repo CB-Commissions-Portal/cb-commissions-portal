@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.421';
+const BUILD_VERSION='3.10.422';
 const BUILD_DATE='18 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -13157,7 +13157,7 @@ function csExportPDF(){
   </tr>`).join('');
 
   const schedRows=(cs.schedItems&&cs.schedItems.length?cs.schedItems:csDefaultSched()).map(si=>`<tr>
-    <td class="desc">${esc(si.label||'')}</td>
+    <td class="desc">${(()=>{const l=String(si.label||''),i=l.search(/:\s/);return i>0&&l.slice(i+1).trim()?`<div class="act-main">${esc(l.slice(0,i+1))}</div><div class="act-sub">${esc(l.slice(i+1).trim())}</div>`:`<div class="act-main">${esc(l)}</div>`;})()}</td>
     <td class="time">${esc(si.time||'')}</td>
     <td class="resp">${esc((si.responsible||[]).join(', '))}</td>
   </tr>`).join('');
@@ -13199,7 +13199,12 @@ function csExportPDF(){
     table.sched tbody tr:nth-child(even){background:#f7faff}
     table.sched td{padding:5px 8px;border-bottom:1px solid #e8f0f8;font-size:8.5pt;vertical-align:top}
     table.sched .tcol{width:55px;font-family:monospace;font-weight:800;color:#c07000;white-space:nowrap}
-    table.sched .dcol{font-weight:700;width:180px}
+    table.sched{table-layout:fixed}
+    table.sched .dcol{font-weight:700;width:40%}
+    table.sched td.desc,table.sched td.resp{white-space:normal;word-wrap:break-word}
+    table.sched td.time{white-space:nowrap}
+    table.sched .act-main{font-weight:700;color:#111}
+    table.sched .act-sub{font-weight:400;color:#333;margin-top:1px}
     .footer{margin-top:10px;font-size:7pt;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:5px}
     .notes-box{border:1px solid #0077b633;border-radius:4px;overflow:hidden;margin-bottom:10px}
   </style></head><body>
