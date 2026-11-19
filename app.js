@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.419';
+const BUILD_VERSION='3.10.420';
 const BUILD_DATE='18 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -10395,6 +10395,7 @@ function renderTranscripts(epNums){
             <option value="inprogress" ${status==='inprogress'?'selected':''}>In Progress</option>
             <option value="ready" ${status==='ready'?'selected':''}>Ready</option>
           </select>
+          <button class="btn" id="tr-comm-export-btn" style="font-size:14px;padding:6px 12px;font-weight:700;white-space:nowrap" title="Download just this story's ${isRep?'REPEAT TRANSCRIPT':'transcript'} as a TXT file (UTF-8)">⬇ EXPORT THIS COMMISSION ONLY</button>
           ${locked?'':`<button class="btn primary" id="tr-comm-save-btn" style="font-size:14px;padding:6px 16px;font-weight:700">💾 Save</button>`}`:''}
         </div>
         ${verBar}
@@ -12184,6 +12185,25 @@ function bindApp(){
       await trFlushPending();
       transcriptVersion=btn.dataset.trVer;render();
     }));
+    // Export just this commission's transcript (whichever version is open) — same TXT format as the Live Show export
+    document.getElementById('tr-comm-export-btn')?.addEventListener('click',()=>{
+      if(transcriptSelectedComm===null)return;
+      const text=(document.getElementById('tr-comm-text')?.value||'').trim();
+      if(!text){showToast('No transcript text to export',true);return;}
+      const isRep=transcriptVersion==='repeat';
+      const c=comms.find(x=>String(x.commNum)===String(transcriptSelectedComm));
+      const status=document.getElementById('tr-status-sel')?.value||'';
+      if(status!=='ready'&&!confirm(`This ${isRep?'REPEAT TRANSCRIPT':'transcript'} is not marked Ready yet.\n\nExport it anyway?`))return;
+      const ep=isRep?(commRepeatEps(c).find(e=>String(e)!==String(c?.broadcastEpisode||''))||''):(c?.broadcastEpisode||'');
+      const epPart=ep?`E${String(ep).padStart(2,'0')}`:'';
+      const story=String(c?.storyName||'').replace(/[\\/:*?"<>|]+/g,'-').trim();
+      const name=`Carte Blanche S${currentSeason}${epPart} - ${transcriptSelectedComm}${story?' - '+story:''} - ${isRep?'REPEAT TRANSCRIPT':'Transcript'}.txt`;
+      const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);a.download=name;a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+      showToast('Exported '+name);
+    });
     document.getElementById('tr-unlock-btn')?.addEventListener('click',()=>{
       if(!confirm('Unlock the approved ORIGINAL transcript for editing?\n\nOnly do this to correct the original on record. Changes for the repeat episode belong in the REPEAT TRANSCRIPT.'))return;
       transcriptUnlocked=String(transcriptSelectedComm);render();
