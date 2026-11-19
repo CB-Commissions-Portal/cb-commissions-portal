@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.422';
+const BUILD_VERSION='3.10.423';
 const BUILD_DATE='18 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -793,7 +793,10 @@ async function savePPEntry(commNum,data){
   try{await setDoc(doc(db,'postprod',String(commNum)),{...data,updatedAt:serverTimestamp()});ppData[commNum]={...data};setSyncDot('live');}
   catch(e){setSyncDot('offline');showToast('Post prod save failed: '+e.message,true);}
 }
+// Call sheet lock (v3.10.423): Super Admin locks a sheet; while locked only Super Admin can edit or unlock it.
+function csIsLocked(ep){return !!(callSheetData[String(ep)]||{}).csLocked;}
 async function saveCallSheet(epNum,data){
+  if(csIsLocked(epNum)&&getEffectiveRole()!=='admin'){showToast('This call sheet is locked — only Super Admin can unlock it',true);render();return;}
   setSyncDot('saving');
   try{await setDoc(doc(db,'call_sheets',String(epNum)),{...data,updatedAt:serverTimestamp()});callSheetData[epNum]={...data};setSyncDot('live');}
   catch(e){setSyncDot('offline');showToast('Call sheet save failed: '+e.message,true);}
@@ -8359,20 +8362,24 @@ function csGetAllNames(cs,ep=csCurrentEp){
 }
 function renderCallSheet(epNums){
   const role=getEffectiveRole();
-  const canEdit=CS_EDIT_ROLES.includes(role);
+  const isSuperAdmin=role==='admin';
+  let canEdit=CS_EDIT_ROLES.includes(role);
   if(!csCurrentEp){
     const today=new Date().toISOString().split('T')[0];
     const epList=epNums.sort((a,b)=>a-b).map(ep=>{
-      const d=resolveDate(ep);const hasSaved=!!callSheetData[String(ep)];const isPast=d&&d<today;
+      const d=resolveDate(ep);const hasSaved=!!callSheetData[String(ep)];const isPast=d&&d<today;const isLk=csIsLocked(ep);
       return`<div class="cs-ep-pick" data-ep="${ep}" style="background:#f9fafb;border:2px solid ${hasSaved?'#e3b341':'#d1dae8'};border-radius:10px;padding:20px 24px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px" onmouseover="this.style.borderColor='#e3b341';this.style.background='#eff6ff'" onmouseout="this.style.borderColor='${hasSaved?'#e3b341':'#d1dae8'}';this.style.background='#f9fafb'">
         <div><div style="font-size:22px;font-weight:900;color:${isPast?'#f85149':'#eaf0ff'};font-family:monospace">S${currentSeason} EP ${String(ep).padStart(2,'0')}</div>
         <div style="font-size:15px;color:#6b7280;margin-top:4px">${d?new Date(d+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'No date set'}</div></div>
-        <div style="display:flex;align-items:center;gap:12px">${csPreRecEps(ep).length?`<span style="font-size:13px;background:#ede9fe;color:#7c3aed;padding:4px 12px;border-radius:4px;border:1px solid #c4b5fd;font-weight:700">● PRE-RECORD DAY · EP ${csPreRecEps(ep).join(' & ')}</span>`:''}${hasSaved?'<span style="font-size:13px;background:#fffbeb;color:#b45309;padding:4px 12px;border-radius:4px;border:1px solid #fde68a;font-weight:700">HAS CALL SHEET</span>':''}<span style="color:#e3b341;font-size:26px">→</span></div>
+        <div style="display:flex;align-items:center;gap:12px">${csPreRecEps(ep).length?`<span style="font-size:13px;background:#ede9fe;color:#7c3aed;padding:4px 12px;border-radius:4px;border:1px solid #c4b5fd;font-weight:700">● PRE-RECORD DAY · EP ${csPreRecEps(ep).join(' & ')}</span>`:''}${hasSaved?'<span style="font-size:13px;background:#fffbeb;color:#b45309;padding:4px 12px;border-radius:4px;border:1px solid #fde68a;font-weight:700">HAS CALL SHEET</span>':''}${isLk?'<span style="font-size:13px;background:#f1f5f9;color:#334155;padding:4px 12px;border-radius:4px;border:1px solid #cbd5e1;font-weight:700">🔒 LOCKED</span>':''}<span style="color:#e3b341;font-size:26px">→</span></div>
       </div>`;
     }).join('');
     return`<div class="ep-wrap" style="padding:32px;max-width:640px;margin:0 auto"><h2 style="font-size:22px;font-weight:900;color:#111827;margin:0 0 24px 0">Studio Call Sheet — Select Episode</h2>${epList||'<div style="color:#9ca3af;font-size:17px">No episodes found.</div>'}</div>`;
   }
   const ep=csCurrentEp;const epDate=resolveDate(ep);
+  const csRaw=callSheetData[String(ep)]||{};
+  const csLocked=!!csRaw.csLocked;
+  if(csLocked&&!isSuperAdmin)canEdit=false; // locked: only Super Admin keeps edit rights
   const epDateFmt=epDate?new Date(epDate+'T00:00:00Z').toLocaleDateString('en-ZA',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}):'';
   const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
   const cs=csWithCrew(ep,callSheetData[String(ep)]);
@@ -8468,11 +8475,15 @@ function renderCallSheet(epNums){
       <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         ${canEdit&&otherEps.length?`<select id="cs-copy-sel" style="background:#f9fafb;border:1px solid #d1dae8;color:#111827;padding:7px 12px;border-radius:6px;font-size:15px"><option value="">Copy from EP…</option>${otherEps.sort((a,b)=>b-a).map(n=>`<option value="${n}">EP ${String(n).padStart(2,'0')}</option>`).join('')}</select><button class="btn" id="cs-copy-btn" style="font-size:14px;padding:6px 14px;border-color:#c084fc;color:#c084fc">Copy</button>`:''}
         <button class="btn" id="cs-export-pdf-btn" style="font-size:14px;padding:6px 14px;border-color:#388bfd;color:#0066CC">⬇ Print / PDF</button>
-        ${canEdit?`<button class="btn" id="cs-clear-btn" data-ep="${ep}" style="font-size:14px;padding:6px 14px;border-color:#f85149;color:#f85149">🗑 Clear Call Sheet</button>`:''}
+        ${canEdit&&!csLocked?`<button class="btn" id="cs-clear-btn" data-ep="${ep}" style="font-size:14px;padding:6px 14px;border-color:#f85149;color:#f85149">🗑 Clear Call Sheet</button>`:''}
+        ${isSuperAdmin?(csLocked
+          ?`<button class="btn" id="cs-unlock-btn" style="font-size:14px;padding:6px 14px;border-color:#475569;color:#475569;font-weight:700">🔓 Unlock Call Sheet</button>`
+          :`<button class="btn" id="cs-lock-btn" style="font-size:14px;padding:6px 14px;border-color:#475569;color:#475569;font-weight:700">🔒 Lock Call Sheet</button>`):''}
         ${canEdit?`<button class="btn primary" id="cs-save-btn" style="font-size:15px;padding:7px 20px;font-weight:800">💾 Save</button>`:''}
       </div>
     </div>
     <div style="padding:24px;display:flex;flex-direction:column;gap:20px">
+      ${csLocked?`<div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:10px;padding:12px 18px;font-size:16px;font-weight:700;color:#334155">🔒 This call sheet is locked${csRaw.csLockedBy?` by ${esc(csRaw.csLockedBy)}`:''}${csRaw.csLockedAt?` · ${esc(csRaw.csLockedAt)}`:''}.<span style="font-weight:500"> ${isSuperAdmin?'You can still edit it. Click 🔓 Unlock Call Sheet to let others edit again.':'Only Super Admin can unlock it. You can still view it and Print / PDF.'}</span></div>`:''}
       ${preRecs.length?`<div style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:10px;padding:12px 18px;font-size:16px;font-weight:700;color:#5b21b6">● PRE-RECORD DAY — recording ${preRecs.map(n=>`EP ${n} (TX ${fmtDate(resolveDate(n))})`).join(' & ')} + Live Broadcast EP ${ep}</div>`:''}
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;align-items:start">
         <div style="background:#f9fafb;border:1px solid #d1dae8;border-radius:10px;padding:18px 20px">
@@ -13391,6 +13402,23 @@ document.addEventListener('click',async function csClickHandler(e){
     showToast('Names refreshed ✓');
     return;
   }
+  // Lock / unlock (Super Admin only)
+  if(e.target.id==='cs-lock-btn'||e.target.id==='cs-unlock-btn'){
+    if(getEffectiveRole()!=='admin')return;
+    const locking=e.target.id==='cs-lock-btn';
+    if(!confirm(locking
+      ?`Lock the EP ${String(csCurrentEp).padStart(2,'0')} call sheet?\n\nNobody else will be able to edit it until you unlock it. Any changes on screen will be saved first.`
+      :`Unlock the EP ${String(csCurrentEp).padStart(2,'0')} call sheet so everyone with edit rights can change it again?`))return;
+    const cs=csFlushAndGet();
+    if(!cs)return;
+    cs.csLocked=locking;
+    cs.csLockedBy=locking?(currentUser?.displayName||currentUser?.email||''):'';
+    cs.csLockedAt=locking?new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+    callSheetData[String(csCurrentEp)]=cs;
+    await saveCallSheet(csCurrentEp,cs);
+    showToast(locking?'Call sheet locked 🔒':'Call sheet unlocked 🔓');
+    render();return;
+  }
   // Save
   if(e.target.id==='cs-save-btn'){
     const cs=csFlushAndGet();
@@ -13456,6 +13484,9 @@ document.addEventListener('click',async function csClickHandler(e){
     if(!confirm(`Copy call sheet from EP ${String(srcEp).padStart(2,'0')} to EP ${String(csCurrentEp).padStart(2,'0')}? This will overwrite any existing data.`))return;
     // Deep copy, clear items' times so user updates them
     const copy=JSON.parse(JSON.stringify(src));
+    delete copy.csLocked;delete copy.csLockedBy;delete copy.csLockedAt;delete copy.updatedAt;
+    const tgt=callSheetData[String(csCurrentEp)]||{};
+    if(tgt.csLocked){copy.csLocked=true;copy.csLockedBy=tgt.csLockedBy||'';copy.csLockedAt=tgt.csLockedAt||'';}
     callSheetData[String(csCurrentEp)]=copy;
     saveCallSheet(csCurrentEp,copy);
     showToast('Copied from EP '+String(srcEp).padStart(2,'0')+' ✓');
