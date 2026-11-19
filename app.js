@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.420';
+const BUILD_VERSION='3.10.421';
 const BUILD_DATE='18 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -8346,10 +8346,14 @@ function csGetSched(cs){
   }));
 }
 
-function csGetAllNames(cs){
+function csGetAllNames(cs,ep=csCurrentEp){
   const names=new Set();
-  ['producer','editorialMgr','director','asstDir','floorMgr','autocue','makeup','stylist','eng1','eng2','facMgr','anchor1Name','anchor2Name'].forEach(f=>{if(cs[f])names.add(cs[f].trim());});
-  ['ctMakeup','ctAnchor1','ctAnchor2','ctProd','ctDirector','ctAsstDir','ctFloorMgr','ctAutocue','ctFacilities'].forEach(k=>{if(cs[k+'_name'])names.add(cs[k+'_name'].trim());});
+  ['producer','editorialMgr','director','asstDir','floorMgr','autocue','makeup','stylist','eng1','eng2','facMgr','anchor1Name','anchor2Name'].forEach(f=>{if(cs[f])names.add(String(cs[f]).trim());});
+  // Every Call Times row on this sheet — incl. pre-record anchors (EP 38/39 etc.), Set Crew, Lighting, Stylist (v3.10.421)
+  const ctKeys=ep?csCallTimeRows(ep).map(r=>r.key):['ctMakeup','ctAnchor1','ctAnchor2','ctProd','ctDirector','ctAsstDir','ctFloorMgr','ctAutocue','ctFacilities'];
+  ctKeys.forEach(k=>{if(cs[k+'_name'])names.add(String(cs[k+'_name']).trim());});
+  // The pre-record episodes' own anchors, straight from the Presenter Calendar
+  if(ep)csPreRecEps(ep).forEach(n=>{const a=getStudioAnchors(n);[a.anchor1,a.anchor2].forEach(x=>{if(x)names.add(String(x).trim());});});
   (cs.extraCallTimes||[]).forEach(ec=>{if(ec.name&&ec.name.trim())names.add(ec.name.trim());});
   return Array.from(names).filter(Boolean).sort();
 }
@@ -8373,7 +8377,7 @@ function renderCallSheet(epNums){
   const epLabel=`S${currentSeason} EP ${String(ep).padStart(2,'0')}`;
   const cs=csWithCrew(ep,callSheetData[String(ep)]);
   const otherEps=epNums.filter(n=>n!==ep&&callSheetData[String(n)]);
-  const allNames=csGetAllNames(cs);
+  const allNames=csGetAllNames(cs,ep);
   const lbl=(t)=>`<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:5px">${t}</div>`;
   const finp=(f,ph)=>canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${f}" value="${esc(cs[f]||'')}" placeholder="${ph}" style="width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:17px;padding:8px 10px;outline:none;font-family:inherit">`:`<div style="font-size:17px;color:${cs[f]?'#eaf0ff':'#484f58'};padding:6px 0">${esc(cs[f]||'—')}</div>`;
   const nameCell=(f,ph)=>canEdit?`<input class="cs-field" data-ep="${ep}" data-field="${f}" value="${esc(cs[f]||'')}" placeholder="${ph}" style="flex:1;background:#f9fafb;border:1px solid #d1dae8;border-radius:5px;color:#111827;font-size:17px;padding:8px 10px;outline:none;font-family:inherit">`:`<div style="flex:1;font-size:17px;color:${cs[f]?'#eaf0ff':'#484f58'};padding:6px 0">${esc(cs[f]||'—')}</div>`;
@@ -8391,9 +8395,9 @@ function renderCallSheet(epNums){
   const multiSel=(key,selArr)=>{
     const sel=selArr||[];
     if(!canEdit)return`<span style="font-size:15px;color:#6b7280">${sel.join(', ')||'—'}</span>`;
-    const badges=sel.map(n=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:#0066CC;font-size:14px;padding:3px 8px;border-radius:4px;margin:2px">
-      ${esc(n)}<button class="cs-resp-remove" data-ep="${ep}" data-key="${key}" data-name="${esc(n)}" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:13px;padding:0;line-height:1" onmouseover="this.style.color='#f85149'" onmouseout="this.style.color='#484f58'">✕</button>
-    </span>`).join('');
+    const badges=sel.map(n=>{const stale=n!=='ALL CREW'&&!allNames.includes(n);return`<span ${stale?'title="No longer on this call sheet — remove it and add the right person"':''} style="display:inline-flex;align-items:center;gap:4px;background:${stale?'#fff7ed':'#eff6ff'};color:${stale?'#c2410c':'#0066CC'};${stale?'border:1px solid #fdba74;':''}font-size:14px;padding:3px 8px;border-radius:4px;margin:2px">
+      ${stale?'⚠ ':''}${esc(n)}<button class="cs-resp-remove" data-ep="${ep}" data-key="${key}" data-name="${esc(n)}" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:13px;padding:0;line-height:1" onmouseover="this.style.color='#f85149'" onmouseout="this.style.color='#484f58'">✕</button>
+    </span>`;}).join('');
     return`<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
       ${badges}
       <button class="cs-resp-add" data-ep="${ep}" data-key="${key}" style="background:#f9fafb;border:1px dashed #d1dae8;color:#0066CC;font-size:14px;padding:4px 10px;border-radius:4px;cursor:pointer" onmouseover="this.style.borderColor='#58a6ff'" onmouseout="this.style.borderColor='#d1dae8'">+ Add</button>
