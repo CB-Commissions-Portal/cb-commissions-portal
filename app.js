@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.418';
+const BUILD_VERSION='3.10.419';
 const BUILD_DATE='18 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -436,6 +436,8 @@ let commTranscripts={}; // {commNum: {transcript,status,updatedByName,updatedAtS
 let liveTranscripts={}; // {epNum: {blocks:[],updatedByName,updatedAtStr}}
 let transcriptView='comm'; // 'comm' | 'live'
 let transcriptSelectedComm=null; // commNum open in commission transcript editor
+let transcriptVersion='original'; // 'original' | 'repeat' — which version of the open commission's transcript is shown
+let transcriptUnlocked=null; // commNum whose locked (Ready) original has been unlocked for editing this session
 let transcriptLiveEp=null; // episode number selected in live show transcript
 let transcriptEpFilter='all'; // filter Commission Transcripts sidebar by allocated episode
 let ppActiveComms=[]; // ordered list of commNums added to the post prod schedule
@@ -1012,7 +1014,7 @@ function subscribeCommTranscripts(){
       if(trCommLocalWrite){if(!resolved){resolved=true;resolve();}return;}
       snap.docs.forEach(d=>{
         const commId=d.id;
-        const editingThisComm=tab==='transcripts'&&String(transcriptSelectedComm)===commId;
+        const editingThisComm=tab==='transcripts'&&trActiveKey()===commId;
         if(!editingThisComm)commTranscripts[commId]={...d.data()};
       });
       if(!resolved){resolved=true;resolve();}
@@ -1051,6 +1053,28 @@ async function saveCommTranscript(commNum,data){
     return true;
   }catch(e){setSyncDot('offline');showToast('Save failed: '+e.message,true);return false;}
   finally{setTimeout(()=>{trCommLocalWrite=false;},1500);}
+}
+// ── REPEAT TRANSCRIPT (v3.10.419) ─────────────────────────────────────────────────────────────
+// A commission that repeats in a Repeat Content episode (it only ever repeats once) gets a second,
+// separate transcript saved as comm_transcripts/{commNum}__repeat. It starts as a copy of the original
+// and is edited on its own, so the original approved transcript stays untouched on record.
+function trRepeatKey(commNum){return String(commNum)+'__repeat';}
+function trHasRepeat(c){return commRepeatEps(c).some(e=>String(e)!==String(c?.broadcastEpisode||''));}
+// The transcript to use for commission c in episode ep: the REPEAT TRANSCRIPT on its repeat airing, else the original.
+function trForEp(c,ep){
+  if(!c)return null;
+  if(ep&&isRepeatAiring(c,ep))return commTranscripts[trRepeatKey(c.commNum)]||null;
+  return commTranscripts[String(c.commNum)]||null;
+}
+// The original is locked once Ready, for commissions that have a repeat airing. Super Admin / Admin can unlock it.
+function trOrigLocked(c){
+  if(!c||!trHasRepeat(c))return false;
+  return commTranscripts[String(c.commNum)]?.status==='ready'&&String(transcriptUnlocked)!==String(c.commNum);
+}
+// The record key currently open in the commission transcript editor.
+function trActiveKey(){
+  if(transcriptSelectedComm===null)return null;
+  return transcriptVersion==='repeat'?trRepeatKey(transcriptSelectedComm):String(transcriptSelectedComm);
 }
 // ── Live Show Transcript data model (v3.10.335) ──────────────────────────────────────────────
 // live_transcripts/{ep}.blockData = { [blockKey]: {content, commNum, checkStatus, itemLabel, itemType} }
@@ -10327,27 +10351,55 @@ function renderTranscripts(epNums){
     let rightPanel='';
     if(transcriptSelectedComm!==null){
       const comm=comms.find(c=>String(c.commNum)===String(transcriptSelectedComm));
-      const td=commTranscripts[String(transcriptSelectedComm)]||{};
+      const hasRepeat=trHasRepeat(comm);
+      if(!hasRepeat)transcriptVersion='original';
+      const isRep=transcriptVersion==='repeat';
+      const repEp=hasRepeat?commRepeatEps(comm).find(e=>String(e)!==String(comm.broadcastEpisode||'')):'';
+      const origTd=commTranscripts[String(transcriptSelectedComm)]||{};
+      const repTd=commTranscripts[trRepeatKey(transcriptSelectedComm)]||null;
+      const td=isRep?(repTd||{}):origTd;
       const status=td.status||'';
+      const locked=!isRep&&trOrigLocked(comm);
+      const canUnlock=['admin','deputyadmin'].includes(getEffectiveRole());
+      const verTab=(v,label,st)=>`<button class="btn tr-ver-btn" data-tr-ver="${v}" style="font-size:13px;padding:6px 14px;font-weight:800;letter-spacing:.3px;display:flex;align-items:center;gap:8px;${transcriptVersion===v?(v==='repeat'?'background:#475569;border-color:#475569;color:#fff':'background:#0066CC;border-color:#0066CC;color:#fff'):''}">${label} ${statusBadge(st)}</button>`;
+      const verBar=hasRepeat?`<div style="display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid #d1dae8;background:#f8fafc;flex-shrink:0;flex-wrap:wrap">
+          ${verTab('original',`ORIGINAL${comm.broadcastEpisode?' · EP '+esc(String(comm.broadcastEpisode)):''}`,origTd.status)}
+          ${verTab('repeat',`↺ REPEAT TRANSCRIPT · EP ${esc(String(repEp))}`,repTd?.status)}
+        </div>`:'';
+      const lockBar=locked?`<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;margin-bottom:10px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;color:#334155;flex-shrink:0">
+          <span>🔒 <strong>Locked.</strong> This is the approved original transcript and is kept on record. Make changes for EP ${esc(String(repEp))} in the REPEAT TRANSCRIPT.</span>
+          ${canUnlock?`<button class="btn" id="tr-unlock-btn" style="font-size:13px;padding:4px 10px;margin-left:auto;white-space:nowrap">Unlock to edit</button>`:''}
+        </div>`:'';
+      const repInfo=isRep&&repTd?`<div style="padding:9px 14px;margin-bottom:10px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;color:#334155;flex-shrink:0">↺ This is the <strong>REPEAT TRANSCRIPT</strong> for EP ${esc(String(repEp))}. Edit it to match the insert as it goes out in EP ${esc(String(repEp))} — the original transcript is not changed.</div>`:'';
+      const editor=isRep&&!repTd
+        ?`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;color:#475569;font-size:15px;line-height:1.6">
+            <div style="font-size:17px;font-weight:800;color:#111827">No REPEAT TRANSCRIPT yet for EP ${esc(String(repEp))}</div>
+            <div style="max-width:520px">This makes a copy of the original transcript to work from. You can then change it to match the insert as it goes out in EP ${esc(String(repEp))}. The original stays exactly as it is.</div>
+            ${origTd.status!=='ready'?`<div style="max-width:520px;color:#b45309;font-size:14px">⚠ The original transcript is not marked Ready yet — you may want to finish it first.</div>`:''}
+            <button class="btn primary" id="tr-create-repeat-btn" style="font-size:15px;padding:8px 18px;font-weight:700">↺ Create REPEAT TRANSCRIPT</button>
+          </div>`
+        :`${lockBar}${repInfo}<textarea id="tr-comm-text" ${locked?'readonly':''} placeholder="Start typing the commission transcript here…" style="flex:1;width:100%;background:${locked?'#f1f5f9':'#f9fafb'};border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:16px;padding:16px;resize:none;outline:none;font-family:inherit;line-height:1.7;box-sizing:border-box">${esc(td.transcript||'')}</textarea>
+          ${td.updatedByName?`<div style="margin-top:8px;font-size:13px;color:#9ca3af">Last saved by <strong style="color:#6b7280">${esc(td.updatedByName)}</strong>${td.updatedAtStr?` · ${esc(td.updatedAtStr)}`:''}</div>`:''}`;
+      const showControls=!(isRep&&!repTd);
       rightPanel=`<div style="display:flex;flex-direction:column;height:100%">
         <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #d1dae8;flex-shrink:0;background:#ffffff">
           <button class="btn" id="tr-back-btn" style="font-size:14px;padding:4px 10px">← Back</button>
           <div style="flex:1;min-width:0">
             <span style="font-size:18px;font-weight:800;color:#111827">${esc(String(comm?.commNum||transcriptSelectedComm))}</span>
             ${comm?.storyName?`<span style="font-size:15px;color:#6b7280;margin-left:10px">· ${esc(comm.storyName)}</span>`:''}
-            ${comm?.broadcastEpisode?`<span style="font-size:12px;background:#dcfce7;color:#4ade80;padding:2px 6px;border-radius:3px;font-weight:700;margin-left:8px">EP${comm.broadcastEpisode}</span>`:''}
+            ${comm?.broadcastEpisode?`<span style="font-size:12px;background:#dcfce7;color:#16a34a;padding:2px 6px;border-radius:3px;font-weight:700;margin-left:8px">EP${comm.broadcastEpisode}</span>`:''}
           </div>
-          <select id="tr-status-sel" style="background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:14px;padding:6px 10px;font-family:inherit;cursor:pointer">
+          ${showControls?`<select id="tr-status-sel" ${locked?'disabled':''} style="background:#f9fafb;border:1px solid #d1dae8;border-radius:6px;color:#111827;font-size:14px;padding:6px 10px;font-family:inherit;cursor:${locked?'not-allowed':'pointer'}">
             <option value="" ${!status?'selected':''}>No Transcript</option>
             <option value="draft" ${status==='draft'?'selected':''}>Draft</option>
             <option value="inprogress" ${status==='inprogress'?'selected':''}>In Progress</option>
             <option value="ready" ${status==='ready'?'selected':''}>Ready</option>
           </select>
-          <button class="btn primary" id="tr-comm-save-btn" style="font-size:14px;padding:6px 16px;font-weight:700">💾 Save</button>
+          ${locked?'':`<button class="btn primary" id="tr-comm-save-btn" style="font-size:14px;padding:6px 16px;font-weight:700">💾 Save</button>`}`:''}
         </div>
+        ${verBar}
         <div style="flex:1;padding:20px;display:flex;flex-direction:column;min-height:0;overflow:hidden">
-          <textarea id="tr-comm-text" placeholder="Start typing the commission transcript here…" style="flex:1;width:100%;background:#f9fafb;border:1px solid #d1dae8;border-radius:8px;color:#111827;font-size:16px;padding:16px;resize:none;outline:none;font-family:inherit;line-height:1.7;box-sizing:border-box">${esc(td.transcript||'')}</textarea>
-          ${td.updatedByName?`<div style="margin-top:8px;font-size:13px;color:#9ca3af">Last saved by <strong style="color:#6b7280">${esc(td.updatedByName)}</strong>${td.updatedAtStr?` · ${esc(td.updatedAtStr)}`:''}</div>`:''}
+          ${editor}
         </div>
       </div>`;
     } else {
@@ -10376,6 +10428,7 @@ function renderTranscripts(epNums){
                 <span style="margin-left:auto">${statusBadge(td.status)}</span>
               </div>
               <div style="font-size:13px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName||'Untitled')}</div>
+              ${trHasRepeat(c)?`<div style="display:flex;align-items:center;gap:6px;margin-top:4px"><span style="font-size:11px;font-weight:800;color:#475569;letter-spacing:.3px">↺ REPEAT TRANSCRIPT</span><span style="margin-left:auto">${statusBadge(commTranscripts[trRepeatKey(c.commNum)]?.status)}</span></div>`:''}
             </div>`;
           }).join(''):`<div style="padding:20px 14px;font-size:13px;color:#9ca3af;font-style:italic;text-align:center">No commissions allocated to EP${esc(transcriptEpFilter)}</div>`}
         </div>
@@ -10389,7 +10442,7 @@ function renderTranscripts(epNums){
   const ep=transcriptLiveEp;
   const lt=ep?(liveTranscripts[String(ep)]||{}):{};
   const epComms=getLineupOrderedComms(ep);
-  const readyEpComms=epComms.filter(c=>commTranscripts[String(c.commNum)]?.status==='ready');
+  const readyEpComms=epComms.filter(c=>trForEp(c,ep)?.status==='ready');
   function blockBg(type,status){if(status==='approved')return'#67BCF7';if(status==='inprogress')return'#FD8086';return{fixed:'#f8fafc',break:'#f8fafc',live:'#eff6ff',insert:'#f0fdf4',coldstart:'#faf5ff',upnext:'#f0fdf4'}[type]||'#f9fafb';}
   function blockAccent(type,status){if(status==='approved')return'#34A6F4';if(status==='inprogress')return'#FB2C36';return{fixed:'#484f58',break:'#484f58',live:'#1f6feb',insert:'#3fb950',coldstart:'#8957e5',upnext:'#2ea043'}[type]||'#484f58';}
   const _resolved=ep?resolveLiveBlocks(ep):[];
@@ -10419,10 +10472,11 @@ function renderTranscripts(epNums){
       <div style="padding:10px 14px;flex:1;overflow-y:auto">
         <div style="font-size:12px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">EP${ep} Commissions</div>
         ${epComms.length?epComms.map(c=>{
-          const td=commTranscripts[String(c.commNum)]||{};
+          const td=trForEp(c,ep)||{};
           return`<div style="padding:6px 0;border-bottom:1px solid #e8edf5">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               <span style="font-size:14px;font-weight:700;color:#111827">${esc(String(c.commNum))}</span>
+              ${isRepeatAiring(c,ep)?`<span style="font-size:10px;font-weight:800;color:#475569">↺ REPEAT TRANSCRIPT</span>`:''}
               ${statusBadge(td.status)}
             </div>
             <div style="font-size:12px;color:#6b7280;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.storyName||'Untitled')}</div>
@@ -10438,7 +10492,8 @@ function renderTranscripts(epNums){
         const accent=blockAccent(block.itemType,checkStatus);
         const labelColor=(checkStatus==='approved'||checkStatus==='inprogress')?'#111827':accent;
         const linked=block.commNum?comms.find(c=>String(c.commNum)===String(block.commNum)):null;
-        const linkedTd=block.commNum?commTranscripts[String(block.commNum)]:null;
+        const linkedRep=!!linked&&isRepeatAiring(linked,ep);
+        const linkedTd=linked?trForEp(linked,ep):null;
         const canCheck=['admin','deputyadmin'].includes(getEffectiveRole());
         const checkBtns=canCheck?`<div style="display:flex;gap:4px;flex-shrink:0">
           <button class="btn tr-status-btn" data-key="${esc(block.itemKey)}" data-status="inprogress" style="font-size:11px;padding:3px 8px;font-weight:800;letter-spacing:.3px;white-space:nowrap;${checkStatus==='inprogress'?'background:#FB2C36;border-color:#FB2C36;color:#fff':'color:#FB2C36;border-color:#fecaca'}">◐ IN PROGRESS</button>
@@ -10452,8 +10507,10 @@ function renderTranscripts(epNums){
           </div>
           ${linked?`<div style="padding:6px 14px;background:${accent}08;border-bottom:1px solid ${accent}25;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span style="font-size:13px;color:#6b7280">Comm <strong style="color:#111827">${esc(String(linked.commNum))}</strong> · ${esc(linked.storyName||'')}</span>
+            ${linkedRep?`<span style="font-size:11px;font-weight:800;color:#475569">↺ REPEAT TRANSCRIPT</span>`:''}
             ${statusBadge(linkedTd?.status)}
-            ${linkedTd?.status==='ready'&&linkedTd?.transcript?`<button class="btn tr-copy-in" data-key="${esc(block.itemKey)}" data-commnum="${esc(String(linked.commNum))}" style="font-size:12px;padding:3px 9px;margin-left:auto;background:#dcfce7;color:#16a34a;border-color:#86efac">↓ Copy In Transcript</button>`:''}
+            ${linkedTd?.status==='ready'&&linkedTd?.transcript?`<button class="btn tr-copy-in" data-key="${esc(block.itemKey)}" data-commnum="${esc(String(linked.commNum))}" style="font-size:12px;padding:3px 9px;margin-left:auto;background:#dcfce7;color:#16a34a;border-color:#86efac">↓ Copy In ${linkedRep?'Repeat ':''}Transcript</button>`
+              :linkedRep?`<span style="font-size:12px;color:#b45309;margin-left:auto">⚠ ${linkedTd?'REPEAT TRANSCRIPT not marked Ready yet':'No REPEAT TRANSCRIPT yet'} — make it in Commission Transcripts</span>`:''}
           </div>`:(block.itemType==='insert'?`<div style="padding:6px 14px;background:${accent}08;border-bottom:1px solid ${accent}25;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             ${readyEpComms.length?`<select class="tr-insert-pick" data-key="${esc(block.itemKey)}" style="flex:1;min-width:0;background:#f9fafb;border:1px solid #d1dae8;border-radius:4px;color:#111827;font-size:13px;padding:4px 8px;font-family:inherit"><option value="">— select commission transcript —</option>${readyEpComms.map(c=>`<option value="${esc(String(c.commNum))}">${esc(String(c.commNum))} · ${esc(c.storyName||'')}</option>`).join('')}</select><button class="btn tr-add-trans-btn" data-key="${esc(block.itemKey)}" style="font-size:12px;padding:3px 9px;background:#dcfce7;color:#16a34a;border-color:#86efac;white-space:nowrap">ADD TRANSCRIPT</button>`:`<span style="font-size:13px;color:#9ca3af;font-style:italic">No commission transcripts marked Ready for EP${ep}</span>`}
           </div>`:'')}
@@ -12100,9 +12157,49 @@ function bindApp(){
       });
     });
     document.querySelectorAll('.tr-comm-row').forEach(row=>{
-      row.addEventListener('click',()=>{transcriptSelectedComm=row.dataset.commnum;render();});
+      row.addEventListener('click',()=>{
+        transcriptSelectedComm=row.dataset.commnum;
+        transcriptUnlocked=null;
+        // Opened from a Repeat Content episode filter → open straight on the REPEAT TRANSCRIPT
+        const c=comms.find(x=>String(x.commNum)===String(transcriptSelectedComm));
+        transcriptVersion=(transcriptEpFilter!=='all'&&isRepeatAiring(c,transcriptEpFilter))?'repeat':'original';
+        render();
+      });
     });
-    document.getElementById('tr-back-btn')?.addEventListener('click',()=>{transcriptSelectedComm=null;render();});
+    document.getElementById('tr-back-btn')?.addEventListener('click',()=>{transcriptSelectedComm=null;transcriptUnlocked=null;render();});
+    // Payload for a transcript record (original, or REPEAT TRANSCRIPT when the key ends in __repeat)
+    const trPayload=(key,text,status)=>{
+      const isRep=String(key).endsWith('__repeat');
+      const commNum=isRep?String(key).slice(0,-8):String(key);
+      const base={commNum,transcript:text,status};
+      if(!isRep)return base;
+      const c=comms.find(x=>String(x.commNum)===commNum);
+      const prev=commTranscripts[key]||{};
+      return{...base,isRepeat:true,repeatEp:String(commRepeatEps(c).find(e=>String(e)!==String(c?.broadcastEpisode||''))||prev.repeatEp||''),createdFromOriginalAt:prev.createdFromOriginalAt||''};
+    };
+    // Typing autosaves after 1.5s; if the user switches version first, save what they typed straight away
+    let _trCommTimer=null,_trCommFlush=null;
+    const trFlushPending=async()=>{if(_trCommTimer){clearTimeout(_trCommTimer);_trCommTimer=null;const f=_trCommFlush;_trCommFlush=null;if(f)await f();}};
+    document.querySelectorAll('.tr-ver-btn').forEach(btn=>btn.addEventListener('click',async()=>{
+      await trFlushPending();
+      transcriptVersion=btn.dataset.trVer;render();
+    }));
+    document.getElementById('tr-unlock-btn')?.addEventListener('click',()=>{
+      if(!confirm('Unlock the approved ORIGINAL transcript for editing?\n\nOnly do this to correct the original on record. Changes for the repeat episode belong in the REPEAT TRANSCRIPT.'))return;
+      transcriptUnlocked=String(transcriptSelectedComm);render();
+    });
+    document.getElementById('tr-create-repeat-btn')?.addEventListener('click',async()=>{
+      if(transcriptSelectedComm===null)return;
+      const key=trRepeatKey(transcriptSelectedComm);
+      if(commTranscripts[key]){render();return;}
+      const orig=commTranscripts[String(transcriptSelectedComm)]||{};
+      const c=comms.find(x=>String(x.commNum)===String(transcriptSelectedComm));
+      const repeatEp=String(commRepeatEps(c).find(e=>String(e)!==String(c?.broadcastEpisode||''))||'');
+      const createdFromOriginalAt=new Date().toLocaleString('en-ZA',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      const ok=await saveCommTranscript(key,{commNum:String(transcriptSelectedComm),transcript:orig.transcript||'',status:'draft',isRepeat:true,repeatEp,createdFromOriginalAt});
+      if(ok)showToast('REPEAT TRANSCRIPT created from the original ✓');
+      render();
+    });
     document.getElementById('tr-ep-filter')?.addEventListener('change',e=>{transcriptEpFilter=e.target.value;render();});
     document.getElementById('tr-comm-search')?.addEventListener('input',e=>{
       const q=e.target.value.toLowerCase();
@@ -12110,26 +12207,26 @@ function bindApp(){
     });
     document.getElementById('tr-status-sel')?.addEventListener('change',async e=>{
       if(transcriptSelectedComm===null)return;
+      if(document.getElementById('tr-comm-text')?.readOnly)return;
       const text=document.getElementById('tr-comm-text')?.value||'';
-      await saveCommTranscript(transcriptSelectedComm,{commNum:String(transcriptSelectedComm),transcript:text,status:e.target.value});
+      clearTimeout(_trCommTimer);_trCommTimer=null;_trCommFlush=null;
+      await saveCommTranscript(trActiveKey(),trPayload(trActiveKey(),text,e.target.value));
       render();
     });
-    let _trCommTimer=null;
     document.getElementById('tr-comm-text')?.addEventListener('input',e=>{
+      if(e.target.readOnly)return;
       clearTimeout(_trCommTimer);
-      _trCommTimer=setTimeout(async()=>{
-        if(transcriptSelectedComm===null)return;
-        const status=document.getElementById('tr-status-sel')?.value||'';
-        const ok=await saveCommTranscript(transcriptSelectedComm,{commNum:String(transcriptSelectedComm),transcript:e.target.value,status});
-        if(ok)showToast('Saved ✓');
-      },1500);
+      const key=trActiveKey(),text=e.target.value;
+      const status=document.getElementById('tr-status-sel')?.value||'';
+      _trCommFlush=async()=>{const ok=await saveCommTranscript(key,trPayload(key,text,status));if(ok)showToast('Saved ✓');};
+      _trCommTimer=setTimeout(()=>{_trCommTimer=null;const f=_trCommFlush;_trCommFlush=null;if(f)f();},1500);
     });
     document.getElementById('tr-comm-save-btn')?.addEventListener('click',async()=>{
       if(transcriptSelectedComm===null)return;
-      clearTimeout(_trCommTimer);
+      clearTimeout(_trCommTimer);_trCommTimer=null;_trCommFlush=null;
       const text=document.getElementById('tr-comm-text')?.value||'';
       const status=document.getElementById('tr-status-sel')?.value||'';
-      await saveCommTranscript(transcriptSelectedComm,{commNum:String(transcriptSelectedComm),transcript:text,status});
+      await saveCommTranscript(trActiveKey(),trPayload(trActiveKey(),text,status));
       showToast('Transcript saved ✓');
       render();
     });
@@ -12275,14 +12372,14 @@ function bindApp(){
       btn.addEventListener('click',()=>{
         const key=btn.dataset.key;
         const commNum=btn.dataset.commnum;
-        const td=commTranscripts[String(commNum)]||{};
         const ep=transcriptLiveEp;if(!ep)return;
+        const td=trForEp(comms.find(c=>String(c.commNum)===String(commNum)),ep)||{};
         if(!resolveLiveBlocks(ep).some(x=>x.itemKey===key)){showToast('Could not find this line — try Refresh, then copy in again',true);return;}
         const pk=trPKey(ep,key);clearTimeout(trTimers[pk]);delete trTimers[pk];delete trPending[pk];
         saveLiveBlocks(ep,{[key]:{content:td.transcript||''}},false);
         const ta=[...document.querySelectorAll('.tr-live-area')].find(x=>x.dataset.key===key);
         if(ta){ta.value=td.transcript||'';trAutoResize(ta);}
-        showToast('Commission transcript copied in');
+        showToast(td.isRepeat?'REPEAT TRANSCRIPT copied in':'Commission transcript copied in');
       });
     });
     document.querySelectorAll('.tr-add-trans-btn').forEach(btn=>{
@@ -12291,9 +12388,9 @@ function bindApp(){
         const sel=[...document.querySelectorAll('.tr-insert-pick')].find(x=>x.dataset.key===key);
         const commNum=sel?.value;
         if(!commNum){showToast('Select a commission first',true);return;}
-        const td=commTranscripts[String(commNum)];
-        if(td?.status!=='ready'||!td?.transcript){showToast('Commission transcript not marked Ready',true);return;}
         const ep=transcriptLiveEp;if(!ep)return;
+        const td=trForEp(comms.find(c=>String(c.commNum)===String(commNum)),ep);
+        if(td?.status!=='ready'||!td?.transcript){showToast('Commission transcript not marked Ready',true);return;}
         if(!resolveLiveBlocks(ep).some(x=>x.itemKey===key)){showToast('Could not find this line — try Refresh, then try again',true);return;}
         const pk=trPKey(ep,key);clearTimeout(trTimers[pk]);delete trTimers[pk];delete trPending[pk];
         await saveLiveBlocks(ep,{[key]:{content:td.transcript,commNum}},false);
