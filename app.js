@@ -4,7 +4,7 @@ import{getFirestore,doc,collection,onSnapshot,setDoc,updateDoc,getDoc,getDocs,de
 import{getStorage,ref,uploadBytes,getDownloadURL}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
 import{_ctBuildHtml,_ctRenderHtmlInPane,BAKED_CB_LOGO,BAKED_CAP_LOGO,_CT_SIG1,_CT_SIG2}from'./contract-templates.js';
 import{createSignaturePad}from'./signature-widget.js';
-import{parseTravelDoc,airportName}from'./travel-parse.js';
+import{parseTravelDoc,airportName}from'./travel-parse.js?v=3.10.424';
 
 const STORAGE_KEY='cb_portal_cfg_v2';
 const ADMIN_EMAIL='rudi@combinedartists.co.za';
@@ -228,8 +228,8 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.423';
-const BUILD_DATE='18 Nov 2026';
+const BUILD_VERSION='3.10.424';
+const BUILD_DATE='20 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',commEpFilter='all',currentSeason='39',previewRole=null;
@@ -4954,7 +4954,7 @@ function renderTravelSchedule(){
     </div>`);
   }
   const monthName=monthStart.toLocaleDateString('en-ZA',{month:'long',year:'numeric',timeZone:'UTC'});
-  return`<div class="ep-wrap" style="padding:0;display:flex;flex-direction:column">
+  return`<div class="ep-wrap" id="travel-drop" data-can-drop="${canEd?'1':''}" style="padding:0;display:flex;flex-direction:column;position:relative">
     <div style="padding:8px 14px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
       <button id="travel-cal-prev" class="btn" style="font-size:15px;padding:3px 12px">◀</button>
       <span style="font-size:18px;font-weight:800;color:#111827;min-width:180px;text-align:center">${monthName}</span>
@@ -4966,8 +4966,8 @@ function renderTravelSchedule(){
       ${canEd?`<span style="margin-left:auto;display:flex;gap:8px">
         <button id="travel-add-flight" class="btn" style="font-size:13px;padding:5px 12px">+ Flight</button>
         <button id="travel-add-accom" class="btn" style="font-size:13px;padding:5px 12px">+ Accommodation</button>
-        <button id="travel-upload" class="btn primary" style="font-size:13px;padding:5px 12px">⬆ Upload travel documents</button>
-        <input id="travel-file-input" type="file" accept=".docx,.pdf" multiple style="display:none">
+        <button id="travel-upload" class="btn primary" style="font-size:13px;padding:5px 12px" title="Or drag Word / PDF files straight onto the calendar">⬆ Upload travel documents</button>
+        <input id="travel-file-input" type="file" accept=".docx,.doc,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" multiple style="display:none">
       </span>`:''}
     </div>
     <div style="flex:1;overflow-y:auto">
@@ -4979,16 +4979,61 @@ function renderTravelSchedule(){
   </div>`;
 }
 
+// ── Drag & drop (v3.10.424): drop Word / PDF files anywhere on the calendar = same as Upload ──
+function travelDragHasFiles(e){return[...(e.dataTransfer?.types||[])].includes('Files');}
+function travelDropZone(e){const z=e.target.closest?.('#travel-drop');return z&&z.dataset.canDrop?z:null;}
+function travelHideDropHint(){document.getElementById('travel-drop-hint')?.remove();}
+document.addEventListener('dragover',function travelDragOver(e){
+  if(!travelDragHasFiles(e))return;
+  const z=travelDropZone(e);
+  if(!z)return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect='copy';
+  if(!document.getElementById('travel-drop-hint')){
+    const h=document.createElement('div');
+    h.id='travel-drop-hint';
+    h.style.cssText='position:absolute;inset:8px;border:3px dashed #0057b8;border-radius:12px;background:#eff6ff;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;pointer-events:none';
+    h.innerHTML='<div style="font-size:44px">📄</div><div style="font-size:22px;font-weight:800;color:#0057b8">Drop travel documents here</div><div style="font-size:15px;color:#1e3a8a">Air tickets, itineraries and accommodation vouchers — Word or PDF</div>';
+    z.appendChild(h);
+  }
+});
+document.addEventListener('dragleave',function travelDragLeave(e){
+  const z=document.getElementById('travel-drop');
+  if(!z||!document.getElementById('travel-drop-hint'))return;
+  // Safari often leaves relatedTarget empty, so check whether the pointer really left the calendar
+  const r=z.getBoundingClientRect();
+  if(e.clientX<=r.left||e.clientX>=r.right||e.clientY<=r.top||e.clientY>=r.bottom)travelHideDropHint();
+});
+document.addEventListener('drop',function travelDrop(e){
+  if(!travelDragHasFiles(e))return;
+  const z=travelDropZone(e);
+  travelHideDropHint();
+  if(!z)return;
+  e.preventDefault();
+  const files=[...e.dataTransfer.files];
+  if(files.length)travelHandleFiles(files,document.getElementById('travel-upload'));
+});
+
 // ── Reading uploaded documents ──
 function travelLoadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
+// A reason the uploader can act on, shown in the "Couldn't read" message
+function travelReadError(msg){const e=new Error(msg);e.friendly=msg;return e;}
 async function travelFileToText(file){
   const buf=await file.arrayBuffer();
-  if(/\.docx$/i.test(file.name)){
+  // Go by what the file really is, not only its name — agents' attachments are sometimes named
+  // oddly ("Voucher.PDF.pdf", no extension, ".doc" that is really .docx).
+  const head=new Uint8Array(buf.slice(0,1024));
+  const startsWith=(...b)=>b.every((v,i)=>head[i]===v);
+  const isDocx=startsWith(0x50,0x4B);                         // "PK" = zip = .docx
+  const isPdf=!isDocx&&(String.fromCharCode(...head).includes('%PDF')||/\.pdf$/i.test(file.name));
+  if(startsWith(0xD0,0xCF,0x11,0xE0))throw travelReadError('old Word format (.doc) — open it in Word, Save As .docx (or PDF), then upload that');
+  if(startsWith(0x7B,0x5C,0x72,0x74,0x66))throw travelReadError('Rich Text (.rtf) — open it in Word, Save As .docx (or PDF), then upload that');
+  if(isDocx){
     if(!window.mammoth)await travelLoadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js');
     const r=await mammoth.extractRawText({arrayBuffer:buf});
     return{lines:r.value.split(/\r?\n/)};
   }
-  if(/\.pdf$/i.test(file.name)){
+  if(isPdf){
     if(!window.pdfjsLib)await travelLoadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
     pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     const pdf=await pdfjsLib.getDocument({data:new Uint8Array(buf)}).promise;
@@ -4997,10 +5042,11 @@ async function travelFileToText(file){
       const tc=await(await pdf.getPage(p)).getTextContent();
       tc.items.forEach(i=>{if(i.str&&i.str.trim())items.push({str:i.str,x:i.transform[4],y:i.transform[5]-p*10000,h:i.height});});
     }
+    if(!items.length)throw travelReadError('a scanned picture with no text in it — ask the travel agent for the original PDF or Word document');
     items.sort((a,b)=>(b.y-a.y)||(a.x-b.x));
     return{lines:items.map(i=>i.str),items};
   }
-  throw new Error('Only Word (.docx) and PDF files can be read');
+  throw travelReadError('not a Word (.docx) or PDF file');
 }
 function travelIsDuplicate(d){
   // Duplicate when every person on the draft is already booked on that same flight / stay
@@ -5024,11 +5070,15 @@ async function travelHandleFiles(files,btn){
       const known=cn=>cn&&comms.some(c=>String(c.commNum)===String(cn))?String(cn):'';
       res.flights.forEach(fl=>drafts.push({type:'flight',sourceFile:f.name,...fl,commNum:known(res.commHint)}));
       res.accoms.forEach(a=>drafts.push({type:'accom',sourceFile:f.name,...a,commNum:known(a.commNum),orderHint:a.commNum}));
-      if(!res.flights.length&&!res.accoms.length)failed.push(f.name);
-    }catch(e){console.error('Travel read',f.name,e);failed.push(f.name);}
+      if(!res.flights.length&&!res.accoms.length)failed.push({name:f.name,why:'no flights or accommodation found in it'});
+    }catch(e){console.error('Travel read',f.name,e);failed.push({name:f.name,why:e.friendly||'the file could not be opened'});}
   }
   if(btn){btn.disabled=false;btn.textContent='⬆ Upload travel documents';}
-  if(failed.length)showToast(`Couldn't read ${failed.join(', ')} — add ${failed.length>1?'them':'it'} by hand with + Flight / + Accommodation`,true);
+  if(failed.length){
+    const msg=`Couldn't read:\n${failed.map(x=>`• ${x.name} — ${x.why}`).join('\n')}\n\nYou can add ${failed.length>1?'them':'it'} by hand with + Flight / + Accommodation.`;
+    if(drafts.length)showToast(`Couldn't read ${failed.map(x=>x.name).join(', ')} — ${failed[0].why}`,true);
+    else alert(msg);
+  }
   if(!drafts.length)return;
   // Same flight (or same hotel + dates) for the same commission across the uploaded files → one
   // entry listing everyone, so the calendar shows FA249 once with all its passengers.

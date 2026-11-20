@@ -79,6 +79,39 @@ function parseFlights(text,passengers){
 }
 
 // ── Accommodation voucher ─────────────────────────────────────────────
+// Guest list just before "(N Pax)". Agents write it several ways (v3.10.424):
+//   "Peens A, Visser R, Pretorius F (3 Pax)"                    surname + initial, commas
+//   "Pretorius/Willem Francois (1 Pax)"                          ticket style SURNAME/First
+//   "Whittles/Govan;boswell/Jason;cameraman And Assista (4 Pax)" ticket style, semicolons, a role
+//   "Pretorius Willem/Whittles Govan/Edmunds Marymarion (3 Pax)" "Surname First", slashes between people
+//   "Edmunds Marymarionclair (1 Pax)"                            one person, "Surname First"
+const SURNAME_PREFIX=/^(van|de|du|le|von|der|la|den|ter|te)$/i;
+function voucherGuests(text){
+  const m=text.match(/([^()]{0,300})\(\s*\d+\s*Pax\s*\)/i);
+  if(!m)return[];
+  let s=m[1];
+  const cd=s.search(/Client Details/i);
+  if(cd>=0)s=s.slice(cd+'Client Details'.length);
+  s=s.trim();
+  const role=/\b(and|assist\w*|camera\w*|crew|driver|guests?|sound\w*|director|producer|presenter|tba|tbc)\b/i;
+  const nameTail=/((?:(?:[Vv]an|[Dd]e|[Dd]u|[Ll]e|[Vv]on|[Dd]er|[Ll]a) )*[A-Z][a-z'\-]+(?:-[A-Z][a-z'\-]+)?) ([A-Z]{1,3})\.?$/;
+  let people;
+  if(/[,;]/.test(s))people=s.split(/[,;]/);
+  else if(s.includes('/')&&s.split('/').length>2)people=s.split('/');
+  else if(s.includes('/')&&s.split('/').every(p=>/\S\s+\S/.test(p.trim())))people=s.split('/');
+  else people=[s];
+  return uniq(people.map(p=>p.trim()).filter(p=>p&&!role.test(p)).map((p,i,all)=>{
+    if(p.includes('/')){const[sur,first]=p.split('/');return first&&first.trim()?ticketName(sur.trim().split(/\s+/).pop(),first):'';}
+    const tail=p.match(nameTail);
+    if(tail)return voucherName(tail[0]);
+    // "Surname First names" — only trust it when the piece is short (a heading could have leaked into
+    // the first piece of a long list)
+    const w=p.split(/\s+/).filter(Boolean);
+    if(w.length<2||w.length>4||all.length>1&&i===0&&w.length>3)return w.length===1&&all.length>1?'':titleCase(p);
+    let k=0;while(k<w.length-2&&SURNAME_PREFIX.test(w[k]))k++;
+    return titleCase(`${w.slice(k+1).join(' ')} ${w.slice(0,k+1).join(' ')}`);
+  }).filter(Boolean));
+}
 function parseAccom(text,lines,items){
   const dmy=label=>{
     const m=text.match(new RegExp(`${label}\\s*:?\\s*(?:[A-Za-z]+,?\\s+)?(\\d{1,2})[\\/.\\-](\\d{1,2})[\\/.\\-](\\d{4})(?:\\s+(?:at\\s+)?(\\d{1,2}[:h]\\d{2}))?`,'i'));
@@ -88,9 +121,7 @@ function parseAccom(text,lines,items){
   const order=(text.match(/\bOrder\s*(?:No\.?|Number)?\s*:?\s*(\d{2,6})\b/i)||[])[1]||'';
   // "Peens A, Visser R, Pretorius F, Kekana M (4 Pax)" — each comma piece ends in "Surname I";
   // only the tail of each piece is kept so headings in front of the list don't leak in.
-  const guestsM=text.match(/([^()]{0,300})\(\s*\d+\s*Pax\s*\)/i);
-  const nameTail=/((?:(?:[Vv]an|[Dd]e|[Dd]u|[Ll]e|[Vv]on|[Dd]er|[Ll]a) )*[A-Z][a-z'\-]+(?:-[A-Z][a-z'\-]+)?) ([A-Z]{1,3})\.?$/;
-  const guests=guestsM?uniq(guestsM[1].split(',').map(s=>(s.trim().match(nameTail)||[])[0]).filter(Boolean).map(voucherName)):[];
+  const guests=voucherGuests(text);
   const rooms=(text.match(/(\d+)\s+Rooms?\s+x\s+(\d+)\s+Nights?/i)||[]).slice(1);
 
   // Establishment = largest text on the page that isn't the agency or the voucher title
@@ -139,8 +170,10 @@ function parseItinerary(text,passengers){
   segs.forEach(seg=>{
     let m=seg.match(/^Flight Details \w+, (\d{1,2}) ([A-Za-z]+) (\d{4}) ([A-Z0-9]{2}) ?(\d{1,4}[A-Z]?) - (.+?) : /);
     if(m){
-      const dep=seg.match(/\bDeparts (\d{1,2}:\d{2}) : [^:]+ : ([A-Z]{3})\b/);
-      const arr=seg.match(/\bArrives (\d{1,2}:\d{2})[^:]* : [^:]+ : ([A-Z]{3})\b/);
+      // "Departs 18:05 : O R Tambo …, South Africa : JNB" — in a PDF the "Departs"/"Arrives" labels can land
+      // in between (they sit lower than the time), so take the 1st and 2nd "time : place : CODE" in order.
+      const legs=[...seg.matchAll(/\b(\d{1,2}:\d{2})[^:]{0,12}? : [^:]+ : (?:(?:Departs|Arrives) )?([A-Z]{3})\b/g)];
+      const dep=legs[0],arr=legs[1];
       flights.push({date:isoFromParts(m[1],m[2],m[3]),flightNo:`${m[4]}${m[5]}`,airline:m[6].trim(),
         from:dep?dep[2]:'',to:arr?arr[2]:'',depart:dep?dep[1]:'',arrive:arr?arr[1]:'',passengers});
       return;
@@ -152,7 +185,7 @@ function parseItinerary(text,passengers){
       const name=m[1].includes(', ')?m[1].slice(m[1].lastIndexOf(', ')+2):m[1]; // drop booking-system prefix "Ui Pegasus Ui, "
       const phone=(seg.match(/\bPhone \/ Fax (\d[\d ]{6,}\d)/)||[])[1]||'';
       accoms.push({establishment:name.trim(),
-        address:((seg.match(/\bLocation (.+?)\s*\(View Map\)/)||[])[1]||'').trim(),
+        address:((seg.match(/\bLocation (.+?)\s*\(\s*View Map\s*\)/)||[])[1]||'').trim(),
         phone:phone&&!phone.startsWith('0')?'+'+phone:phone,contact:'',email:'',
         checkIn:ci?isoFromParts(ci[1],ci[2],ci[3]):'',checkInTime:ci?hhmm(ci[4]):'',
         checkOut:co?isoFromParts(co[1],co[2],co[3]):'',checkOutTime:co?hhmm(co[4]):'',
@@ -169,7 +202,8 @@ export function parseTravelDoc({lines=[],items=null,fileName=''}={}){
   // Commission number, if the document or file name carries one ("Comm7037", "COMM 7037 …", voucher "Order: 7032")
   const commHint=(text.match(/\bComm\.?\s*(?:No\.?\s*)?(\d{4,5})\b/i)||String(fileName).match(/\bCOMM\.?\s*(\d{4,5})\b/i)||[])[1]||'';
   let flights=[],accoms=[];
-  if(/Travel Itinerary/i.test(text)&&/Flight Details \w+day,|Hotel - \w+day,/.test(text)){
+  // PDFs can space the title out: "Tr a v e l I t i n e r a r y"
+  if(/T\s*r\s*a\s*v\s*e\s*l\s*I\s*t\s*i\s*n\s*e\s*r\s*a\s*r\s*y/i.test(text)&&/Flight Details \w+day,|Hotel - \w+day,/.test(text)){
     ({flights,accoms}=parseItinerary(text,passengers));
   }else if(/Accommodation Voucher|Check[ -]?In\s*:/i.test(text)){
     accoms=[parseAccom(text,clean,items)];
