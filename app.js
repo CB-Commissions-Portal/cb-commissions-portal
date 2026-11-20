@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.427';
+const BUILD_VERSION='3.10.428';
 const BUILD_DATE='20 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -3461,7 +3461,7 @@ function renderLeave(){
         ${(fd.leaveType==='sick'||fd.leaveType==='study')?`<div style="grid-column:1/-1">
           <label style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:4px">${fd.leaveType==='sick'?"Doctor's Note":"Exam Schedule"} <span style="color:#9ca3af;font-weight:400;text-transform:none">(optional)</span></label>
           <div style="display:flex;align-items:center;gap:10px">
-            <label class="btn" style="cursor:pointer;font-size:13px">📎 Attach Document<input type="file" id="leave-attachment" accept=".pdf,.jpg,.jpeg,.png" style="display:none"></label>
+            <label class="btn" style="cursor:pointer;font-size:13px">📎 Attach Document<input type="file" id="leave-attachment" accept=".pdf,.jpg,.jpeg,.png,.heic,image/*,application/pdf" style="display:none"></label>
             <span id="attachment-name" style="font-size:13px;color:#6b7280">${fd.attachmentFile?fd.attachmentFile.name:'No file selected'}</span>
           </div>
         </div>`:''}
@@ -3486,7 +3486,7 @@ function renderLeave(){
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px">
-            ${r.attachmentUrl?`<a href="${r.attachmentUrl}" target="_blank" style="font-size:12px;color:#3fb950;text-decoration:none" title="View attached document">📎</a>`:r.hasSickNote?`<span style="font-size:12px;color:#3fb950" title="Document attached">📎</span>`:''}
+            ${leaveAttachHtml(id,r,{small:true,canAdd:r.status!=='cancelled'})}
             <span style="font-size:12px;font-weight:700;color:${sc};text-transform:uppercase;background:${sc}22;padding:2px 8px;border-radius:3px">${r.status}</span>
             ${r.adminNote?`<span style="font-size:13px;color:#6b7280;font-style:italic">"${esc(r.adminNote)}"</span>`:''}
             ${(r.status==='pending'||r.status==='approved')?`<button class="btn danger" data-leave-cancel="${id}" data-leave-status="${r.status}" style="font-size:12px;padding:2px 8px">Cancel</button>`:''}
@@ -3584,7 +3584,7 @@ function renderLeave(){
       </div>
       ${r.reason?`<div style="margin-top:8px;font-size:13px;color:#6b7280;text-align:left">Reason: ${esc(r.reason)}</div>`:''}
       ${r.status==='cancelled'?`<div style="margin-top:4px;font-size:13px;color:#6b7280;text-align:left">${r.wasApproved?'Approved leave cancelled':'Cancelled'}${r.cancelledBy?` by ${esc(r.cancelledBy)}`:' by staff member'}${r.cancelReason?`: ${esc(r.cancelReason)}`:''}</div>`:''}
-      ${r.attachmentUrl?`<div style="margin-top:4px;font-size:13px;text-align:left"><a href="${r.attachmentUrl}" target="_blank" style="color:#3fb950;text-decoration:none">📎 View attached document</a></div>`:r.hasSickNote?`<div style="margin-top:4px;font-size:13px;color:#3fb950;text-align:left">📎 Document attached</div>`:''}
+      <div style="margin-top:6px;text-align:left">${leaveAttachHtml(id,r,{canAdd:true})}</div>
     </div>`;
   }
   const leaveUsers=users.filter(u=>u.role==='capstaff'||(u.extraRoles||[]).includes('capstaff')||u.role==='admin'||u.role==='deputyadmin');
@@ -3783,6 +3783,87 @@ function renderLeaveCancelModal(){
     </div>
   </div>`;
 }
+// ── Leave documents (v3.10.428) ──
+// Kept in Firestore: leave_attachments/{leaveId} = {name,type,size,chunks,…} and the file itself as
+// base64 in leave_attachments/{leaveId}__{n} (≤700k characters each — a Firestore doc holds 1 MB).
+// Photos are shrunk first; anything still over 5 MB is refused.
+const LEAVE_ATT_MAX=5*1024*1024,LEAVE_ATT_CHUNK=700000;
+function leaveAttachHtml(id,r,{small=false,canAdd=false}={}){
+  const fs=small?12:13;
+  const btn=(attr,label,col)=>`<button class="btn" ${attr} style="font-size:${fs}px;padding:2px 9px;color:${col};border-color:${col}">${label}</button>`;
+  let out='';
+  if(r.attachmentStored)out+=btn(`data-leave-att-view="${esc(id)}" title="${esc(r.attachmentName||'')}"`,'📎 View document','#15803d');
+  else if(r.attachmentUrl)out+=`<a href="${r.attachmentUrl}" target="_blank" style="font-size:${fs}px;color:#15803d;text-decoration:none">📎 View document</a>`;
+  else if(r.hasSickNote)out+=`<span style="font-size:${fs}px;color:#b45309;font-weight:700" title="The document didn't upload — please attach it again">⚠ Document missing</span>`;
+  if(canAdd)out+=btn(`data-leave-att-add="${esc(id)}"`,r.attachmentStored||r.attachmentUrl?'Replace':'📎 Attach document','#0057b8');
+  return out?`<span style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap">${out}</span>`:'';
+}
+async function leaveShrinkImage(file){
+  // Phone photos of sick notes are often 3–8 MB; 2000px JPEG is plenty to read.
+  try{
+    const url=URL.createObjectURL(file);
+    const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url;});
+    const k=Math.min(1,2000/Math.max(img.naturalWidth,img.naturalHeight));
+    const c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*k);c.height=Math.round(img.naturalHeight*k);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);
+    const blob=await new Promise(res=>c.toBlob(res,'image/jpeg',0.82));
+    if(blob&&blob.size<file.size)return{blob,type:'image/jpeg',name:file.name.replace(/\.[^.]+$/,'')+'.jpg'};
+  }catch(e){console.warn('Image shrink failed',e);}
+  return{blob:file,type:file.type||'application/octet-stream',name:file.name};
+}
+function leaveBlobToB64(blob){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]||'');fr.onerror=rej;fr.readAsDataURL(blob);});}
+async function leaveAttachSave(id,file){
+  const r=leaveRequests[id];if(!r)return;
+  const isImg=/^image\//.test(file.type)||/\.(jpe?g|png|heic|heif|webp)$/i.test(file.name);
+  const isPdf=file.type==='application/pdf'||/\.pdf$/i.test(file.name);
+  if(!isImg&&!isPdf){showToast('Please attach a PDF or a photo (JPG / PNG).',true);return;}
+  const f=isImg?await leaveShrinkImage(file):{blob:file,type:'application/pdf',name:file.name};
+  if(f.blob.size>LEAVE_ATT_MAX){showToast(`${file.name} is ${(f.blob.size/1048576).toFixed(1)} MB — the limit is 5 MB. Try a smaller scan or a photo.`,true);return;}
+  showToast('Uploading document…');
+  try{
+    const b64=await leaveBlobToB64(f.blob);
+    const n=Math.ceil(b64.length/LEAVE_ATT_CHUNK)||1;
+    const old=(await getDoc(doc(db,'leave_attachments',id))).data();
+    const batch=writeBatch(db);
+    for(let i=0;i<n;i++)batch.set(doc(db,'leave_attachments',`${id}__${i}`),{data:b64.slice(i*LEAVE_ATT_CHUNK,(i+1)*LEAVE_ATT_CHUNK)});
+    for(let i=n;i<(old?.chunks||0);i++)batch.delete(doc(db,'leave_attachments',`${id}__${i}`));
+    batch.set(doc(db,'leave_attachments',id),{name:f.name,type:f.type,size:f.blob.size,chunks:n,leaveId:id,
+      uploadedAt:Date.now(),uploadedBy:currentUser?.displayName||currentUser?.email||''});
+    await batch.commit();
+    const cur=leaveRequests[id]||r;
+    const {attachmentUrl,...rest}=cur;
+    await saveLeaveRequest(id,{...rest,hasSickNote:true,attachmentStored:true,attachmentName:f.name});
+    showToast('Document attached ✓');
+    render();
+  }catch(e){console.error('Leave attachment',e);showToast('Could not attach the document: '+e.message,true);}
+}
+async function leaveAttachView(id){
+  // Open the tab straight away (Safari blocks pop-ups opened after a wait), then fill it.
+  const w=window.open('','_blank');
+  if(w)w.document.write('<p style="font:16px -apple-system,sans-serif;padding:20px">Loading document…</p>');
+  try{
+    const meta=(await getDoc(doc(db,'leave_attachments',id))).data();
+    if(!meta)throw new Error('document not found');
+    const parts=await Promise.all(Array.from({length:meta.chunks},(_,i)=>getDoc(doc(db,'leave_attachments',`${id}__${i}`))));
+    const bin=atob(parts.map(p=>p.data()?.data||'').join(''));
+    const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    const url=URL.createObjectURL(new Blob([bytes],{type:meta.type||'application/octet-stream'}));
+    if(w)w.location.href=url;
+    else{const a=document.createElement('a');a.href=url;a.download=meta.name||'document';document.body.appendChild(a);a.click();a.remove();}
+  }catch(e){w?.close();showToast('Could not open the document: '+e.message,true);}
+}
+document.addEventListener('click',function leaveAttachClicks(e){
+  const v=e.target.closest?.('[data-leave-att-view]');
+  if(v){e.preventDefault();e.stopPropagation();leaveAttachView(v.dataset.leaveAttView);return;}
+  const a=e.target.closest?.('[data-leave-att-add]');
+  if(a){
+    e.preventDefault();e.stopPropagation();
+    const inp=document.createElement('input');
+    inp.type='file';inp.accept='.pdf,.jpg,.jpeg,.png,.heic,image/*,application/pdf';inp.style.display='none';
+    inp.addEventListener('change',()=>{const f=inp.files[0];inp.remove();if(f)leaveAttachSave(a.dataset.leaveAttAdd,f);});
+    document.body.appendChild(inp);inp.click();
+  }
+},true);
 function renderLeaveReviewModal(){
   if(!leaveReviewModal)return '';
   const {id,showReject}=leaveReviewModal;
@@ -3805,7 +3886,7 @@ function renderLeaveReviewModal(){
         <div style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:4px">Staff Reason</div>
         <div style="font-size:15px;color:#374151">${esc(r.reason)}</div>
       </div>`:''}
-      ${r.attachmentUrl?`<div style="margin-bottom:14px"><a href="${r.attachmentUrl}" target="_blank" style="font-size:14px;color:#3fb950;text-decoration:none">📎 View attached document</a></div>`:r.hasSickNote?`<div style="font-size:14px;color:#3fb950;margin-bottom:14px">📎 Document attached</div>`:''}
+      <div style="margin-bottom:14px">${leaveAttachHtml(id,r,{canAdd:true})}</div>
       ${!showReject?`
         <div class="modal-actions">
           <button class="btn" id="lv-review-cancel">Cancel</button>
@@ -11602,22 +11683,18 @@ function bindApp(){
       }
     }
     const id='leave_'+applyUid+'_'+Date.now();
-    let attachmentUrl=null;
-    if(leaveDraft.attachmentFile&&storage){
-      try{
-        const storageRef=ref(storage,`leave_attachments/${id}/${leaveDraft.attachmentFile.name}`);
-        const snap=await uploadBytes(storageRef,leaveDraft.attachmentFile);
-        attachmentUrl=await getDownloadURL(snap.ref);
-      }catch(e){console.error('Attachment upload failed',e);showToast('Could not upload attachment — submitting without it.',true);}
-    }
+    // v3.10.428: the document is kept in the database (leave_attachments), not Firebase Storage —
+    // Storage was never switched on, so uploads had been failing silently.
+    const attachFile=leaveDraft.attachmentFile;
     const adminName=currentUser.displayName||currentUser.email;
-    const leavePayload={uid:applyUid,userName:applyName,leaveType,startDate,endDate,reason,hasSickNote:!!(leaveDraft.attachmentFile),...(attachmentUrl?{attachmentUrl}:{}),status:autoApprove?'approved':'pending',submittedAt:Date.now(),...(onBehalfTargetUid?{submittedBy:adminName,submittedByUid:currentUser.uid}:{})};
+    const leavePayload={uid:applyUid,userName:applyName,leaveType,startDate,endDate,reason,hasSickNote:false,status:autoApprove?'approved':'pending',submittedAt:Date.now(),...(onBehalfTargetUid?{submittedBy:adminName,submittedByUid:currentUser.uid}:{})};
     leaveRequests[id]=leavePayload;
     showToast(autoApprove?`Leave applied and approved for ${applyName} ✓`:onBehalfTargetUid?`Leave application submitted for ${applyName} ✓`:'Leave application submitted!');
     leaveFormOpen=false;
     leaveDraft={leaveType:'annual',startDate:'',endDate:'',reason:'',attachmentFile:null,targetUid:'',autoApprove:false};
     render();
-    saveLeaveRequest(id,leavePayload);
+    await saveLeaveRequest(id,leavePayload);
+    if(attachFile)await leaveAttachSave(id,attachFile);
   });
 
   // Cancel own leave request (pending or approved)
