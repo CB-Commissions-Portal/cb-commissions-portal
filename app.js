@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.426';
+const BUILD_VERSION='3.10.427';
 const BUILD_DATE='20 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -8111,7 +8111,7 @@ But first…</pre>
       icon:'🎬',
       content:`<p><strong>Other fields in the EDIT ITEM modal:</strong></p>
       <ul>
-        <li><strong>Slugs &amp; Sources</strong> — the playout identifier (e.g. <code>CB2026_OPENING_LINK</code>) and the source channel (A / B / C / D / BLUE). Click <strong>＋ Add Slug</strong> for multiple slugs. Slugs appear in <span style="background:#39FF14;color:#000;padding:1px 5px;border-radius:3px;font-size:12px;font-weight:700">lumo green</span> in the Word export.</li>
+        <li><strong>Slugs &amp; Sources</strong> — the playout identifier (e.g. <code>CB2026_OPENING_LINK</code>) and the source channel (A / B / C / D / BLUE / PURPLE). Click <strong>＋ Add Slug</strong> for multiple slugs. Slugs appear in <span style="background:#39FF14;color:#000;padding:1px 5px;border-radius:3px;font-size:12px;font-weight:700">lumo green</span> in the Word export.</li>
         <li><strong>Sound</strong> — the audio feed: A, B, COLD START, CLEAN, GENERIC, or channel + COLD START CONT'D variants.</li>
         <li><strong>Audio Options</strong> (Cold Start &amp; Up Next only) — tick <strong>UPSOUND</strong> when the clip plays with natural/location audio; tick <strong>VOICE OVER</strong> when the presenter reads over the clip. Both can be active simultaneously.</li>
         <li><strong>Out Words</strong> (Insert only) — the last words heard before the clip ends, used by the director as a return-to-studio cue.</li>
@@ -10057,7 +10057,7 @@ function renderAdmin(){
 // slugs/sound/audio-options still need a home separate from the freeform Production column.
 function buildRosEditFieldsHtml(epNum,itemIdx){
   const _ei=(rosData[String(epNum)]?.items||[])[itemIdx]||{};
-  const _srcOpts=['','A','B','C','D','BLUE'];
+  const _srcOpts=['','A','B','C','D','BLUE','PURPLE'];
   const _slugs=_ei.slugs||(_ei.slug?[_ei.slug]:['']);
   const _sources=_ei.slugSources||[];
   const _slugRows=_slugs.map((s,si)=>{
