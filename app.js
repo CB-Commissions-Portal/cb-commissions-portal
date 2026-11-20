@@ -4,7 +4,7 @@ import{getFirestore,doc,collection,onSnapshot,setDoc,updateDoc,getDoc,getDocs,de
 import{getStorage,ref,uploadBytes,getDownloadURL}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
 import{_ctBuildHtml,_ctRenderHtmlInPane,BAKED_CB_LOGO,BAKED_CAP_LOGO,_CT_SIG1,_CT_SIG2}from'./contract-templates.js';
 import{createSignaturePad}from'./signature-widget.js';
-import{parseTravelDoc,airportName}from'./travel-parse.js?v=3.10.424';
+import{parseTravelDoc,airportName}from'./travel-parse.js?v=3.10.425';
 
 const STORAGE_KEY='cb_portal_cfg_v2';
 const ADMIN_EMAIL='rudi@combinedartists.co.za';
@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.424';
+const BUILD_VERSION='3.10.425';
 const BUILD_DATE='20 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;

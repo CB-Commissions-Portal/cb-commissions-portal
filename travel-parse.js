@@ -65,12 +65,21 @@ function parseFlights(text,passengers){
   for(const m of text.matchAll(re)){
     flights.push({date:isoFromParts(m[1],m[2],m[3]),flightNo:`${m[4]}${m[5]}`,from:m[6],to:m[8],depart:m[10],arrive:m[11]});
   }
-  // Fallback: the summary table only (no arrival time, no year) — "1 FA 301 Tue, 24 Nov Z HLA CPT 07:00"
+  // Fallback: the summary table (no year) — "1 FA 301 Tue, 24 Nov Z HLA CPT 07:00". Some agents add the
+  // terminal to the code ("JNB(B)") and put airport names, not codes, in their Flight Details table
+  // (v3.10.424) — so codes come from here and the arrival time is looked up by flight number + departure.
   if(!flights.length){
-    const issueYr=(text.match(/Date of Issue\s+\w+,? \d{1,2} [A-Za-z]+ (\d{4})/)||[])[1]||String(new Date().getFullYear());
-    const re2=/\b([A-Z0-9]{2}) (\d{1,4}[A-Z]?) (?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*,? (\d{1,2}) ([A-Za-z]{3})[a-z]* [A-Z] ([A-Z]{3}) ([A-Z]{3}) (\d{1,2}:\d{2})/g;
+    const issue=text.match(/Date of Issue\s+\w+,? (\d{1,2}) ([A-Za-z]+) (\d{4})/);
+    const issueIso=issue?isoFromParts(issue[1],issue[2],issue[3]):'';
+    const issueYr=issue?issue[3]:String(new Date().getFullYear());
+    const term='(?:\\([A-Z0-9]{1,2}\\))?';
+    const re2=new RegExp(`\\b([A-Z0-9]{2}) (\\d{1,4}[A-Z]?) (?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*,? (\\d{1,2}) ([A-Za-z]{3})[a-z]* [A-Z] ([A-Z]{3})${term} ([A-Z]{3})${term} (\\d{1,2}:\\d{2})`,'g');
     for(const m of text.matchAll(re2)){
-      flights.push({date:isoFromParts(m[3],m[4],issueYr),flightNo:`${m[1]}${m[2]}`,from:m[5],to:m[6],depart:m[7],arrive:''});
+      let date=isoFromParts(m[3],m[4],issueYr);
+      // Ticket issued in December for a January flight → next year
+      if(issueIso&&date&&date<issueIso&&(Date.parse(issueIso)-Date.parse(date))>60*864e5)date=isoFromParts(m[3],m[4],Number(issueYr)+1);
+      const arr=text.match(new RegExp(`\\b${m[1]} ?${m[2]}\\b[^]{0,250}?\\b${m[7]} (\\d{1,2}:\\d{2})\\b`));
+      flights.push({date,flightNo:`${m[1]}${m[2]}`,from:m[5],to:m[6],depart:m[7],arrive:arr?arr[1]:''});
     }
   }
   const seen=new Set();
