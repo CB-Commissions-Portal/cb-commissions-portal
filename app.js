@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.425';
+const BUILD_VERSION='3.10.426';
 const BUILD_DATE='20 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -4947,9 +4947,11 @@ function renderTravelSchedule(){
     const isTod=ds===today;
     const isWknd=d.getUTCDay()===0||d.getUTCDay()===6;
     const entries=dateMap[ds]||[];
-    const bgCol=isTod?'#dbeafe':isWknd&&inMonth?'#f0f4f8':inMonth?'#ffffff':'#f8fafc';
-    cells.push(`<div style="border-right:1px solid #e8edf5;border-bottom:1px solid #d1dae8;min-height:150px;padding:8px;background:${bgCol};opacity:${inMonth?1:0.45};min-width:0">
-      <div style="${isTod?'background:#0057b8;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;':'color:'+(isWknd?'#484f58':'#6e7681')+';'}font-size:15px;font-weight:${isTod?900:700};margin-bottom:6px">${d.getUTCDate()}</div>
+    // Today = red outline + TODAY label (v3.10.426) — not a blue fill, which looked like the blue flight chips
+    const bgCol=isTod?'#ffffff':isWknd&&inMonth?'#f0f4f8':inMonth?'#ffffff':'#f8fafc';
+    cells.push(`<div style="border-right:1px solid #e8edf5;border-bottom:1px solid #d1dae8;min-height:150px;padding:8px;background:${bgCol};opacity:${inMonth?1:0.45};min-width:0${isTod?';box-shadow:inset 0 0 0 3px #dc2626':''}">
+      ${isTod?`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="background:#dc2626;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900">${d.getUTCDate()}</span><span style="font-size:12px;font-weight:900;color:#dc2626;letter-spacing:.06em">TODAY</span></div>`
+      :`<div style="color:${isWknd?'#484f58':'#6e7681'};font-size:15px;font-weight:700;margin-bottom:6px">${d.getUTCDate()}</div>`}
       ${entries.map(chip).join('')}
     </div>`);
   }
