@@ -228,7 +228,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.428';
+const BUILD_VERSION='3.10.429';
 const BUILD_DATE='20 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -582,7 +582,7 @@ function exportPromoPDF(epNum){
     </tr>`;
   }).join('');
 
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>CB-Promo-Schedule-S${currentSeason}-EP${epStr}</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;font-size:10pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm;size:A4 landscape}table{table-layout:fixed;width:100%;border-collapse:collapse}</style>
   </head><body>
   <!-- HEADER -->
@@ -619,19 +619,14 @@ function exportPromoPDF(epNum){
     <tbody>${promoRows}</tbody>
   </table>
   <div style="margin-top:10px;text-align:center;font-size:9px;color:#aaa;border-top:1px solid #ddd;padding-top:6px">CONFIDENTIAL · Combined Artists Productions · Carte Blanche Season ${currentSeason} · Episode ${epStr}</div>
+  <script>window.addEventListener('load',function(){setTimeout(function(){window.print();},400);})<\/script>
   </body></html>`;
 
-  // Download as HTML — open in browser, Cmd+P → Save as PDF
-  // Text is fully selectable/copyable in the HTML file
-  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download=`CB-Promo-Schedule-S${currentSeason}-EP${epStr}.html`;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},3000);
-  showToast('Downloaded — open file in browser, Cmd+P to save as PDF. Text is fully copyable.');
+  // Open in a new window and go straight to the print dialog (Save as PDF) — same as the other PDF exports
+  const win=window.open('','_blank');
+  if(!win){showToast('Popup blocked — allow popups for this site',true);return;}
+  win.document.write(html);
+  win.document.close();
 }
 
 async function exportPromoXLSX(epNum){
