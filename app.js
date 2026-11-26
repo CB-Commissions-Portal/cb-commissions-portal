@@ -128,6 +128,9 @@ function epTypeOf(ep){
   return (settings.epTypes||{})[String(ep)]==='extended'?'extended':'normal';
 }
 function isPreRecordEp(ep){return !!(settings.preRecordEps||{})[String(ep)];}
+// Promo Scheduling top-row label: pre-record episodes (flagged on the Episode Register) show PRE-RECORD, not LIVE SHOW.
+// A stored 'LIVE SHOW' (the old default) is treated as unset for pre-records; any other custom text is kept.
+function promoLiveType(ep,pd){const t=((pd||{}).liveType||'').trim();if(isPreRecordEp(ep)&&(!t||t.toUpperCase()==='LIVE SHOW'))return 'PRE-RECORD';return t||'LIVE SHOW';}
 function isRepeatContent(ep){
   // Repeat content can only be set on a Pre-Record episode; these are left out of the ticker.
   return isPreRecordEp(ep)&&!!(settings.repeatEps||{})[String(ep)];
@@ -228,8 +231,8 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.429';
-const BUILD_DATE='20 Nov 2026';
+const BUILD_VERSION='3.10.430';
+const BUILD_DATE='26 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
 let tab='home',sortField='commNum',sortDir='desc',search='',filter='all',commEpFilter='all',currentSeason='39',previewRole=null;
@@ -561,7 +564,7 @@ function exportPromoPDF(epNum){
   const uids=pd.uids||{};
   const pulled=pd.pulled||{};
   const liveUID=pd.liveUID||'';
-  const liveType=pd.liveType||'LIVE SHOW';
+  const liveType=promoLiveType(n,pd);
 
   const thS='padding:8px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#fff;background:#1a3a6a;text-align:left';
   const tdS='padding:8px 10px;font-size:12px;vertical-align:middle';
@@ -645,7 +648,7 @@ async function exportPromoXLSX(epNum){
   const pd=promoData[String(n)]||{};
   const uids=pd.uids||{};
   const liveUID=pd.liveUID||'';
-  const liveType=pd.liveType||'LIVE SHOW';
+  const liveType=promoLiveType(n,pd);
 
   const wb=XLSX.utils.book_new();
   const title=`PROMO SCHEDULING CARTE BLANCHE SEASON ${currentSeason} EPISODE ${epStr}`;
@@ -5673,7 +5676,7 @@ function renderPromoScheduling(epNums){
     const uids=pd.uids||{};
     const pulled=pd.pulled||{};
     const liveUID=pd.liveUID||'';
-    const liveType=pd.liveType||'LIVE SHOW';
+    const liveType=promoLiveType(n,pd);
     const epStr=String(n).padStart(2,'0');
     const sunDate=new Date(epDate).toLocaleDateString('en-ZA',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
     const filled=PROMO_TYPES.filter(pt=>uids[pt.key]).length;
