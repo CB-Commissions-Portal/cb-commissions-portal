@@ -231,7 +231,7 @@ function splitCsvLine(line,delim){
 }
 
 let db,auth,fbApp;
-const BUILD_VERSION='3.10.430';
+const BUILD_VERSION='3.10.431';
 const BUILD_DATE='26 Nov 2026';
 let currentUser=null,currentRole=null,comms=[],settings={contractedMinutes:438,epDates:{},epTypes:{},epOnAir:{}},users=[];
 let syncStatus='offline',unsubComms=null,unsubSettings=null,unsubROS=null,unsubLineups=null,unsubPP=null,unsubPPMeta=null,unsubPromo=null,unsubDeliverables=null,unsubPresCalData=null,unsubPresCalEnd=null,unsubCallSheets=null,unsubContracts=null,unsubMusicCues=null,unsubEndCredits=null,unsubStudioCrew=null,unsubStudioSched=null,unsubFCC=null,unsubLeaveBalances=null,unsubCommTranscripts=null,unsubLiveTranscripts=null,unsubSupplierRegs=null,unsubContractSigningLinks=null,unsubInvClients=null,unsubInvMyDetails=null,unsubInvoices=null,unsubPreRecords=null,unsubTravel=null;
@@ -455,7 +455,11 @@ let ppCalMonth=null; // 'YYYY-MM' currently shown
 let shootCalMonth=null; // 'YYYY-MM' currently shown on the Shooting Schedule tab
 const PP_SEASON_START='2026-01-19'; // first Monday of season // episode numbers that are collapsed in the lineup view
 let presCalLoaded=false;
-let presCalViewMonth=0; // index into months array — auto-set to current month on first open
+let presCalViewMonth=0; // index into months array — the month shown in the header (follows the scroll)
+// v3.10.431: months scroll continuously instead of one per page. presCalWin = range of month indices
+// rendered (loads more near either end); presCalPendingScroll = date to bring to the top after the next
+// render; presCalAnchor keeps the view steady across re-renders (Firestore updates, loading more months).
+let presCalWin=null,presCalPendingScroll=null,presCalAnchor=null,presCalExtending=false;
 let _presCalMonthAutoSet=false;
 let mcImportData=[];
 let mcImportMapping={};
@@ -2091,7 +2095,7 @@ function render(){
   const _roswysScroll2=document.getElementById('roswys-scroll');
   if(_roswysScroll2&&_roswysScrollTop)_roswysScroll2.scrollTop=_roswysScrollTop;
   const _presCalScroll2=document.getElementById('prescal-scroll');
-  if(_presCalScroll2){if(_presCalTop)_presCalScroll2.scrollTop=_presCalTop;if(_presCalLeft)_presCalScroll2.scrollLeft=_presCalLeft;}
+  if(_presCalScroll2){if(_presCalLeft)_presCalScroll2.scrollLeft=_presCalLeft;} // vertical position: presCalAfterRender()
   const _luScroll2=document.getElementById('lu-scroll');if(_luScroll2&&_luScrollTop)_luScroll2.scrollTop=_luScrollTop;
   const _luSide2=document.getElementById('lu-side-scroll');if(_luSide2&&_luSideTop)_luSide2.scrollTop=_luSideTop;
   if(pendingFocusId!==null){
@@ -4938,7 +4942,13 @@ function renderShootingSchedule(){
 const TRAVEL_VIEW=role=>role!=='afm';
 const TRAVEL_EDIT_ROLES=['admin','deputyadmin','operations','production','prodmgmt'];
 let travelData=[];          // [{id,type:'flight'|'accom',commNum,...}]
-let travelCalMonth=null;    // 'YYYY-MM'
+// v3.10.431: continuous vertical scroll of weeks (like Apple Calendar) instead of one month per page,
+// so trips that cross a month boundary read as one run. travelRange = rendered weeks (Monday→Sunday);
+// more weeks load as you scroll near either end. travelAnchor keeps the view steady across re-renders.
+let travelRange=null;       // {start:'YYYY-MM-DD' Monday, end:'YYYY-MM-DD' Sunday}
+let travelPendingScroll=null; // ISO date to bring to the top after the next render
+let travelAnchor=null;      // {week, off} — the week row at the top of the view + its offset
+let travelExtending=false;
 let travelPersonFilter='';
 let travelDrafts=[];        // entries being checked in the upload / edit pop-up
 function subscribeTravel(){
@@ -4962,12 +4972,64 @@ function travelCommLabel(cn){
 function travelAirport(code){const n=airportName(code);return n?`${code} ${n}`:(code||'');}
 function travelShortDate(iso){return iso?new Date(iso+'T00:00:00').toLocaleDateString('en-ZA',{weekday:'short',day:'numeric',month:'short'}):'';}
 function travelAddDays(iso,n){const d=new Date(iso+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);}
+function travelMonday(iso){const dow=new Date(iso+'T00:00:00Z').getUTCDay();return travelAddDays(iso,dow===0?-6:1-dow);}
+function travelMonthLabel(iso){return new Date(iso+'T00:00:00Z').toLocaleDateString('en-ZA',{month:'long',year:'numeric',timeZone:'UTC'});}
+// Make sure a date is inside the rendered weeks, then scroll to it after the next render
+function travelJumpTo(iso){
+  if(!travelRange)travelInitRange();
+  if(iso<travelRange.start)travelRange.start=travelMonday(travelAddDays(iso,-14));
+  if(iso>travelRange.end)travelRange.end=travelAddDays(travelMonday(travelAddDays(iso,28)),6);
+  travelPendingScroll=iso;travelAnchor=null;
+}
+// Default window: 2 months back → 4 months ahead of today
+function travelInitRange(){
+  const t=new Date().toISOString().slice(0,10);
+  const [y,m]=t.split('-').map(Number);
+  const from=new Date(Date.UTC(y,m-3,1)).toISOString().slice(0,10);
+  const to=new Date(Date.UTC(y,m+4,0)).toISOString().slice(0,10);
+  travelRange={start:travelMonday(from),end:travelAddDays(travelMonday(to),6)};
+  travelPendingScroll=t;travelAnchor=null;
+}
+function travelHeaderH(sc){return sc.querySelector('.travel-dayhdr')?.offsetHeight||0;}
+function travelWeekAtTop(sc){
+  const top=sc.scrollTop+travelHeaderH(sc);
+  return[...sc.querySelectorAll('.travel-week')].find(r=>r.offsetTop+r.offsetHeight>top)||null;
+}
+function travelUpdateMonthLabel(sc){
+  const r=travelWeekAtTop(sc),lbl=document.getElementById('travel-cur-month');
+  if(r&&lbl)lbl.textContent=travelMonthLabel(travelAddDays(r.dataset.week,3));
+}
+// Called from bindApp() after every render of the Travel Schedule
+function travelAfterRender(){
+  const sc=document.getElementById('travel-scroll');
+  if(!sc)return;
+  const hh=travelHeaderH(sc);
+  if(travelPendingScroll){
+    const wk=travelMonday(travelPendingScroll);
+    const row=sc.querySelector(`.travel-week[data-week="${wk}"]`);
+    if(row)sc.scrollTop=Math.max(0,row.offsetTop-hh-(row.previousElementSibling?.classList.contains('travel-mbanner')?row.previousElementSibling.offsetHeight:0));
+    travelPendingScroll=null;
+  }else if(travelAnchor){
+    const row=sc.querySelector(`.travel-week[data-week="${travelAnchor.week}"]`);
+    if(row)sc.scrollTop=row.offsetTop-travelAnchor.off;
+  }
+  travelExtending=false;
+  travelUpdateMonthLabel(sc);
+}
+document.addEventListener('scroll',function travelScroll(e){
+  const sc=e.target;
+  if(!sc||sc.id!=='travel-scroll')return;
+  const r=travelWeekAtTop(sc);
+  if(r)travelAnchor={week:r.dataset.week,off:r.offsetTop-sc.scrollTop};
+  travelUpdateMonthLabel(sc);
+  if(travelExtending||!travelRange)return;
+  if(sc.scrollTop<400){travelExtending=true;travelRange.start=travelAddDays(travelRange.start,-56);requestAnimationFrame(render);}
+  else if(sc.scrollTop+sc.clientHeight>sc.scrollHeight-400){travelExtending=true;travelRange.end=travelAddDays(travelRange.end,56);requestAnimationFrame(render);}
+},true);
 
 function renderTravelSchedule(){
   const today=new Date().toISOString().split('T')[0];
-  if(!travelCalMonth)travelCalMonth=today.slice(0,7);
-  const [yr,mo]=travelCalMonth.split('-').map(Number);
-  const monthStart=new Date(Date.UTC(yr,mo-1,1));
+  if(!travelRange)travelInitRange();
   const canEd=travelCanEdit();
   const q=travelPersonFilter.trim().toLowerCase();
   const list=q?travelData.filter(t=>travelPeople(t).some(p=>p.toLowerCase().includes(q))):travelData;
@@ -5014,32 +5076,36 @@ function renderTravelSchedule(){
       </div>`;
   };
 
-  const firstDow=monthStart.getUTCDay();
-  const startOffset=firstDow===0?-6:1-firstDow;
   const dayHdrs=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map((d,i)=>`<div style="text-align:center;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:${i>=5?'#484f58':'#7a8ba0'};padding:8px 0;border-bottom:2px solid #e8edf5;border-right:1px solid #e8edf5;background:#f8fafc">${d}</div>`).join('');
-  const cells=[];
-  for(let i=0;i<42;i++){
-    const d=new Date(Date.UTC(yr,mo-1,1+startOffset+i));
-    const ds=d.toISOString().slice(0,10);
-    const inMonth=d.getUTCMonth()===mo-1&&d.getUTCFullYear()===yr;
-    if(i>=35&&!inMonth&&d.getUTCDay()===1)break; // drop an empty 6th week
-    const isTod=ds===today;
-    const isWknd=d.getUTCDay()===0||d.getUTCDay()===6;
-    const entries=dateMap[ds]||[];
-    // Today = red outline + TODAY label (v3.10.426) — not a blue fill, which looked like the blue flight chips
-    const bgCol=isTod?'#ffffff':isWknd&&inMonth?'#f0f4f8':inMonth?'#ffffff':'#f8fafc';
-    cells.push(`<div style="border-right:1px solid #e8edf5;border-bottom:1px solid #d1dae8;min-height:150px;padding:8px;background:${bgCol};opacity:${inMonth?1:0.45};min-width:0${isTod?';box-shadow:inset 0 0 0 3px #dc2626':''}">
-      ${isTod?`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="background:#dc2626;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900">${d.getUTCDate()}</span><span style="font-size:12px;font-weight:900;color:#dc2626;letter-spacing:.06em">TODAY</span></div>`
-      :`<div style="color:${isWknd?'#484f58':'#6e7681'};font-size:15px;font-weight:700;margin-bottom:6px">${d.getUTCDate()}</div>`}
+  const shortMon=ds=>new Date(ds+'T00:00:00Z').toLocaleDateString('en-ZA',{month:'short',timeZone:'UTC'});
+  const weeks=[];
+  for(let wk=travelRange.start;wk<=travelRange.end;wk=travelAddDays(wk,7)){
+    const cells=[];
+    let firstOfMonth=null;
+    for(let i=0;i<7;i++){
+      const ds=travelAddDays(wk,i);
+      const d=new Date(ds+'T00:00:00Z');
+      const isFirst=d.getUTCDate()===1;
+      if(isFirst)firstOfMonth=ds;
+      const isTod=ds===today;
+      const isWknd=i>=5;
+      const entries=dateMap[ds]||[];
+      // Today = red outline + TODAY label (v3.10.426) — not a blue fill, which looked like the blue flight chips
+      const bgCol=isTod?'#ffffff':isWknd?'#f0f4f8':'#ffffff';
+      const num=isFirst?`${d.getUTCDate()} ${shortMon(ds)}`:d.getUTCDate();
+      cells.push(`<div style="border-right:1px solid #e8edf5;border-bottom:1px solid #d1dae8;min-height:150px;padding:8px;background:${bgCol};min-width:0${isTod?';box-shadow:inset 0 0 0 3px #dc2626':''}${isFirst?';border-left:3px solid #0057b8':''}">
+      ${isTod?`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="background:#dc2626;color:#fff;border-radius:12px;min-width:24px;height:24px;padding:0 6px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900">${num}</span><span style="font-size:12px;font-weight:900;color:#dc2626;letter-spacing:.06em">TODAY</span></div>`
+      :`<div style="color:${isFirst?'#0057b8':isWknd?'#484f58':'#6e7681'};font-size:15px;font-weight:${isFirst?900:700};margin-bottom:6px">${num}</div>`}
       ${entries.map(chip).join('')}
     </div>`);
+    }
+    if(firstOfMonth)weeks.push(`<div class="travel-mbanner" style="padding:10px 14px;background:#eef4fb;border-bottom:1px solid #d1dae8;border-left:4px solid #0057b8;font-size:17px;font-weight:900;color:#0f2b52">${travelMonthLabel(firstOfMonth)}</div>`);
+    weeks.push(`<div class="travel-week" data-week="${wk}" style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr))">${cells.join('')}</div>`);
   }
-  const monthName=monthStart.toLocaleDateString('en-ZA',{month:'long',year:'numeric',timeZone:'UTC'});
+  const monthName=travelMonthLabel(today);
   return`<div class="ep-wrap" id="travel-drop" data-can-drop="${canEd?'1':''}" style="padding:0;display:flex;flex-direction:column;position:relative">
     <div style="padding:8px 14px;background:#f8fafc;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
-      <button id="travel-cal-prev" class="btn" style="font-size:15px;padding:3px 12px">◀</button>
-      <span style="font-size:18px;font-weight:800;color:#111827;min-width:180px;text-align:center">${monthName}</span>
-      <button id="travel-cal-next" class="btn" style="font-size:15px;padding:3px 12px">▶</button>
+      <span id="travel-cur-month" style="font-size:18px;font-weight:800;color:#111827;min-width:180px">${monthName}</span>
       <button id="travel-cal-today" class="btn" style="font-size:13px;padding:4px 10px">Today</button>
       <input id="travel-person" type="search" placeholder="Find a person…" value="${esc(travelPersonFilter)}" style="margin-left:10px;font-size:14px;padding:5px 10px;border:1px solid #d1dae8;border-radius:6px;width:190px">
       <span style="font-size:12px;color:#1e3a8a;background:#dbeafe;border-left:4px solid #2563eb;padding:2px 8px;border-radius:3px;font-weight:700">✈ Flight</span>
@@ -5051,11 +5117,9 @@ function renderTravelSchedule(){
         <input id="travel-file-input" type="file" accept=".docx,.doc,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" multiple style="display:none">
       </span>`:''}
     </div>
-    <div style="flex:1;overflow-y:auto">
-      <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-left:1px solid #21262d;border-top:1px solid #21262d">
-        ${dayHdrs}
-        ${cells.join('')}
-      </div>
+    <div id="travel-scroll" style="flex:1;min-height:0;overflow-y:auto;position:relative;border-left:1px solid #21262d">
+      <div class="travel-dayhdr" style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));position:sticky;top:0;z-index:5">${dayHdrs}</div>
+      ${weeks.join('')}
     </div>
   </div>`;
 }
@@ -5464,7 +5528,7 @@ async function saveTravelIdx(idxs,btn){
     return;
   }
   const first=todo.map(d=>d.date||d.checkIn).sort()[0];
-  if(first)travelCalMonth=first.slice(0,7);
+  if(first)travelJumpTo(first);
   todo.forEach(d=>{d.done=true;});
   idxs.forEach(i=>travelMarkCardDone(i,'Saved ✓'));
   showToast(todo.length===1?'Travel saved':`${todo.length} travel entries saved`);
@@ -5484,12 +5548,7 @@ function travelMarkCardDone(i,msg){
 }
 document.addEventListener('click',async function travelClick(e){
   const id=e.target.id;
-  if(id==='travel-cal-prev'||id==='travel-cal-next'){
-    const [y,m]=travelCalMonth.split('-').map(Number);
-    travelCalMonth=new Date(Date.UTC(y,id==='travel-cal-prev'?m-2:m,1)).toISOString().slice(0,7);
-    render();return;
-  }
-  if(id==='travel-cal-today'){travelCalMonth=new Date().toISOString().slice(0,7);render();return;}
+  if(id==='travel-cal-today'){travelJumpTo(new Date().toISOString().slice(0,10));render();return;}
   const chipEl=e.target.closest?.('.travel-chip');
   if(chipEl){openTravelDetail(chipEl.dataset.travelId);return;}
   if(id==='travel-overlay'||id==='travel-cancel'){
@@ -6454,18 +6513,78 @@ function presCalCellInner(dateStr,presKey,canEd){
     </select>`;
 }
 
+let _presCalKeysCache=null;
+function presCalMonthKeys(){
+  const k=PRES_CAL_START+'|'+PRES_CAL_END; // cached — called on every scroll event
+  if(!_presCalKeysCache||_presCalKeysCache.k!==k)_presCalKeysCache={k,keys:Object.keys(presCalDates().reduce((a,d)=>{a[presCalMonth(d)]=1;return a},{}))};
+  return _presCalKeysCache.keys;
+}
+// Make sure the month holding this date is rendered, then scroll it to the top after the next render
+function presCalJumpTo(dateStr){
+  const keys=presCalMonthKeys();
+  const idx=Math.max(0,keys.indexOf(presCalMonth(dateStr)));
+  if(!presCalWin)presCalWin={from:Math.max(0,idx-2),to:Math.min(keys.length-1,idx+4)};
+  if(idx<presCalWin.from)presCalWin.from=idx;
+  if(idx>presCalWin.to)presCalWin.to=idx;
+  presCalViewMonth=idx;presCalPendingScroll=dateStr;presCalAnchor=null;
+}
+function presCalHeadH(sc){return sc.querySelector('.pc-head')?.offsetHeight||0;}
+function presCalRowAtTop(sc){
+  const top=sc.scrollTop+presCalHeadH(sc);
+  return[...sc.querySelectorAll('tr.pc-day')].find(r=>r.offsetTop+r.offsetHeight>top)||null;
+}
+function presCalSyncHeader(sc){
+  const r=presCalRowAtTop(sc);if(!r)return;
+  const m=presCalMonth(r.dataset.pcDate);
+  presCalViewMonth=Math.max(0,presCalMonthKeys().indexOf(m));
+  const lbl=document.getElementById('prescal-cur-month');if(lbl)lbl.textContent=m;
+}
+// Called from bindApp() after every render of the Presenter Calendar
+function presCalAfterRender(){
+  const sc=document.getElementById('prescal-scroll');
+  if(!sc)return;
+  const hh=presCalHeadH(sc);
+  if(presCalPendingScroll){
+    let row=sc.querySelector(`tr.pc-day[data-pc-date="${presCalPendingScroll}"]`);
+    // A month's first day: show its month banner too
+    const prev=row?.previousElementSibling;
+    if(row)sc.scrollTop=Math.max(0,(prev?.classList.contains('pc-mrow')?prev.offsetTop:row.offsetTop)-hh);
+    presCalPendingScroll=null;
+  }else if(presCalAnchor){
+    const row=sc.querySelector(`tr.pc-day[data-pc-date="${presCalAnchor.date}"]`);
+    if(row)sc.scrollTop=row.offsetTop-presCalAnchor.off;
+  }
+  presCalExtending=false;
+  presCalSyncHeader(sc);
+}
+document.addEventListener('scroll',function presCalScroll(e){
+  const sc=e.target;
+  if(!sc||sc.id!=='prescal-scroll')return;
+  const r=presCalRowAtTop(sc);
+  if(r)presCalAnchor={date:r.dataset.pcDate,off:r.offsetTop-sc.scrollTop};
+  presCalSyncHeader(sc);
+  if(presCalExtending||!presCalWin)return;
+  const last=presCalMonthKeys().length-1;
+  if(sc.scrollTop<400&&presCalWin.from>0){presCalExtending=true;presCalWin.from=Math.max(0,presCalWin.from-2);requestAnimationFrame(render);}
+  else if(sc.scrollTop+sc.clientHeight>sc.scrollHeight-400&&presCalWin.to<last){presCalExtending=true;presCalWin.to=Math.min(last,presCalWin.to+2);requestAnimationFrame(render);}
+},true);
+function presCalJumpMonth(idx){
+  const keys=presCalMonthKeys();
+  idx=Math.max(0,Math.min(keys.length-1,idx));
+  const first=presCalDates().find(d=>presCalMonth(d)===keys[idx]);
+  if(first)presCalJumpTo(first);
+}
+
 function renderPresenterCalendar(){
   const canEd=['admin','deputyadmin','operations','production','prodmgmt','editorial'].includes(getEffectiveRole());
-  // Auto-jump to current month on first open
-  if(!_presCalMonthAutoSet){
+  // Auto-jump to today on first open
+  if(!_presCalMonthAutoSet||!presCalWin){
     _presCalMonthAutoSet=true;
-    const todayYM=new Date().toISOString().substring(0,7); // 'YYYY-MM'
-    const allMonths=Object.keys(presCalDates().reduce((a,d)=>{a[presCalMonth(d)]=1;return a},{}));
-    const idx=allMonths.findIndex(m=>{
-      const sample=presCalDates().find(dd=>presCalMonth(dd)===m);
-      return sample&&sample.substring(0,7)===todayYM;
-    });
-    if(idx>=0)presCalViewMonth=idx;
+    presCalWin=null;
+    const t=new Date().toISOString().split('T')[0];
+    const allDates=presCalDates();
+    const target=t<allDates[0]?allDates[0]:t>allDates[allDates.length-1]?allDates[allDates.length-1]:t;
+    presCalJumpTo(target);
   }
   const dates=presCalDates();
   const todayStr=new Date().toISOString().split('T')[0];
@@ -6482,11 +6601,14 @@ function renderPresenterCalendar(){
   const dateThBase='padding:12px 14px;font-size:15px;font-weight:700;text-align:left;white-space:nowrap;position:sticky;left:0;z-index:4;border-bottom:1px solid #d1dae8;min-width:130px;background:#f8fafc';
 
   const monthEntries=Object.entries(months);
-  // Clamp presCalViewMonth
+  // Clamp
+  presCalWin.from=Math.max(0,Math.min(presCalWin.from,monthEntries.length-1));
+  presCalWin.to=Math.max(presCalWin.from,Math.min(presCalWin.to,monthEntries.length-1));
   if(presCalViewMonth<0)presCalViewMonth=0;
   if(presCalViewMonth>=monthEntries.length)presCalViewMonth=monthEntries.length-1;
-  // Only render current month for performance
-  const visibleMonths=monthEntries.slice(presCalViewMonth,presCalViewMonth+1);
+  // Render a window of months (not the whole calendar) for performance — more load as you scroll
+  const visibleMonths=monthEntries.slice(presCalWin.from,presCalWin.to+1);
+  const nCols=PRESENTERS.length+1;
   const monthBlocks=visibleMonths.map(([month,mDates])=>{
     const rows=mDates.map(dateStr=>{
       const isWE=presCalIsWeekend(dateStr);
@@ -6503,7 +6625,7 @@ function renderPresenterCalendar(){
       // All days are assignable (weekends and holidays too)
       const cells=PRESENTERS.map(p=>`<td style="padding:16px 14px;border-bottom:1px solid #d1dae8;border-left:2px solid ${p.lane};vertical-align:top;${rowBg};min-width:200px" data-pres-td="${dateStr}|${p.key}">${presCalCellInner(dateStr,p.key,canEd)}</td>`).join('');
 
-      return`<tr style="${rowBg}">
+      return`<tr class="pc-day" data-pc-date="${dateStr}" style="${rowBg}">
         <td style="${dateThBase};${rowBg};${todayAccent}">
           <div style="font-size:14px;font-weight:700;color:${dayCol};text-transform:uppercase;letter-spacing:.5px">${dayName}</div>
           <div style="font-size:17px;font-weight:800;color:${dateTxtCol};margin-top:2px">${dateFmt}</div>
@@ -6514,16 +6636,7 @@ function renderPresenterCalendar(){
       </tr>`;
     }).join('');
 
-    return`<div style="margin-bottom:4px">
-      <div style="padding:14px 20px;background:#f8fafc;font-size:18px;font-weight:900;color:#111827;position:sticky;top:0;z-index:6;border-left:4px solid #c084fc;border-bottom:2px solid #d1dae8">${month}</div>
-      <table style="width:max-content;border-collapse:collapse;min-width:100%">
-        <thead><tr>
-          <th style="${dateThBase};background:#f9fafb;top:0;left:0;position:sticky;z-index:12;box-shadow:2px 2px 4px rgba(0,0,0,.4)">Date</th>
-          ${PRESENTERS.map(p=>`<th style="${thBase};color:${p.color};background:${p.bg};border-bottom:3px solid ${p.color}">${p.label}</th>`).join('')}
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+    return`<tr class="pc-mrow"><td colspan="${nCols}" style="padding:0;border-bottom:2px solid #d1dae8;background:#f5f0ff"><div style="position:sticky;left:0;display:inline-block;padding:12px 20px;font-size:18px;font-weight:900;color:#111827;border-left:4px solid #c084fc">${month}</div></td></tr>${rows}`;
   }).join('');
 
   return`<div class="ep-wrap" style="overflow-x:auto;overflow-y:hidden;padding:0;display:flex;flex-direction:column">
@@ -6534,9 +6647,10 @@ function renderPresenterCalendar(){
           <div style="font-size:13px;color:#6b7280;margin-top:2px">18 Jan 2026 — ${presCalFmt(PRES_CAL_END)}</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
-          <button id="prescal-prev" class="btn" style="font-size:15px;padding:8px 16px" ${presCalViewMonth===0?'disabled':''}>◀ Prev</button>
-          <span style="font-size:18px;font-weight:800;color:#111827;min-width:160px;text-align:center">${Object.keys(months)[presCalViewMonth]}</span>
-          <button id="prescal-next" class="btn" style="font-size:15px;padding:8px 16px" ${presCalViewMonth>=Object.keys(months).length-1?'disabled':''}>Next ▶</button>
+          <button id="prescal-prev" class="btn" style="font-size:15px;padding:8px 16px" title="Jump to the previous month">◀ Prev</button>
+          <span id="prescal-cur-month" style="font-size:18px;font-weight:800;color:#111827;min-width:160px;text-align:center">${Object.keys(months)[presCalViewMonth]}</span>
+          <button id="prescal-next" class="btn" style="font-size:15px;padding:8px 16px" title="Jump to the next month">Next ▶</button>
+          <button id="prescal-today" class="btn" style="font-size:15px;padding:8px 16px">Today</button>
           ${canEd?`<button id="prescal-extend" class="btn" style="font-size:15px;padding:8px 16px;margin-left:8px;border-color:#388bfd;color:#388bfd">+ 3 months</button>`:''}
           ${presCalCanExport()?`<button id="prescal-export" class="btn" style="font-size:15px;padding:8px 16px;margin-left:8px">⬇ Export Studio</button><button id="prescal-shift-studio" class="btn" style="font-size:15px;padding:8px 16px">⬇ Studio Shift Summary</button><button id="prescal-shift" class="btn" style="font-size:15px;padding:8px 16px">⬇ Presenter Commission Audit</button>`:''}
         </div>
@@ -6550,8 +6664,14 @@ function renderPresenterCalendar(){
         <span style="display:flex;align-items:center;gap:6px;background:#f9fafb;border:1px solid rgba(56,139,253,.4);border-radius:6px;padding:6px 12px;font-size:14px;color:#388bfd"><span style="width:12px;height:12px;background:rgba(56,139,253,.07);display:inline-block;border-radius:3px;border-left:3px solid #388bfd;flex-shrink:0"></span>Today</span>
       </div>
     </div>
-    <div id="prescal-scroll" style="overflow-x:auto;overflow-y:auto;flex:1;min-height:0">
-      ${monthBlocks}
+    <div id="prescal-scroll" style="overflow-x:auto;overflow-y:auto;flex:1;min-height:0;position:relative">
+      <table style="width:max-content;border-collapse:collapse;min-width:100%">
+        <thead class="pc-head"><tr>
+          <th style="${dateThBase};background:#f9fafb;top:0;left:0;position:sticky;z-index:12;box-shadow:2px 2px 4px rgba(0,0,0,.4)">Date</th>
+          ${PRESENTERS.map(p=>`<th style="${thBase};color:${p.color};background:${p.bg};border-bottom:3px solid ${p.color}">${p.label}</th>`).join('')}
+        </tr></thead>
+        <tbody>${monthBlocks}</tbody>
+      </table>
     </div>
   </div>`;
 }
@@ -10670,6 +10790,8 @@ function renderTranscripts(epNums){
 }
 
 function bindApp(){
+  if(tab==='travel')travelAfterRender();
+  if(tab==='prescal')presCalAfterRender();
   // ── Fast tab switching: only swap content, not the whole app ──
   const _tabScroll={};
   function switchTab(newTab){
@@ -12913,8 +13035,9 @@ const BAKED_CONFIG = {
 
 // Presenter calendar navigation
 document.addEventListener('click',function presCalNavHandler(e){
-  if(e.target.id==='prescal-prev'){presCalViewMonth=Math.max(0,presCalViewMonth-1);render();}
-  if(e.target.id==='prescal-next'){const months=Object.keys(presCalDates().reduce((a,d)=>{a[presCalMonth(d)]=1;return a},{}));presCalViewMonth=Math.min(months.length-1,presCalViewMonth+1);render();}
+  if(e.target.id==='prescal-prev'){presCalJumpMonth(presCalViewMonth-1);render();}
+  if(e.target.id==='prescal-next'){presCalJumpMonth(presCalViewMonth+1);render();}
+  if(e.target.id==='prescal-today'){const ds=presCalDates(),t=new Date().toISOString().split('T')[0];presCalJumpTo(t<ds[0]?ds[0]:t>ds[ds.length-1]?ds[ds.length-1]:t);render();}
   if(e.target.id==='prescal-extend'){
     // Add 3 months to PRES_CAL_END
     const cur=new Date(PRES_CAL_END+'T00:00:00Z');
@@ -12926,8 +13049,7 @@ document.addEventListener('click',function presCalNavHandler(e){
     // Persist to Firebase
     try{setDoc(doc(db,'settings','presCalEnd'),{endDate:PRES_CAL_END});}catch(err){console.warn('presCalEnd save:',err);}
     // Jump to the newly added months
-    const newMonths=Object.keys(presCalDates().reduce((a,d)=>{a[presCalMonth(d)]=1;return a},{}));
-    presCalViewMonth=newMonths.length-3;
+    presCalJumpMonth(presCalMonthKeys().length-3);
     render();
     showToast('Calendar extended to '+presCalFmt(PRES_CAL_END));
   }
